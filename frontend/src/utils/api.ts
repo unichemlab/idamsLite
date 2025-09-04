@@ -1,3 +1,9 @@
+// Fetch plant activity logs
+export async function fetchPlantActivityLogs(): Promise<any[]> {
+  const res = await fetch("http://localhost:4000/api/plants/activity-logs");
+  if (!res.ok) throw new Error("Failed to fetch activity logs");
+  return await res.json();
+}
 // Fetch plant master data from backend API
 export async function fetchPlants(): Promise<any[]> {
   const res = await fetch("http://localhost:4000/api/plants");

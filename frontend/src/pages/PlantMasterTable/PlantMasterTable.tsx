@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useEffect } from "react";
 import ProfileIconWithLogout from "./ProfileIconWithLogout";
-import { Plant, usePlantContext } from "../PlantMaster/PlantContext";
+import { usePlantContext } from "../PlantMaster/PlantContext";
 import styles from "../ApplicationMasterTable/ApplicationMasterTable.module.css";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
@@ -10,47 +10,16 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { FaRegClock } from "react-icons/fa6";
 import { useNavigate } from "react-router-dom";
+import { fetchPlantActivityLogs } from "../../utils/api";
 
-// Dummy activity logs for demonstration
-const dummyActivityLogs = [
-  {
-    action: "add",
-    oldValue: "-",
-    newValue: "Mumbai Plant added",
-    performedBy: "admin",
-    approvedBy: "superadmin",
-    approvalStatus: "Approved",
-    dateTime: "2025-08-20 10:30:00",
-    comments: "Initial creation.",
-  },
-  {
-    action: "edit",
-    oldValue: "Goa Plant (status: INACTIVE)",
-    newValue: "Goa Plant (status: ACTIVE)",
-    performedBy: "plantadmin",
-    approvedBy: "superadmin",
-    approvalStatus: "Approved",
-    dateTime: "2025-08-21 09:00:00",
-    comments: "Activated plant.",
-  },
-  {
-    action: "delete",
-    oldValue: "Chennai Plant",
-    newValue: "-",
-    performedBy: "admin",
-    approvedBy: "superadmin",
-    approvalStatus: "Rejected",
-    dateTime: "2025-08-19 15:45:00",
-    comments: "Deletion not allowed.",
-  },
-];
+// Activity logs from backend
 
 const PlantMasterTable: React.FC = () => {
-  const { plants } = usePlantContext();
+  const { plants, deletePlant } = usePlantContext();
   const [selectedRow, setSelectedRow] = React.useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   const [showActivityModal, setShowActivityModal] = React.useState(false);
-  const [activityLogs] = React.useState(dummyActivityLogs);
+  const [activityLogs, setActivityLogs] = React.useState<any[]>([]);
   const [approverFilter, setApproverFilter] = React.useState("");
   const [activityPlant, setActivityPlant] = React.useState<any>(null);
   // Filter state
@@ -60,7 +29,9 @@ const PlantMasterTable: React.FC = () => {
   const [tempFilterColumn, setTempFilterColumn] = React.useState(filterColumn);
   const [tempFilterValue, setTempFilterValue] = React.useState(filterValue);
   const popoverRef = React.useRef<HTMLDivElement | null>(null);
-  React.useEffect(() => {
+  const navigate = useNavigate();
+
+  useEffect(() => {
     if (!showFilterPopover) return;
     const handleClick = (e: MouseEvent) => {
       if (
@@ -73,6 +44,7 @@ const PlantMasterTable: React.FC = () => {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [showFilterPopover]);
+
   // Filtering logic
   const filteredData = plants.filter((plant) => {
     if (!filterValue.trim()) return true;
@@ -91,18 +63,6 @@ const PlantMasterTable: React.FC = () => {
     }
   });
 
-  const handleDelete = () => setShowDeleteModal(true);
-  const confirmDelete = () => {
-    if (selectedRow === null) return;
-    // If you have a context method to remove a plant, call it here.
-    // Example: removePlant(plants[selectedRow].id);
-    // Otherwise, just close the modal and deselect.
-    setSelectedRow(null);
-    setShowDeleteModal(false);
-  };
-
-  const navigate = useNavigate();
-
   // PDF Export Handler for Plant Table
   const handleExportPDF = () => {
     const doc = new jsPDF({ orientation: "landscape" });
@@ -110,19 +70,16 @@ const PlantMasterTable: React.FC = () => {
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, "0");
     const dd = String(today.getDate()).padStart(2, "0");
-    const fileName = `PlantMasterTable_${yyyy}-${mm}-${dd}.pdf`;
+    const fileName = `PlantMaster_${yyyy}-${mm}-${dd}.pdf`;
     const headers = [["Plant Name", "Description", "Location", "Status"]];
-    // Use the type from PlantContext instead of redefining Plant interface
-    const data = filteredData;
-
-    const rows: string[][] = data.map((plant: Plant) => [
-      plant.name ?? "",
+    const rows = filteredData.map((plant) => [
+      plant.name ?? plant.plant_name ?? "",
       plant.description ?? "",
       plant.location ?? "",
       plant.status ?? "",
     ]);
     doc.setFontSize(18);
-    doc.text("Plant Master Table", 14, 18);
+    doc.text("Plant Master", 14, 18);
     autoTable(doc, {
       head: headers,
       body: rows,
@@ -149,6 +106,7 @@ const PlantMasterTable: React.FC = () => {
 
   // PDF Export Handler for Activity Log
   const handleExportActivityPDF = () => {
+    if (!activityPlant) return;
     const doc = new jsPDF({ orientation: "landscape" });
     const today = new Date();
     const yyyy = today.getFullYear();
@@ -161,29 +119,32 @@ const PlantMasterTable: React.FC = () => {
         "Old Value",
         "New Value",
         "Action Performed By",
-        "Approved/Rejected By",
         "Approval Status",
         "Date/Time (IST)",
         "Comments",
       ],
     ];
-    const filteredLogs = activityLogs.filter(
-      (log) =>
-        !approverFilter ||
-        (log.approvedBy || "")
-          .toLowerCase()
-          .includes(approverFilter.toLowerCase())
-    );
-    const rows = filteredLogs.map((log) => [
-      log.action,
-      log.oldValue,
-      log.newValue,
-      log.performedBy,
-      log.approvedBy,
-      log.approvalStatus,
-      log.dateTime,
-      log.comments,
-    ]);
+    const rows = (activityPlant.logs || []).map((log: any) => {
+      let oldVal: any = {};
+      let newVal: any = {};
+      try {
+        oldVal = log.old_value ? JSON.parse(log.old_value) : {};
+        newVal = log.new_value ? JSON.parse(log.new_value) : {};
+      } catch {}
+      return [
+        log.action,
+        `${oldVal.plant_name || ""} ${
+          oldVal.description ? `(${oldVal.description})` : ""
+        }`,
+        `${newVal.plant_name || ""} ${
+          newVal.description ? `(${newVal.description})` : ""
+        }`,
+        log.action_performed_by ?? "",
+        log.approve_status ?? "",
+        log.date_time_ist ? new Date(log.date_time_ist).toLocaleString() : "",
+        log.comments ?? "",
+      ];
+    });
     doc.setFontSize(18);
     doc.text("Plant Activity Log", 14, 18);
     autoTable(doc, {
@@ -210,13 +171,36 @@ const PlantMasterTable: React.FC = () => {
     doc.save(fileName);
   };
 
-  // Get activity logs for a specific plant (dummy logic)
+  // Get activity logs for a specific plant (by plant name)
   const getPlantActivityLogs = (plantName: string) => {
-    // In real app, filter logs by plantName or plantId
-    return activityLogs.filter(
-      (log) =>
-        log.oldValue.includes(plantName) || log.newValue.includes(plantName)
-    );
+    // Filter logs by plant name (from new/old value JSON)
+    return activityLogs.filter((log) => {
+      try {
+        const oldVal = log.old_value ? JSON.parse(log.old_value) : {};
+        const newVal = log.new_value ? JSON.parse(log.new_value) : {};
+        return (
+          oldVal.plant_name === plantName || newVal.plant_name === plantName
+        );
+      } catch {
+        return false;
+      }
+    });
+  };
+
+  // Fetch logs from backend on modal open
+  useEffect(() => {
+    if (showActivityModal) {
+      fetchPlantActivityLogs()
+        .then(setActivityLogs)
+        .catch(() => setActivityLogs([]));
+    }
+  }, [showActivityModal]);
+
+  const confirmDelete = async () => {
+    if (selectedRow === null) return;
+    await deletePlant(selectedRow);
+    setSelectedRow(null);
+    setShowDeleteModal(false);
   };
 
   return (
@@ -230,7 +214,6 @@ const PlantMasterTable: React.FC = () => {
           <span className={styles["header-icon"]}>
             <SettingsIcon fontSize="small" />
           </span>
-          {/* Profile icon with dropdown for logout, similar to DashboardView */}
           <ProfileIconWithLogout />
         </div>
       </header>
@@ -262,7 +245,7 @@ const PlantMasterTable: React.FC = () => {
           <button
             className={`${styles.btn} ${styles.deleteBtn}`}
             disabled={selectedRow === null}
-            onClick={handleDelete}
+            onClick={() => setShowDeleteModal(true)}
             title="Delete selected plant"
           >
             <FaTrash size={14} /> Delete
@@ -397,7 +380,7 @@ const PlantMasterTable: React.FC = () => {
                     <span
                       style={{ cursor: "pointer", color: "#0b63ce" }}
                       title="View Activity Log"
-                      onClick={(e) => {
+                      onClick={async (e) => {
                         e.stopPropagation();
                         setActivityPlant({
                           name: plant.name ?? "",
@@ -448,6 +431,7 @@ const PlantMasterTable: React.FC = () => {
               display: "flex",
               flexDirection: "column",
               background: "#fff",
+              zIndex: "1",
             }}
           >
             <div
@@ -537,33 +521,41 @@ const PlantMasterTable: React.FC = () => {
                     <th>Old Value</th>
                     <th>New Value</th>
                     <th>Action Performed By</th>
-                    <th>Approved/Rejected By</th>
                     <th>Approval Status</th>
                     <th>Date/Time (IST)</th>
                     <th>Comments</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(activityPlant.logs || [])
-                    .filter(
-                      (log: any) =>
-                        !approverFilter ||
-                        (log.approvedBy || "")
-                          .toLowerCase()
-                          .includes(approverFilter.toLowerCase())
-                    )
-                    .map((log: any, i: number) => (
+                  {(activityPlant.logs || []).map((log: any, i: number) => {
+                    let oldVal: any = {};
+                    let newVal: any = {};
+                    try {
+                      oldVal = log.old_value ? JSON.parse(log.old_value) : {};
+                      newVal = log.new_value ? JSON.parse(log.new_value) : {};
+                    } catch {}
+                    return (
                       <tr key={i}>
                         <td>{log.action}</td>
-                        <td>{log.oldValue}</td>
-                        <td>{log.newValue}</td>
-                        <td>{log.performedBy}</td>
-                        <td>{log.approvedBy}</td>
-                        <td>{log.approvalStatus}</td>
-                        <td>{log.dateTime}</td>
-                        <td>{log.comments}</td>
+                        <td>
+                          {oldVal.plant_name || ""}{" "}
+                          {oldVal.description ? `(${oldVal.description})` : ""}
+                        </td>
+                        <td>
+                          {newVal.plant_name || ""}{" "}
+                          {newVal.description ? `(${newVal.description})` : ""}
+                        </td>
+                        <td>{log.action_performed_by ?? ""}</td>
+                        <td>{log.approve_status ?? ""}</td>
+                        <td>
+                          {log.date_time_ist
+                            ? new Date(log.date_time_ist).toLocaleString()
+                            : ""}
+                        </td>
+                        <td>{log.comments ?? ""}</td>
                       </tr>
-                    ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

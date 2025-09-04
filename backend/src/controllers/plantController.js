@@ -1,3 +1,13 @@
+exports.getPlantActivityLogs = async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM activity_log WHERE table_name = 'plant_master' ORDER BY date_time_ist DESC`
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
 const pool = require("../config/db");
 
 exports.getAllPlants = async (req, res) => {
