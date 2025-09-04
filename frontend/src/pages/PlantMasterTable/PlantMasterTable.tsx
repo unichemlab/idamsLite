@@ -342,7 +342,7 @@ const PlantMasterTable: React.FC = () => {
       <div className={styles.container}>
         <div
           style={{
-            maxHeight: 500,
+            maxHeight: 380,
             overflowY: "auto",
             borderRadius: 8,
             boxShadow: "0 0 4px rgba(0, 0, 0, 0.05)",

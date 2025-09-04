@@ -1,5 +1,10 @@
 import React, { createContext, useState, useEffect, ReactNode } from "react";
-import { fetchPlants } from "../../utils/api";
+import {
+  fetchPlants,
+  addPlantAPI,
+  updatePlantAPI,
+  deletePlantAPI,
+} from "../../utils/api";
 
 export const usePlantContext = () => {
   const ctx = React.useContext(PlantContext);
@@ -34,7 +39,7 @@ export const PlantContext = createContext<PlantContextType | undefined>(
 export const PlantProvider = ({ children }: { children: ReactNode }) => {
   const [plants, setPlants] = useState<Plant[]>([]);
 
-  useEffect(() => {
+  const fetchAndSetPlants = () => {
     fetchPlants()
       .then((data) => {
         // Normalize API data to match Plant interface
@@ -49,17 +54,45 @@ export const PlantProvider = ({ children }: { children: ReactNode }) => {
         setPlants(normalized);
       })
       .catch((err) => {
-        // Optionally handle error
         setPlants([]);
       });
+  };
+
+  useEffect(() => {
+    fetchAndSetPlants();
   }, []);
 
-  // Keep add/update/delete for local changes (not persisted)
-  const addPlant = (plant: Plant) => setPlants((prev) => [...prev, plant]);
-  const updatePlant = (index: number, updated: Plant) =>
-    setPlants((prev) => prev.map((p, i) => (i === index ? updated : p)));
-  const deletePlant = (index: number) =>
-    setPlants((prev) => prev.filter((_, i) => i !== index));
+  // Add plant via API
+  const addPlant = async (plant: Plant) => {
+    await addPlantAPI({
+      plant_name: plant.name,
+      description: plant.description,
+      location: plant.location,
+      status: plant.status,
+    });
+    fetchAndSetPlants();
+  };
+
+  // Update plant via API
+  const updatePlant = async (index: number, updated: Plant) => {
+    const plant = plants[index];
+    if (!plant || !plant.id) return;
+    await updatePlantAPI(plant.id, {
+      plant_name: updated.name,
+      description: updated.description,
+      location: updated.location,
+      status: updated.status,
+    });
+    fetchAndSetPlants();
+  };
+
+  // Delete plant via API
+  const deletePlant = async (index: number) => {
+    const plant = plants[index];
+    if (!plant || !plant.id) return;
+    await deletePlantAPI(plant.id);
+    fetchAndSetPlants();
+  };
 
   return (
     <PlantContext.Provider

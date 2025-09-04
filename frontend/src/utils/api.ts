@@ -4,3 +4,33 @@ export async function fetchPlants(): Promise<any[]> {
   if (!res.ok) throw new Error("Failed to fetch plants");
   return await res.json();
 }
+
+// Add a new plant
+export async function addPlantAPI(plant: any): Promise<any> {
+  const res = await fetch("http://localhost:4000/api/plants", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(plant),
+  });
+  if (!res.ok) throw new Error("Failed to add plant");
+  return await res.json();
+}
+
+// Update a plant
+export async function updatePlantAPI(id: number, plant: any): Promise<any> {
+  const res = await fetch(`http://localhost:4000/api/plants/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(plant),
+  });
+  if (!res.ok) throw new Error("Failed to update plant");
+  return await res.json();
+}
+
+// Delete a plant
+export async function deletePlantAPI(id: number): Promise<void> {
+  const res = await fetch(`http://localhost:4000/api/plants/${id}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to delete plant");
+}
