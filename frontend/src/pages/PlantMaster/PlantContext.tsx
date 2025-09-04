@@ -1,17 +1,21 @@
-
-import React, { createContext, useState, ReactNode } from "react";
+import React, { createContext, useState, useEffect, ReactNode } from "react";
+import { fetchPlants } from "../../utils/api";
 
 export const usePlantContext = () => {
   const ctx = React.useContext(PlantContext);
-  if (!ctx) throw new Error("usePlantContext must be used within PlantProvider");
+  if (!ctx)
+    throw new Error("usePlantContext must be used within PlantProvider");
   return ctx;
 };
 
 export interface Plant {
-  name: string;
-  description: string;
-  location: string;
-  status: "ACTIVE" | "INACTIVE";
+  id?: number;
+  transaction_id?: string;
+  name?: string;
+  plant_name?: string;
+  description?: string;
+  location?: string;
+  status?: "ACTIVE" | "INACTIVE";
 }
 
 interface PlantContextType {
@@ -21,48 +25,46 @@ interface PlantContextType {
   deletePlant: (index: number) => void;
 }
 
-const defaultPlants: Plant[] = [
-  {
-    name: "Mumbai Plant",
-    description: "Manufacturing facility in Mumbai",
-    location: "Maharashtra, India",
-    status: "ACTIVE",
-  },
-  {
-    name: "Goa Plant",
-    description: "Oral solid dosage facility in Goa",
-    location: "Goa, India",
-    status: "ACTIVE",
-  },
-  {
-    name: "Chennai Plant",
-    description: "API manufacturing facility",
-    location: "Tamil Nadu, India",
-    status: "ACTIVE",
-  },
-  {
-    name: "Pune Plant",
-    description: "R&D and formulation center",
-    location: "Maharashtra, India",
-    status: "ACTIVE",
-  },
-];
+// No default plants, will fetch from API
 
-export const PlantContext = createContext<PlantContextType | undefined>(undefined);
+export const PlantContext = createContext<PlantContextType | undefined>(
+  undefined
+);
 
 export const PlantProvider = ({ children }: { children: ReactNode }) => {
-  const [plants, setPlants] = useState<Plant[]>(defaultPlants);
+  const [plants, setPlants] = useState<Plant[]>([]);
 
+  useEffect(() => {
+    fetchPlants()
+      .then((data) => {
+        // Normalize API data to match Plant interface
+        const normalized = data.map((p: any) => ({
+          id: p.id,
+          transaction_id: p.transaction_id,
+          name: p.plant_name, // use plant_name as name
+          description: p.description,
+          location: p.location,
+          status: p.status,
+        }));
+        setPlants(normalized);
+      })
+      .catch((err) => {
+        // Optionally handle error
+        setPlants([]);
+      });
+  }, []);
+
+  // Keep add/update/delete for local changes (not persisted)
   const addPlant = (plant: Plant) => setPlants((prev) => [...prev, plant]);
-
   const updatePlant = (index: number, updated: Plant) =>
     setPlants((prev) => prev.map((p, i) => (i === index ? updated : p)));
-
   const deletePlant = (index: number) =>
     setPlants((prev) => prev.filter((_, i) => i !== index));
 
   return (
-    <PlantContext.Provider value={{ plants, addPlant, updatePlant, deletePlant }}>
+    <PlantContext.Provider
+      value={{ plants, addPlant, updatePlant, deletePlant }}
+    >
       {children}
     </PlantContext.Provider>
   );

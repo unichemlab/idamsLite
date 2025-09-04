@@ -1,6 +1,6 @@
 import React from "react";
 import ProfileIconWithLogout from "./ProfileIconWithLogout";
-import { usePlantContext } from "../PlantMaster/PlantContext";
+import { Plant, usePlantContext } from "../PlantMaster/PlantContext";
 import styles from "../ApplicationMasterTable/ApplicationMasterTable.module.css";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
@@ -112,14 +112,8 @@ const PlantMasterTable: React.FC = () => {
     const dd = String(today.getDate()).padStart(2, "0");
     const fileName = `PlantMasterTable_${yyyy}-${mm}-${dd}.pdf`;
     const headers = [["Plant Name", "Description", "Location", "Status"]];
-    interface Plant {
-      name: string;
-      description: string;
-      location: string;
-      status: string;
-    }
-
-    const data: Plant[] = filteredData;
+    // Use the type from PlantContext instead of redefining Plant interface
+    const data = filteredData;
 
     const rows: string[][] = data.map((plant: Plant) => [
       plant.name ?? "",
@@ -385,9 +379,9 @@ const PlantMasterTable: React.FC = () => {
                       onChange={() => setSelectedRow(index)}
                     />
                   </td>
-                  <td>{plant.name}</td>
-                  <td>{plant.description}</td>
-                  <td>{plant.location}</td>
+                  <td>{plant.name ?? plant.plant_name ?? ""}</td>
+                  <td>{plant.description ?? ""}</td>
+                  <td>{plant.location ?? ""}</td>
                   <td>
                     <span
                       className={
@@ -396,7 +390,7 @@ const PlantMasterTable: React.FC = () => {
                           : styles.status
                       }
                     >
-                      {plant.status}
+                      {plant.status ?? ""}
                     </span>
                   </td>
                   <td>
@@ -406,8 +400,8 @@ const PlantMasterTable: React.FC = () => {
                       onClick={(e) => {
                         e.stopPropagation();
                         setActivityPlant({
-                          name: plant.name,
-                          logs: getPlantActivityLogs(plant.name),
+                          name: plant.name ?? "",
+                          logs: getPlantActivityLogs(plant.name ?? ""),
                         });
                         setApproverFilter("");
                         setShowActivityModal(true);
@@ -422,7 +416,7 @@ const PlantMasterTable: React.FC = () => {
                 open={showDeleteModal}
                 name={
                   selectedRow !== null && filteredData[selectedRow]
-                    ? filteredData[selectedRow].name
+                    ? filteredData[selectedRow].name ?? "plant"
                     : "plant"
                 }
                 onCancel={() => setShowDeleteModal(false)}
