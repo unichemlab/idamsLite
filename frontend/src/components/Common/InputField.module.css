@@ -1,0 +1,54 @@
+.inputGroup {
+  margin-bottom: 1.2rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.label {
+  font-weight: 500;
+  color: #444;
+  margin-bottom: 0.3rem;
+}
+
+.input {
+  padding: 0.7rem 1rem;
+  border: 1.5px solid #cfd8dc;
+  border-radius: 7px;
+  font-size: 15px;
+  transition: border 0.2s, box-shadow 0.2s;
+  outline: none;
+  background: #f8fafc;
+}
+.input:focus {
+  border-color: #5ac9d8;
+  box-shadow: 0 2px 8px rgba(90, 201, 216, 0.1);
+  background: #fff;
+}
+.input:hover {
+  border-color: #7e57c2;
+}
+/* src/components/Common/InputField.module.css */
+.inputFieldContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+.label {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 2px;
+}
+.input {
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  font-size: 1rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+.input:focus {
+  border-color: #2575fc;
+  box-shadow: 0 2px 8px rgba(37, 117, 252, 0.08);
+}

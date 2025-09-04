@@ -1,0 +1,255 @@
+.wrapper {
+  display: flex;
+  flex-direction: row;
+ justify-content: space-between;
+  gap: 2rem;
+  padding: 1.5rem;
+ 
+  height: 100vh;
+  background-color: #fcfcf9;
+
+  font-family: "Segoe UI", sans-serif;
+  
+}
+
+
+
+.leftPanel {
+  flex: 2;
+ box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+   border-radius: 12px;
+ padding-left: 20px;
+ padding-right: 20px;
+ height: auto;
+ overflow-y: auto;
+ 
+}
+
+.rightSection {
+  flex: 1;
+  padding: 24px;
+  background-color: #fcfcf9;
+  border-left: 1px solid #e0e0e0;
+  overflow-x: auto;
+  height: auto;
+ gap: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+   border-radius: 12px;
+}
+
+/* Header and Dropdown */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.statusDropdown {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  background-color: #fafafa;
+  cursor: pointer;
+}
+
+/* Table */
+.taskTable {
+  width: 100%;
+  table-layout: auto;
+  background-color: #fff;
+  border-radius: 12px;
+  height: auto;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  margin-bottom: 20px;
+}
+
+
+.taskTable th,
+.taskTable td {
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+   border-left: 1px solid #eee;
+    border-top: 1px solid #eee;
+    border-right: 1px solid #eee;
+ 
+}
+
+.taskTable th {
+  background-color: #f9f9f9;
+  color: #333;
+  font-weight: 600;
+  font-size: 14px;
+  
+}
+
+/* Text Styling */
+.userName {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.empId {
+  color: #999;
+  font-size: 13px;
+}
+
+.version {
+  color: #999;
+ font-size: 13px;
+}
+
+.role{
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.application {
+ font-weight: 500;
+ font-size: 13px;
+}
+
+
+/* Buttons */
+.viewBtn,
+.editBtn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  margin-right: 6px;
+}
+
+.viewBtn {
+  background-color: #f4f4f4;
+  color: #333;
+}
+
+.editBtn {
+  background-color: #fff0e0;
+  color: #d97706;
+}
+
+/* Badge Styles */
+.badge {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  display: inline-block;
+  text-transform: capitalize;
+}
+
+.granted,
+.closed,
+.success {
+  background-color: #d1e7e7;
+  color: #035d5d;
+  font-size: 13px;
+}
+
+.inprogress,
+.in-progress {
+  background-color: #e0e0e0;
+  color: #666;
+}
+
+.pending {
+  background-color: #fce2d3;
+  color: #a94442;
+}
+
+.hold {
+  background-color: #fbe3d8;
+  color: #a94442;
+}
+
+.revoked,
+.warning {
+  background-color: #f8d7da;
+  color: #842029;
+}
+
+/* Activity Feed */
+.recentHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.recentHeader h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+.viewAllBtn {
+  padding: 6px 12px;
+  font-size: 13px;
+  
+  border: 1px solid #ddd;
+  background-color: #fafafa;
+  
+ 
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.viewAllBtn:hover {
+  background-color: #007bff;
+  color: #ffffff;
+}
+
+.activityList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.activityItem {
+  display: flex;
+  align-items: flex-start;
+  background-color: #f9f9f9;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border-left: 4px solid #007bff;
+  gap: 12px;
+  position: relative;
+}
+
+.activityIcon {
+  font-size: 20px;
+  color: #007bff;
+  margin-top: 4px;
+}
+
+.activityDetails {
+  flex: 1;
+}
+
+.activityMessage {
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.activityMeta {
+  font-size: 13px;
+  color: #777;
+  display: flex;
+  justify-content: space-between;
+}
+
+.activityTime {
+  font-size: 12px;
+  color: #aaa;
+  margin-left: 10px;
+}
+
+ 

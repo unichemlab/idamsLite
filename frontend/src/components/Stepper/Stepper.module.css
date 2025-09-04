@@ -1,0 +1,85 @@
+.stepperContainer {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  width: 100%;
+  justify-content: center;
+  flex-wrap: nowrap;
+  min-width: 320px;
+ 
+  scrollbar-width: thin;
+  user-select: none;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #aaa;
+  min-width: 60px;
+  position: relative;
+  flex-shrink: 0;
+  transition: color 0.3s, transform 0.3s;
+  cursor: default;
+}
+.step:hover .circle {
+  box-shadow: 0 0 0 6px rgba(126, 87, 194, 0.18);
+  transform: scale(1.12);
+  transition: box-shadow 0.3s, transform 0.3s;
+}
+
+.step.active {
+  color: #7e57c2;
+  z-index: 2;
+}
+
+.step.completed {
+  color: #28a745;
+  /* Green for completed steps, or adjust as needed for your theme */
+}
+
+.circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: currentColor;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 1.15rem;
+  box-shadow: 0 2px 8px rgba(90, 201, 216, 0.1);
+  margin-bottom: 0.2rem;
+  z-index: 1;
+  transition: box-shadow 0.3s, background 0.3s, color 0.3s, transform 0.3s;
+  cursor: default;
+}
+
+.label {
+  margin-top: 0.2rem;
+  font-size: 11px;
+  color: inherit;
+  text-align: center;
+  max-width: 90px;
+  word-break: break-word;
+  letter-spacing: 0.01em;
+  transition: color 0.3s;
+  font-weight: 700;
+  margin-bottom: 20px;
+}
+
+.connector {
+  width: 60px;
+  height: 4px;
+  background: #e3f6f9;
+  border-radius: 2px;
+  margin: 0 0.1rem;
+  transition: background 0.3s;
+  z-index: 0;
+  align-self: center;
+  flex-shrink: 0;
+}
+.connectorActive {
+  background: linear-gradient(90deg, #5ac9d8 0%, #7e57c2 100%);
+}

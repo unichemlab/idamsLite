@@ -1,0 +1,108 @@
+.formContainer {
+ background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(33, 118, 210, 0.08);
+  padding: 32px;
+  margin: 32px auto;
+  max-width: 600px;
+  max-height: 90vh;   /* ✅ limit height */
+  overflow-y: auto; 
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.title {
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: #2176d2;
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  font-size: 1.8rem;
+  color: #2176d2;
+  cursor: pointer;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #274b79;
+}
+
+.input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #b4c2db;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border 0.2s ease, box-shadow 0.2s ease;
+}
+
+.input:focus {
+  border-color: #2176d2;
+  box-shadow: 0 0 0 3px rgba(33, 118, 210, 0.2);
+  outline: none;
+}
+
+.formActions {
+display: flex;
+  gap: 12px;
+  margin-top: 16px;
+/* ✅ sticks to bottom of container */
+     
+  bottom: 0;
+  background: #fff;
+  padding: 12px 0;
+  border-top: 1px solid #eaeaea;
+}
+
+.saveBtn {
+  background: #2176d2;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.saveBtn:hover {
+  background: #1a5fb8;
+}
+
+.cancelBtn {
+  background: #eaf2fb;
+  color: #2176d2;
+  border: none;
+  border-radius: 7px;
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.cancelBtn:hover {
+  background: #d8e7f9;
+}

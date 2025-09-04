@@ -1,0 +1,69 @@
+.radioGroup {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.radioLabel {
+  position: relative;
+  padding-left: 2rem;
+  cursor: pointer;
+  font-size: 15px;
+  color: #444;
+  user-select: none;
+}
+
+.radioInput {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.customRadio {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 1.2rem;
+  width: 1.2rem;
+  background: #f8fafc;
+  border: 2px solid #cfd8dc;
+  border-radius: 50%;
+  transition: border 0.2s, box-shadow 0.2s;
+}
+
+.radioInput:checked ~ .customRadio {
+  border-color: #5ac9d8;
+  box-shadow: 0 2px 8px rgba(90, 201, 216, 0.1);
+  background: #e3f6f9;
+}
+/* src/components/Common/RadioGroup.module.css */
+.radioGroupContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.label {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 2px;
+}
+.radioOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  color: #444;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.radioInput {
+  accent-color: #2575fc;
+  width: 18px;
+  height: 18px;
+}
+.radioOption:hover {
+  color: #2575fc;
+}

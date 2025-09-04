@@ -1,0 +1,134 @@
+.title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1a3c4b;
+  margin-bottom: 1.5rem;
+}
+.filtersRow {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.search {
+  width: 320px;
+  padding: 0.7rem 1rem;
+  border-radius: 7px;
+  border: 1.5px solid #cfd8dc;
+  font-size: 15px;
+}
+.filter {
+  padding: 0.7rem 1rem;
+  border-radius: 7px;
+  border: 1.5px solid #cfd8dc;
+  font-size: 15px;
+}
+.tableContainer {
+  width: 100%;
+  overflow-x: auto;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px 0 rgba(90, 201, 216, 0.08);
+  padding: 0;
+  margin: 0;
+  min-height: 320px;
+  max-width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px 0 rgba(90, 201, 216, 0.08);
+  padding: 32px 28px 28px 28px;
+  flex: 1;
+  min-width: 320px;
+  max-width: 100vw;
+  transition: box-shadow 0.18s, transform 0.13s;
+  position: relative;
+  overflow-x: auto;
+}
+.requestsTable {
+  min-width: 1100px;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: #fff;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: none;
+  margin-bottom: 0;
+}
+.requestsTable th,
+.requestsTable td {
+  padding: 0.9rem 1.1rem;
+  text-align: left;
+  border-bottom: 1px solid #e3e9f7;
+}
+.requestsTable th {
+  background: #f8fafc;
+  color: #007f86;
+  font-weight: 700;
+}
+.requestsTable tr:last-child td {
+  border-bottom: none;
+}
+.statusGranted {
+  background: #e3f6f9;
+  color: #007f86;
+  border-radius: 16px;
+  padding: 0.2rem 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border: 1px solid #b2e0ea;
+}
+.statusClosed {
+  background: #f8fafc;
+  color: #888;
+  border-radius: 16px;
+  padding: 0.2rem 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border: 1px solid #e3e9f7;
+}
+.approveBtn {
+  background: #5ac9d8;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.4rem 1rem;
+  font-size: 1rem;
+  margin-right: 0.5rem;
+  cursor: pointer;
+}
+.rejectBtn {
+  background: #c00;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.4rem 1rem;
+  font-size: 1rem;
+  margin-right: 0.5rem;
+  cursor: pointer;
+}
+.detailsBtn {
+  background: #eee;
+  color: #007f86;
+  border: 1.5px solid #5ac9d8;
+  border-radius: 6px;
+  padding: 0.4rem 1rem;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+@media (max-width: 1200px) {
+  .requestsTable {
+    min-width: 900px;
+  }
+}
+@media (max-width: 900px) {
+  .card {
+    padding: 16px 8px 16px 8px;
+  }
+}

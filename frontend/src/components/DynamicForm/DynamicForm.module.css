@@ -1,0 +1,74 @@
+.formGroup {
+  margin-bottom: 2rem;
+}
+
+.label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 0.4rem;
+}
+
+.input,
+.select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  font-size: 1rem;
+}
+
+.checkboxLabel {
+  display: block;
+  font-weight: 600;
+  font-size: 16px;
+  margin-bottom: 1rem;
+  color: #1f2937;
+}
+
+.checkboxGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.checkboxColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.checkboxItem {
+   display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background-color: #f9fafb;
+  font-size: 15px;
+  color: #1f2937;
+  transition: border 0.2s ease, background 0.2s ease;
+  height: 25px;
+  cursor: pointer;
+}
+
+checkboxIcon {
+  font-size: 1.1rem;
+}
+
+
+.checkboxItem:hover {
+  border-color: #2563eb;
+  background-color: #f0f7ff;
+}
+
+.checkboxItem input[type="checkbox"] {
+  width: 18px;
+  height: 15px;
+  accent-color: #2563eb;
+  cursor: pointer;
+}
+
+.checkboxIcon {
+  display: none; /* Hide icon unless you want to keep them */
+}
