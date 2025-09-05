@@ -17,12 +17,12 @@ import EditUserFormPage from "../pages/AddUserPanel/EditUserFormPage";
 import AddRoleFormPage from "../RoleMaster/AddRoleFormPage";
 import EditRoleFormPage from "../RoleMaster/EditRoleFormPage";
 import VendorMasterTable from "../pages/VendorMasterTable/VendorMasterTable";
-import AddVendorFormPage from "../pages/VendorMasterTable/AddVendorFormPage";
-import EditVendorFormPage from "../pages/VendorMasterTable/EditVendorFormPage";
 import SuperAdmin from "../pages/SuperAdmin/SuperAdmin";
 import PlantMasterTable from "../pages/PlantMasterTable/PlantMasterTable";
 import AddPlantMaster from "../pages/PlantMaster/AddPlantMaster";
 import EditPlantMaster from "../pages/PlantMaster/EditPlantMaster";
+import AddVendorMaster from "../pages/VendorMaster/AddVendorMaster";
+import EditVendorMaster from "../pages/VendorMaster/EditVendorMaster";
 import ProtectedRoute from "../components/Common/ProtectedRoute";
 
 // List of allowed routes for matching
@@ -50,8 +50,8 @@ const allowedRoutes = [
   "/add-application",
   "/edit-application/:idx",
   "/vendors",
-  "/add-vendor",
-  "/edit-vendor/:idx",
+  "/vendors/add",
+  "/vendors/edit/:id",
 ];
 
 const NotFound = () => (
@@ -276,18 +276,18 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/add-vendor"
+        path="/vendors/add"
         element={
           <ProtectedRoute>
-            <AddVendorFormPage />
+            <AddVendorMaster />
           </ProtectedRoute>
         }
       />
       <Route
-        path="/edit-vendor/:idx"
+         path="/vendors/edit/:id"
         element={
           <ProtectedRoute>
-            <EditVendorFormPage />
+            <EditVendorMaster />
           </ProtectedRoute>
         }
       />
