@@ -2,11 +2,9 @@ import React, { useState } from "react";
 import ConfirmLoginModal from "../components/Common/ConfirmLoginModal";
 import styles from "../RoleMaster/AddRoleFormPage.module.css";
 import { useNavigate } from "react-router-dom";
-import { useRoles } from "../RoleMaster/RolesContext";
 import type { Role } from "../RoleMaster/RolesContext";
 
 export default function AddRoleFormPage() {
-  const { roles, setRoles } = useRoles();
   const navigate = useNavigate();
 
   const [form, setForm] = useState<Omit<Role, "activityLogs">>({
@@ -34,21 +32,6 @@ export default function AddRoleFormPage() {
   // Called after admin confirms
   const handleConfirmLogin = (data: Record<string, string>) => {
     if (data.username === username && data.password) {
-      setRoles([
-        ...roles,
-        {
-          ...form,
-          activityLogs: [
-            {
-              action: "Add",
-              oldValue: "-",
-              newValue: `Role: ${form.name}`,
-              approver: username,
-              dateTime: new Date().toISOString(),
-            },
-          ],
-        },
-      ]);
       setShowModal(false);
       navigate("/superadmin", { state: { activeTab: "role" } });
     } else {
