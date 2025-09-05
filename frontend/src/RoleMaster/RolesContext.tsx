@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
+import {
+  fetchRoles,
+  addRoleAPI,
+  updateRoleAPI,
+  deleteRoleAPI,
+} from "../utils/api";
 
 export interface RoleActivityLog {
   action: string;
@@ -10,102 +16,79 @@ export interface RoleActivityLog {
 }
 
 export interface Role {
+  id?: number;
+  role_code?: string;
   name: string;
   description: string;
   status: string;
-  activityLogs: RoleActivityLog[];
+  activityLogs?: RoleActivityLog[];
 }
-
-const initialRoles: Role[] = [
-  {
-    name: "Read Only",
-    description: "View access to system data",
-    status: "ACTIVE",
-    activityLogs: [
-      {
-        action: "View",
-        oldValue: "-",
-        newValue: "-",
-        approver: "Admin",
-        dateTime: "2025-08-01 09:00",
-        reason: "Viewed by Admin",
-      },
-    ],
-  },
-  {
-    name: "User",
-    description: "Standard user access with edit capabilities",
-    status: "ACTIVE",
-    activityLogs: [
-      {
-        action: "Edit",
-        oldValue: "Role: Read Only",
-        newValue: "Role: User",
-        approver: "Admin1",
-        dateTime: "2025-08-02 10:10",
-        reason: "Role upgraded",
-      },
-    ],
-  },
-  {
-    name: "Administrator",
-    description: "Full administrative access",
-    status: "ACTIVE",
-    activityLogs: [
-      {
-        action: "Add",
-        oldValue: "-",
-        newValue: "Role: Administrator",
-        approver: "SuperAdmin",
-        dateTime: "2025-08-03 11:30",
-        reason: "Created role",
-      },
-    ],
-  },
-  {
-    name: "Super Admin",
-    description: "Complete system control",
-    status: "ACTIVE",
-    activityLogs: [
-      {
-        action: "Edit",
-        oldValue: "Status: INACTIVE",
-        newValue: "Status: ACTIVE",
-        approver: "Admin2",
-        dateTime: "2025-08-04 14:25",
-        reason: "Activated role",
-      },
-    ],
-  },
-  {
-    name: "Operator",
-    description: "Operational access for daily tasks",
-    status: "INACTIVE",
-    activityLogs: [
-      {
-        action: "Delete",
-        oldValue: "Status: ACTIVE",
-        newValue: "Status: INACTIVE",
-        approver: "Admin3",
-        dateTime: "2025-08-05 10:10",
-        reason: "Role deactivated",
-      },
-    ],
-  },
-];
 
 const RolesContext = createContext<
   | {
       roles: Role[];
-      setRoles: React.Dispatch<React.SetStateAction<Role[]>>;
+      fetchAndSetRoles: () => void;
+      addRole: (role: Role) => Promise<void>;
+      updateRole: (id: number, role: Role) => Promise<void>;
+      deleteRole: (id: number) => Promise<void>;
     }
   | undefined
 >(undefined);
 
 export function RolesProvider({ children }: { children: React.ReactNode }) {
-  const [roles, setRoles] = useState<Role[]>(initialRoles);
+  const [roles, setRoles] = useState<Role[]>([]);
+
+  const fetchAndSetRoles = async () => {
+    try {
+      const data = await fetchRoles();
+      // Normalize backend fields to match Role interface
+      setRoles(
+        data.map((r: any) => ({
+          id: r.id,
+          role_code: r.role_code,
+          name: r.role_name,
+          description: r.description,
+          status: r.status,
+        }))
+      );
+    } catch {
+      setRoles([]);
+    }
+  };
+
+  useEffect(() => {
+    fetchAndSetRoles();
+  }, []);
+
+  const addRole = async (role: Role) => {
+    await addRoleAPI({
+      role_code: role.role_code,
+      role_name: role.name,
+      description: role.description,
+      status: role.status,
+    });
+    fetchAndSetRoles();
+  };
+
+  const updateRole = async (id: number, role: Role) => {
+    await updateRoleAPI(id, {
+      role_code: role.role_code,
+      role_name: role.name,
+      description: role.description,
+      status: role.status,
+    });
+    fetchAndSetRoles();
+  };
+
+  const deleteRole = async (id: number) => {
+    await deleteRoleAPI(id);
+    fetchAndSetRoles();
+  };
+
   return (
-    <RolesContext.Provider value={{ roles, setRoles }}>
+    <RolesContext.Provider
+      value={{ roles, fetchAndSetRoles, addRole, updateRole, deleteRole }}
+    >
       {children}
     </RolesContext.Provider>
   );

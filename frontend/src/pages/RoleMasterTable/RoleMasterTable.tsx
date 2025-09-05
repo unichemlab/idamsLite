@@ -3,185 +3,51 @@ import ProfileIconWithLogout from "../PlantMasterTable/ProfileIconWithLogout";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import styles from "./RoleMasterTable.module.css";
-import { FaEdit, FaTrash, FaTimes, FaRegClock } from "react-icons/fa";
+import { FaEdit, FaTrash, FaRegClock } from "react-icons/fa";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { useNavigate } from "react-router-dom";
-import { useRoles, Role, RoleActivityLog } from "../../RoleMaster/RolesContext";
+import { useRoles, Role } from "../../RoleMaster/RolesContext";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
 
-// ===== Activity Logs Modal Component =====
-function ActivityLogModal({
-  open,
-  logs,
-  onClose,
-}: {
-  open: boolean;
-  logs: RoleActivityLog[];
-  onClose: () => void;
-}) {
-  if (!open) return null;
-  // Only show edit, delete, add actions
-  const allowed = ["edit", "delete", "add"];
-  const filteredLogs = logs.filter((log) =>
-    allowed.some((type) => (log.action || "").toLowerCase().includes(type))
-  );
-  const handleExportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape" });
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
-    const fileName = `role_activity_log_${yyyy}-${mm}-${dd}.pdf`;
-    const headers = [
-      [
-        "Action",
-        "Old Value",
-        "New Value",
-        "Approved By/Rejected By",
-        "Date/Time (IST)",
-        "Comments",
-      ],
-    ];
-    const rows = filteredLogs.map((log) => {
-      let dateObj = new Date(log.dateTime || "");
-      let istDate = new Date(dateObj.getTime() + 5.5 * 60 * 60 * 1000);
-      let day = String(istDate.getDate()).padStart(2, "0");
-      let month = String(istDate.getMonth() + 1).padStart(2, "0");
-      let year = String(istDate.getFullYear()).slice(-2);
-      let hours = String(istDate.getHours()).padStart(2, "0");
-      let minutes = String(istDate.getMinutes()).padStart(2, "0");
-      let formattedDate = log.dateTime
-        ? `${day}/${month}/${year} ${hours}:${minutes}`
-        : "-";
-      return [
-        log.action || "-",
-        log.oldValue !== undefined ? log.oldValue : "-",
-        log.newValue !== undefined ? log.newValue : "-",
-        log.approver || "-",
-        formattedDate,
-        log.reason || "-",
-      ];
-    });
-    doc.setFontSize(18);
-    doc.text("Activity Log", 14, 18);
-    autoTable(doc, {
-      head: headers,
-      body: rows,
-      startY: 28,
-      styles: {
-        fontSize: 11,
-        cellPadding: 3,
-        halign: "left",
-        valign: "middle",
-      },
-      headStyles: {
-        fillColor: [11, 99, 206],
-        textColor: 255,
-        fontStyle: "bold",
-      },
-      alternateRowStyles: {
-        fillColor: [240, 245, 255],
-      },
-      margin: { left: 14, right: 14 },
-      tableWidth: "auto",
-    });
-    doc.save(fileName);
-  };
-  return (
-    <div className={styles.activityLogModalOverlay}>
-      <div className={styles.activityLogModal}>
-        <div className={styles.activityLogModalHeader}>
-          <span style={{ fontWeight: 700, fontSize: 20 }}>Activity Log</span>
-          <button
-            className={styles.exportPdfBtn}
-            onClick={handleExportPdf}
-            aria-label="Export activity log to PDF"
-            type="button"
-            style={{ marginRight: 8 }}
-          >
-            <span role="img" aria-label="Export PDF" style={{ fontSize: 18 }}>
-              🗎
-            </span>
-            Export PDF
-          </button>
-          <button
-            className={styles.activityLogModalClose}
-            onClick={onClose}
-            title="Close"
-            aria-label="Close"
-          >
-            <FaTimes />
-          </button>
-        </div>
-        <div className={styles.activityLogModalBody}>
-          {filteredLogs.length > 0 ? (
-            <table
-              className={styles.activityLogTable}
-              style={{ minWidth: 900 }}
-            >
-              <thead>
-                <tr>
-                  <th>Action</th>
-                  <th>Old Value</th>
-                  <th>New Value</th>
-                  <th>Approved By/Rejected By</th>
-                  <th>Date/Time (IST)</th>
-                  <th>Comments</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredLogs.map((log, i) => {
-                  let dateObj = new Date(log.dateTime || "");
-                  let istDate = new Date(
-                    dateObj.getTime() + 5.5 * 60 * 60 * 1000
-                  );
-                  let day = String(istDate.getDate()).padStart(2, "0");
-                  let month = String(istDate.getMonth() + 1).padStart(2, "0");
-                  let year = String(istDate.getFullYear()).slice(-2);
-                  let hours = String(istDate.getHours()).padStart(2, "0");
-                  let minutes = String(istDate.getMinutes()).padStart(2, "0");
-                  let formattedDate = log.dateTime
-                    ? `${day}/${month}/${year} ${hours}:${minutes}`
-                    : "-";
-                  return (
-                    <tr key={i}>
-                      <td>{log.action || "-"}</td>
-                      <td>{log.oldValue !== undefined ? log.oldValue : "-"}</td>
-                      <td>{log.newValue !== undefined ? log.newValue : "-"}</td>
-                      <td>{log.approver || "-"}</td>
-                      <td>{formattedDate}</td>
-                      <td>{log.reason || "-"}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          ) : (
-            <div style={{ color: "#888", fontStyle: "italic" }}>
-              No activity logs available.
-            </div>
-          )}
-        </div>
-      </div>
-      <div className={styles.activityLogModalBackdrop} onClick={onClose} />
-    </div>
-  );
-}
-
 export default function RoleMasterTable() {
-  const { roles, setRoles } = useRoles();
+  const { roles, deleteRole } = useRoles();
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [filterColumn, setFilterColumn] = useState<
     "name" | "description" | "status" | "activityLogs"
   >("name");
   const [filterValue, setFilterValue] = useState("");
-  const [showActivityLogModal, setShowActivityLogModal] = useState(false);
-  const [activeLogValue, setActiveLogValue] = useState<RoleActivityLog[]>([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-
   const navigate = useNavigate();
+
+  // Filtered roles based on filterColumn and filterValue
+  const filteredRoles = roles.filter((role) => {
+    if (!filterValue) return true;
+    const value = (role[filterColumn] || "").toString().toLowerCase();
+    return value.includes(filterValue.toLowerCase());
+  });
+
+  // Row selection handler
+  const handleSelectRow = (idx: number) => {
+    setSelectedRow(idx);
+  };
+
+  // Delete role handler
+  const handleDeleteRole = () => {
+    if (selectedRow !== null && roles[selectedRow]) {
+      setShowDeleteModal(true);
+    }
+  };
+
+  // Confirm delete handler
+  const confirmDeleteRole = async () => {
+    if (selectedRow !== null && roles[selectedRow]) {
+      await deleteRole(roles[selectedRow].id!);
+      setShowDeleteModal(false);
+      setSelectedRow(null);
+    }
+  };
 
   // PDF Download Handler for main table
   const handleDownloadPdf = () => {
@@ -192,84 +58,12 @@ export default function RoleMasterTable() {
       role.description,
       role.status,
     ]);
-    doc.setFontSize(18);
-    doc.text("Role Master Table", 14, 18);
     autoTable(doc, {
       head: headers,
       body: rows,
-      startY: 28,
-      styles: {
-        fontSize: 11,
-        cellPadding: 3,
-        halign: "left",
-        valign: "middle",
-      },
-      headStyles: {
-        fillColor: [11, 99, 206],
-        textColor: 255,
-        fontStyle: "bold",
-      },
-      alternateRowStyles: {
-        fillColor: [240, 245, 255],
-      },
-      margin: { left: 14, right: 14 },
-      tableWidth: "auto",
     });
-    doc.save("role-master-table.pdf");
+    doc.save("role_master.pdf");
   };
-
-  //removed due to henadle cannot be edited in r0le master
-  const handleDeleteRole = () => {
-    setShowDeleteModal(true);
-  };
-
-  const confirmDeleteRole = () => {
-    if (selectedRow === null) return;
-    const updated = [...roles];
-    const deletedRole = updated[selectedRow];
-    deletedRole.activityLogs.push({
-      action: "Delete",
-      oldValue: `Status: ${deletedRole.status}`,
-      newValue: "Status: Deleted",
-      approver: "Admin",
-      dateTime: new Date().toISOString(),
-      reason: "Role deleted",
-    });
-    updated.splice(selectedRow, 1);
-    setRoles(updated);
-    setSelectedRow(null);
-    setShowDeleteModal(false);
-  };
-
-  const handleSelectRow = (idx: number) => {
-    setSelectedRow(idx === selectedRow ? null : idx);
-  };
-
-  const filteredRoles = roles.filter((role: Role) => {
-    if (!filterValue) return true;
-    const val = filterValue.toLowerCase();
-    if (filterColumn === "name") return role.name.toLowerCase().includes(val);
-    if (filterColumn === "description")
-      return role.description.toLowerCase().includes(val);
-    if (filterColumn === "status")
-      return role.status.toLowerCase().includes(val);
-    if (filterColumn === "activityLogs") {
-      // Only show edit, delete, add actions
-      const allowed = ["edit", "delete", "add"];
-      return role.activityLogs.some(
-        (log) =>
-          allowed.some((type) =>
-            (log.action || "").toLowerCase().includes(type)
-          ) &&
-          ((log.action && log.action.toLowerCase().includes(val)) ||
-            (log.oldValue && log.oldValue.toLowerCase().includes(val)) ||
-            (log.newValue && log.newValue.toLowerCase().includes(val)) ||
-            (log.approver && log.approver.toLowerCase().includes(val)) ||
-            (log.reason && log.reason.toLowerCase().includes(val)))
-      );
-    }
-    return true;
-  });
 
   return (
     <div>
@@ -306,7 +100,8 @@ export default function RoleMasterTable() {
             className={`${styles.btn} ${styles.editBtn}`}
             disabled={selectedRow === null}
             onClick={() => {
-              if (selectedRow !== null) navigate(`/edit-role/${selectedRow}`);
+              if (selectedRow !== null)
+                navigate(`/edit-role/${roles[selectedRow].id}`);
             }}
             title={
               selectedRow === null
@@ -466,8 +261,9 @@ export default function RoleMasterTable() {
                           className={styles.activityLogIcon}
                           title="View Activity Logs"
                           onClick={() => {
-                            setActiveLogValue(role.activityLogs);
-                            setShowActivityLogModal(true);
+                            // Placeholder for future activity log modal
+                            // setActiveLogValue(role.activityLogs || []);
+                            // setShowActivityLogModal(true);
                           }}
                           tabIndex={0}
                         >
@@ -482,11 +278,7 @@ export default function RoleMasterTable() {
           </div>
         </div>
       </div>
-      <ActivityLogModal
-        open={showActivityLogModal}
-        logs={activeLogValue}
-        onClose={() => setShowActivityLogModal(false)}
-      />
+      {/* ActivityLogModal removed for backend integration */}
     </div>
   );
 }

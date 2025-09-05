@@ -6,7 +6,7 @@ import { useRoles, RoleActivityLog } from "../RoleMaster/RolesContext";
 import type { Role } from "../RoleMaster/RolesContext";
 
 export default function EditRoleFormPage() {
-  const { roles, setRoles } = useRoles();
+  const { roles } = useRoles();
   const navigate = useNavigate();
   const { idx } = useParams<{ idx: string }>();
 
@@ -64,7 +64,7 @@ export default function EditRoleFormPage() {
           },
         ],
       };
-      setRoles(updated);
+
       setShowModal(false);
       navigate("/superadmin", { state: { activeTab: "role" } });
     } else {
