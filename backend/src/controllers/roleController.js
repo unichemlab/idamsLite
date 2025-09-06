@@ -1,3 +1,44 @@
+/**
+ * @swagger
+ * /api/roles:
+ *   get:
+ *     summary: Get all roles
+ *     tags: [Roles]
+ *     responses:
+ *       200:
+ *         description: List of roles
+ *   post:
+ *     summary: Add a new role
+ *     tags: [Roles]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       201:
+ *         description: Role created
+ * /api/roles/{id}:
+ *   put:
+ *     summary: Edit a role
+ *     tags: [Roles]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Role updated
+ */
 const pool = require("../config/db");
 
 // Get all roles

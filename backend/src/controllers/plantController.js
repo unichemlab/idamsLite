@@ -1,3 +1,44 @@
+/**
+ * @swagger
+ * /api/plants:
+ *   get:
+ *     summary: Get all plants
+ *     tags: [Plants]
+ *     responses:
+ *       200:
+ *         description: List of plants
+ *   post:
+ *     summary: Add a new plant
+ *     tags: [Plants]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       201:
+ *         description: Plant created
+ * /api/plants/{id}:
+ *   put:
+ *     summary: Edit a plant
+ *     tags: [Plants]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Plant updated
+ */
 exports.getPlantActivityLogs = async (req, res) => {
   try {
     const { rows } = await pool.query(

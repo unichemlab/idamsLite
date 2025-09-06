@@ -251,12 +251,19 @@ const AddUserPanel = ({
   };
 
   const username = localStorage.getItem("username") || "";
-  const handleConfirmLogin = (data: Record<string, string>) => {
-    // username is always from localStorage, not editable in modal
+  const [saving, setSaving] = useState(false);
+  const handleConfirmLogin = async (data: Record<string, string>) => {
     if (data.username === username && data.password === "superadmin123") {
-      onSave(form); // save only after successful login
-      setShowModal(false);
-      onClose(); // close panel
+      setSaving(true);
+      try {
+        await onSave(form);
+        setShowModal(false);
+        onClose();
+      } catch (err: any) {
+        setError(err.message || "Failed to save user");
+      } finally {
+        setSaving(false);
+      }
     } else {
       alert("Invalid credentials. Please try again.");
     }
@@ -577,8 +584,14 @@ const AddUserPanel = ({
             >
               Cancel
             </button>
-            <button type="submit" className={styles.saveBtn}>
-              {mode === "edit" ? "Update User" : "Save User"}
+            <button type="submit" className={styles.saveBtn} disabled={saving}>
+              {saving
+                ? mode === "edit"
+                  ? "Updating..."
+                  : "Saving..."
+                : mode === "edit"
+                ? "Update User"
+                : "Save User"}
             </button>
           </div>
         </div>
