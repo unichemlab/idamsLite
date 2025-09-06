@@ -1,3 +1,40 @@
+.scrollFormContainer {
+  max-height: 380px;
+  overflow-y: auto;
+  padding: 32px 16px 16px 16px;
+  background: #fafdff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.06);
+}
+
+.rowFields {
+  display: flex;
+  gap: 32px;
+  margin-bottom: 0;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 180px;
+}
+
+.textarea {
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 1rem;
+  margin-top: 8px;
+  border: 1px solid #cbd5e1;
+  min-height: 80px;
+  max-width: 100%;
+  font-family: inherit;
+  background: #fff;
+  resize: vertical;
+  box-sizing: border-box;
+}
 /* Enriched header bar for Add/Edit Plant page */
 .headerBarEnrich {
   background: linear-gradient(90deg, #2563eb 60%, #1a61d1 100%);
@@ -115,7 +152,7 @@
   max-width: 985px;
   margin: 32px auto;
   font-family: "Inter", "Segoe UI", Arial, sans-serif;
-  min-height: 75vh;
+  min-height: 70vh;
   display: flex;
   flex-direction: column;
 }
