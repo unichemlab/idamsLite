@@ -145,9 +145,31 @@ const EditPlantMaster: React.FC = () => {
             fontWeight: 500,
             borderRadius: "0 0 12px 12px",
             marginBottom: 0,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
           }}
         >
-          Plant Master &gt; Edit Plant
+          <span
+            style={{
+              color: "#0b63ce",
+              cursor: "pointer",
+              textDecoration: "underline",
+              transition: "color 0.2s",
+            }}
+            onClick={() =>
+              navigate("/superadmin", { state: { activeTab: "plant" } })
+            }
+            onMouseOver={(e) => (e.currentTarget.style.color = "#084a9e")}
+            onMouseOut={(e) => (e.currentTarget.style.color = "#0b63ce")}
+            tabIndex={0}
+            role="button"
+            aria-label="Go to Plant Master table"
+          >
+            Plant Master
+          </span>
+          <span>&gt;</span>
+          <span style={{ color: "#2d3748" }}>Edit Plant</span>
         </div>
 
         {/* Container for Edit Form */}
