@@ -1,7 +1,7 @@
 import React from "react";
 import styles from "./ComplianceReports.module.css";
 import { useAuth } from "../../context/AuthContext";
-import { can } from "../../utils/rbac";
+import { can, Role } from "../../utils/rbac";
 
 type Report = {
   id: string;
@@ -22,7 +22,19 @@ const ComplianceReports: React.FC<ComplianceReportsProps> = ({
   setReports,
 }) => {
   const { user } = useAuth();
-  const role = user?.role || "admin";
+  function getRoleName(role_id?: number): Role {
+    switch (role_id) {
+      case 1:
+        return "superAdmin";
+      case 2:
+        return "plantAdmin";
+      case 3:
+        return "qaManager";
+      default:
+        return "user";
+    }
+  }
+  const role = getRoleName(user?.role_id);
 
   // Example handler for future API integration
   // const handleExport = (id: string) => { ... }

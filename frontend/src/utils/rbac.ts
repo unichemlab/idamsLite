@@ -1,8 +1,9 @@
-import { Role } from "../context/AuthContext";
+// Role type for RBAC
+export type Role = "superAdmin" | "plantAdmin" | "qaManager" | "user";
 
 // Define permissions for each role
 const permissions: Record<Role, string[]> = {
-  admin: [
+  superAdmin: [
     "dashboard:view",
     "requests:view",
     "requests:approve",
@@ -13,13 +14,13 @@ const permissions: Record<Role, string[]> = {
     "system:view",
     "settings:view",
   ],
-  auditor: [
+  plantAdmin: [
     "dashboard:view",
     "requests:view",
     "compliance:view",
     "system:view",
   ],
-  manager: [
+  qaManager: [
     "dashboard:view",
     "requests:view",
     "requests:approve",

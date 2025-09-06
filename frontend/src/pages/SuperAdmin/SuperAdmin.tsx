@@ -22,14 +22,9 @@ import RoleMasterTable from "pages/RoleMasterTable/RoleMasterTable";
 import UserMasterTable from "pages/UserMasterTable/UserMasterTable";
 import ApplicationMasterTable from "pages/ApplicationMasterTable/ApplicationMasterTable";
 import WorkflowBuilder from "pages/WorkflowBuilder/WorkflowBuilder";
-import { mockUsers } from "../../data/mockUsers";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
-
-const getCurrentUser = () => {
-  const username = localStorage.getItem("username");
-  if (!username) return null;
-  return mockUsers.find((u) => u.username === username) || null;
-};
+import { useAuth } from "../../context/AuthContext";
+import { Role } from "../../utils/rbac";
 
 const SuperAdmin: React.FC = () => {
   const location = useLocation();
@@ -42,7 +37,7 @@ const SuperAdmin: React.FC = () => {
     }
     return "dashboard";
   });
-  const user = getCurrentUser();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   // Persist activeTab in localStorage whenever it changes
@@ -51,9 +46,7 @@ const SuperAdmin: React.FC = () => {
   }, [activeTab]);
 
   const handleLogout = () => {
-    localStorage.removeItem("role");
-    localStorage.removeItem("username");
-    localStorage.removeItem("superadmin_activeTab");
+    logout();
     navigate("/");
   };
   // Map sidebar keys to permission strings
@@ -72,7 +65,7 @@ const SuperAdmin: React.FC = () => {
     },
     {
       key: "role",
-      label: "Role Masterr",
+      label: "Role Master",
       icon: <SecurityIcon fontSize="small" />,
       perm: "roleMaster:view",
     },
@@ -101,11 +94,49 @@ const SuperAdmin: React.FC = () => {
       perm: "workflow:view",
     },
   ];
-  // Only plantadmin2 will have limited permissions, others see all
+  // Map role_id to role string for RBAC
+  const getRoleFromId = (role_id: number): Role => {
+    switch (role_id) {
+      case 1:
+        return "superAdmin";
+      case 2:
+        return "plantAdmin";
+      case 3:
+        return "qaManager";
+      default:
+        return "user";
+    }
+  };
+
+  // Permissions: disable sidebar items if user lacks permission
+  let userPermissions: string[] = [];
+  if (user) {
+    const role = getRoleFromId(user.role_id);
+    // Map sidebarConfig perms to role perms (for this UI)
+    if (role === "superAdmin") {
+      userPermissions = sidebarConfig.map((item) => item.perm);
+    } else if (role === "plantAdmin") {
+      userPermissions = [
+        "dashboard:view",
+        "plantMaster:view",
+        "userMaster:view",
+        "workflow:view",
+      ];
+    } else if (role === "qaManager") {
+      userPermissions = [
+        "dashboard:view",
+        "roleMaster:view",
+        "applicationMaster:view",
+        "workflow:view",
+      ];
+    } else {
+      userPermissions = ["dashboard:view"];
+    }
+  }
   const disabledKeys =
-    user && user.role === "plantAdmin"
+    user && user.role_id !== 1 // 1 = superadmin, all access
       ? sidebarConfig
-          .filter((item) => !user.permissions.includes(item.perm))
+          .filter((item) => !userPermissions.includes(item.perm))
           .map((item) => item.key)
       : [];
 
@@ -198,7 +229,13 @@ const SuperAdmin: React.FC = () => {
               <div>
                 <strong>{user ? user.username : "admin"}</strong>
                 <div className={styles.subtext}>
-                  {user ? user.role : "Super Admin"}
+                  {user && user.role_id === 1
+                    ? "Super Admin"
+                    : user && user.role_id === 2
+                    ? "Plant Admin"
+                    : user && user.role_id === 3
+                    ? "QA Manager"
+                    : "User"}
                 </div>
               </div>
             </div>

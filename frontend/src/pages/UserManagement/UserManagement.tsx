@@ -1,7 +1,7 @@
 import React from "react";
 import styles from "./UserManagement.module.css";
 import { useAuth } from "../../context/AuthContext";
-import { can } from "../../utils/rbac";
+import { can, Role } from "../../utils/rbac";
 
 type User = {
   id: string;
@@ -19,7 +19,19 @@ interface UserManagementProps {
 
 const UserManagement: React.FC<UserManagementProps> = ({ users, setUsers }) => {
   const { user } = useAuth();
-  const role = user?.role || "admin";
+  function getRoleName(role_id?: number): string {
+    switch (role_id) {
+      case 1:
+        return "superAdmin";
+      case 2:
+        return "plantAdmin";
+      case 3:
+        return "qaManager";
+      default:
+        return "user";
+    }
+  }
+  const role = getRoleName(user?.role_id);
 
   // Example handler for future API integration
   // const handleEdit = (id: string) => { ... }
@@ -78,7 +90,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, setUsers }) => {
                     </span>
                   </td>
                   <td>
-                    {can(role, "users:edit") && (
+                    {can(role as Role, "users:edit") && (
                       <button className={styles.actionBtn}>Edit</button>
                     )}
                     <button className={styles.actionBtn}>Reset Password</button>

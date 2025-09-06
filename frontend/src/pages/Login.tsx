@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import loginHeadTitle from "../assets/login_headTitle.png";
 import styles from "./Login.module.css";
 import { useNavigate } from "react-router-dom";
-import { mockUsers } from "../data/mockUsers";
+import { useAuth } from "../context/AuthContext";
 
 // Logo heading with centered image and improved design
 const LogoHeading = () => (
@@ -26,44 +26,35 @@ const LogoHeading = () => (
 const Login: React.FC = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const navigate = useNavigate();
+  const { login, error, loading, user } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Find user in mockUsers
-    const foundUser = mockUsers.find(
-      (u) => u.username === username && u.password === password
-    );
-    if (foundUser) {
-      // Store user info in localStorage if needed
-      localStorage.setItem("role", foundUser.role);
-      localStorage.setItem("username", foundUser.username);
-      localStorage.setItem("token", "true");
-      // Ensure localStorage is set before navigating
-      setTimeout(() => {
-        if (foundUser.role === "plantAdmin") {
-          navigate("/superadmin");
-        } else {
-          switch (foundUser.role) {
-            case "superAdmin":
-              navigate("/superadmin");
-              break;
-            case "approver":
-              navigate("/approver");
-              break;
-            case "user":
-              navigate("/user-information");
-              break;
-            default:
-              navigate("/");
-          }
-        }
-      }, 0);
-    } else {
-      setError("Invalid credentials");
-    }
+    await login(username, password);
   };
+
+  React.useEffect(() => {
+    if (user) {
+      // Redirect based on role_id or status (customize as needed)
+      if (user.status === "ACTIVE") {
+        // Example: role_id 1 = superadmin, 2 = plantadmin, etc.
+        switch (user.role_id) {
+          case 1:
+            navigate("/superadmin");
+            break;
+          case 2:
+            navigate("/plantadmin");
+            break;
+          case 3:
+            navigate("/qamanager");
+            break;
+          default:
+            navigate("/");
+        }
+      }
+    }
+  }, [user, navigate]);
 
   return (
     <div className={styles.loginBackground}>
@@ -110,6 +101,11 @@ const Login: React.FC = () => {
             {error && (
               <div className={styles.error} role="alert">
                 {error}
+              </div>
+            )}
+            {loading && (
+              <div className={styles.error} role="status">
+                Logging in...
               </div>
             )}
             <button
