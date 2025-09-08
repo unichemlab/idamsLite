@@ -3,6 +3,7 @@ const cors = require("cors");
 require("dotenv").config();
 
 const plantRoutes = require("./routes/plantRoutes");
+const vendorRoutes = require("./routes/vendorRoutes");
 const roleRoutes = require("./routes/roleRoutes");
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
@@ -14,6 +15,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/api/plants", plantRoutes);
+app.use("/api/vendors", vendorRoutes);
 app.use("/api/roles", roleRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);

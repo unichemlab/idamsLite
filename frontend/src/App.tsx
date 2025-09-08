@@ -14,7 +14,7 @@ import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Analytics } from "@vercel/analytics/react";
 import { PlantProvider } from "pages/PlantMaster/PlantContext";
 
-import { VendorProvider } from "./context/VendorContext";
+import { VendorProvider } from "pages/VendorMaster/VendorContext";
 
 const App: React.FC = () => {
   return (
