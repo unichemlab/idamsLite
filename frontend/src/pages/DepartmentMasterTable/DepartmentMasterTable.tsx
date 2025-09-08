@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from "react";
-import {  FaTrash, FaRegClock } from "react-icons/fa6";
+import { FaTrash, FaRegClock } from "react-icons/fa6";
 import { useNavigate } from "react-router-dom";
 import { fetchDepartmentActivityLogs } from "../../utils/api";
-import { useDepartmentContext, Department } from "../../pages/DepartmentMaster/DepartmentContext";
+import { useDepartmentContext } from "../../pages/DepartmentMaster/DepartmentContext";
 import styles from "../ApplicationMasterTable/ApplicationMasterTable.module.css";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
@@ -31,7 +31,10 @@ const DepartmentMasterTable: React.FC = () => {
   useEffect(() => {
     if (!showFilterPopover) return;
     const handleClick = (e: MouseEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(e.target as Node)
+      ) {
         setShowFilterPopover(false);
       }
     };
@@ -124,8 +127,12 @@ const DepartmentMasterTable: React.FC = () => {
       } catch {}
       return [
         log.action,
-        `${oldVal.department_name || ""} ${oldVal.description ? `(${oldVal.description})` : ""}`,
-        `${newVal.department_name || ""} ${newVal.description ? `(${newVal.description})` : ""}`,
+        `${oldVal.department_name || ""} ${
+          oldVal.description ? `(${oldVal.description})` : ""
+        }`,
+        `${newVal.department_name || ""} ${
+          newVal.description ? `(${newVal.description})` : ""
+        }`,
         log.action_performed_by ?? "",
         log.approve_status ?? "",
         log.date_time_ist ? new Date(log.date_time_ist).toLocaleString() : "",
@@ -165,7 +172,8 @@ const DepartmentMasterTable: React.FC = () => {
         const oldVal = log.old_value ? JSON.parse(log.old_value) : {};
         const newVal = log.new_value ? JSON.parse(log.new_value) : {};
         return (
-          oldVal.department_name === departmentName || newVal.department_name === departmentName
+          oldVal.department_name === departmentName ||
+          newVal.department_name === departmentName
         );
       } catch {
         return false;
@@ -368,7 +376,9 @@ const DepartmentMasterTable: React.FC = () => {
                         e.stopPropagation();
                         setActivityDepartment({
                           name: department.name ?? "",
-                          logs: getDepartmentActivityLogs(department.name ?? ""),
+                          logs: getDepartmentActivityLogs(
+                            department.name ?? ""
+                          ),
                         });
                         setApproverFilter("");
                         setShowActivityModal(true);
@@ -469,8 +479,10 @@ const DepartmentMasterTable: React.FC = () => {
               }}
             >
               <span>
-                Department: {" "}
-                <span style={{ color: "#0b63ce" }}>{activityDepartment.name}</span>
+                Department:{" "}
+                <span style={{ color: "#0b63ce" }}>
+                  {activityDepartment.name}
+                </span>
               </span>
             </div>
             <div style={{ marginBottom: 10 }}>
@@ -511,43 +523,49 @@ const DepartmentMasterTable: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {(activityDepartment.logs || []).map((log: any, i: number) => {
-                    let oldVal: any = {};
-                    let newVal: any = {};
-                    try {
-                      oldVal = log.old_value ? JSON.parse(log.old_value) : {};
-                      newVal = log.new_value ? JSON.parse(log.new_value) : {};
-                    } catch {}
-                    if (
-                      approverFilter &&
-                      !(
-                        (log.action_performed_by ?? "")
+                  {(activityDepartment.logs || []).map(
+                    (log: any, i: number) => {
+                      let oldVal: any = {};
+                      let newVal: any = {};
+                      try {
+                        oldVal = log.old_value ? JSON.parse(log.old_value) : {};
+                        newVal = log.new_value ? JSON.parse(log.new_value) : {};
+                      } catch {}
+                      if (
+                        approverFilter &&
+                        !(log.action_performed_by ?? "")
                           .toLowerCase()
                           .includes(approverFilter.toLowerCase())
-                      )
-                    ) {
-                      return null;
+                      ) {
+                        return null;
+                      }
+                      return (
+                        <tr key={i}>
+                          <td>{log.action}</td>
+                          <td>
+                            {oldVal.department_name || ""}{" "}
+                            {oldVal.description
+                              ? `(${oldVal.description})`
+                              : ""}
+                          </td>
+                          <td>
+                            {newVal.department_name || ""}{" "}
+                            {newVal.description
+                              ? `(${newVal.description})`
+                              : ""}
+                          </td>
+                          <td>{log.action_performed_by ?? ""}</td>
+                          <td>{log.approve_status ?? ""}</td>
+                          <td>
+                            {log.date_time_ist
+                              ? new Date(log.date_time_ist).toLocaleString()
+                              : ""}
+                          </td>
+                          <td>{log.comments ?? ""}</td>
+                        </tr>
+                      );
                     }
-                    return (
-                      <tr key={i}>
-                        <td>{log.action}</td>
-                        <td>
-                          {oldVal.department_name || ""} {oldVal.description ? `(${oldVal.description})` : ""}
-                        </td>
-                        <td>
-                          {newVal.department_name || ""} {newVal.description ? `(${newVal.description})` : ""}
-                        </td>
-                        <td>{log.action_performed_by ?? ""}</td>
-                        <td>{log.approve_status ?? ""}</td>
-                        <td>
-                          {log.date_time_ist
-                            ? new Date(log.date_time_ist).toLocaleString()
-                            : ""}
-                        </td>
-                        <td>{log.comments ?? ""}</td>
-                      </tr>
-                    );
-                  })}
+                  )}
                 </tbody>
               </table>
             </div>

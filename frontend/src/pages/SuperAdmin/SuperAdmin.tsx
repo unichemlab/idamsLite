@@ -78,7 +78,7 @@ const SuperAdmin: React.FC = () => {
     },
     {
       key: "department",
-      label: "Department ",
+      label: "Department Master",
       icon: <SecurityIcon fontSize="small" />,
       perm: "department:view",
     },
@@ -364,11 +364,6 @@ const DashboardView = ({ handleLogout }: { handleLogout: () => void }) => {
             sub="All active"
           />
         </div>
-                return (
-                  <div>
-                    <DepartmentMasterTable />
-                  </div>
-                );
         <div className={styles["dashboard-bottom"]}>
           <div className={styles["chart-section"]}>
             <h3>System Status Distribution</h3>
