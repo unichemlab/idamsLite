@@ -66,7 +66,6 @@ const Login: React.FC = () => {
             onSubmit={handleSubmit}
             aria-label="Login form"
           >
-            <div className={styles.loginTitle}>Login</div>
             <div className={styles.inputGroup}>
               <label htmlFor="username" className={styles.inputLabel}>
                 Username
