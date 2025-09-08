@@ -17,6 +17,7 @@ import GroupIcon from "@mui/icons-material/Group";
 import SyncIcon from "@mui/icons-material/Sync";
 import DonutChart from "../../components/Common/DonutChart";
 import PlantMasterTable from "pages/PlantMasterTable/PlantMasterTable";
+import DepartmentMasterTable from "pages/DepartmentMasterTable/DepartmentMasterTable";
 import VendorMasterTable from "pages/VendorMasterTable/VendorMasterTable";
 import RoleMasterTable from "pages/RoleMasterTable/RoleMasterTable";
 import UserMasterTable from "pages/UserMasterTable/UserMasterTable";
@@ -72,15 +73,21 @@ const SuperAdmin: React.FC = () => {
     },
     {
       key: "role",
-      label: "Role Masterr",
+      label: "Role Master",
       icon: <SecurityIcon fontSize="small" />,
       perm: "roleMaster:view",
     },
     {
       key: "vendor",
-      label: "Vendor Master",
+      label: "Vendor Information",
       icon: <ListAltIcon fontSize="small" />,
       perm: "vendorMaster:view",
+    },
+    {
+      key: "department",
+      label: "Department ",
+      icon: <SecurityIcon fontSize="small" />,
+      perm: "department:view",
     },
     {
       key: "application",
@@ -129,6 +136,12 @@ const SuperAdmin: React.FC = () => {
         return (
           <div>
             <VendorMasterTable />
+          </div>
+        );
+      case "department":
+        return (
+          <div>
+            <DepartmentMasterTable />
           </div>
         );
       case "application":
@@ -314,7 +327,11 @@ const DashboardView = ({ handleLogout }: { handleLogout: () => void }) => {
             sub="All active"
           />
         </div>
-
+                return (
+                  <div>
+                    <DepartmentMasterTable />
+                  </div>
+                );
         <div className={styles["dashboard-bottom"]}>
           <div className={styles["chart-section"]}>
             <h3>System Status Distribution</h3>

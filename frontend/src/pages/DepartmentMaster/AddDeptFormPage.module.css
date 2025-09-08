@@ -1,0 +1,187 @@
+.headerBarEnrich {
+  background: linear-gradient(90deg, #2563eb 60%, #1a61d1 100%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.1);
+  padding: 18px 32px 18px 32px;
+  margin-bottom: 0;
+  min-height: 80px;
+}
+.logoSpan {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.companyName {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 8px rgba(40, 70, 120, 0.1);
+}
+.plantImageSpan {
+  display: flex;
+  align-items: center;
+  margin-left: 18px;
+}
+.plantImage {
+  height: 48px;
+  width: auto;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+}
+.headerTitleEnrich {
+  font-size: 1.7rem;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  margin-left: 32px;
+}
+/* Header bar styles for Add/Edit Plant page (shared) */
+.headerBar {
+  background: linear-gradient(90deg, #2563eb 60%, #1a61d1 100%);
+  padding: 18px 32px;
+  display: flex;
+  align-items: center;
+  border-radius: 16px 16px 0 0;
+  margin-bottom: 0;
+}
+.logo {
+  height: 38px;
+  margin-right: 18px;
+}
+.headerTitle {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+}
+.pageContainer {
+  width: 100vw;
+  max-width: 1200px;
+  min-height: 90vh;
+  margin: 40px auto;
+  padding: 0 0 36px 0;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 0 32px rgba(40, 70, 120, 0.12);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+/* Header bar styles for Add/Edit Plant page */
+.headerBar {
+  background: linear-gradient(90deg, #2563eb 60%, #1a61d1 100%);
+  padding: 18px 32px;
+  display: flex;
+  align-items: center;
+  border-radius: 16px 16px 0 0;
+  margin-bottom: 0;
+}
+.logo {
+  height: 38px;
+  margin-right: 18px;
+}
+.headerTitle {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+}
+.pageContainer {
+  width: 100vw;
+  max-width: 1200px;
+  min-height: 90vh;
+  margin: 40px auto;
+  padding: 0 0 36px 0;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 0 32px rgba(40, 70, 120, 0.12);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+.container {
+  background: linear-gradient(120deg, #f6faff 0%, #eef4ff 100%);
+  border-radius: 18px;
+  box-shadow: 0 8px 32px rgba(37, 99, 235, 0.14);
+  padding: 32px 20px;
+  max-width: 1250px;
+  margin: 32px auto;
+  font-family: "Inter", "Segoe UI", Arial, sans-serif;
+  min-height: 75vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.input,
+.select {
+  padding: 10px 12px;
+  border-radius: 8px;
+
+  font-size: 1rem;
+  margin-top: 20px;
+}
+
+.buttonRow {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.saveBtn {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 24px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.saveBtn:hover {
+  background: #1e40af;
+}
+
+.cancelBtn {
+  background: #f3f4f6;
+  color: #374151;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 24px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.cancelBtn:hover {
+  background: #e5e7eb;
+}
+
+.inactive {
+  background-color: #d1f1d4;
+  color: #e11d48;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.statusInactive {
+  background-color: #ffeaea;
+  color: #e11d48;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+}

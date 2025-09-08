@@ -24,6 +24,10 @@ import PlantMasterTable from "../pages/PlantMasterTable/PlantMasterTable";
 import AddPlantMaster from "../pages/PlantMaster/AddPlantMaster";
 import EditPlantMaster from "../pages/PlantMaster/EditPlantMaster";
 import ProtectedRoute from "../components/Common/ProtectedRoute";
+import DepartmentMasterTable from "pages/DepartmentMasterTable/DepartmentMasterTable";
+import DepartmentTable from "pages/DepartmentTable/DepartmentTable";
+import AddDeptFormPage from "pages/DepartmentMaster/AddDeptFormPage";
+import EditDeptFormPage from "pages/DepartmentMaster/EditDeptFormPage";
 
 // List of allowed routes for matching
 const allowedRoutes = [
@@ -43,6 +47,10 @@ const allowedRoutes = [
   "/plants",
   "/plants/add",
   "/plants/edit/:id",
+  "/departments",
+  "/departments/add",
+  "/departments/edit/:id",
+  "/department-table",
   "/roles",
   "/add-role",
   "/edit-role/:idx",
@@ -213,6 +221,18 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
+
+      {/*Department Master */}
+      
+
+       {/* Department (important) */}
+      <Route path="/departments" element={<ProtectedRoute><DepartmentMasterTable /></ProtectedRoute>} />
+      <Route path="/departments/add" element={<ProtectedRoute><AddDeptFormPage /></ProtectedRoute>} />
+      <Route path="/departments/edit/:id" element={<ProtectedRoute><EditDeptFormPage /></ProtectedRoute>} />
+      <Route path="/department-table" element={<ProtectedRoute><DepartmentTable /></ProtectedRoute>} />
+
+
 
       {/* Role Master */}
       <Route

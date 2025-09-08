@@ -1,7 +1,7 @@
 import React from "react";
 import "./App.module.css";
 import { BrowserRouter } from "react-router-dom";
-
+import { DepartmentProvider} from "pages/DepartmentMaster/DepartmentContext";
 import { FormProvider } from "./context/FormContext";
 import { AuthProvider } from "./context/AuthContext";
 import { RolesProvider } from "./RoleMaster/RolesContext";
@@ -23,6 +23,7 @@ const App: React.FC = () => {
         <PlantProvider>
           <FormProvider>
             <RolesProvider>
+              <DepartmentProvider>
               <UserProvider>
                 <ApplicationsProvider>
                   <VendorProvider>
@@ -37,6 +38,7 @@ const App: React.FC = () => {
                   </VendorProvider>
                 </ApplicationsProvider>
               </UserProvider>
+              </DepartmentProvider>
             </RolesProvider>
           </FormProvider>
         </PlantProvider>
