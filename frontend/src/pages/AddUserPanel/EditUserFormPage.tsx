@@ -10,9 +10,10 @@ const EditUserFormPage: React.FC = () => {
   const { editUser } = useUserContext();
   const userData: UserForm | null = location.state?.userData || null;
   const userIdx: number | null = location.state?.userIdx ?? null;
-  const handleSave = (user: UserForm) => {
-    if (typeof userIdx === "number") {
-      editUser(userIdx, user);
+  const handleSave = async (user: UserForm) => {
+    if (typeof userIdx === "number" && userData && userData.empCode) {
+      // Use empCode as userId for backend (adjust if you use another unique id)
+      await editUser(userData.empCode, user);
     }
     navigate("/superadmin", { state: { activeTab: "user" } });
   };

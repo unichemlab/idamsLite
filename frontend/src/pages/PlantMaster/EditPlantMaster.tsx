@@ -6,7 +6,7 @@ import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
 import addStyles from "./AddPlantMaster.module.css";
 
 const EditPlantMaster: React.FC = () => {
-  const { id } = useParams(); // index from route
+  const { id } = useParams();
   const plantCtx = useContext(PlantContext);
   const navigate = useNavigate();
   const index = id ? parseInt(id, 10) : -1;
@@ -21,22 +21,6 @@ const EditPlantMaster: React.FC = () => {
   );
 
   if (!plantCtx || id === undefined || !plant) return null;
-
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target;
-    setForm({
-      ...form,
-      [name]: name === "status" ? (value as "ACTIVE" | "INACTIVE") : value,
-    });
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    plantCtx.updatePlant(index, form);
-    navigate("/superadmin");
-  };
 
   // Sidebar config (copied from SuperAdmin)
   const sidebarConfig = [
@@ -78,8 +62,25 @@ const EditPlantMaster: React.FC = () => {
     }
   };
 
-  // Determine active sidebar tab (always "plant" for Add/Edit)
   const activeTab = "plant";
+
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
+  ) => {
+    const { name, value } = e.target;
+    setForm({
+      ...form,
+      [name]: name === "status" ? (value as "ACTIVE" | "INACTIVE") : value,
+    });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    plantCtx.updatePlant(index, form);
+    navigate("/superadmin");
+  };
 
   return (
     <div className={superAdminStyles["main-container"]}>
@@ -145,9 +146,31 @@ const EditPlantMaster: React.FC = () => {
             fontWeight: 500,
             borderRadius: "0 0 12px 12px",
             marginBottom: 0,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
           }}
         >
-          Plant Master &gt; Edit Plant
+          <span
+            style={{
+              color: "#0b63ce",
+              cursor: "pointer",
+              opacity: 0.7,
+              transition: "color 0.2s",
+            }}
+            onClick={() =>
+              navigate("/superadmin", { state: { activeTab: "plant" } })
+            }
+            onMouseOver={(e) => (e.currentTarget.style.color = "#084a9e")}
+            onMouseOut={(e) => (e.currentTarget.style.color = "#0b63ce")}
+            tabIndex={0}
+            role="button"
+            aria-label="Go to Plant Master table"
+          >
+            Plant Master
+          </span>
+          <span>&gt;</span>
+          <span style={{ color: "#2d3748" }}>Edit Plant</span>
         </div>
 
         {/* Container for Edit Form */}
@@ -157,61 +180,63 @@ const EditPlantMaster: React.FC = () => {
             className={addStyles.form}
             style={{ width: "100%" }}
           >
-            <div
-              style={{
-                display: "flex",
-                gap: 32,
-                marginBottom: 32,
-                flexWrap: "wrap",
-                justifyContent: "space-between",
-                padding: "40px",
-              }}
-            >
-              <div style={{ flex: 1, minWidth: 180 }}>
-                <label>Plant Name</label>
-                <input
-                  name="name"
-                  value={form.name}
-                  onChange={handleChange}
-                  required
-                />
+            <div className={addStyles.scrollFormContainer}>
+              <div className={addStyles.rowFields}>
+                <div className={addStyles.formGroup}>
+                  <label>Plant Name</label>
+                  <input
+                    name="name"
+                    value={form.name}
+                    onChange={handleChange}
+                    required
+                    className={addStyles.input}
+                  />
+                </div>
+                <div className={addStyles.formGroup}>
+                  <label>Location</label>
+                  <input
+                    name="location"
+                    value={form.location}
+                    onChange={handleChange}
+                    required
+                    className={addStyles.input}
+                  />
+                </div>
+                <div className={addStyles.formGroup}>
+                  <label>Status</label>
+                  <select
+                    className={addStyles.select}
+                    name="status"
+                    value={form.status}
+                    onChange={handleChange}
+                  >
+                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="INACTIVE">INACTIVE</option>
+                  </select>
+                </div>
               </div>
-              <div style={{ flex: 1, minWidth: 180 }}>
+              <div
+                className={addStyles.formGroup}
+                style={{ width: "100%", marginTop: 18 }}
+              >
                 <label>Description</label>
-                <input
+                <textarea
                   name="description"
                   value={form.description}
                   onChange={handleChange}
                   required
+                  className={addStyles.textarea}
+                  rows={5}
+                  style={{ minHeight: 100, resize: "vertical", width: "100%" }}
+                  placeholder="Enter description..."
                 />
-              </div>
-              <div style={{ flex: 1, minWidth: 180 }}>
-                <label>Location</label>
-                <input
-                  name="location"
-                  value={form.location}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-              <div style={{ flex: 1, minWidth: 180 }}>
-                <label>Status</label>
-                <select
-                  name="status"
-                  value={form.status}
-                  onChange={handleChange}
-                  style={{ width: "100%" }}
-                >
-                  <option value="ACTIVE">ACTIVE</option>
-                  <option value="INACTIVE">INACTIVE</option>
-                </select>
               </div>
             </div>
             <div
               className={addStyles.buttonRow}
               style={{
                 display: "flex",
-                justifyContent: "center",
+                justifyContent: "flex-start",
                 gap: 24,
                 marginTop: 24,
               }}

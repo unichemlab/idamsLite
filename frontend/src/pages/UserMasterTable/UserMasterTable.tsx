@@ -324,7 +324,7 @@ const UserMasterTable = () => {
                       <td>{user.empCode}</td>
                       <td>{user.department}</td>
                       <td>
-                        {user.plants.map((plant: string, i: number) => (
+                        {(user.plants || []).map((plant: string, i: number) => (
                           <span key={i} className={styles.plantBadge}>
                             {plant}
                           </span>

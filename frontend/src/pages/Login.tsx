@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import loginHeadTitle from "../assets/login_headTitle.png";
 import styles from "./Login.module.css";
-import { useNavigate } from "react-router-dom";
-import { mockUsers } from "../data/mockUsers";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 // Logo heading with centered image and improved design
 const LogoHeading = () => (
@@ -26,44 +26,38 @@ const LogoHeading = () => (
 const Login: React.FC = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login, error, loading, user } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Find user in mockUsers
-    const foundUser = mockUsers.find(
-      (u) => u.username === username && u.password === password
-    );
-    if (foundUser) {
-      // Store user info in localStorage if needed
-      localStorage.setItem("role", foundUser.role);
-      localStorage.setItem("username", foundUser.username);
-      localStorage.setItem("token", "true");
-      // Ensure localStorage is set before navigating
-      setTimeout(() => {
-        if (foundUser.role === "plantAdmin") {
-          navigate("/superadmin");
-        } else {
-          switch (foundUser.role) {
-            case "superAdmin":
-              navigate("/superadmin");
-              break;
-            case "approver":
-              navigate("/approver");
-              break;
-            case "user":
-              navigate("/user-information");
-              break;
-            default:
-              navigate("/");
-          }
-        }
-      }, 0);
-    } else {
-      setError("Invalid credentials");
-    }
+    await login(username, password);
   };
+
+  React.useEffect(() => {
+    console.log("[Login] useEffect user:", user);
+    if (user && user.status === "ACTIVE") {
+      let target = "/";
+      switch (user.role_id) {
+        case 1:
+          target = "/superadmin";
+          break;
+        case 2:
+          target = "/plantadmin";
+          break;
+        case 3:
+          target = "/qamanager";
+          break;
+        default:
+          target = "/";
+      }
+      if (location.pathname !== target) {
+        console.log("[Login] Redirecting to:", target);
+        navigate(target, { replace: true });
+      }
+    }
+  }, [user, navigate, location.pathname]);
 
   return (
     <div className={styles.loginBackground}>
@@ -75,7 +69,6 @@ const Login: React.FC = () => {
             onSubmit={handleSubmit}
             aria-label="Login form"
           >
-            <div className={styles.loginTitle}>Login</div>
             <div className={styles.inputGroup}>
               <label htmlFor="username" className={styles.inputLabel}>
                 Username
@@ -110,6 +103,11 @@ const Login: React.FC = () => {
             {error && (
               <div className={styles.error} role="alert">
                 {error}
+              </div>
+            )}
+            {loading && (
+              <div className={styles.error} role="status">
+                Logging in...
               </div>
             )}
             <button
