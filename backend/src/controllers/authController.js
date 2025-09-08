@@ -74,7 +74,7 @@ exports.login = async (req, res) => {
     res.json({
       token,
       user: {
-        user_id: user.user_id,
+        id: user.id || user.user_id, // Ensure 'id' is present for frontend
         username: user.username,
         role_id: user.role_id,
         status: user.status,

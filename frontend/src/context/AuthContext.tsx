@@ -1,10 +1,4 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  ReactNode,
-} from "react";
+import React, { createContext, useContext, useState, ReactNode } from "react";
 
 export interface AuthUser {
   id: number;
@@ -31,13 +25,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Try to load user from localStorage on mount
-    const stored = localStorage.getItem("authUser");
-    if (stored) {
-      setUser(JSON.parse(stored));
-    }
-  }, []);
+  // No localStorage: user state is only in React context
+  // useEffect not needed for localStorage
 
   const login = async (username: string, password: string) => {
     setLoading(true);
@@ -53,12 +42,57 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw new Error(data.error || "Login failed");
       }
       const data = await res.json();
-      const authUser: AuthUser = { ...data.user, token: data.token };
+      // Validate backend response
+      if (!data.user || !data.token) {
+        throw new Error("Invalid login response: missing user or token");
+      }
+      // Map backend user fields to frontend AuthUser interface
+      const roleMap: Record<string, number> = {
+        superAdmin: 1,
+        plantAdmin: 2,
+        approver: 3,
+        user: 4,
+        vendor: 5,
+      };
+      let role_id = data.user.role_id;
+      if (typeof role_id !== "number" && typeof data.user.role === "string") {
+        role_id = roleMap[data.user.role] || 0;
+      }
+      let status = data.user.status;
+      if (typeof status === "string" && status.toLowerCase() === "active") {
+        status = "ACTIVE";
+      }
+
+      // Try to get user id from multiple possible fields
+      const userId =
+        (typeof data.user.user_id === "number" && data.user.user_id) ||
+        (typeof data.user.id === "number" && data.user.id) ||
+        null;
+
+      // Validate required fields before constructing user
+      if (
+        !userId ||
+        !data.user.username ||
+        !role_id ||
+        !status ||
+        !data.token
+      ) {
+        setError("Login failed: invalid user data returned from server");
+        setUser(null);
+        return;
+      }
+
+      const authUser: AuthUser = {
+        id: userId,
+        username: data.user.username,
+        name: data.user.full_name ?? data.user.name ?? "",
+        email: data.user.email ?? "",
+        role_id,
+        status,
+        token: data.token,
+      };
       setUser(authUser);
-      localStorage.setItem("authUser", JSON.stringify(authUser));
-    } catch (err: any) {
-      setError(err.message || "Login failed");
-      setUser(null);
+      console.log("[AuthContext] User set after login:", authUser);
     } finally {
       setLoading(false);
     }
@@ -66,7 +100,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem("authUser");
   };
 
   return (

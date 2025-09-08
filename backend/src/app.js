@@ -11,7 +11,12 @@ const swaggerRoutes = require("./routes/swagger");
 
 const app = express();
 
-app.use(cors());
+app.use(
+  cors({
+    origin: "http://localhost:3000", // Change to your frontend URL if different
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 app.use("/api/plants", plantRoutes);

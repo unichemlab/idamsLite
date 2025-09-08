@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import loginHeadTitle from "../assets/login_headTitle.png";
 import styles from "./Login.module.css";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 // Logo heading with centered image and improved design
@@ -27,6 +27,7 @@ const Login: React.FC = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
   const { login, error, loading, user } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -35,26 +36,28 @@ const Login: React.FC = () => {
   };
 
   React.useEffect(() => {
-    if (user) {
-      // Redirect based on role_id or status (customize as needed)
-      if (user.status === "ACTIVE") {
-        // Example: role_id 1 = superadmin, 2 = plantadmin, etc.
-        switch (user.role_id) {
-          case 1:
-            navigate("/superadmin");
-            break;
-          case 2:
-            navigate("/plantadmin");
-            break;
-          case 3:
-            navigate("/qamanager");
-            break;
-          default:
-            navigate("/");
-        }
+    console.log("[Login] useEffect user:", user);
+    if (user && user.status === "ACTIVE") {
+      let target = "/";
+      switch (user.role_id) {
+        case 1:
+          target = "/superadmin";
+          break;
+        case 2:
+          target = "/plantadmin";
+          break;
+        case 3:
+          target = "/qamanager";
+          break;
+        default:
+          target = "/";
+      }
+      if (location.pathname !== target) {
+        console.log("[Login] Redirecting to:", target);
+        navigate(target, { replace: true });
       }
     }
-  }, [user, navigate]);
+  }, [user, navigate, location.pathname]);
 
   return (
     <div className={styles.loginBackground}>
