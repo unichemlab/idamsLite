@@ -148,7 +148,7 @@ const AddPlantMaster: React.FC = () => {
             style={{
               color: "#0b63ce",
               cursor: "pointer",
-              textDecoration: "underline",
+              opacity: 0.7,
               transition: "color 0.2s",
             }}
             onClick={() =>
