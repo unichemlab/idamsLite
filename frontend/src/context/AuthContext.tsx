@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  ReactNode,
+  useEffect,
+} from "react";
 
 export interface AuthUser {
   id: number;
@@ -22,11 +28,18 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // true until localStorage check is done
   const [error, setError] = useState<string | null>(null);
 
-  // No localStorage: user state is only in React context
-  // useEffect not needed for localStorage
+  // Restore user from localStorage on app load for persistent login
+  useEffect(() => {
+    const stored = localStorage.getItem("authUser");
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      setUser(parsed);
+    }
+    setLoading(false);
+  }, []);
 
   const login = async (username: string, password: string) => {
     setLoading(true);
@@ -92,6 +105,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         token: data.token,
       };
       setUser(authUser);
+      localStorage.setItem("authUser", JSON.stringify(authUser));
+      localStorage.setItem("token", authUser.token);
       console.log("[AuthContext] User set after login:", authUser);
     } finally {
       setLoading(false);
@@ -100,8 +115,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = () => {
     setUser(null);
+    localStorage.removeItem("authUser");
+    localStorage.removeItem("token");
   };
 
+  if (loading) {
+    // Optionally, show a spinner or blank screen
+    return null;
+  }
   return (
     <AuthContext.Provider value={{ user, login, logout, loading, error }}>
       {children}
