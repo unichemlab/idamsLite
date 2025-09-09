@@ -2,10 +2,16 @@ import React, { useState } from "react";
 import ConfirmLoginModal from "../components/Common/ConfirmLoginModal";
 import styles from "../RoleMaster/AddRoleFormPage.module.css";
 import { useNavigate } from "react-router-dom";
+import { useRoles } from "../RoleMaster/RolesContext";
 import type { Role } from "../RoleMaster/RolesContext";
 
-export default function AddRoleFormPage() {
+interface AddRoleFormPageProps {
+  onCancel?: () => void;
+}
+
+export default function AddRoleFormPage({ onCancel }: AddRoleFormPageProps) {
   const navigate = useNavigate();
+  const { addRole } = useRoles();
 
   const [form, setForm] = useState<Omit<Role, "activityLogs">>({
     name: "",
@@ -32,16 +38,27 @@ export default function AddRoleFormPage() {
   // Called after admin confirms
   const handleConfirmLogin = (data: Record<string, string>) => {
     if (data.username === username && data.password) {
-      setShowModal(false);
-      navigate("/superadmin", { state: { activeTab: "role" } });
+      addRole({
+        name: form.name,
+        description: form.description,
+        status: form.status,
+      }).then(() => {
+        setShowModal(false);
+        navigate("/superadmin", { state: { activeTab: "role" } });
+      });
     } else {
       alert("Invalid credentials. Please try again.");
     }
   };
 
   // Update cancel to go back to SuperAdmin with sidebar selected
-  const handleCancel = () =>
-    navigate("/superadmin", { state: { activeTab: "role" } });
+  const handleCancel = () => {
+    if (onCancel) {
+      onCancel();
+    } else {
+      navigate("/superadmin", { state: { activeTab: "role" } });
+    }
+  };
 
   return (
     <div

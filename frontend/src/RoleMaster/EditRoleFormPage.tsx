@@ -1,14 +1,19 @@
+
 import React, { useState, useEffect } from "react";
 import ConfirmLoginModal from "../components/Common/ConfirmLoginModal";
 import styles from "../RoleMaster/AddRoleFormPage.module.css";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useRoles, RoleActivityLog } from "../RoleMaster/RolesContext";
 import type { Role } from "../RoleMaster/RolesContext";
 
-export default function EditRoleFormPage() {
-  const { roles } = useRoles();
+interface EditRoleFormPageProps {
+  roleId: number;
+  onCancel?: () => void;
+}
+
+export default function EditRoleFormPage({ roleId, onCancel }: EditRoleFormPageProps) {
+  const { roles, updateRole } = useRoles();
   const navigate = useNavigate();
-  const { idx } = useParams<{ idx: string }>();
 
   const [form, setForm] = useState<Omit<Role, "activityLogs">>({
     name: "",
@@ -19,16 +24,18 @@ export default function EditRoleFormPage() {
   const [activityLogs, setActivityLogs] = useState<RoleActivityLog[]>([]);
 
   useEffect(() => {
-    if (idx && roles[parseInt(idx)]) {
-      const role = roles[parseInt(idx)];
-      setForm({
-        name: role.name,
-        description: role.description,
-        status: role.status,
-      });
-      setActivityLogs(role.activityLogs || []);
+    if (roleId !== undefined && roles) {
+      const role = roles.find((r) => r.id === roleId);
+      if (role) {
+        setForm({
+          name: role.name,
+          description: role.description,
+          status: role.status,
+        });
+        setActivityLogs(role.activityLogs || []);
+      }
     }
-  }, [idx, roles]);
+  }, [roleId, roles]);
 
   const handleFormChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -48,32 +55,31 @@ export default function EditRoleFormPage() {
 
   // Called after admin confirms
   const handleConfirmLogin = (data: Record<string, string>) => {
-    if (data.username === username && data.password && idx !== undefined) {
-      const updated = [...roles];
-      updated[parseInt(idx)] = {
-        ...form,
-        activityLogs: [
-          ...activityLogs,
-          {
-            action: "Edit",
-            oldValue: "-",
-            newValue: `Role: ${form.name}`,
-            approver: username,
-            dateTime: new Date().toISOString(),
-            // reason field removed (no comment)
-          },
-        ],
-      };
-
-      setShowModal(false);
-      navigate("/superadmin", { state: { activeTab: "role" } });
+    if (data.username === username && data.password && roleId !== undefined) {
+      updateRole(roleId, {
+        name: form.name,
+        description: form.description,
+        status: form.status,
+      }).then(() => {
+        setShowModal(false);
+        if (onCancel) {
+          onCancel();
+        } else {
+          navigate("/superadmin", { state: { activeTab: "role" } });
+        }
+      });
     } else {
       alert("Invalid credentials. Please try again.");
     }
   };
 
-  const handleCancel = () =>
-    navigate("/superadmin", { state: { activeTab: "role" } });
+  const handleCancel = () => {
+    if (onCancel) {
+      onCancel();
+    } else {
+      navigate("/superadmin", { state: { activeTab: "role" } });
+    }
+  };
 
   return (
     <div

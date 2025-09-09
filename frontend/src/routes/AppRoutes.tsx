@@ -1,4 +1,7 @@
-import { Routes, Route, useLocation } from "react-router-dom";
+// ...imports...
+// (All import statements remain at the top)
+import React from "react";
+import { Routes, Route, useLocation, useParams } from "react-router-dom";
 import UserInformation from "../pages/UserInformation/UserInformation";
 import AccessDetails from "../pages/AccessDetails/AccessDetails";
 import ReviewSubmit from "../pages/ReviewSubmit/ReviewSubmit";
@@ -28,7 +31,6 @@ import DepartmentMasterTable from "pages/DepartmentMasterTable/DepartmentMasterT
 import DepartmentTable from "pages/DepartmentTable/DepartmentTable";
 import AddDeptFormPage from "pages/DepartmentMaster/AddDeptFormPage";
 import EditDeptFormPage from "pages/DepartmentMaster/EditDeptFormPage";
-
 // List of allowed routes for matching
 const allowedRoutes = [
   "/", // login
@@ -42,7 +44,6 @@ const allowedRoutes = [
   "/generate-credentials",
   "/track-request",
   "/approver",
-  "/access-request/:id",
   "/superadmin",
   "/plants",
   "/plants/add",
@@ -52,8 +53,8 @@ const allowedRoutes = [
   "/departments/edit/:id",
   "/department-table",
   "/roles",
-  "/add-role",
-  "/edit-role/:idx",
+  "/roles/add",
+  "/roles/edit/:id",
   "/application-master",
   "/add-application",
   "/edit-application/:idx",
@@ -90,6 +91,14 @@ function AppRoutes() {
   if (!isAllowed) {
     return <NotFound />;
   }
+
+
+
+// Wrapper to use useParams correctly
+function EditRoleFormPageWrapper() {
+  const params = useParams();
+  return <EditRoleFormPage roleId={Number(params.id)} />;
+}
 
   return (
     <Routes>
@@ -223,14 +232,39 @@ function AppRoutes() {
       />
 
 
-      {/*Department Master */}
-      
-
-       {/* Department (important) */}
-      <Route path="/departments" element={<ProtectedRoute><DepartmentMasterTable /></ProtectedRoute>} />
-      <Route path="/departments/add" element={<ProtectedRoute><AddDeptFormPage /></ProtectedRoute>} />
-      <Route path="/departments/edit/:id" element={<ProtectedRoute><EditDeptFormPage /></ProtectedRoute>} />
-      <Route path="/department-table" element={<ProtectedRoute><DepartmentTable /></ProtectedRoute>} />
+      {/* Department Master */}
+      <Route
+        path="/departments"
+        element={
+          <ProtectedRoute>
+            <DepartmentMasterTable />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/departments/add"
+        element={
+          <ProtectedRoute>
+            <AddDeptFormPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/departments/edit/:id"
+        element={
+          <ProtectedRoute>
+            <EditDeptFormPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/department-table"
+        element={
+          <ProtectedRoute>
+            <DepartmentTable />
+          </ProtectedRoute>
+        }
+      />
 
 
 
@@ -243,22 +277,26 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
       <Route
-        path="/add-role"
+        path="/roles/add"
         element={
           <ProtectedRoute>
             <AddRoleFormPage />
           </ProtectedRoute>
         }
       />
+
       <Route
-        path="/edit-role/:idx"
+        path="/roles/edit/:id"
         element={
           <ProtectedRoute>
-            <EditRoleFormPage />
+            <EditRoleFormPageWrapper />
           </ProtectedRoute>
         }
       />
+
+// (Removed duplicate EditRoleFormPageWrapper function definition)
 
       {/* Application Master */}
       <Route
