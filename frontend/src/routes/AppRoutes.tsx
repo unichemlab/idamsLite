@@ -295,9 +295,7 @@ function EditRoleFormPageWrapper() {
           </ProtectedRoute>
         }
       />
-
-// (Removed duplicate EditRoleFormPageWrapper function definition)
-
+    
       {/* Application Master */}
       <Route
         path="/application-master"

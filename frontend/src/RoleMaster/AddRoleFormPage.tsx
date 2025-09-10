@@ -4,6 +4,7 @@ import styles from "../RoleMaster/AddRoleFormPage.module.css";
 import { useNavigate } from "react-router-dom";
 import { useRoles } from "../RoleMaster/RolesContext";
 import type { Role } from "../RoleMaster/RolesContext";
+import superAdminStyles from "../pages/SuperAdmin/SuperAdmin.module.css";
 
 interface AddRoleFormPageProps {
   onCancel?: () => void;
@@ -61,24 +62,56 @@ export default function AddRoleFormPage({ onCancel }: AddRoleFormPageProps) {
   };
 
   return (
-    <div
-      style={{
-        width: "100vw",
-        maxWidth: 1200,
-        minHeight: "90vh",
-        margin: "40px auto",
-        padding: 36,
-        background: "#fff",
-        borderRadius: 16,
-        boxShadow: "0 0 32px rgba(40,70,120,.12)",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-      }}
-    >
-      <h2 style={{ marginBottom: 32, color: "#2563eb", textAlign: "center" }}>
-        Add Role
-      </h2>
+    <div className={superAdminStyles["main-container"]}  style = {{width: "100vw"}}>
+      {/* Sidebar */}
+      
+    <main className={superAdminStyles["main-content"]}>
+     <header className={superAdminStyles["main-header"]}>
+          <h2 className={superAdminStyles["header-title"]}>Role Master</h2>
+          <div className={superAdminStyles["header-icons"]}></div>
+        </header>
+
+        {/* Breadcrumb */}
+        <div
+          style={{
+            background: "#eef4ff",
+            padding: "12px 24px",
+            fontSize: "1.05rem",
+            color: "#2d3748",
+            fontWeight: 500,
+            borderRadius: "0 0 12px 12px",
+            marginBottom: 0,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          <span
+            style={{
+              color: "#0b63ce",
+              cursor: "pointer",
+              opacity: 0.7,
+              transition: "color 0.2s",
+            }}
+            onClick={() =>
+              navigate("/superadmin", { state: { activeTab: "role" } })
+            }
+            onMouseOver={(e) => (e.currentTarget.style.color = "#084a9e")}
+            onMouseOut={(e) => (e.currentTarget.style.color = "#0b63ce")}
+            tabIndex={0}
+            role="button"
+            aria-label="Go Role Master table"
+          >
+            Role Master
+          </span>
+          <span>&gt;</span>
+          <span style={{ color: "#2d3748" }}>Add Role</span>
+        </div>
+
+   <div
+     className={styles.container}
+    >
+     
       <form
         className={styles.roleForm}
         onSubmit={handleSubmit}
@@ -154,6 +187,8 @@ export default function AddRoleFormPage({ onCancel }: AddRoleFormPageProps) {
           onCancel={() => setShowModal(false)}
         />
       )}
+    </div>
+    </main>
     </div>
   );
 }

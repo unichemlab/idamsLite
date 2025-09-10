@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import ConfirmLoginModal from "../components/Common/ConfirmLoginModal";
 import styles from "../RoleMaster/AddRoleFormPage.module.css";
 import { useNavigate } from "react-router-dom";
-import { useRoles, RoleActivityLog } from "../RoleMaster/RolesContext";
+import { useRoles } from "../RoleMaster/RolesContext";
 import type { Role } from "../RoleMaster/RolesContext";
 
 interface EditRoleFormPageProps {
@@ -21,7 +21,7 @@ export default function EditRoleFormPage({ roleId, onCancel }: EditRoleFormPageP
     status: "ACTIVE",
   });
 
-  const [activityLogs, setActivityLogs] = useState<RoleActivityLog[]>([]);
+  // Removed unused activityLogs state
 
   useEffect(() => {
     if (roleId !== undefined && roles) {
@@ -32,7 +32,7 @@ export default function EditRoleFormPage({ roleId, onCancel }: EditRoleFormPageP
           description: role.description,
           status: role.status,
         });
-        setActivityLogs(role.activityLogs || []);
+  // Removed unused activityLogs state update
       }
     }
   }, [roleId, roles]);

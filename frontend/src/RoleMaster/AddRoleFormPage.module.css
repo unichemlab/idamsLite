@@ -506,3 +506,15 @@ display: flex;
   color: #fff;
 }
 
+.container {
+  background: linear-gradient(120deg, #f6faff 0%, #eef4ff 100%);
+  border-radius: 18px;
+  box-shadow: 0 8px 32px rgba(37, 99, 235, 0.14);
+  padding: 32px 20px;
+  max-width: 985px;
+  margin: 42px ;
+  font-family: "Inter", "Segoe UI", Arial, sans-serif;
+  min-height: 70vh;
+  display: flex;
+  flex-direction: column;
+}
