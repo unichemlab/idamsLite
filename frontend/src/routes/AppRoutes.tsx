@@ -6,12 +6,14 @@ import ApplicationMasterTable from "../pages/ApplicationMasterTable/ApplicationM
 import AddApplicationFormPage from "../pages/ApplicationMasterTable/AddApplicationFormPage";
 import EditApplicationFormPage from "../pages/ApplicationMasterTable/EditApplicationFormPage";
 import GenerateCredentials from "../pages/GenerateCredentials/GenerateCredentials";
+import AddUserRequest from "pages/UserRequest/UserRequestForm"; 
 import TrackRequest from "../pages/TrackRequest";
 import Login from "../pages/Login";
 import ApproverDashboard from "../pages/ApproverDashboard";
 import AccessRequestDetails from "../pages/AccessRequestDetails";
 import RoleMasterTable from "../pages/RoleMasterTable/RoleMasterTable";
 import UserMasterTable from "../pages/UserMasterTable/UserMasterTable";
+import UserRequestTable from "../pages/UserRequestTable/UserRequestTable";
 import AddUserFormPage from "../pages/AddUserPanel/AddUserFormPage";
 import EditUserFormPage from "../pages/AddUserPanel/EditUserFormPage";
 import AddRoleFormPage from "../RoleMaster/AddRoleFormPage";
@@ -35,7 +37,8 @@ const allowedRoutes = [
   "/users",
   "/add-user",
   "/edit-user/:idx",
-  "/user-information",
+  "/user-requests",
+  "/user-requests/add",
   "/access-details",
   "/approver-step/:step/:id",
   "/review-submit",
@@ -119,10 +122,18 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/user-information"
+        path="/user-requests"
         element={
           <ProtectedRoute>
-            <UserInformation />
+            <UserRequestTable />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/user-requests/add"
+        element={
+          <ProtectedRoute>
+            <AddUserRequest />
           </ProtectedRoute>
         }
       />

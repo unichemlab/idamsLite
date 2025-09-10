@@ -6,10 +6,6 @@ import { formSteps } from "../../data/formFields";
 import DynamicForm from "../../components/DynamicForm/DynamicForm";
 import { useFormContext } from "../../context/FormContext";
 
-
-
-
-
 const UserInformation: React.FC = () => {
   const navigate = useNavigate();
   const { data, setData } = useFormContext();

@@ -202,3 +202,102 @@ export async function deleteDepartmentAPI(id: number): Promise<void> {
   });
   if (!res.ok) throw new Error("Failed to delete department");
 }
+
+/************************** API for User Request *****************************************/
+
+// Fetch all user requests
+export async function fetchUserRequests(): Promise<any[]> {
+  const res = await fetch("http://localhost:4000/api/user-requests");
+  if (!res.ok) throw new Error("Failed to fetch user requests");
+  return await res.json();
+}
+
+// Add a new user request
+export async function addUserRequestAPI(userRequest: any): Promise<any> {
+  const res = await fetch("http://localhost:4000/api/user-requests", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(userRequest),
+  });
+  if (!res.ok) throw new Error("Failed to add user request");
+  return await res.json();
+}
+
+// Update a user request
+export async function updateUserRequestAPI(id: number, userRequest: any): Promise<any> {
+  const res = await fetch(`http://localhost:4000/api/user-requests/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(userRequest),
+  });
+  if (!res.ok) throw new Error("Failed to update user request");
+  return await res.json();
+}
+
+// Delete a user request
+export async function deleteUserRequestAPI(id: number): Promise<void> {
+  const res = await fetch(`http://localhost:4000/api/user-requests/${id}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to delete user request");
+}
+
+/************************** API for Task *****************************************/
+
+// Fetch all tasks
+export async function fetchTasks(): Promise<any[]> {
+  const res = await fetch("http://localhost:4000/api/tasks");
+  if (!res.ok) throw new Error("Failed to fetch tasks");
+  return await res.json();
+}
+
+// Add a new task
+export async function addTaskAPI(task: any): Promise<any> {
+  const res = await fetch("http://localhost:4000/api/tasks", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(task),
+  });
+  if (!res.ok) throw new Error("Failed to add task");
+  return await res.json();
+}
+
+// Update a task
+export async function updateTaskAPI(id: number, task: any): Promise<any> {
+  const res = await fetch(`http://localhost:4000/api/tasks/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(task),
+  });
+  if (!res.ok) throw new Error("Failed to update task");
+  return await res.json();
+}
+
+// Delete a task
+export async function deleteTaskAPI(id: number): Promise<void> {
+  const res = await fetch(`http://localhost:4000/api/tasks/${id}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to delete task");
+}
+
+/************************** API for Access Log *****************************************/
+
+// Fetch all access logs
+export async function fetchAccessLogs(): Promise<any[]> {
+  const res = await fetch("http://localhost:4000/api/access-logs");
+  if (!res.ok) throw new Error("Failed to fetch access logs");
+  return await res.json();
+}
+
+// Add a new access log
+export async function addAccessLogAPI(accessLog: any): Promise<any> {
+  const res = await fetch("http://localhost:4000/api/access-logs", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(accessLog),
+  });
+  if (!res.ok) throw new Error("Failed to add access log");
+  return await res.json();
+}
+

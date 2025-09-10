@@ -61,6 +61,7 @@ const AddUserPanel = ({
         "Plant Master",
         "Application Master",
         "Approval Workflow",
+        "User Request",
       ].forEach((mod) => {
         const key = `${plant}-${mod}`;
         if (!safePermissions[key]) safePermissions[key] = [];
@@ -73,6 +74,7 @@ const AddUserPanel = ({
       "Plant Master",
       "Approval Workflow1",
       "Approval Workflow2",
+      "User Request",
     ].forEach((mod) => {
       if (!safePermissions[mod]) safePermissions[mod] = [];
     });
@@ -98,6 +100,7 @@ const AddUserPanel = ({
         "Plant Master",
         "Application Master",
         "Approval Workflow",
+        "User Request",
       ].map((mod) => `${plant}-${mod}`);
 
       // Check if any permission is checked for this plant
@@ -208,6 +211,7 @@ const AddUserPanel = ({
         "Plant Master",
         "Application Master",
         "Approval Workflow",
+        "User Request",
       ].map((mod) => `${plantPrefix}-${mod}`);
       const hasAnyPermission = plantModules.some(
         (modKey) => (updatedForm.permissions[modKey] || []).length > 0
@@ -352,6 +356,7 @@ const AddUserPanel = ({
                   "Plant Master",
                   "Application Master",
                   "Approval Workflow",
+                  "User Request",
                 ].map((mod) => `${plant}-${mod}`);
                 const hasAnyPermission = plantModules.some(
                   (modKey) => (form.permissions[modKey] || []).length > 0
@@ -419,6 +424,7 @@ const AddUserPanel = ({
                   "Plant Master",
                   "Application Master",
                   "Approval Workflow",
+                  "User Request",
                 ].map((mod) => {
                   const moduleKey = `${activePlant}-${mod}`;
                   return (
@@ -502,6 +508,7 @@ const AddUserPanel = ({
                   "Plant Master",
                   "Approval Workflow1",
                   "Approval Workflow2",
+                  "User Request",
                 ].map((mod) => (
                   <div className={styles.row} key={`central-${mod}`}>
                     <span>{mod}</span>

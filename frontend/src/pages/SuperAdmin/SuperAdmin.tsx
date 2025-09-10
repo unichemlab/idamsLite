@@ -19,6 +19,7 @@ import DonutChart from "../../components/Common/DonutChart";
 import PlantMasterTable from "pages/PlantMasterTable/PlantMasterTable";
 import DepartmentMasterTable from "pages/DepartmentMasterTable/DepartmentMasterTable";
 import VendorMasterTable from "pages/VendorMasterTable/VendorMasterTable";
+import UserRequestTable from "pages/UserRequestTable/UserRequestTable";
 import RoleMasterTable from "pages/RoleMasterTable/RoleMasterTable";
 import UserMasterTable from "pages/UserMasterTable/UserMasterTable";
 import ApplicationMasterTable from "pages/ApplicationMasterTable/ApplicationMasterTable";
@@ -93,6 +94,12 @@ const SuperAdmin: React.FC = () => {
       label: "User Master",
       icon: <PersonIcon fontSize="small" />,
       perm: "userMaster:view",
+    },
+    {
+      key: "request",
+      label: "User Request",
+      icon: <ListAltIcon fontSize="small" />,
+      perm: "userRequest:view",
     },
     {
       key: "workflow",
@@ -185,6 +192,12 @@ const SuperAdmin: React.FC = () => {
         return (
           <div>
             <UserMasterTable />
+          </div>
+        );
+        case "request":
+        return (
+          <div>
+            <UserRequestTable />
           </div>
         );
       case "workflow":
