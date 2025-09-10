@@ -28,6 +28,7 @@ const EditPlantMaster: React.FC = () => {
     { key: "plant", label: "Plant Master" },
     { key: "role", label: "Role Master" },
     { key: "vendor", label: "Vendor Master" },
+    { key: "department", label: "Department Master" },
     { key: "application", label: "Application Master" },
     { key: "user", label: "User Master" },
     { key: "workflow", label: "Approval Workflow" },
@@ -48,6 +49,9 @@ const EditPlantMaster: React.FC = () => {
       case "vendor":
         navigate("/superadmin", { state: { activeTab: "vendor" } });
         break;
+      case "department":
+        navigate("/superadmin", { state: { activeTab: "department" } });
+        break;  
       case "application":
         navigate("/superadmin", { state: { activeTab: "application" } });
         break;

@@ -26,11 +26,11 @@ exports.getAllDepartments = async (req, res) => {
 
 // Create Department
 exports.createDepartment = async (req, res) => {
-  const { department_name, description } = req.body;
+  const { department_name, description, status } = req.body;
   try {
     const { rows } = await pool.query(
-      "INSERT INTO department_master (department_name, description) VALUES ($1, $2) RETURNING *",
-      [department_name, description]
+      "INSERT INTO department_master (department_name, description, status) VALUES ($1, $2, $3) RETURNING *",
+      [department_name, description, status ?? "ACTIVE"]
     );
     res.status(201).json(rows[0]);
   } catch (err) {

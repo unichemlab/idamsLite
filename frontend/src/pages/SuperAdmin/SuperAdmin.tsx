@@ -27,6 +27,8 @@ import WorkflowBuilder from "pages/WorkflowBuilder/WorkflowBuilder";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
 import { useAuth } from "../../context/AuthContext";
 import { Role } from "../../utils/rbac";
+import AddRoleFormPage from "RoleMaster/AddRoleFormPage";
+import EditRoleFormPage from "RoleMaster/EditRoleFormPage";
 
 const SuperAdmin: React.FC = () => {
   const location = useLocation();
@@ -154,46 +156,43 @@ const SuperAdmin: React.FC = () => {
           .map((item) => item.key)
       : [];
 
+  // Role Master panel state
+  const [rolePanelMode, setRolePanelMode] = useState<'table' | 'add' | 'edit'>('table');
+  const [editRoleId, setEditRoleId] = useState<number | null>(null);
+
+  // Handler for RoleMasterTable actions
+  const handleRoleAdd = () => setRolePanelMode('add');
+  const handleRoleEdit = (id: number) => {
+    setEditRoleId(id);
+    setRolePanelMode('edit');
+  };
+  const handleRolePanelClose = () => {
+    setRolePanelMode('table');
+    setEditRoleId(null);
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case "dashboard":
         return <DashboardView handleLogout={handleLogout} />;
       case "plant":
-        return (
-          <div>
-            <PlantMasterTable />
-          </div>
-        );
+        return <PlantMasterTable />;
       case "role":
-        return (
-          <div>
-            <RoleMasterTable />
-          </div>
-        );
+        if (rolePanelMode === 'add') {
+          return <AddRoleFormPage onCancel={handleRolePanelClose} />;
+        }
+        if (rolePanelMode === 'edit' && editRoleId !== null) {
+          return <EditRoleFormPage roleId={editRoleId} onCancel={handleRolePanelClose} />;
+        }
+        return <RoleMasterTable onAdd={handleRoleAdd} onEdit={handleRoleEdit} />;
       case "vendor":
-        return (
-          <div>
-            <VendorMasterTable />
-          </div>
-        );
+        return <VendorMasterTable />;
       case "department":
-        return (
-          <div>
-            <DepartmentMasterTable />
-          </div>
-        );
+        return <DepartmentMasterTable />;
       case "application":
-        return (
-          <div>
-            <ApplicationMasterTable />
-          </div>
-        );
+        return <ApplicationMasterTable />;
       case "user":
-        return (
-          <div>
-            <UserMasterTable />
-          </div>
-        );
+        return <UserMasterTable />;
         case "request":
         return (
           <div>
@@ -201,11 +200,7 @@ const SuperAdmin: React.FC = () => {
           </div>
         );
       case "workflow":
-        return (
-          <div>
-            <WorkflowBuilder />
-          </div>
-        );
+        return <WorkflowBuilder />;
       default:
         return null;
     }
