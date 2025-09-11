@@ -157,17 +157,25 @@ const SuperAdmin: React.FC = () => {
       : [];
 
   // Role Master panel state
-  const [rolePanelMode, setRolePanelMode] = useState<'table' | 'add' | 'edit'>('table');
+  const [rolePanelMode, setRolePanelMode] = useState<"table" | "add" | "edit">(
+    "table"
+  );
   const [editRoleId, setEditRoleId] = useState<number | null>(null);
 
   // Handler for RoleMasterTable actions
-  const handleRoleAdd = () => setRolePanelMode('add');
+  // Always reset to table mode when switching tabs
+  React.useEffect(() => {
+    setRolePanelMode("table");
+    setEditRoleId(null);
+  }, [activeTab]);
+
+  const handleRoleAdd = () => setRolePanelMode("add");
   const handleRoleEdit = (id: number) => {
     setEditRoleId(id);
-    setRolePanelMode('edit');
+    setRolePanelMode("edit");
   };
   const handleRolePanelClose = () => {
-    setRolePanelMode('table');
+    setRolePanelMode("table");
     setEditRoleId(null);
   };
 
@@ -178,13 +186,21 @@ const SuperAdmin: React.FC = () => {
       case "plant":
         return <PlantMasterTable />;
       case "role":
-        if (rolePanelMode === 'add') {
+        // Only show AddRoleFormPage if in add mode, EditRoleFormPage if in edit mode, else show table
+        if (rolePanelMode === "add") {
           return <AddRoleFormPage onCancel={handleRolePanelClose} />;
         }
-        if (rolePanelMode === 'edit' && editRoleId !== null) {
-          return <EditRoleFormPage roleId={editRoleId} onCancel={handleRolePanelClose} />;
+        if (rolePanelMode === "edit" && editRoleId !== null) {
+          return (
+            <EditRoleFormPage
+              roleId={editRoleId}
+              onCancel={handleRolePanelClose}
+            />
+          );
         }
-        return <RoleMasterTable onAdd={handleRoleAdd} onEdit={handleRoleEdit} />;
+        return (
+          <RoleMasterTable onAdd={handleRoleAdd} onEdit={handleRoleEdit} />
+        );
       case "vendor":
         return <VendorMasterTable />;
       case "department":
@@ -193,7 +209,7 @@ const SuperAdmin: React.FC = () => {
         return <ApplicationMasterTable />;
       case "user":
         return <UserMasterTable />;
-        case "request":
+      case "request":
         return (
           <div>
             <UserRequestTable />
