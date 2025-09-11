@@ -1,5 +1,5 @@
 // src/pages/DepartmentMasterTable/EditDeptFormPage.tsx
-import React, { useContext, useState } from "react";
+import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { useDepartmentContext } from "../../pages/DepartmentMaster/DepartmentContext";
@@ -11,9 +11,10 @@ const EditDeptFormPage: React.FC = () => {
   const { id } = useParams();
   const departmentCtx = useDepartmentContext();
   const navigate = useNavigate();
-  const index = id ? parseInt(id, 10) : -1;
-  
-  const department = departmentCtx?.departments.find(dep => String(dep.id) === id);
+
+  const department = departmentCtx?.departments.find(
+    (dep) => String(dep.id) === id
+  );
   const [form, setForm] = useState<Department>(
     department ?? {
       id: -1,
@@ -54,7 +55,7 @@ const EditDeptFormPage: React.FC = () => {
         break;
       case "department":
         navigate("/superadmin", { state: { activeTab: "department" } });
-        break;  
+        break;
       case "application":
         navigate("/superadmin", { state: { activeTab: "application" } });
         break;
@@ -85,7 +86,7 @@ const EditDeptFormPage: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     departmentCtx.updateDepartment(Number(id), form);
     navigate("/superadmin");
   };
@@ -140,7 +141,9 @@ const EditDeptFormPage: React.FC = () => {
       <main className={superAdminStyles["main-content"]}>
         {/* Header */}
         <header className={superAdminStyles["main-header"]}>
-          <h2 className={superAdminStyles["header-title"]}>Department Master</h2>
+          <h2 className={superAdminStyles["header-title"]}>
+            Department Master
+          </h2>
           <div className={superAdminStyles["header-icons"]}></div>
         </header>
 
@@ -200,7 +203,7 @@ const EditDeptFormPage: React.FC = () => {
                     className={addStyles.input}
                   />
                 </div>
-                
+
                 <div className={addStyles.formGroup}>
                   <label>Status</label>
                   <select

@@ -9,7 +9,7 @@ import ApplicationMasterTable from "../pages/ApplicationMasterTable/ApplicationM
 import AddApplicationFormPage from "../pages/ApplicationMasterTable/AddApplicationFormPage";
 import EditApplicationFormPage from "../pages/ApplicationMasterTable/EditApplicationFormPage";
 import GenerateCredentials from "../pages/GenerateCredentials/GenerateCredentials";
-import AddUserRequest from "pages/UserRequest/UserRequestForm"; 
+import AddUserRequest from "pages/UserRequest/UserRequestForm";
 import TrackRequest from "../pages/TrackRequest";
 import Login from "../pages/Login";
 import ApproverDashboard from "../pages/ApproverDashboard";
@@ -64,6 +64,7 @@ const allowedRoutes = [
   "/vendors",
   "/vendors/add",
   "/vendors/edit/:id",
+  "/user-information",
 ];
 
 const NotFound = () => (
@@ -95,17 +96,16 @@ function AppRoutes() {
     return <NotFound />;
   }
 
-
-
-// Wrapper to use useParams correctly
-function EditRoleFormPageWrapper() {
-  const params = useParams();
-  return <EditRoleFormPage roleId={Number(params.id)} />;
-}
+  // Wrapper to use useParams correctly
+  function EditRoleFormPageWrapper() {
+    const params = useParams();
+    return <EditRoleFormPage roleId={Number(params.id)} />;
+  }
 
   return (
     <Routes>
       {/* User Flow */}
+      <Route path="/user-information" element={<UserInformation />} />
       <Route
         path="/users"
         element={
@@ -242,7 +242,6 @@ function EditRoleFormPageWrapper() {
         }
       />
 
-
       {/* Department Master */}
       <Route
         path="/departments"
@@ -277,8 +276,6 @@ function EditRoleFormPageWrapper() {
         }
       />
 
-
-
       {/* Role Master */}
       <Route
         path="/roles"
@@ -306,7 +303,7 @@ function EditRoleFormPageWrapper() {
           </ProtectedRoute>
         }
       />
-    
+
       {/* Application Master */}
       <Route
         path="/application-master"
@@ -351,7 +348,7 @@ function EditRoleFormPageWrapper() {
         }
       />
       <Route
-         path="/vendors/edit/:id"
+        path="/vendors/edit/:id"
         element={
           <ProtectedRoute>
             <EditVendorMaster />
