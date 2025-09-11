@@ -1,15 +1,11 @@
 import React, { useState } from "react";
+import { useAuth } from "../../context/AuthContext";
+
 import { useNavigate } from "react-router-dom";
 import { usePlantContext, Plant } from "./PlantContext";
 import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
 import addStyles from "./AddPlantMaster.module.css";
-import DashboardIcon from "@mui/icons-material/Dashboard";
-import FactoryIcon from "@mui/icons-material/Factory";
-import SecurityIcon from "@mui/icons-material/Security";
-import ListAltIcon from "@mui/icons-material/ListAlt";
-import AppsIcon from "@mui/icons-material/Apps";
-import PersonIcon from "@mui/icons-material/Person";
-import AssignmentIcon from "@mui/icons-material/Assignment";
+import { sidebarConfig } from "../../components/Common/sidebarConfig";
 
 const AddPlantMaster: React.FC = () => {
   const { addPlant } = usePlantContext();
@@ -39,49 +35,11 @@ const AddPlantMaster: React.FC = () => {
     navigate("/superadmin"); // redirect to table
   };
 
-  // Sidebar config (copied from SuperAdmin)
-  const sidebarConfig = [
-    {
-      key: "dashboard",
-      label: "Dashboard",
-      icon: <DashboardIcon fontSize="small" />,
-    },
-    {
-      key: "plant",
-      label: "Plant Master",
-      icon: <FactoryIcon fontSize="small" />,
-    },
-    {
-      key: "role",
-      label: "Role Master",
-      icon: <SecurityIcon fontSize="small" />,
-    },
-    {
-      key: "vendor",
-      label: "Vendor Master",
-      icon: <ListAltIcon fontSize="small" />,
-    },
-    {
-      key: "department",
-      label: "Department Master",
-      icon: <SecurityIcon fontSize="small" />,
-    },
-    {
-      key: "application",
-      label: "Application Master",
-      icon: <AppsIcon fontSize="small" />,
-    },
-    {
-      key: "user",
-      label: "User Master",
-      icon: <PersonIcon fontSize="small" />,
-    },
-    {
-      key: "workflow",
-      label: "Approval Workflow",
-      icon: <AssignmentIcon fontSize="small" />,
-    },
-  ];
+  // Dynamic sidebar logic (copied from SuperAdmin)
+  useAuth();
+  // Map role_id to role string for RBAC
+  // Always show all sidebar items, regardless of user role
+  const filteredSidebarConfig = sidebarConfig;
 
   // Sidebar navigation handler
   const handleSidebarNav = (key: string) => {
@@ -133,7 +91,7 @@ const AddPlantMaster: React.FC = () => {
         </div>
         <nav>
           <div className={superAdminStyles["sidebar-group"]}>OVERVIEW</div>
-          {sidebarConfig.map((item) => (
+          {filteredSidebarConfig.map((item) => (
             <button
               key={item.key}
               className={`${superAdminStyles["nav-button"]} ${
