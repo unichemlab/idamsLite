@@ -241,7 +241,7 @@ const UserRequestTable: React.FC = () => {
             borderRadius: 8,
             boxShadow: "0 0 4px rgba(0, 0, 0, 0.05)",
             border: "1px solid #e2e8f0",
-            marginTop: "26px",
+            marginTop: "35px",
           }}
         >
           <table className={styles.table}>
