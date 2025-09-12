@@ -7,8 +7,11 @@ import {
 } from "../../pages/DepartmentMaster/DepartmentContext";
 
 import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
-import Styles from "../ApplicationMasterTable/ApplicationMasterTable.module.css";
-import { sidebarConfig } from "components/Common/sidebarConfig";
+import Styles from "../PlantMaster/AddPlantMaster.module.css";
+import {
+  sidebarConfig,
+  SidebarConfigItem,
+} from "../../components/Common/sidebarConfig";
 
 const AddDeptFormPage: React.FC = () => {
   const { addDepartment } = useDepartmentContext();
@@ -38,15 +41,11 @@ const AddDeptFormPage: React.FC = () => {
     navigate("/superadmin"); // redirect to table
   };
 
-  // Use shared sidebarConfig for consistency
-
   // Sidebar navigation handler (unfiltered, always show all)
   const handleSidebarNav = (key: string) => {
     navigate("/superadmin", { state: { activeTab: key } });
   };
-
-  // Determine active sidebar tab (always "plant" for Add)
-  const activeTab = "department";
+  // Removed unused activeTab variable
 
   return (
     <div className={superAdminStyles["main-container"]}>
@@ -63,14 +62,14 @@ const AddDeptFormPage: React.FC = () => {
         </div>
         <nav>
           <div className={superAdminStyles["sidebar-group"]}>OVERVIEW</div>
-          {sidebarConfig.map((item) => (
+          {sidebarConfig.map((item: SidebarConfigItem) => (
             <button
               key={item.key}
               className={`${superAdminStyles["nav-button"]} ${
-                activeTab === item.key ? superAdminStyles.active : ""
+                item.key === "department" ? superAdminStyles.active : ""
               }`}
               onClick={() => handleSidebarNav(item.key)}
-              style={activeTab === item.key ? { fontWeight: 700 } : {}}
+              style={item.key === "department" ? { fontWeight: 700 } : {}}
             >
               {item.icon} {item.label}
             </button>
