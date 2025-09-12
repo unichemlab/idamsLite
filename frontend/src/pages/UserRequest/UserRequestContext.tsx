@@ -30,6 +30,7 @@ export type UserRequest = {
     vendorName: string[];
     vendorFirm: string[];
     vendorCode: string[];
+    allocatedId:string[],
   created_at?: string;
   updated_at?: string;
 };
@@ -68,6 +69,7 @@ export const UserRequestProvider: React.FC<{ children: React.ReactNode }> = ({ c
        vendorName: [],
     vendorFirm: [],
     vendorCode: [],
+    allocatedId:[],
     status: "Pending",
   });
   const [loading, setLoading] = useState(false);
