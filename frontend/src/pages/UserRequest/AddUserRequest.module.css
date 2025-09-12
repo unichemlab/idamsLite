@@ -59,6 +59,72 @@ html, body {
 }
 
 
+/* Two-column layout for forms */
+.twoCol {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+/* For screens below 1024px, adjust spacing if needed */
+@media (max-width: 1024px) {
+  .twoCol {
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+}
+
+/* For screens below 768px, stack into one column */
+@media (max-width: 768px) {
+  .twoCol {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+/* Ensure form group takes full width */
+.twoCol .formGroup {
+  width: 100%;
+}
+
+/* Styling for form groups to ensure consistent spacing and appearance */
+.twoCol .formGroup label {
+  font-weight: 600;
+  color: #34495e;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  text-transform: capitalize;
+}
+
+.twoCol .formGroup input,
+.twoCol .formGroup select,
+.twoCol .formGroup textarea {
+  border: 1px solid #ccd6e1;
+  border-radius: 8px;
+  padding: 12px 15px;
+  font-size: 1rem;
+  background: #fafbfc;
+  color: #2c3e50;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.twoCol .formGroup textarea {
+  min-height: 60px;
+  max-height: 150px;
+  resize: vertical;
+}
+
+.twoCol .formGroup input:focus,
+.twoCol .formGroup select:focus,
+.twoCol .formGroup textarea:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.2);
+}
+
+
+
 /* Section */
 .section {
   background: #fafbfc; /* Light background for sections */

@@ -35,10 +35,6 @@ const AddUserRequest: React.FC = () => {
     { location: "", department: "", applicationId: "", role: "" },
   ]);
 
-  const handleRemoveRow = (index: number) => {
-    const updated = bulkRows.filter((_, i) => i !== index);
-    setBulkRows(updated);
-  };
   const [modalOpen, setModalOpen] = useState(false);
   const [newApplication, setNewApplication] = useState({
     location: "",
@@ -48,9 +44,7 @@ const AddUserRequest: React.FC = () => {
   });
 
   const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -71,7 +65,6 @@ const AddUserRequest: React.FC = () => {
     }
   };
 
-
   const handleAddRow = () => {
     if (bulkRows.length < 7) {
       setBulkRows([...bulkRows, { location: "", department: "", applicationId: "", role: "" }]);
@@ -80,22 +73,15 @@ const AddUserRequest: React.FC = () => {
     }
   };
 
-  const handleRemoveAll = () => {
-    setBulkRows([]);
+  const handleRemoveRow = (index: number) => {
+    const updated = bulkRows.filter((_, i) => i !== index);
+    setBulkRows(updated);
   };
-
-
 
   const handleBulkRowChange = (index: number, field: string, value: string) => {
     const updated = [...bulkRows];
     updated[index] = { ...updated[index], [field]: value };
     setBulkRows(updated);
-  };
-
-
-  const handleAddApplication = () => {
-    setBulkRows([...bulkRows, newApplication]);
-    setNewApplication({ location: "", department: "", applicationId: "", role: "" });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -117,16 +103,10 @@ const AddUserRequest: React.FC = () => {
 
     if (
       form.trainingStatus === "Yes" &&
-      (form.accessType === "New User Creation" ||
-        form.accessType === "Bulk New User Creation") &&
+      (form.accessType === "New User Creation" || form.accessType === "Bulk New User Creation") &&
       attachments.length === 0
     ) {
       alert("Attachment is mandatory for training records.");
-      return;
-    }
-
-    if (form.accessType === "Bulk New User Creation" && bulkRows.length === 0) {
-      alert("Please add at least one bulk entry.");
       return;
     }
 
@@ -157,51 +137,46 @@ const AddUserRequest: React.FC = () => {
 
   const activeTab = "request";
 
-  const isVendorModify =
-    form.requestFor === "Vendor / OEM" && form.accessType === "Modify Access";
+  const isVendorModify = form.requestFor === "Vendor / OEM" && form.accessType === "Modify Access";
   const isBulkDeactivation = form.accessType === "Bulk De-activation";
   const isBulkNew = form.accessType === "Bulk New User Creation";
 
   const accessOptions =
     form.requestFor === "Vendor / OEM"
       ? [
-        "New User Creation",
-        "Modify Access",
-        "Active / Enable User Access",
-        "Deactivation / Disable / Remove User Access",
-        "Password Reset",
-        "Account Unlock",
-        "Account Unlock and Password Reset",
-      ]
+          "New User Creation",
+          "Modify Access",
+          "Active / Enable User Access",
+          "Deactivation / Disable / Remove User Access",
+          "Password Reset",
+          "Account Unlock",
+          "Account Unlock and Password Reset",
+        ]
       : [
-        "New User Creation",
-        "Modify Access",
-        "Password Reset",
-        "Account Unlock",
-        "Account Unlock and Password Reset",
-        "Active / Enable User Access",
-        "Deactivation / Disable / Remove User Access",
-        "Bulk De-activation",
-        "Bulk New User Creation",
-      ];
+          "New User Creation",
+          "Modify Access",
+          "Password Reset",
+          "Account Unlock",
+          "Account Unlock and Password Reset",
+          "Active / Enable User Access",
+          "Deactivation / Disable / Remove User Access",
+          "Bulk De-activation",
+          "Bulk New User Creation",
+        ];
 
-  // ✅ Debugging to track changes
   useEffect(() => {
     console.log("Access Request Type changed:", form.accessType);
   }, [form.accessType]);
 
   console.log("Current Access Type:", form.accessType);
   console.log("isBulkNew:", isBulkNew);
+
   return (
     <div className={superAdminStyles["main-container"]}>
-
-
       <main className={superAdminStyles["main-content"]}>
         <header className={superAdminStyles["main-header"]}>
           <h2 className={superAdminStyles["header-title"]}>User Requests</h2>
         </header>
-
-       
 
         <div className={addStyles.container} style={{ marginTop: 32 }}>
           <form
@@ -211,104 +186,120 @@ const AddUserRequest: React.FC = () => {
             style={{ width: "100%" }}
           >
             <div className={addStyles.scrollFormContainer}>
-              <div className={addStyles.threeCol}>
-                <div className={addStyles.formGroup}>
-                  <label>Access For *</label>
-                  <select
-                    name="requestFor"
-                    value={form.requestFor}
-                    onChange={handleChange}
-                    required
-                  >
-                    <option value="Self">Self</option>
-                    <option value="Others">Others</option>
-                    <option value="Vendor / OEM">Vendor / OEM</option>
-                  </select>
-                </div>
-                <div className={addStyles.formGroup}>
-                  <label>Requestor For /By *</label>
-                  <input
-                    name="name"
-                    value={form.name}
-                    onChange={handleChange}
-                    placeholder="Search from AD"
-                    required
-                  />
-                </div>
-                <div className={addStyles.formGroup}>
-                  <label>Employee Code *</label>
-                  <input
-                    name="employeeCode"
-                    value={form.employeeCode}
-                    onChange={handleChange}
-                    placeholder="From AD"
-                    required
-                  />
-                </div>
-              </div>
 
-              <div className={addStyles.threeCol}>
-                <div className={addStyles.formGroup}>
-                  <label>Location *</label>
-                  <input
-                    name="location"
-                    value={form.location}
-                    onChange={handleChange}
-                    placeholder="From AD"
-                    required
-                  />
+              {/* Card 1 */}
+              <div className={addStyles.section}>
+                <div className={addStyles.sectionHeader}>
+                  <div className={addStyles.sectionHeaderTitle}>Access Details</div>
                 </div>
-                <div className={addStyles.formGroup}>
-                  <label>Access Request Type *</label>
-                  <select
-                    name="accessType"
-                    value={form.accessType}
-                    onChange={handleChange}
-                    required
-                  >
-                    <option value="">Select</option>
-                    {accessOptions.map((type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {form.requestFor === "Vendor / OEM" && !isVendorModify && (
                 <div className={addStyles.threeCol}>
                   <div className={addStyles.formGroup}>
-                    <label>Vendor Name *</label>
-                    <input
-                      name="vendorName"
-                      value={form.vendorName}
+                    <label>Access For *</label>
+                    <select
+                      name="requestFor"
+                      value={form.requestFor}
                       onChange={handleChange}
+                      required
+                    >
+                      <option value="Self">Self</option>
+                      <option value="Others">Others</option>
+                      <option value="Vendor / OEM">Vendor / OEM</option>
+                    </select>
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>Requestor For /By *</label>
+                    <input
+                      name="name"
+                      value={form.name}
+                      onChange={handleChange}
+                      placeholder="Search from AD"
                       required
                     />
                   </div>
                   <div className={addStyles.formGroup}>
-                    <label>Vendor Firm *</label>
+                    <label>Employee Code *</label>
                     <input
-                      name="vendorFirm"
-                      value={form.vendorFirm}
+                      name="employeeCode"
+                      value={form.employeeCode}
                       onChange={handleChange}
+                      placeholder="From AD"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className={addStyles.threeCol}>
+                  <div className={addStyles.formGroup}>
+                    <label>Location *</label>
+                    <input
+                      name="location"
+                      value={form.location}
+                      onChange={handleChange}
+                      placeholder="From AD"
                       required
                     />
                   </div>
                   <div className={addStyles.formGroup}>
-                    <label>Vendor Code</label>
-                    <input
-                      name="vendorCode"
-                      value={form.vendorCode}
+                    <label>Access Request Type *</label>
+                    <select
+                      name="accessType"
+                      value={form.accessType}
                       onChange={handleChange}
-                    />
+                      required
+                    >
+                      <option value="">Select</option>
+                      {accessOptions.map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 2 */}
+              {(form.requestFor === "Vendor / OEM" && !isVendorModify) && (
+                <div className={addStyles.section}>
+                  <div className={addStyles.sectionHeader}>
+                    <div className={addStyles.sectionHeaderTitle}>Vendor Details</div>
+                  </div>
+                  <div className={addStyles.threeCol}>
+                    <div className={addStyles.formGroup}>
+                      <label>Vendor Name *</label>
+                      <input
+                        name="vendorName"
+                        value={form.vendorName}
+                        onChange={handleChange}
+                        required
+                      />
+                    </div>
+                    <div className={addStyles.formGroup}>
+                      <label>Vendor Firm *</label>
+                      <input
+                        name="vendorFirm"
+                        value={form.vendorFirm}
+                        onChange={handleChange}
+                        required
+                      />
+                    </div>
+                    <div className={addStyles.formGroup}>
+                      <label>Vendor Code</label>
+                      <input
+                        name="vendorCode"
+                        value={form.vendorCode}
+                        onChange={handleChange}
+                      />
+                    </div>
                   </div>
                 </div>
               )}
 
-              {isVendorModify ? (
-                <>
+              {/* Card 3 Vendor Modify */}
+              {isVendorModify && (
+                <div className={addStyles.section}>
+                  <div className={addStyles.sectionHeader}>
+                    <div className={addStyles.sectionHeaderTitle}>Vendor Modify</div>
+                  </div>
                   <div className={addStyles.threeCol}>
                     <div className={addStyles.formGroup}>
                       <label>Vendor Firm *</label>
@@ -328,6 +319,7 @@ const AddUserRequest: React.FC = () => {
                         required
                       />
                     </div>
+                    <div className={addStyles.formGroup}></div>
                   </div>
                   <div className={addStyles.threeCol}>
                     <div className={addStyles.formGroup}>
@@ -348,198 +340,249 @@ const AddUserRequest: React.FC = () => {
                         placeholder="Auto-filled from Allocated ID"
                       />
                     </div>
+                    <div className={addStyles.formGroup}></div>
                   </div>
-                </>
-              ) : isBulkDeactivation ? (
-                <>
+
+                  {/* Additional fields: Department, Role, Approver, Remarks */}
+                  <div className={addStyles.twoCol}>
+                    <div className={addStyles.formGroup}>
+                      <label>Department</label>
+                      <input
+                        name="department"
+                        value={form.department}
+                        onChange={handleChange}
+                        placeholder="Enter Department"
+                      />
+                    </div>
+                    <div className={addStyles.formGroup}>
+                      <label>Role</label>
+                      <input
+                        name="role"
+                        value={form.role}
+                        onChange={handleChange}
+                        placeholder="Enter Role"
+                      />
+                    </div>
+                    <div className={addStyles.formGroup}>
+                      <label>Approver</label>
+                      <select
+                        name="reportsTo"
+                        value={form.reportsTo}
+                        onChange={handleChange}
+                      >
+                        <option value="">Select Approver</option>
+                        <option value="Manager">Manager</option>
+                        <option value="Manager's Manager">Manager's Manager</option>
+                      </select>
+                    </div>
+                    <div className={addStyles.formGroup}>
+                      <label>Remarks</label>
+                      <textarea
+                        name="remarks"
+                        value={form.remarks}
+                        onChange={handleChange}
+                        maxLength={100}
+                        rows={4}
+                        placeholder="Enter remarks"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Card 4 Access Information */}
+              {(isBulkDeactivation || (!isVendorModify && !isBulkDeactivation)) && (
+                <div className={addStyles.section}>
+                  <div className={addStyles.sectionHeader}>
+                    <div className={addStyles.sectionHeaderTitle}>Access Information</div>
+                  </div>
                   <div className={addStyles.threeCol}>
                     <div className={addStyles.formGroup}>
                       <label>Department Name</label>
                       <input
                         name="department"
-                        value={form.department || "Auto Department Set"}
-                        readOnly
-                      />
-                    </div>
-                  </div>
-                  <div className={addStyles.formGroup}>
-                    <label>Remarks</label>
-                    <textarea
-                      name="remarks"
-                      value={form.remarks}
-                      onChange={handleChange}
-                      maxLength={100}
-                      rows={4}
-                      placeholder="Enter remarks..."
-                    />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className={addStyles.rowFields}>
-                    <div className={addStyles.formGroup}>
-                      <label>Department Name *</label>
-                      <input
-                        name="department"
-                        value={form.department}
+                        value={
+                          isBulkDeactivation
+                            ? form.department || "Auto Department Set"
+                            : form.department
+                        }
                         onChange={handleChange}
-                        required
+                        readOnly={isBulkDeactivation}
+                        required={!isBulkDeactivation}
                       />
                     </div>
-                    {/* Hide Application / Equipment ID and Role for Bulk New User Creation */}
-                    {form.accessType !== "Bulk New User Creation" && (
-                      <>
-                        <div className={addStyles.formGroup}>
-                          <label>Application / Equipment ID *</label>
-                          <input
-                            name="applicationId"
-                            value={form.applicationId}
-                            onChange={handleChange}
-                            required
-                          />
-                        </div>
-                        <div className={addStyles.formGroup}>
-                          <label>Role *</label>
-                          <input
-                            name="role"
-                            value={form.role}
-                            onChange={handleChange}
-                            required
-                          />
-                        </div>
-                      </>
-                    )}
 
-                    {/* Bulk New User Creation */}
-                    {/* Bulk New User Creation */}
-                    {/* Bulk New User Creation */}
-                    {form.accessType === "Bulk New User Creation" && (
-                      <div>
-                        {bulkRows.length < 7 && (
-                          <button type="button" onClick={handleAddRow}>
-                            Add Row
-                          </button>
-                        )}
-
-                        {/* Table with independent scrolling */}
-                        <div className={addStyles.tableContainer}>
-                          <table className={addStyles.table}>
-                            <thead>
-                              <tr>
-                                <th>Location</th>
-                                <th>Department Name</th>
-                                <th>Application / Equipment ID</th>
-                                <th>Requested Role</th>
-                                <th>Actions</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {bulkRows.map((row, index) => (
-                                <tr key={index}>
-                                  <td>
-                                    <input
-                                      value={row.location}
-                                      onChange={(e) =>
-                                        handleBulkRowChange(index, "location", e.target.value)
-                                      }
-                                      placeholder="Location"
-                                    />
-                                  </td>
-                                  <td>
-                                    <input
-                                      value={row.department}
-                                      onChange={(e) =>
-                                        handleBulkRowChange(index, "department", e.target.value)
-                                      }
-                                      placeholder="Department Name"
-                                    />
-                                  </td>
-                                  <td>
-                                    <input
-                                      value={row.applicationId}
-                                      onChange={(e) =>
-                                        handleBulkRowChange(index, "applicationId", e.target.value)
-                                      }
-                                      placeholder="Application / Equipment ID"
-                                    />
-                                  </td>
-                                  <td>
-                                    <input
-                                      value={row.role}
-                                      onChange={(e) =>
-                                        handleBulkRowChange(index, "role", e.target.value)
-                                      }
-                                      placeholder="Role"
-                                    />
-                                  </td>
-                                  <td>
-                                    <button type="button" onClick={() => handleRemoveRow(index)}>
-                                      Delete
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
+                    {!isBulkDeactivation && (
+                      <div className={addStyles.formGroup}>
+                        <label>Application / Equipment ID *</label>
+                        <input
+                          name="applicationId"
+                          value={form.applicationId}
+                          onChange={handleChange}
+                          required
+                        />
                       </div>
                     )}
 
+                    {!isBulkDeactivation && (
+                      <div className={addStyles.formGroup}>
+                        <label>Role *</label>
+                        <input
+                          name="role"
+                          value={form.role}
+                          onChange={handleChange}
+                          required
+                        />
+                      </div>
+                    )}
                   </div>
-                  <div className={addStyles.formGroup}>
-                    <label>Approver(Manager/Manager's manager) *</label>
-                    <input
-                      name="reportsTo"
-                      value={form.reportsTo}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-                  <div className={addStyles.formGroup}>
-                    <label>Remarks</label>
-                    <textarea
-                      name="remarks"
-                      value={form.remarks}
-                      onChange={handleChange}
-                      maxLength={100}
-                      rows={4}
-                    />
-                  </div>
-                </>
-              )}
 
-              {!isBulkDeactivation && (
-                <>
-                  <div className={addStyles.formGroup}>
-                    <label>Training Completed *</label>
-                    <select
-                      name="trainingStatus"
-                      value={form.trainingStatus}
-                      onChange={handleChange}
-                    >
-                      <option value="Yes">Yes</option>
-                      <option value="No">No</option>
-                    </select>
-                  </div>
-                  {form.trainingStatus === "Yes" && (
+                  <div className={addStyles.twoCol}>
+                    {!isBulkDeactivation && (
+                      <div className={addStyles.formGroup}>
+                        <label>Approver (Manager/Manager's manager) *</label>
+                        <input
+                          name="reportsTo"
+                          value={form.reportsTo}
+                          onChange={handleChange}
+                          required
+                        />
+                      </div>
+                    )}
                     <div className={addStyles.formGroup}>
-                      <label>Attachment (PDF, Max 4 files / 4MB each)</label>
-                      <input
-                        type="file"
-                        accept="application/pdf"
-                        multiple
-                        onChange={handleFileChange}
+                      <label>Remarks</label>
+                      <textarea
+                        name="remarks"
+                        value={form.remarks}
+                        onChange={handleChange}
+                        maxLength={100}
+                        rows={4}
                       />
                     </div>
-                  )}
-                </>
+                  </div>
+                </div>
+              )}
+
+              {/* Card 5 Bulk User Creation */}
+              {isBulkNew && (
+                <div className={addStyles.section}>
+                  <div className={addStyles.sectionHeader}>
+                    <div className={addStyles.sectionHeaderTitle}>Bulk User Creation</div>
+                  </div>
+                  <div>
+                    {bulkRows.length < 7 && (
+                      <button type="button" onClick={handleAddRow}>
+                        Add Row
+                      </button>
+                    )}
+                    <div className={addStyles.tableContainer}>
+                      <table className={addStyles.table}>
+                        <thead>
+                          <tr>
+                            <th>Location</th>
+                            <th>Department</th>
+                            <th>Application / Equipment ID</th>
+                            <th>Role</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {bulkRows.map((row, index) => (
+                            <tr key={index}>
+                              <td>
+                                <input
+                                  value={row.location}
+                                  onChange={(e) =>
+                                    handleBulkRowChange(index, "location", e.target.value)
+                                  }
+                                  placeholder="Location"
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  value={row.department}
+                                  onChange={(e) =>
+                                    handleBulkRowChange(index, "department", e.target.value)
+                                  }
+                                  placeholder="Department"
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  value={row.applicationId}
+                                  onChange={(e) =>
+                                    handleBulkRowChange(index, "applicationId", e.target.value)
+                                  }
+                                  placeholder="Application / Equipment ID"
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  value={row.role}
+                                  onChange={(e) =>
+                                    handleBulkRowChange(index, "role", e.target.value)
+                                  }
+                                  placeholder="Role"
+                                />
+                              </td>
+                              <td>
+                                <button type="button" onClick={() => handleRemoveRow(index)}>
+                                  Delete
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Card 6 Training Details */}
+              {!isBulkDeactivation && (
+                <div className={addStyles.section}>
+                  <div className={addStyles.sectionHeader}>
+                    <div className={addStyles.sectionHeaderTitle}>Training Details</div>
+                  </div>
+                  <div className={addStyles.twoCol}>
+                    <div className={addStyles.formGroup}>
+                      <label>Training Completed *</label>
+                      <select
+                        name="trainingStatus"
+                        value={form.trainingStatus}
+                        onChange={handleChange}
+                      >
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                      </select>
+                    </div>
+                    {form.trainingStatus === "Yes" && (
+                      <div className={addStyles.formGroup}>
+                        <label>Attachment (PDF, Max 4 files / 4MB each)</label>
+                        <input
+                          type="file"
+                          accept="application/pdf"
+                          multiple
+                          onChange={handleFileChange}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
-             <div className={addStyles.formFooter}>
+
+            {/* Footer Buttons */}
+            <div className={addStyles.formFooter}>
               <button type="submit" className={addStyles.saveBtn}>
                 Save
               </button>
-              <button type="button" className={addStyles.cancelBtn} onClick={() => navigate("/user-requests")}>
+              <button
+                type="button"
+                className={addStyles.cancelBtn}
+                onClick={() => navigate("/user-requests")}
+              >
                 Cancel
               </button>
             </div>
