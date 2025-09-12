@@ -288,19 +288,22 @@
 }
 
 .activeBadge {
-  background-color: #d1f5f0;
-  color: #067e6c;
+  background-color: #e6f4ea;
+  color: #1a8738;
+  font-weight: bold;
+  font-size: 13px;
   padding: 4px 10px;
-  border-radius: 14px;
-  font-size: 12px;
+  border-radius: 20px;
+  display: inline-block;
 }
 
 .inactiveBadge {
-  background-color: #f8d7da;
-  color: #721c24;
-  padding: 4px 10px;
-  border-radius: 14px;
+  background-color: #ffeaea;
+  color: #e11d48;
   font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: 600;
 }
 
 .actionBtn,

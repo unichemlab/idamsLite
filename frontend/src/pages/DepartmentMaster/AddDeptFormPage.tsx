@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useDepartmentContext, Department } from "../../pages/DepartmentMaster/DepartmentContext";
 
 import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
-import Styles from "../ApplicationMasterTable/ApplicationMasterTable.module.css";
+import Styles from "../DepartmentMaster/AddDeptFormPage.module.css";
 
 
 
