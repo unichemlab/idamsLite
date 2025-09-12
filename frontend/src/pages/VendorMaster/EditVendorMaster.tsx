@@ -171,7 +171,7 @@ const EditVendorMaster: React.FC = () => {
                 display: "flex",
                 justifyContent: "center",
                 gap: 24,
-                marginTop: 24,
+                marginTop: -6,
               }}
             >
               <button type="submit" className={addStyles.saveBtn}>

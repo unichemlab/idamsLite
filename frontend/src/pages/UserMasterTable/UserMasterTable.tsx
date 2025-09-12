@@ -349,8 +349,8 @@ const UserMasterTable = () => {
                         <span
                           className={
                             user.status === "Active"
-                              ? styles.activeBadge
-                              : styles.inactiveBadge
+                              ? styles.inactiveBadge
+                              : styles.activeBadge
                           }
                         >
                           {user.status}

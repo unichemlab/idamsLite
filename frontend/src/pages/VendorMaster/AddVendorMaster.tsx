@@ -110,7 +110,7 @@ const AddVendorMaster: React.FC = () => {
         </div>
 
         {/* Container for Add Form */}
-        <div className={addStyles.container} style={{ marginTop: 32 }}>
+        <div className={addStyles.container} >
           <form
             className={addStyles.form}
             onSubmit={handleSubmit}
@@ -173,7 +173,7 @@ const AddVendorMaster: React.FC = () => {
                 display: "flex",
                 justifyContent: "center",
                 gap: 24,
-                marginTop: 24,
+                marginTop: -20,
               }}
             >
               <button type="submit" className={addStyles.saveBtn}>

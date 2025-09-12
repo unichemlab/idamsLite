@@ -158,23 +158,28 @@ tbody td {
   font-size: 14px;
 }
 
+.statusInactive {
+  background-color: #ffeaea;
+  color: #e11d48;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+
+
 .status {
+background-color: #e6f4ea;
+  color: #1a8738;
+  font-weight: bold;
+  font-size: 13px;
   padding: 4px 10px;
   border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
   display: inline-block;
 }
 /* ACTIVE - green badge */
-.status.active {
-  background-color: #e6f4ea;
-  color: #198754;
-}
-/* INACTIVE - red badge */
-.status.inactive {
-  background-color: #ffeaea;
-  color: #e74c3c;
-}
+
 
 .icon {
   color: #343a40;
