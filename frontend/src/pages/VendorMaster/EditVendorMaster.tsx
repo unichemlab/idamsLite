@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { VendorContext } from "./VendorContext";
 import type { Vendor } from "./VendorContext";
 import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
-import addStyles from "./AddVendorMaster.module.css";
+import addStyles from "../PlantMaster/AddPlantMaster.module.css";
 import { sidebarConfig } from "../../components/Common/sidebarConfig";
 
 const EditVendorMaster: React.FC = () => {
@@ -23,7 +23,7 @@ const EditVendorMaster: React.FC = () => {
   if (!vendorCtx || id === undefined || !vendor) return null;
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
     setForm({
@@ -124,54 +124,56 @@ const EditVendorMaster: React.FC = () => {
             className={addStyles.form}
             style={{ width: "100%" }}
           >
-            <div
-              style={{
-                display: "flex",
-                gap: 32,
-                marginBottom: 32,
-                flexWrap: "wrap",
-                justifyContent: "space-between",
-                padding: "40px",
-              }}
-            >
-              <div style={{ flex: 1, minWidth: 180 }}>
-                <label>Vender/OEM Name</label>
-                <input
-                  name="name"
-                  value={form.name}
-                  onChange={handleChange}
-                  required
-                />
+            <div className={addStyles.scrollFormContainer}>
+              <div className={addStyles.rowFields}>
+                <div className={addStyles.formGroup}>
+                  <label>Vendor Name</label>
+                  <input
+                    name="name"
+                    value={form.name}
+                    onChange={handleChange}
+                    required
+                    className={addStyles.input}
+                  />
+                </div>
+                
+                <div className={addStyles.formGroup}>
+                  <label>Status</label>
+                  <select
+                    className={addStyles.select}
+                    name="status"
+                    value={form.status}
+                    onChange={handleChange}
+                  >
+                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="INACTIVE">INACTIVE</option>
+                  </select>
+                </div>
               </div>
-              <div style={{ flex: 1, minWidth: 180 }}>
+              <div
+                className={addStyles.formGroup}
+                style={{ width: "100%", marginTop: 18 }}
+              >
                 <label>Description</label>
-                <input
+                <textarea
                   name="description"
                   value={form.description}
                   onChange={handleChange}
                   required
+                  className={addStyles.textarea}
+                  rows={5}
+                  style={{ minHeight: 100, resize: "vertical", width: "100%" }}
+                  placeholder="Enter description..."
                 />
-              </div>
-              <div style={{ flex: 1, minWidth: 180 }}>
-                <label>Status</label>
-                <select
-                  name="status"
-                  value={form.status}
-                  onChange={handleChange}
-                  style={{ width: "100%" }}
-                >
-                  <option value="ACTIVE">ACTIVE</option>
-                  <option value="INACTIVE">INACTIVE</option>
-                </select>
               </div>
             </div>
             <div
               className={addStyles.buttonRow}
               style={{
                 display: "flex",
-                justifyContent: "center",
+                justifyContent: "flex-start",
                 gap: 24,
-                marginTop: -6,
+                marginTop: 24,
               }}
             >
               <button type="submit" className={addStyles.saveBtn}>
