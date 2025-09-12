@@ -6,6 +6,7 @@ import { useDepartmentContext } from "../../pages/DepartmentMaster/DepartmentCon
 import type { Department } from "./DepartmentContext";
 import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
 import addStyles from "../PlantMaster/AddPlantMaster.module.css";
+import { sidebarConfig } from "../../components/Common/sidebarConfig";
 
 const EditDeptFormPage: React.FC = () => {
   const { id } = useParams();
@@ -26,48 +27,11 @@ const EditDeptFormPage: React.FC = () => {
 
   if (!departmentCtx || id === undefined || !department) return null;
 
-  // Sidebar config (copied from SuperAdmin)
-  const sidebarConfig = [
-    { key: "dashboard", label: "Dashboard" },
-    { key: "plant", label: "Plant Master" },
-    { key: "role", label: "Role Master" },
-    { key: "vendor", label: "Vendor Master" },
-    { key: "department", label: "Department Master" },
-    { key: "application", label: "Application Master" },
-    { key: "user", label: "User Master" },
-    { key: "workflow", label: "Approval Workflow" },
-  ];
+  // Use shared sidebarConfig for consistency
 
-  // Sidebar navigation handler
+  // Sidebar navigation handler (unfiltered, always show all)
   const handleSidebarNav = (key: string) => {
-    switch (key) {
-      case "dashboard":
-        navigate("/superadmin", { state: { activeTab: "dashboard" } });
-        break;
-      case "plant":
-        navigate("/superadmin", { state: { activeTab: "plant" } });
-        break;
-      case "role":
-        navigate("/superadmin", { state: { activeTab: "role" } });
-        break;
-      case "vendor":
-        navigate("/superadmin", { state: { activeTab: "vendor" } });
-        break;
-      case "department":
-        navigate("/superadmin", { state: { activeTab: "department" } });
-        break;
-      case "application":
-        navigate("/superadmin", { state: { activeTab: "application" } });
-        break;
-      case "user":
-        navigate("/superadmin", { state: { activeTab: "user" } });
-        break;
-      case "workflow":
-        navigate("/superadmin", { state: { activeTab: "workflow" } });
-        break;
-      default:
-        break;
-    }
+    navigate("/superadmin", { state: { activeTab: key } });
   };
 
   const activeTab = "department";
@@ -115,7 +79,7 @@ const EditDeptFormPage: React.FC = () => {
               onClick={() => handleSidebarNav(item.key)}
               style={activeTab === item.key ? { fontWeight: 700 } : {}}
             >
-              {item.label}
+              {item.icon} {item.label}
             </button>
           ))}
           <div className={superAdminStyles["sidebar-footer"]}>
