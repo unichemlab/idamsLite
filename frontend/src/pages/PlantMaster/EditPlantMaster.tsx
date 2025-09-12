@@ -4,8 +4,11 @@ import { PlantContext } from "./PlantContext";
 import type { Plant } from "./PlantContext";
 import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
 import addStyles from "./AddPlantMaster.module.css";
+import { sidebarConfig } from "../../components/Common/sidebarConfig";
+import { useAuth } from "../../context/AuthContext";
 
 const EditPlantMaster: React.FC = () => {
+  useAuth();
   const { id } = useParams();
   const plantCtx = useContext(PlantContext);
   const navigate = useNavigate();
@@ -21,18 +24,10 @@ const EditPlantMaster: React.FC = () => {
   );
 
   if (!plantCtx || id === undefined || !plant) return null;
-
-  // Sidebar config (copied from SuperAdmin)
-  const sidebarConfig = [
-    { key: "dashboard", label: "Dashboard" },
-    { key: "plant", label: "Plant Master" },
-    { key: "role", label: "Role Master" },
-    { key: "vendor", label: "Vendor Master" },
-    { key: "department", label: "Department Master" },
-    { key: "application", label: "Application Master" },
-    { key: "user", label: "User Master" },
-    { key: "workflow", label: "Approval Workflow" },
-  ];
+  // Map role_id to role string for RBAC
+  // RBAC logic for userPermissions removed as it was unused
+  // Always show all sidebar items, regardless of user role
+  const filteredSidebarConfig = sidebarConfig;
 
   // Sidebar navigation handler
   const handleSidebarNav = (key: string) => {
@@ -51,7 +46,7 @@ const EditPlantMaster: React.FC = () => {
         break;
       case "department":
         navigate("/superadmin", { state: { activeTab: "department" } });
-        break;  
+        break;
       case "application":
         navigate("/superadmin", { state: { activeTab: "application" } });
         break;
@@ -101,7 +96,7 @@ const EditPlantMaster: React.FC = () => {
         </div>
         <nav>
           <div className={superAdminStyles["sidebar-group"]}>OVERVIEW</div>
-          {sidebarConfig.map((item) => (
+          {filteredSidebarConfig.map((item) => (
             <button
               key={item.key}
               className={`${superAdminStyles["nav-button"]} ${
@@ -110,7 +105,7 @@ const EditPlantMaster: React.FC = () => {
               onClick={() => handleSidebarNav(item.key)}
               style={activeTab === item.key ? { fontWeight: 700 } : {}}
             >
-              {item.label}
+              {item.icon} {item.label}
             </button>
           ))}
           <div className={superAdminStyles["sidebar-footer"]}>

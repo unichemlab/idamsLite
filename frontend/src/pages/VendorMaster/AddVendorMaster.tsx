@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useVendorContext, Vendor } from "./VendorContext";
 import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
 import addStyles from "./AddVendorMaster.module.css";
+import { sidebarConfig } from "../../components/Common/sidebarConfig";
 
 const AddVendorMaster: React.FC = () => {
   const { addVendor } = useVendorContext();
@@ -29,47 +30,14 @@ const AddVendorMaster: React.FC = () => {
     navigate("/superadmin"); // redirect to table
   };
 
-  // Sidebar config (copied from SuperAdmin)
-  const sidebarConfig = [
-    { key: "dashboard", label: "Dashboard" },
-    { key: "plant", label: "Plant Master" },
-    { key: "role", label: "Role Master" },
-    { key: "vendor", label: "Vendor Master" },
-    { key: "application", label: "Application Master" },
-    { key: "user", label: "User Master" },
-    { key: "workflow", label: "Approval Workflow" },
-  ];
+  // Use shared sidebarConfig for consistency
 
-  // Sidebar navigation handler
+  // Sidebar navigation handler (unfiltered, always show all)
   const handleSidebarNav = (key: string) => {
-    switch (key) {
-      case "dashboard":
-        navigate("/superadmin", { state: { activeTab: "dashboard" } });
-        break;
-      case "plant":
-        navigate("/superadmin", { state: { activeTab: "plant" } });
-        break;
-      case "role":
-        navigate("/superadmin", { state: { activeTab: "role" } });
-        break;
-      case "vendor":
-        navigate("/superadmin", { state: { activeTab: "vendor" } });
-        break;
-      case "application":
-        navigate("/superadmin", { state: { activeTab: "application" } });
-        break;
-      case "user":
-        navigate("/superadmin", { state: { activeTab: "user" } });
-        break;
-      case "workflow":
-        navigate("/superadmin", { state: { activeTab: "workflow" } });
-        break;
-      default:
-        break;
-    }
+    navigate("/superadmin", { state: { activeTab: key } });
   };
 
-  // Determine active sidebar tab (always "plant" for Add)
+  // Determine active sidebar tab (always "vendor" for Add)
   const activeTab = "vendor";
 
   return (

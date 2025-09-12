@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect } from "react";
 import ConfirmLoginModal from "../components/Common/ConfirmLoginModal";
 import styles from "../RoleMaster/AddRoleFormPage.module.css";
+import superAdminStyles from "../pages/SuperAdmin/SuperAdmin.module.css";
 import { useNavigate } from "react-router-dom";
 import { useRoles } from "../RoleMaster/RolesContext";
 import type { Role } from "../RoleMaster/RolesContext";
@@ -11,7 +11,10 @@ interface EditRoleFormPageProps {
   onCancel?: () => void;
 }
 
-export default function EditRoleFormPage({ roleId, onCancel }: EditRoleFormPageProps) {
+export default function EditRoleFormPage({
+  roleId,
+  onCancel,
+}: EditRoleFormPageProps) {
   const { roles, updateRole } = useRoles();
   const navigate = useNavigate();
 
@@ -32,7 +35,7 @@ export default function EditRoleFormPage({ roleId, onCancel }: EditRoleFormPageP
           description: role.description,
           status: role.status,
         });
-  // Removed unused activityLogs state update
+        // Removed unused activityLogs state update
       }
     }
   }, [roleId, roles]);
@@ -83,104 +86,143 @@ export default function EditRoleFormPage({ roleId, onCancel }: EditRoleFormPageP
 
   return (
     <div
-      style={{
-        width: "100vw",
-        maxWidth: 1200,
-        minHeight: "90vh",
-        margin: "40px auto",
-        padding: 36,
-        background: "#fff",
-        borderRadius: 16,
-        boxShadow: "0 0 32px rgba(40,70,120,.12)",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-      }}
+      className={superAdminStyles["main-container"]}
+      style={{ width: "100vw" }}
     >
-      <h2 style={{ marginBottom: 32, color: "#2563eb", textAlign: "center" }}>
-        Edit Role
-      </h2>
-      <form
-        className={styles.roleForm}
-        onSubmit={handleSubmit}
-        style={{ width: "100%" }}
-      >
+      <main className={superAdminStyles["main-content"]}>
+        <header className={superAdminStyles["main-header"]}>
+          <h2 className={superAdminStyles["header-title"]}>Role Master</h2>
+          <div className={superAdminStyles["header-icons"]}></div>
+        </header>
+        {/* Breadcrumb */}
         <div
           style={{
+            background: "#eef4ff",
+            padding: "12px 24px",
+            fontSize: "1.05rem",
+            color: "#2d3748",
+            fontWeight: 500,
+            borderRadius: "0 0 12px 12px",
+            marginBottom: 0,
             display: "flex",
-            gap: 32,
-            marginBottom: 32,
-            flexWrap: "wrap",
-            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 6,
           }}
         >
-          <div style={{ flex: 1, minWidth: 180 }} className={styles.formGroup}>
-            <label>Role Name</label>
-            <input
-              name="name"
-              value={form.name}
-              readOnly
-              style={{
-                backgroundColor: "#f3f3f3",
-                color: "#888",
-                cursor: "not-allowed",
-              }}
-              title="Role name cannot be changed after creation."
-              required
-            />
-          </div>
-          <div style={{ flex: 1, minWidth: 180 }} className={styles.formGroup}>
-            <label>Description</label>
-            <input
-              name="description"
-              value={form.description}
-              onChange={handleFormChange}
-              required
-            />
-          </div>
-          <div style={{ flex: 1, minWidth: 180 }} className={styles.formGroup}>
-            <label>Status</label>
-            <select
-              name="status"
-              value={form.status}
-              onChange={handleFormChange}
-              style={{ width: "100%" }}
-            >
-              <option value="ACTIVE">ACTIVE</option>
-              <option value="INACTIVE">INACTIVE</option>
-            </select>
-          </div>
-        </div>
-        <div
-          className={styles.formActions}
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            gap: 24,
-            marginTop: 24,
-          }}
-        >
-          <button type="submit" className={styles.saveBtn}>
-            Update
-          </button>
-          <button
-            type="button"
-            className={styles.cancelBtn}
-            onClick={handleCancel}
+          <span
+            style={{
+              color: "#0b63ce",
+              cursor: "pointer",
+              opacity: 0.7,
+              transition: "color 0.2s",
+            }}
+            onClick={() =>
+              navigate("/superadmin", { state: { activeTab: "role" } })
+            }
+            onMouseOver={(e) => (e.currentTarget.style.color = "#084a9e")}
+            onMouseOut={(e) => (e.currentTarget.style.color = "#0b63ce")}
+            tabIndex={0}
+            role="button"
+            aria-label="Go Role Master table"
           >
-            Cancel
-          </button>
+            Role Master
+          </span>
+          <span>&gt;</span>
+          <span style={{ color: "#2d3748" }}>Edit Role</span>
         </div>
-      </form>
-      {showModal && (
-        <ConfirmLoginModal
-          title="Confirm Edit Role"
-          description="Please confirm editing this role by entering your password."
-          username={username}
-          onConfirm={handleConfirmLogin}
-          onCancel={() => setShowModal(false)}
-        />
-      )}
+        <div className={styles.container}>
+          <form
+            className={styles.roleForm}
+            onSubmit={handleSubmit}
+            style={{ width: "100%" }}
+          >
+            <div
+              style={{
+                display: "flex",
+                gap: 32,
+                marginBottom: 32,
+                flexWrap: "wrap",
+                justifyContent: "space-between",
+              }}
+            >
+              <div
+                style={{ flex: 1, minWidth: 180 }}
+                className={styles.formGroup}
+              >
+                <label>Role Name</label>
+                <input
+                  name="name"
+                  value={form.name}
+                  readOnly
+                  style={{
+                    backgroundColor: "#f3f3f3",
+                    color: "#888",
+                    cursor: "not-allowed",
+                  }}
+                  title="Role name cannot be changed after creation."
+                  required
+                />
+              </div>
+              <div
+                style={{ flex: 1, minWidth: 180 }}
+                className={styles.formGroup}
+              >
+                <label>Description</label>
+                <input
+                  name="description"
+                  value={form.description}
+                  onChange={handleFormChange}
+                  required
+                />
+              </div>
+              <div
+                style={{ flex: 1, minWidth: 180 }}
+                className={styles.formGroup}
+              >
+                <label>Status</label>
+                <select
+                  name="status"
+                  value={form.status}
+                  onChange={handleFormChange}
+                  style={{ width: "100%" }}
+                >
+                  <option value="ACTIVE">ACTIVE</option>
+                  <option value="INACTIVE">INACTIVE</option>
+                </select>
+              </div>
+            </div>
+            <div
+              className={styles.formActions}
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                gap: 24,
+                marginTop: 24,
+              }}
+            >
+              <button type="submit" className={styles.saveBtn}>
+                Update
+              </button>
+              <button
+                type="button"
+                className={styles.cancelBtn}
+                onClick={handleCancel}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+          {showModal && (
+            <ConfirmLoginModal
+              title="Confirm Edit Role"
+              description="Please confirm editing this role by entering your password."
+              username={username}
+              onConfirm={handleConfirmLogin}
+              onCancel={() => setShowModal(false)}
+            />
+          )}
+        </div>
+      </main>
     </div>
   );
 }

@@ -48,18 +48,12 @@ const AddUserRequest: React.FC = () => {
   });
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
   ) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleMultiSelect = (
-    e: React.ChangeEvent<HTMLSelectElement>,
-    field: "approver2" | "approver3"
-  ) => {
-    const selected = Array.from(e.target.selectedOptions, (o) => o.value);
-    setForm((prev) => ({ ...prev, [field]: selected }));
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {

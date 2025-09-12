@@ -1,8 +1,11 @@
 import React, { useState } from "react";
+import { useAuth } from "../../context/AuthContext";
+
 import { useNavigate } from "react-router-dom";
 import { usePlantContext, Plant } from "./PlantContext";
 import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
-import Styles from "../ApplicationMasterTable/ApplicationMasterTable.module.css";
+import addStyles from "./AddPlantMaster.module.css";
+import { sidebarConfig } from "../../components/Common/sidebarConfig";
 
 const AddPlantMaster: React.FC = () => {
   const { addPlant } = usePlantContext();
@@ -32,17 +35,11 @@ const AddPlantMaster: React.FC = () => {
     navigate("/superadmin"); // redirect to table
   };
 
-  // Sidebar config (copied from SuperAdmin)
-  const sidebarConfig = [
-    { key: "dashboard", label: "Dashboard" },
-    { key: "plant", label: "Plant Master" },
-    { key: "role", label: "Role Master" },
-    { key: "vendor", label: "Vendor Master" },
-    { key: "department", label: "Department Master" },
-    { key: "application", label: "Application Master" },
-    { key: "user", label: "User Master" },
-    { key: "workflow", label: "Approval Workflow" },
-  ];
+  // Dynamic sidebar logic (copied from SuperAdmin)
+  useAuth();
+  // Map role_id to role string for RBAC
+  // Always show all sidebar items, regardless of user role
+  const filteredSidebarConfig = sidebarConfig;
 
   // Sidebar navigation handler
   const handleSidebarNav = (key: string) => {
@@ -59,9 +56,9 @@ const AddPlantMaster: React.FC = () => {
       case "vendor":
         navigate("/superadmin", { state: { activeTab: "vendor" } });
         break;
-       case "department":
+      case "department":
         navigate("/superadmin", { state: { activeTab: "department" } });
-        break;  
+        break;
       case "application":
         navigate("/superadmin", { state: { activeTab: "application" } });
         break;
@@ -94,7 +91,7 @@ const AddPlantMaster: React.FC = () => {
         </div>
         <nav>
           <div className={superAdminStyles["sidebar-group"]}>OVERVIEW</div>
-          {sidebarConfig.map((item) => (
+          {filteredSidebarConfig.map((item) => (
             <button
               key={item.key}
               className={`${superAdminStyles["nav-button"]} ${
@@ -103,7 +100,7 @@ const AddPlantMaster: React.FC = () => {
               onClick={() => handleSidebarNav(item.key)}
               style={activeTab === item.key ? { fontWeight: 700 } : {}}
             >
-              {item.label}
+              {item.icon} {item.label}
             </button>
           ))}
           <div className={superAdminStyles["sidebar-footer"]}>
@@ -171,38 +168,38 @@ const AddPlantMaster: React.FC = () => {
         </div>
 
         {/* Container for Add Form */}
-        <div className={Styles.container} style={{ marginTop: 32 }}>
+        <div className={addStyles.container} style={{ marginTop: 32 }}>
           <form
-            className={Styles.form}
+            className={addStyles.form}
             onSubmit={handleSubmit}
             style={{ width: "100%" }}
           >
-            <div className={Styles.scrollFormContainer}>
-              <div className={Styles.rowFields}>
-                <div className={Styles.formGroup}>
+            <div className={addStyles.scrollFormContainer}>
+              <div className={addStyles.rowFields}>
+                <div className={addStyles.formGroup}>
                   <label>Plant Name</label>
                   <input
                     name="name"
                     value={form.name}
                     onChange={handleChange}
                     required
-                    className={Styles.input}
+                    className={addStyles.input}
                   />
                 </div>
-                <div className={Styles.formGroup}>
+                <div className={addStyles.formGroup}>
                   <label>Location</label>
                   <input
                     name="location"
                     value={form.location}
                     onChange={handleChange}
                     required
-                    className={Styles.input}
+                    className={addStyles.input}
                   />
                 </div>
-                <div className={Styles.formGroup}>
+                <div className={addStyles.formGroup}>
                   <label>Status</label>
                   <select
-                    className={Styles.select}
+                    className={addStyles.select}
                     name="status"
                     value={form.status}
                     onChange={handleChange}
@@ -213,7 +210,7 @@ const AddPlantMaster: React.FC = () => {
                 </div>
               </div>
               <div
-                className={Styles.formGroup}
+                className={addStyles.formGroup}
                 style={{ width: "100%", marginTop: 18 }}
               >
                 <label>Description</label>
@@ -222,7 +219,7 @@ const AddPlantMaster: React.FC = () => {
                   value={form.description}
                   onChange={handleChange}
                   required
-                  className={Styles.textarea}
+                  className={addStyles.textarea}
                   rows={5}
                   style={{ minHeight: 100, resize: "vertical", width: "100%" }}
                   placeholder="Enter description..."
@@ -230,7 +227,7 @@ const AddPlantMaster: React.FC = () => {
               </div>
             </div>
             <div
-              className={Styles.buttonRow}
+              className={addStyles.buttonRow}
               style={{
                 display: "flex",
                 justifyContent: "flex-start",
@@ -238,12 +235,12 @@ const AddPlantMaster: React.FC = () => {
                 marginTop: 24,
               }}
             >
-              <button type="submit" className={Styles.saveBtn}>
+              <button type="submit" className={addStyles.saveBtn}>
                 Save
               </button>
               <button
                 type="button"
-                className={Styles.cancelBtn}
+                className={addStyles.cancelBtn}
                 onClick={() => navigate("/superadmin")}
               >
                 Cancel

@@ -251,7 +251,7 @@ export default function RoleMasterTable({ onAdd, onEdit }: RoleMasterTableProps)
             borderRadius: 8,
             boxShadow: "0 0 4px rgba(0, 0, 0, 0.05)",
             border: "1px solid #e2e8f0",
-            marginTop: "26px",
+            marginTop: "35px",
             height: "100",
           }}
         >

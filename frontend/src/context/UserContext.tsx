@@ -43,7 +43,23 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
     const res = await fetch(API_URL);
     if (!res.ok) throw new Error("Failed to fetch users");
     const data = await res.json();
-    setUsers(data.users || []);
+    // Map backend fields to frontend camelCase fields
+    const mapUser = (user: any) => ({
+      id: user.id,
+      fullName: user.full_name || user.fullName || "",
+      email: user.email,
+      empCode: user.employee_code || user.empCode || "",
+      department: user.department || "-", // Optionally map department_id to name
+      status: user.status,
+      plants: user.plants || [],
+      centralMaster: user.centralMaster || [],
+      permissions: user.permissions || {},
+      centralPermission: user.central_permission || false,
+      comment: user.comment || "",
+      corporateAccessEnabled: user.corporate_access_enabled || false,
+      activityLogs: user.activityLogs || [],
+    });
+    setUsers(Array.isArray(data.users) ? data.users.map(mapUser) : []);
   };
 
   useEffect(() => {

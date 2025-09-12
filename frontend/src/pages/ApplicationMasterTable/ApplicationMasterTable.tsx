@@ -283,7 +283,7 @@ export default function ApplicationMasterTable() {
             )}
           </div>
           {/* Table */}
-          <div className={styles.tableUser}>
+          <div className={styles.tableUser1}>
             <table className={styles.table}>
               <thead>
                 <tr>

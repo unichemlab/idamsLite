@@ -588,3 +588,16 @@ tbody tr {
 .tableUser::-webkit-scrollbar-thumb:hover {
   background: #7fa1d6;
 }
+
+
+.tableUser1 {
+  min-height: 62vh;
+  height: 66vh;
+  overflow: auto;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-top: -5px;
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: #b6c6e3 #f4f7fb; /* Firefox */
+}

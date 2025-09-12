@@ -4,6 +4,7 @@ import { VendorContext } from "./VendorContext";
 import type { Vendor } from "./VendorContext";
 import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
 import addStyles from "./AddVendorMaster.module.css";
+import { sidebarConfig } from "../../components/Common/sidebarConfig";
 
 const EditVendorMaster: React.FC = () => {
   const { id } = useParams(); // index from route
@@ -37,44 +38,11 @@ const EditVendorMaster: React.FC = () => {
     navigate("/superadmin");
   };
 
-  // Sidebar config (copied from SuperAdmin)
-  const sidebarConfig = [
-    { key: "dashboard", label: "Dashboard" },
-    { key: "plant", label: "Plant Master" },
-    { key: "role", label: "Role Master" },
-    { key: "vendor", label: "Vendor Master" },
-    { key: "application", label: "Application Master" },
-    { key: "user", label: "User Master" },
-    { key: "workflow", label: "Approval Workflow" },
-  ];
+  // Use shared sidebarConfig for consistency
 
-  // Sidebar navigation handler
+  // Sidebar navigation handler (unfiltered, always show all)
   const handleSidebarNav = (key: string) => {
-    switch (key) {
-      case "dashboard":
-        navigate("/superadmin", { state: { activeTab: "dashboard" } });
-        break;
-      case "plant":
-        navigate("/superadmin", { state: { activeTab: "plant" } });
-        break;
-      case "role":
-        navigate("/superadmin", { state: { activeTab: "role" } });
-        break;
-      case "vendor":
-        navigate("/superadmin", { state: { activeTab: "vendor" } });
-        break;
-      case "application":
-        navigate("/superadmin", { state: { activeTab: "application" } });
-        break;
-      case "user":
-        navigate("/superadmin", { state: { activeTab: "user" } });
-        break;
-      case "workflow":
-        navigate("/superadmin", { state: { activeTab: "workflow" } });
-        break;
-      default:
-        break;
-    }
+    navigate("/superadmin", { state: { activeTab: key } });
   };
 
   // Determine active sidebar tab (always "vendor" for Add/Edit)

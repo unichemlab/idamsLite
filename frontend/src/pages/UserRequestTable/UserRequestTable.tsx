@@ -5,7 +5,6 @@ import ProfileIconWithLogout from "./ProfileIconWithLogout";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { FaEdit, FaTrash } from "react-icons/fa";
-import { FaRegClock } from "react-icons/fa6";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -29,7 +28,10 @@ const UserRequestTable: React.FC = () => {
   useEffect(() => {
     if (!showFilterPopover) return;
     const handleClick = (e: MouseEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(e.target as Node)
+      ) {
         setShowFilterPopover(false);
       }
     };
@@ -61,7 +63,9 @@ const UserRequestTable: React.FC = () => {
     const today = new Date();
     const fileName = `UserRequests_${today.toISOString().split("T")[0]}.pdf`;
 
-    const headers = [["Name", "Request For", "Application", "Department", "Role", "Status"]];
+    const headers = [
+      ["Name", "Request For", "Application", "Department", "Role", "Status"],
+    ];
     const rows = filteredData.map((req) => [
       req.name ?? "",
       req.requestFor ?? "",
@@ -77,8 +81,17 @@ const UserRequestTable: React.FC = () => {
       head: headers,
       body: rows,
       startY: 28,
-      styles: { fontSize: 11, cellPadding: 3, halign: "left", valign: "middle" },
-      headStyles: { fillColor: [11, 99, 206], textColor: 255, fontStyle: "bold" },
+      styles: {
+        fontSize: 11,
+        cellPadding: 3,
+        halign: "left",
+        valign: "middle",
+      },
+      headStyles: {
+        fillColor: [11, 99, 206],
+        textColor: 255,
+        fontStyle: "bold",
+      },
       alternateRowStyles: { fillColor: [240, 245, 255] },
       margin: { left: 14, right: 14 },
       tableWidth: "auto",
@@ -113,7 +126,10 @@ const UserRequestTable: React.FC = () => {
 
       <div className={styles.headerTopRow}>
         <div className={styles.actionHeaderRow}>
-          <button className={styles.addUserBtn} onClick={() => navigate("/user-requests/add")}>
+          <button
+            className={styles.addUserBtn}
+            onClick={() => navigate("/user-requests/add")}
+          >
             + Add New
           </button>
           <button
@@ -182,7 +198,8 @@ const UserRequestTable: React.FC = () => {
                     className={styles.filterInput}
                     type="text"
                     placeholder={`Enter ${
-                      tempFilterColumn.charAt(0).toUpperCase() + tempFilterColumn.slice(1)
+                      tempFilterColumn.charAt(0).toUpperCase() +
+                      tempFilterColumn.slice(1)
                     }`}
                     value={tempFilterValue}
                     onChange={(e) => setTempFilterValue(e.target.value)}
@@ -224,7 +241,7 @@ const UserRequestTable: React.FC = () => {
             borderRadius: 8,
             boxShadow: "0 0 4px rgba(0, 0, 0, 0.05)",
             border: "1px solid #e2e8f0",
-            marginTop: "26px",
+            marginTop: "35px",
           }}
         >
           <table className={styles.table}>
@@ -244,7 +261,9 @@ const UserRequestTable: React.FC = () => {
                 <tr
                   key={req.id ?? index}
                   onClick={() => setSelectedRow(index)}
-                  style={{ background: selectedRow === index ? "#f0f4ff" : undefined }}
+                  style={{
+                    background: selectedRow === index ? "#f0f4ff" : undefined,
+                  }}
                 >
                   <td>
                     <input
@@ -262,7 +281,9 @@ const UserRequestTable: React.FC = () => {
                   <td>
                     <span
                       className={
-                        req.status === "Rejected" ? styles.statusInactive : styles.status
+                        req.status === "Rejected"
+                          ? styles.statusInactive
+                          : styles.status
                       }
                     >
                       {req.status}
