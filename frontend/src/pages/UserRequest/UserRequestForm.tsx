@@ -39,13 +39,6 @@ const AddUserRequest: React.FC = () => {
     const updated = bulkRows.filter((_, i) => i !== index);
     setBulkRows(updated);
   };
-  const [modalOpen, setModalOpen] = useState(false);
-  const [newApplication, setNewApplication] = useState({
-    location: "",
-    department: "",
-    applicationId: "",
-    role: "",
-  });
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -71,31 +64,21 @@ const AddUserRequest: React.FC = () => {
     }
   };
 
-
   const handleAddRow = () => {
     if (bulkRows.length < 7) {
-      setBulkRows([...bulkRows, { location: "", department: "", applicationId: "", role: "" }]);
+      setBulkRows([
+        ...bulkRows,
+        { location: "", department: "", applicationId: "", role: "" },
+      ]);
     } else {
       alert("You can only add up to 7 applications.");
     }
   };
 
-  const handleRemoveAll = () => {
-    setBulkRows([]);
-  };
-
-
-
   const handleBulkRowChange = (index: number, field: string, value: string) => {
     const updated = [...bulkRows];
     updated[index] = { ...updated[index], [field]: value };
     setBulkRows(updated);
-  };
-
-
-  const handleAddApplication = () => {
-    setBulkRows([...bulkRows, newApplication]);
-    setNewApplication({ location: "", department: "", applicationId: "", role: "" });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -132,30 +115,13 @@ const AddUserRequest: React.FC = () => {
 
     const submissionData = {
       ...form,
-      bulkEntries: form.accessType === "Bulk New User Creation" ? bulkRows : undefined,
+      bulkEntries:
+        form.accessType === "Bulk New User Creation" ? bulkRows : undefined,
     };
 
     await addUserRequest(submissionData);
     navigate("/user-requests");
   };
-
-  const sidebarConfig = [
-    { key: "dashboard", label: "Dashboard" },
-    { key: "plant", label: "Plant Master" },
-    { key: "role", label: "Role Master" },
-    { key: "vendor", label: "Vendor Master" },
-    { key: "application", label: "Application Master" },
-    { key: "user", label: "User Master" },
-    { key: "workflow", label: "Approval Workflow" },
-    { key: "request", label: "User Requests" },
-  ];
-
-  const handleSidebarNav = (key: string) => {
-    if (key === "request") navigate("/user-requests");
-    else navigate("/superadmin", { state: { activeTab: key } });
-  };
-
-  const activeTab = "request";
 
   const isVendorModify =
     form.requestFor === "Vendor / OEM" && form.accessType === "Modify Access";
@@ -165,25 +131,25 @@ const AddUserRequest: React.FC = () => {
   const accessOptions =
     form.requestFor === "Vendor / OEM"
       ? [
-        "New User Creation",
-        "Modify Access",
-        "Active / Enable User Access",
-        "Deactivation / Disable / Remove User Access",
-        "Password Reset",
-        "Account Unlock",
-        "Account Unlock and Password Reset",
-      ]
+          "New User Creation",
+          "Modify Access",
+          "Active / Enable User Access",
+          "Deactivation / Disable / Remove User Access",
+          "Password Reset",
+          "Account Unlock",
+          "Account Unlock and Password Reset",
+        ]
       : [
-        "New User Creation",
-        "Modify Access",
-        "Password Reset",
-        "Account Unlock",
-        "Account Unlock and Password Reset",
-        "Active / Enable User Access",
-        "Deactivation / Disable / Remove User Access",
-        "Bulk De-activation",
-        "Bulk New User Creation",
-      ];
+          "New User Creation",
+          "Modify Access",
+          "Password Reset",
+          "Account Unlock",
+          "Account Unlock and Password Reset",
+          "Active / Enable User Access",
+          "Deactivation / Disable / Remove User Access",
+          "Bulk De-activation",
+          "Bulk New User Creation",
+        ];
 
   // ✅ Debugging to track changes
   useEffect(() => {
@@ -194,14 +160,10 @@ const AddUserRequest: React.FC = () => {
   console.log("isBulkNew:", isBulkNew);
   return (
     <div className={superAdminStyles["main-container"]}>
-
-
       <main className={superAdminStyles["main-content"]}>
         <header className={superAdminStyles["main-header"]}>
           <h2 className={superAdminStyles["header-title"]}>User Requests</h2>
         </header>
-
-       
 
         <div className={addStyles.container} style={{ marginTop: 32 }}>
           <form
@@ -440,7 +402,11 @@ const AddUserRequest: React.FC = () => {
                                     <input
                                       value={row.location}
                                       onChange={(e) =>
-                                        handleBulkRowChange(index, "location", e.target.value)
+                                        handleBulkRowChange(
+                                          index,
+                                          "location",
+                                          e.target.value
+                                        )
                                       }
                                       placeholder="Location"
                                     />
@@ -449,7 +415,11 @@ const AddUserRequest: React.FC = () => {
                                     <input
                                       value={row.department}
                                       onChange={(e) =>
-                                        handleBulkRowChange(index, "department", e.target.value)
+                                        handleBulkRowChange(
+                                          index,
+                                          "department",
+                                          e.target.value
+                                        )
                                       }
                                       placeholder="Department Name"
                                     />
@@ -458,7 +428,11 @@ const AddUserRequest: React.FC = () => {
                                     <input
                                       value={row.applicationId}
                                       onChange={(e) =>
-                                        handleBulkRowChange(index, "applicationId", e.target.value)
+                                        handleBulkRowChange(
+                                          index,
+                                          "applicationId",
+                                          e.target.value
+                                        )
                                       }
                                       placeholder="Application / Equipment ID"
                                     />
@@ -467,13 +441,20 @@ const AddUserRequest: React.FC = () => {
                                     <input
                                       value={row.role}
                                       onChange={(e) =>
-                                        handleBulkRowChange(index, "role", e.target.value)
+                                        handleBulkRowChange(
+                                          index,
+                                          "role",
+                                          e.target.value
+                                        )
                                       }
                                       placeholder="Role"
                                     />
                                   </td>
                                   <td>
-                                    <button type="button" onClick={() => handleRemoveRow(index)}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveRow(index)}
+                                    >
                                       Delete
                                     </button>
                                   </td>
@@ -484,7 +465,6 @@ const AddUserRequest: React.FC = () => {
                         </div>
                       </div>
                     )}
-
                   </div>
                   <div className={addStyles.formGroup}>
                     <label>Approver(Manager/Manager's manager) *</label>
@@ -535,11 +515,15 @@ const AddUserRequest: React.FC = () => {
                 </>
               )}
             </div>
-             <div className={addStyles.formFooter}>
+            <div className={addStyles.formFooter}>
               <button type="submit" className={addStyles.saveBtn}>
                 Save
               </button>
-              <button type="button" className={addStyles.cancelBtn} onClick={() => navigate("/user-requests")}>
+              <button
+                type="button"
+                className={addStyles.cancelBtn}
+                onClick={() => navigate("/user-requests")}
+              >
                 Cancel
               </button>
             </div>
