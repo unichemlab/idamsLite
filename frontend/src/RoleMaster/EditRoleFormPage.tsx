@@ -5,7 +5,7 @@ import superAdminStyles from "../pages/SuperAdmin/SuperAdmin.module.css";
 import { useNavigate } from "react-router-dom";
 import { useRoles } from "../RoleMaster/RolesContext";
 import type { Role } from "../RoleMaster/RolesContext";
-
+import addStyles from "../pages/PlantMaster/AddPlantMaster.module.css";
 interface EditRoleFormPageProps {
   roleId: number;
   onCancel?: () => void;
@@ -41,7 +41,7 @@ export default function EditRoleFormPage({
   }, [roleId, roles]);
 
   const handleFormChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
@@ -131,81 +131,69 @@ export default function EditRoleFormPage({
           <span style={{ color: "#2d3748" }}>Edit Role</span>
         </div>
         <div className={styles.container}>
-          <form
-            className={styles.roleForm}
+           <form
             onSubmit={handleSubmit}
+            className={addStyles.form}
             style={{ width: "100%" }}
           >
-            <div
-              style={{
-                display: "flex",
-                gap: 32,
-                marginBottom: 32,
-                flexWrap: "wrap",
-                justifyContent: "space-between",
-              }}
-            >
-              <div
-                style={{ flex: 1, minWidth: 180 }}
-                className={styles.formGroup}
-              >
-                <label>Role Name</label>
-                <input
-                  name="name"
-                  value={form.name}
-                  readOnly
-                  style={{
-                    backgroundColor: "#f3f3f3",
-                    color: "#888",
-                    cursor: "not-allowed",
-                  }}
-                  title="Role name cannot be changed after creation."
-                  required
-                />
+            <div className={addStyles.scrollFormContainer}>
+              <div className={addStyles.rowFields}>
+                <div className={addStyles.formGroup}>
+                  <label>Plant Name</label>
+                  <input
+                    name="name"
+                    value={form.name}
+                    onChange={handleFormChange}
+                    required
+                    className={addStyles.input}
+                  />
+                </div>
+                
+                <div className={addStyles.formGroup}>
+                  <label>Status</label>
+                  <select
+                    className={addStyles.select}
+                    name="status"
+                    value={form.status}
+                    onChange={handleFormChange}
+                  >
+                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="INACTIVE">INACTIVE</option>
+                  </select>
+                </div>
               </div>
               <div
-                style={{ flex: 1, minWidth: 180 }}
-                className={styles.formGroup}
+                className={addStyles.formGroup}
+                style={{ width: "100%", marginTop: 18 }}
               >
                 <label>Description</label>
-                <input
+                <textarea
                   name="description"
                   value={form.description}
                   onChange={handleFormChange}
                   required
+                  className={addStyles.textarea}
+                  rows={5}
+                  style={{ minHeight: 100, resize: "vertical", width: "100%" }}
+                  placeholder="Enter description..."
                 />
-              </div>
-              <div
-                style={{ flex: 1, minWidth: 180 }}
-                className={styles.formGroup}
-              >
-                <label>Status</label>
-                <select
-                  name="status"
-                  value={form.status}
-                  onChange={handleFormChange}
-                  style={{ width: "100%" }}
-                >
-                  <option value="ACTIVE">ACTIVE</option>
-                  <option value="INACTIVE">INACTIVE</option>
-                </select>
               </div>
             </div>
             <div
-              className={styles.formActions}
+              className={addStyles.buttonRow}
               style={{
                 display: "flex",
-                justifyContent: "center",
+                justifyContent: "flex-start",
                 gap: 24,
                 marginTop: 24,
               }}
             >
-              <button type="submit" className={styles.saveBtn}>
+              <button type="submit" className={addStyles.saveBtn}>
                 Update
               </button>
               <button
                 type="button"
-                className={styles.cancelBtn}
+                className={addStyles.cancelBtn}
                 onClick={handleCancel}
               >
                 Cancel

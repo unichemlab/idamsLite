@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useRoles } from "../RoleMaster/RolesContext";
 import type { Role } from "../RoleMaster/RolesContext";
 import superAdminStyles from "../pages/SuperAdmin/SuperAdmin.module.css";
-
+import Styles from "../pages/DepartmentMaster/AddDeptFormPage.module.css";
 interface AddRoleFormPageProps {
   onCancel?: () => void;
 }
@@ -26,7 +26,7 @@ export default function AddRoleFormPage({ onCancel }: AddRoleFormPageProps) {
   const username = localStorage.getItem("username") || "";
 
   const handleFormChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
@@ -113,71 +113,75 @@ export default function AddRoleFormPage({ onCancel }: AddRoleFormPageProps) {
     >
      
       <form
-        className={styles.roleForm}
-        onSubmit={handleSubmit}
-        style={{ width: "100%" }}
-      >
-        <div
-          style={{
-            display: "flex",
-            gap: 32,
-            marginBottom: 32,
-            flexWrap: "wrap",
-            justifyContent: "space-between",
-          }}
-        >
-          <div style={{ flex: 1, minWidth: 180 }} className={styles.formGroup}>
-            <label>Role Name</label>
-            <input
-              name="name"
-              value={form.name}
-              onChange={handleFormChange}
-              required
-            />
-          </div>
-          <div style={{ flex: 1, minWidth: 180 }} className={styles.formGroup}>
-            <label>Description</label>
-            <input
-              name="description"
-              value={form.description}
-              onChange={handleFormChange}
-              required
-            />
-          </div>
-          <div style={{ flex: 1, minWidth: 180 }} className={styles.formGroup}>
-            <label>Status</label>
-            <select
-              name="status"
-              value={form.status}
-              onChange={handleFormChange}
-              style={{ width: "100%" }}
-            >
-              <option value="ACTIVE">ACTIVE</option>
-              <option value="INACTIVE">INACTIVE</option>
-            </select>
-          </div>
-        </div>
-        <div
-          className={styles.formActions}
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            gap: 24,
-            marginTop: 24,
-          }}
-        >
-          <button type="submit" className={styles.saveBtn}>
-            Save
-          </button>
-          <button
-            type="button"
-            className={styles.cancelBtn}
-            onClick={handleCancel}
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
+                className={Styles.form}
+                onSubmit={handleSubmit}
+                style={{ width: "100%" }}
+              >
+                <div className={Styles.scrollFormContainer}>
+                  <div className={Styles.rowFields}>
+                    <div className={Styles.formGroup}>
+                      <label>Role Name</label>
+                      <input
+                        name="name"
+                        value={form.name}
+                        onChange={handleFormChange}
+                        required
+                        className={Styles.input}
+                      />
+                    </div>
+                    
+                    <div className={Styles.formGroup}>
+                      <label>Status</label>
+                      <select
+                        className={Styles.select}
+                        name="status"
+                        value={form.status}
+                        onChange={handleFormChange}
+                      >
+                        <option value="ACTIVE">ACTIVE</option>
+                        <option value="INACTIVE">INACTIVE</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div
+                    className={Styles.formGroup}
+                    style={{ width: "100%", marginTop: 18 }}
+                  >
+                    <label>Description</label>
+                    <textarea
+                      name="description"
+                      value={form.description}
+                      onChange={handleFormChange}
+                      required
+                      className={Styles.textarea}
+                      rows={4}
+                      style={{ minHeight: 100, resize: "vertical", width: "100%" }}
+                      placeholder="Enter description..."
+                    />
+                  </div>
+                </div>
+                <div
+                  className={Styles.buttonRow}
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-start",
+                    gap: 24,
+                    marginTop: 24,
+                  }}
+                >
+                  <button type="submit" className={Styles.saveBtn}>
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    className={Styles.cancelBtn}
+                    onClick={handleCancel}
+
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
       {showModal && (
         <ConfirmLoginModal
           title="Confirm Add Role"
