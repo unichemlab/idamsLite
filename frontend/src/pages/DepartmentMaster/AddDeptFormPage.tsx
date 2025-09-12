@@ -8,8 +8,7 @@ import {
 
 import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
 import Styles from "../ApplicationMasterTable/ApplicationMasterTable.module.css";
-
-
+import { sidebarConfig } from "components/Common/sidebarConfig";
 
 const AddDeptFormPage: React.FC = () => {
   const { addDepartment } = useDepartmentContext();
