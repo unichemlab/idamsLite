@@ -50,6 +50,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
       email: user.email,
       empCode: user.employee_code || user.empCode || "",
       department: user.department || "-", // Optionally map department_id to name
+      department_id: user.department_id, // <-- add this line
       status: user.status,
       plants: user.plants || [],
       centralMaster: user.centralMaster || [],

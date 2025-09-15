@@ -70,10 +70,32 @@
  */
 exports.getAllUsers = async (req, res) => {
   try {
-    const { rows } = await db.query("SELECT * FROM user_master");
+    // Join user_master with user_plant_permission and aggregate permissions per user
+    const query = `
+      SELECT um.*, 
+        COALESCE(json_agg(
+          CASE WHEN upp.user_id IS NOT NULL THEN
+            json_build_object(
+              'plant_id', upp.plant_id,
+              'module_id', upp.module_id,
+              'can_add', upp.can_add,
+              'can_edit', upp.can_edit,
+              'can_view', upp.can_view,
+              'can_delete', upp.can_delete
+            )
+          ELSE NULL END
+        ) FILTER (WHERE upp.user_id IS NOT NULL), '[]') AS permissions
+      FROM user_master um
+      LEFT JOIN user_plant_permission upp ON um.id = upp.user_id
+      GROUP BY um.id
+      ORDER BY um.id;
+    `;
+    const { rows } = await db.query(query);
     // Normalize user data for frontend display
     const users = rows.map((user) => ({
       ...user,
+      department_id: user.department_id, // ensure department_id is present
+      permissions: user.permissions || [],
       plants: Array.isArray(user.plants)
         ? user.plants
         : typeof user.plants === "string" && user.plants
@@ -100,7 +122,12 @@ exports.getAllUsers = async (req, res) => {
     res.json({ users });
   } catch (err) {
     console.error("[USER LIST ERROR]", err);
-    res.status(500).json({ error: "Failed to fetch users" });
+    // TEMP: send full error for debugging
+    res.status(500).json({
+      error: "Failed to fetch users",
+      details: err.message,
+      stack: err.stack,
+    });
   }
 };
 const db = require("../config/db");
