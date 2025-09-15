@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { useRoles } from "../RoleMaster/RolesContext";
 import type { Role } from "../RoleMaster/RolesContext";
 import addStyles from "../pages/PlantMaster/AddPlantMaster.module.css";
+import { useAuth } from "../context/AuthContext";
 interface EditRoleFormPageProps {
   roleId: number;
   onCancel?: () => void;
@@ -17,6 +18,7 @@ export default function EditRoleFormPage({
 }: EditRoleFormPageProps) {
   const { roles, updateRole } = useRoles();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [form, setForm] = useState<Omit<Role, "activityLogs">>({
     name: "",
@@ -41,15 +43,15 @@ export default function EditRoleFormPage({
   }, [roleId, roles]);
 
   const handleFormChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
   ) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
-  // Get logged-in username from localStorage
-  const username = localStorage.getItem("username") || "";
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,7 +60,11 @@ export default function EditRoleFormPage({
 
   // Called after admin confirms
   const handleConfirmLogin = (data: Record<string, string>) => {
-    if (data.username === username && data.password && roleId !== undefined) {
+    if (
+      data.username === (user?.username || "") &&
+      data.password &&
+      roleId !== undefined
+    ) {
       updateRole(roleId, {
         name: form.name,
         description: form.description,
@@ -131,15 +137,18 @@ export default function EditRoleFormPage({
           <span style={{ color: "#2d3748" }}>Edit Role</span>
         </div>
         <div className={styles.container}>
-           <form
+          <form
             onSubmit={handleSubmit}
             className={addStyles.form}
             style={{ width: "100%" }}
           >
             <div className={addStyles.scrollFormContainer}>
               <div className={addStyles.rowFields}>
-                <div className={addStyles.formGroup}>
-                  <label>Plant Name</label>
+                <div
+                  className={addStyles.formGroup}
+                  style={{ flex: 1, minWidth: 180 }}
+                >
+                  <label>Role Name</label>
                   <input
                     name="name"
                     value={form.name}
@@ -148,8 +157,10 @@ export default function EditRoleFormPage({
                     className={addStyles.input}
                   />
                 </div>
-                
-                <div className={addStyles.formGroup}>
+                <div
+                  className={addStyles.formGroup}
+                  style={{ flex: 1, minWidth: 180 }}
+                >
                   <label>Status</label>
                   <select
                     className={addStyles.select}
@@ -174,7 +185,12 @@ export default function EditRoleFormPage({
                   required
                   className={addStyles.textarea}
                   rows={5}
-                  style={{ minHeight: 100, resize: "vertical", width: "100%" }}
+                  style={{
+                    minHeight: 120,
+                    resize: "vertical",
+                    width: "100%",
+                    fontSize: "1.1rem",
+                  }}
                   placeholder="Enter description..."
                 />
               </div>
@@ -204,7 +220,7 @@ export default function EditRoleFormPage({
             <ConfirmLoginModal
               title="Confirm Edit Role"
               description="Please confirm editing this role by entering your password."
-              username={username}
+              username={user?.username || ""}
               onConfirm={handleConfirmLogin}
               onCancel={() => setShowModal(false)}
             />
