@@ -17,7 +17,6 @@ export interface RoleActivityLog {
 
 export interface Role {
   id?: number;
-  role_code?: string;
   name: string;
   description: string;
   status: string;
@@ -45,7 +44,6 @@ export function RolesProvider({ children }: { children: React.ReactNode }) {
       setRoles(
         data.map((r: any) => ({
           id: r.id,
-          role_code: r.role_code,
           name: r.role_name,
           description: r.description,
           status: r.status,
@@ -61,23 +59,34 @@ export function RolesProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const addRole = async (role: Role) => {
-    await addRoleAPI({
-      role_code: role.role_code,
-      role_name: role.name,
-      description: role.description,
-      status: role.status,
-    });
-    fetchAndSetRoles();
+    try {
+      // Only send required fields to backend
+      await addRoleAPI({
+        role_name: role.name,
+        description: role.description,
+        status: role.status,
+      });
+      fetchAndSetRoles();
+    } catch (error: any) {
+      // Optionally, show error to user
+      alert(error?.message || "Failed to add role");
+      throw error;
+    }
   };
 
   const updateRole = async (id: number, role: Role) => {
-    await updateRoleAPI(id, {
-      role_code: role.role_code,
-      role_name: role.name,
-      description: role.description,
-      status: role.status,
-    });
-    fetchAndSetRoles();
+    try {
+      // Only send required fields to backend
+      await updateRoleAPI(id, {
+        role_name: role.name,
+        description: role.description,
+        status: role.status,
+      });
+      fetchAndSetRoles();
+    } catch (error: any) {
+      alert(error?.message || "Failed to update role");
+      throw error;
+    }
   };
 
   const deleteRole = async (id: number) => {

@@ -35,17 +35,21 @@ const ConfirmLoginModal = ({
   onConfirm,
   onCancel,
 }: ConfirmLoginModalProps) => {
+  // Always use username from prop if provided (for digital signature)
   const [form, setForm] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
     fields.forEach((f) => {
       initial[f.name] = "";
     });
+    // Always set username if provided
     if (username) initial.username = username;
     return initial;
   });
   const [error, setError] = useState<string>("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Prevent editing username if disabled
+    if (e.target.name === "username" && username) return;
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
@@ -58,8 +62,9 @@ const ConfirmLoginModal = ({
       }
     }
     setError("");
-    // Optionally add activityType for logging
+    // Always use username from prop if provided
     const data = { ...form };
+    if (username) data.username = username;
     if (activityType) data.activityType = activityType;
     onConfirm(data);
   };
@@ -102,6 +107,7 @@ const ConfirmLoginModal = ({
           </div>
         </div>
         <form onSubmit={handleSubmit}>
+          {/* Show username if provided, always disabled */}
           {username && (
             <>
               <label
@@ -125,23 +131,26 @@ const ConfirmLoginModal = ({
               />
             </>
           )}
-          {fields.map((field) => (
-            <React.Fragment key={field.name}>
-              <label htmlFor={field.name} style={{ fontWeight: 500 }}>
-                {field.label}
-              </label>
-              <input
-                id={field.name}
-                name={field.name}
-                type={field.type || "text"}
-                placeholder={field.placeholder}
-                value={form[field.name]}
-                onChange={handleChange}
-                autoFocus={field.name === "password"}
-                style={{ marginBottom: 10 }}
-              />
-            </React.Fragment>
-          ))}
+          {/* Only show password field if username is provided (digital signature) or always if not */}
+          {fields
+            .filter((field) => field.name !== "username")
+            .map((field) => (
+              <React.Fragment key={field.name}>
+                <label htmlFor={field.name} style={{ fontWeight: 500 }}>
+                  {field.label}
+                </label>
+                <input
+                  id={field.name}
+                  name={field.name}
+                  type={field.type || "text"}
+                  placeholder={field.placeholder}
+                  value={form[field.name]}
+                  onChange={handleChange}
+                  autoFocus={field.name === "password"}
+                  style={{ marginBottom: 10 }}
+                />
+              </React.Fragment>
+            ))}
           {error && (
             <div style={{ color: "#e74c3c", marginTop: 6 }}>{error}</div>
           )}
