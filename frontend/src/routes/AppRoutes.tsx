@@ -141,9 +141,7 @@ function AppRoutes() {
       <Route
         path="/user-requests/add"
         element={
-          <ProtectedRoute>
             <AddUserRequest />
-          </ProtectedRoute>
         }
       />
       <Route
