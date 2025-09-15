@@ -1,6 +1,11 @@
 // src/context/DepartmentContext.tsx
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { fetchDepartments, addDepartmentAPI, updateDepartmentAPI, deleteDepartmentAPI } from "../../utils/api";
+import {
+  fetchDepartments,
+  addDepartmentAPI,
+  updateDepartmentAPI,
+  deleteDepartmentAPI,
+} from "../../utils/api";
 
 export type Department = {
   id: number;
@@ -17,9 +22,13 @@ export type DepartmentContextType = {
   deleteDepartment: (id: number) => void;
 };
 
-const DepartmentContext = createContext<DepartmentContextType | undefined>(undefined);
+const DepartmentContext = createContext<DepartmentContextType | undefined>(
+  undefined
+);
 
-export const DepartmentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const DepartmentProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [departments, setDepartments] = useState<Department[]>([]);
 
   const fetchDepartmentsHandler = async () => {
@@ -33,13 +42,13 @@ export const DepartmentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const addDepartment = async (department: Department) => {
-    const newDept = await addDepartmentAPI(department);
-    setDepartments([...departments, newDept]);
+    await addDepartmentAPI(department);
+    await fetchDepartmentsHandler(); // Refresh list after add
   };
 
   const updateDepartment = async (id: number, department: Department) => {
-    const updated = await updateDepartmentAPI(id, department);
-    setDepartments(departments.map((d) => (d.id === id ? updated : d)));
+    await updateDepartmentAPI(id, department);
+    await fetchDepartmentsHandler(); // Refresh list after update
   };
 
   const deleteDepartment = async (id: number) => {
@@ -53,7 +62,13 @@ export const DepartmentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   return (
     <DepartmentContext.Provider
-      value={{ departments, fetchDepartments: fetchDepartmentsHandler, addDepartment, updateDepartment, deleteDepartment }}
+      value={{
+        departments,
+        fetchDepartments: fetchDepartmentsHandler,
+        addDepartment,
+        updateDepartment,
+        deleteDepartment,
+      }}
     >
       {children}
     </DepartmentContext.Provider>
@@ -62,8 +77,9 @@ export const DepartmentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
 export function useDepartmentContext() {
   const ctx = useContext(DepartmentContext);
-  if (!ctx) throw new Error("useDepartmentContext must be used inside DepartmentProvider");
+  if (!ctx)
+    throw new Error(
+      "useDepartmentContext must be used inside DepartmentProvider"
+    );
   return ctx;
 }
-
-

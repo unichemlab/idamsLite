@@ -1,4 +1,6 @@
 import React, { useContext, useState } from "react";
+import ConfirmLoginModal from "./ConfirmLoginModal";
+import { useAuth } from "../../context/AuthContext";
 import { useNavigate, useParams } from "react-router-dom";
 import { VendorContext } from "./VendorContext";
 import type { Vendor } from "./VendorContext";
@@ -19,11 +21,15 @@ const EditVendorMaster: React.FC = () => {
       status: "ACTIVE",
     }
   );
+  const { user } = useAuth();
+  const [showModal, setShowModal] = useState(false);
 
   if (!vendorCtx || id === undefined || !vendor) return null;
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
   ) => {
     const { name, value } = e.target;
     setForm({
@@ -34,8 +40,18 @@ const EditVendorMaster: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    vendorCtx.updateVendor(index, form);
-    navigate("/superadmin");
+    setShowModal(true);
+  };
+
+  // Called after admin confirms
+  const handleConfirmLogin = (data: Record<string, string>) => {
+    if (data.username === (user?.username || "") && data.password) {
+      vendorCtx.updateVendor(index, form);
+      setShowModal(false);
+      navigate("/superadmin", { state: { activeTab: "vendor" } });
+    } else {
+      alert("Invalid credentials. Please try again.");
+    }
   };
 
   // Use shared sidebarConfig for consistency
@@ -136,7 +152,7 @@ const EditVendorMaster: React.FC = () => {
                     className={addStyles.input}
                   />
                 </div>
-                
+
                 <div className={addStyles.formGroup}>
                   <label>Status</label>
                   <select
@@ -188,6 +204,15 @@ const EditVendorMaster: React.FC = () => {
               </button>
             </div>
           </form>
+          {showModal && (
+            <ConfirmLoginModal
+              title="Confirm Edit Vendor"
+              description="Please confirm editing this vendor by entering your password."
+              username={user?.username || ""}
+              onConfirm={handleConfirmLogin}
+              onCancel={() => setShowModal(false)}
+            />
+          )}
         </div>
       </main>
     </div>

@@ -1,5 +1,7 @@
 // src/pages/DepartmentMasterTable/AddDeptFormPage.tsx
 import React, { useState } from "react";
+import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
+import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import {
   useDepartmentContext,
@@ -7,7 +9,7 @@ import {
 } from "../../pages/DepartmentMaster/DepartmentContext";
 
 import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
-import Styles from "../PlantMaster/AddPlantMaster.module.css";
+import Styles from "./AddDeptFormPage.module.css";
 import {
   sidebarConfig,
   SidebarConfigItem,
@@ -15,6 +17,9 @@ import {
 
 const AddDeptFormPage: React.FC = () => {
   const { addDepartment } = useDepartmentContext();
+  const { user } = useAuth();
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingForm, setPendingForm] = useState<Department | null>(null);
   const navigate = useNavigate();
   const [form, setForm] = useState<Department>({
     id: 0,
@@ -37,8 +42,22 @@ const AddDeptFormPage: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    addDepartment(form);
-    navigate("/superadmin"); // redirect to table
+    setPendingForm(form);
+    setShowConfirm(true);
+  };
+
+  const handleConfirm = async (data: Record<string, string>) => {
+    if (pendingForm) {
+      await addDepartment(pendingForm);
+      setShowConfirm(false);
+      setPendingForm(null);
+      navigate("/superadmin");
+    }
+  };
+
+  const handleCancel = () => {
+    setShowConfirm(false);
+    setPendingForm(null);
   };
 
   // Sidebar navigation handler (unfiltered, always show all)
@@ -49,6 +68,15 @@ const AddDeptFormPage: React.FC = () => {
 
   return (
     <div className={superAdminStyles["main-container"]}>
+      {showConfirm && (
+        <ConfirmLoginModal
+          username={user?.username}
+          onConfirm={handleConfirm}
+          onCancel={handleCancel}
+          title="Confirm Add Department"
+          description="Please confirm your identity to add a department."
+        />
+      )}
       {/* Sidebar */}
       <aside className={superAdminStyles.sidebar}>
         <div className={superAdminStyles["sidebar-header"]}>
@@ -147,48 +175,45 @@ const AddDeptFormPage: React.FC = () => {
             onSubmit={handleSubmit}
             style={{ width: "100%" }}
           >
-            <div className={Styles.scrollFormContainer}>
-              <div className={Styles.rowFields}>
-                <div className={Styles.formGroup}>
-                  <label>Department Name</label>
-                  <input
-                    name="name"
-                    value={form.name}
-                    onChange={handleChange}
-                    required
-                    className={Styles.input}
-                  />
-                </div>
-
-                <div className={Styles.formGroup}>
-                  <label>Status</label>
-                  <select
-                    className={Styles.select}
-                    name="status"
-                    value={form.status}
-                    onChange={handleChange}
-                  >
-                    <option value="ACTIVE">ACTIVE</option>
-                    <option value="INACTIVE">INACTIVE</option>
-                  </select>
-                </div>
-              </div>
-              <div
-                className={Styles.formGroup}
-                style={{ width: "100%", marginTop: 18 }}
-              >
-                <label>Description</label>
-                <textarea
-                  name="description"
-                  value={form.description}
+            <div className={Styles.rowFields}>
+              <div className={Styles.formGroup} style={{ flex: 1 }}>
+                <label>Department Name</label>
+                <input
+                  name="name"
+                  value={form.name}
                   onChange={handleChange}
                   required
-                  className={Styles.textarea}
-                  rows={4}
-                  style={{ minHeight: 100, resize: "vertical", width: "100%" }}
-                  placeholder="Enter description..."
+                  className={Styles.input}
                 />
               </div>
+              <div className={Styles.formGroup} style={{ flex: 1 }}>
+                <label>Status</label>
+                <select
+                  className={Styles.select}
+                  name="status"
+                  value={form.status}
+                  onChange={handleChange}
+                >
+                  <option value="ACTIVE">ACTIVE</option>
+                  <option value="INACTIVE">INACTIVE</option>
+                </select>
+              </div>
+            </div>
+            <div
+              className={Styles.formGroup}
+              style={{ width: "100%", marginTop: 18 }}
+            >
+              <label>Description</label>
+              <textarea
+                name="description"
+                value={form.description}
+                onChange={handleChange}
+                required
+                className={Styles.textarea}
+                rows={4}
+                style={{ minHeight: 100, resize: "vertical", width: "100%" }}
+                placeholder="Enter description..."
+              />
             </div>
             <div
               className={Styles.buttonRow}

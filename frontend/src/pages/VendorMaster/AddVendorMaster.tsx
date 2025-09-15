@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import ConfirmLoginModal from "./ConfirmLoginModal";
+import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useVendorContext, Vendor } from "./VendorContext";
 import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
@@ -8,14 +10,18 @@ import { sidebarConfig } from "../../components/Common/sidebarConfig";
 const AddVendorMaster: React.FC = () => {
   const { addVendor } = useVendorContext();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [form, setForm] = useState<Vendor>({
     name: "",
     description: "",
     status: "ACTIVE",
   });
+  const [showModal, setShowModal] = useState(false);
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
   ) => {
     const { name, value } = e.target;
     setForm({
@@ -26,8 +32,18 @@ const AddVendorMaster: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    addVendor(form);
-    navigate("/superadmin"); // redirect to table
+    setShowModal(true);
+  };
+
+  // Called after admin confirms
+  const handleConfirmLogin = (data: Record<string, string>) => {
+    if (data.username === (user?.username || "") && data.password) {
+      addVendor(form);
+      setShowModal(false);
+      navigate("/superadmin", { state: { activeTab: "vendor" } });
+    } else {
+      alert("Invalid credentials. Please try again.");
+    }
   };
 
   // Use shared sidebarConfig for consistency
@@ -36,8 +52,6 @@ const AddVendorMaster: React.FC = () => {
   const handleSidebarNav = (key: string) => {
     navigate("/superadmin", { state: { activeTab: key } });
   };
-
-  
 
   // Determine active sidebar tab (always "vendor" for Add)
   const activeTab = "vendor";
@@ -112,7 +126,7 @@ const AddVendorMaster: React.FC = () => {
         </div>
 
         {/* Container for Add Form */}
-        <div className={addStyles.container} >
+        <div className={addStyles.container}>
           <form
             className={addStyles.form}
             onSubmit={handleSubmit}
@@ -130,7 +144,7 @@ const AddVendorMaster: React.FC = () => {
                     className={addStyles.input}
                   />
                 </div>
-                
+
                 <div className={addStyles.formGroup}>
                   <label>Status</label>
                   <select
@@ -182,6 +196,15 @@ const AddVendorMaster: React.FC = () => {
               </button>
             </div>
           </form>
+          {showModal && (
+            <ConfirmLoginModal
+              title="Confirm Add Vendor"
+              description="Please confirm adding this vendor by entering your password."
+              username={user?.username || ""}
+              onConfirm={handleConfirmLogin}
+              onCancel={() => setShowModal(false)}
+            />
+          )}
         </div>
       </main>
     </div>
