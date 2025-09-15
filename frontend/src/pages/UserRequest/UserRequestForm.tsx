@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUserRequestContext, UserRequest } from "./UserRequestContext";
-import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
+//import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
 import addStyles from "./AddUserRequest.module.css";
 
 const AddUserRequest: React.FC = () => {
@@ -119,24 +119,6 @@ const AddUserRequest: React.FC = () => {
     navigate("/user-requests");
   };
 
-  const sidebarConfig = [
-    { key: "dashboard", label: "Dashboard" },
-    { key: "plant", label: "Plant Master" },
-    { key: "role", label: "Role Master" },
-    { key: "vendor", label: "Vendor Master" },
-    { key: "application", label: "Application Master" },
-    { key: "user", label: "User Master" },
-    { key: "workflow", label: "Approval Workflow" },
-    { key: "request", label: "User Requests" },
-  ];
-
-  const handleSidebarNav = (key: string) => {
-    if (key === "request") navigate("/user-requests");
-    else navigate("/superadmin", { state: { activeTab: key } });
-  };
-
-  const activeTab = "request";
-
   const isVendorModify = form.requestFor === "Vendor / OEM" && form.accessType === "Modify Access";
   const isBulkDeactivation = form.accessType === "Bulk De-activation";
   const isBulkNew = form.accessType === "Bulk New User Creation";
@@ -172,10 +154,10 @@ const AddUserRequest: React.FC = () => {
   console.log("isBulkNew:", isBulkNew);
 
   return (
-    <div className={superAdminStyles["main-container"]}>
-      <main className={superAdminStyles["main-content"]}>
-        <header className={superAdminStyles["main-header"]}>
-          <h2 className={superAdminStyles["header-title"]}>User Requests</h2>
+    <div className={addStyles["main-container"]}>
+      <main className={addStyles["main-content"]}>
+        <header className={addStyles["main-header"]}>
+          <h2 className={addStyles["header-title"]}>User Requests</h2>
         </header>
 
         <div className={addStyles.container} style={{ marginTop: 32 }}>
@@ -319,9 +301,6 @@ const AddUserRequest: React.FC = () => {
                         required
                       />
                     </div>
-                    <div className={addStyles.formGroup}></div>
-                  </div>
-                  <div className={addStyles.threeCol}>
                     <div className={addStyles.formGroup}>
                       <label>Vendor Name (auto)</label>
                       <input
@@ -331,6 +310,9 @@ const AddUserRequest: React.FC = () => {
                         placeholder="Auto-filled from Allocated ID"
                       />
                     </div>
+                  </div>
+                  <div className={addStyles.threeCol}>
+                    
                     <div className={addStyles.formGroup}>
                       <label>Role (auto)</label>
                       <input
@@ -340,11 +322,6 @@ const AddUserRequest: React.FC = () => {
                         placeholder="Auto-filled from Allocated ID"
                       />
                     </div>
-                    <div className={addStyles.formGroup}></div>
-                  </div>
-
-                  {/* Additional fields: Department, Role, Approver, Remarks */}
-                  <div className={addStyles.twoCol}>
                     <div className={addStyles.formGroup}>
                       <label>Department</label>
                       <input
@@ -352,15 +329,6 @@ const AddUserRequest: React.FC = () => {
                         value={form.department}
                         onChange={handleChange}
                         placeholder="Enter Department"
-                      />
-                    </div>
-                    <div className={addStyles.formGroup}>
-                      <label>Role</label>
-                      <input
-                        name="role"
-                        value={form.role}
-                        onChange={handleChange}
-                        placeholder="Enter Role"
                       />
                     </div>
                     <div className={addStyles.formGroup}>
@@ -375,6 +343,10 @@ const AddUserRequest: React.FC = () => {
                         <option value="Manager's Manager">Manager's Manager</option>
                       </select>
                     </div>
+                  </div>
+
+                  {/* Additional fields: Department, Role, Approver, Remarks */}
+                  <div className={addStyles.oneCol}>    
                     <div className={addStyles.formGroup}>
                       <label>Remarks</label>
                       <textarea
