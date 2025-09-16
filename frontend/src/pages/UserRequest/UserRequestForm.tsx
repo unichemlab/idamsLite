@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUserRequestContext, UserRequest } from "./UserRequestContext";
+import { fetchPlants } from "../../utils/api";
 //import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
 import addStyles from "./AddUserRequest.module.css";
 
@@ -35,6 +36,13 @@ const AddUserRequest: React.FC = () => {
   const [bulkRows, setBulkRows] = useState([
     { location: "", department: "", applicationId: "", role: "" },
   ]);
+
+  const [plants, setPlants] = useState<{ id: number; plant_name: string }[]>([]);
+  const [departments, setDepartments] = useState<{ id: number; department_name: string }[]>([]);
+  const [roles, setRoles] = useState<{ id: number; name: string }[]>([]);
+  const [applications, setApplications] = useState<{ id: string; name: string }[]>([]);
+
+
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -143,6 +151,73 @@ const AddUserRequest: React.FC = () => {
     console.log("Access Request Type changed:", form.accessType);
   }, [form.accessType]);
 
+  useEffect(() => {
+    fetchPlants()
+      .then((data) => {
+        const normalized = data.map((p: any) => ({
+          id: p.id,
+          plant_name: p.plant_name, // Keep the expected property name
+        }));
+        console.error("fetch plants:", normalized);
+        setPlants(normalized);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch plants:", err);
+        setPlants([]);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (form.plant_location) {
+      fetch(`http://localhost:4000/api/applications/${form.plant_location}`)
+        .then(res => res.json())
+        .then(data => {
+          console.error("fetch departments:", data);
+          setDepartments(Array.isArray(data) ? data : []);// Extract names from objects
+        })
+        .catch((err) => {
+          console.error("Failed to fetch departments:", err);
+          setDepartments([]);
+        });
+    }
+  }, [form.plant_location]);
+
+
+  useEffect(() => {
+    if (form.plant_location && form.department) {
+      fetch(`http://localhost:4000/api/applications/${form.plant_location}/${form.department}`)
+        .then(res => res.json())
+        .then(data => {
+          console.error("fetch roles and applications:", data);
+          setRoles(Array.isArray(data.roles) ? data.roles : []); // Extract role names
+          setApplications(Array.isArray(data.applications) ? data.applications : []); // Applications are already in {id, name} format
+        })
+        .catch((err) => {
+          console.error("Failed to fetch roles and applications:", err);
+          setRoles([]);
+          setApplications([]);
+        });
+    }
+  }, [form.plant_location, form.department]);
+
+
+  useEffect(() => {
+    if (form.vendorName.length > 0) {
+      fetch(`/api/vendors/${form.vendorName}`)
+        .then(res => res.json())
+        .then(data => {
+          setForm(prev => ({
+            ...prev,
+            vendorFirm: data.firm,
+            vendorCode: data.code
+          }));
+        });
+    }
+  }, [form.vendorName]);
+
+
+
+
   console.log("Current Access Type:", form.accessType);
   console.log("isBulkNew:", isBulkNew);
 
@@ -153,7 +228,7 @@ const AddUserRequest: React.FC = () => {
           <h2 className={addStyles["header-title"]}>User Requests</h2>
         </header>
 
-        <div className={addStyles.container} >
+        <div className={addStyles.container}>
           <form
             id="userRequestForm"
             className={addStyles.form}
@@ -232,7 +307,7 @@ const AddUserRequest: React.FC = () => {
                 </div>
               </div>
 
-              {/* Card 2 */}
+              {/* Card 2 Vendor Details */}
               {(form.requestFor === "Vendor / OEM" && !isVendorModify) && (
                 <div className={addStyles.section}>
                   <div className={addStyles.sectionHeader}>
@@ -307,34 +382,34 @@ const AddUserRequest: React.FC = () => {
                   <div className={addStyles.threeCol}>
                     <div className={addStyles.formGroup}>
                       <label>Plant Location *</label>
-                      <input
-                        name="plant_location"
-                        value={form.plant_location}
-                        onChange={handleChange}
-                        required
-                      />
+                      <select name="plant_location" value={form.plant_location} onChange={handleChange} required>
+                        <option value="">Select Plant</option>
+                        {plants.map(plant => (
+                          <option key={plant.id} value={plant.id}>{plant.plant_name}</option>
+                        ))}
+                      </select>
                     </div>
                     <div className={addStyles.formGroup}>
                       <label>Role *</label>
-                      <input
-                        name="role"
-                        value={form.role}
-                        readOnly
-                        placeholder="Role"
-                      />
+                      <select name="role" value={form.role} onChange={handleChange} required>
+                        <option value="">Select Role</option>
+                        {roles.map((role) => (
+                          <option key={role.id} value={role.id}>{role.name}</option>
+                        ))}
+                      </select>
+
                     </div>
                     <div className={addStyles.formGroup}>
                       <label>Department</label>
-                      <input
-                        name="department"
-                        value={form.department}
-                        onChange={handleChange}
-                        placeholder="Enter Department"
-                      />
+                      <select name="department" value={form.department} onChange={handleChange} required>
+                        <option value="">Select Department</option>
+                        {departments.map((dept) => (
+                          <option key={dept.id} value={dept.id}>{dept.department_name}</option>
+                        ))}
+                      </select>
+
                     </div>
                   </div>
-
-                  {/* Additional fields: Department, Role, Approver, Remarks */}
                   <div className={addStyles.twoCol}>
                     <div className={addStyles.formGroup}>
                       <label>Approver</label>
@@ -372,49 +447,44 @@ const AddUserRequest: React.FC = () => {
                   <div className={addStyles.threeCol}>
                     <div className={addStyles.formGroup}>
                       <label>Plant Location *</label>
-                      <input
-                        name="plant_location"
-                        value={form.plant_location}
-                        onChange={handleChange}
-                        required
-                      />
+                      <select name="plant_location" value={form.plant_location} onChange={handleChange} required>
+                        <option value="">Select Plant</option>
+                        {plants.map(plant => (
+                          <option key={plant.id} value={plant.id}>{plant.plant_name}</option>
+                        ))}
+                      </select>
                     </div>
                     <div className={addStyles.formGroup}>
                       <label>Department Name</label>
-                      <input
-                        name="department"
-                        value={
-                          isBulkDeactivation
-                            ? form.department || "Auto Department Set"
-                            : form.department
-                        }
-                        onChange={handleChange}
-                        readOnly={isBulkDeactivation}
-                        required={!isBulkDeactivation}
-                      />
-                    </div>
+                      <select name="department" value={form.department} onChange={handleChange} required>
+                        <option value="">Select Department</option>
+                        {departments.map((dept) => (
+                          <option key={dept.id} value={dept.id}>{dept.department_name}</option>
+                        ))}
+                      </select>
 
+                    </div>
                     <div className={addStyles.formGroup}>
                       <label>Role *</label>
-                      <input
-                        name="role"
-                        value={form.role}
-                        readOnly
-                        placeholder="Role"
-                      />
+                      <select name="role" value={form.role} onChange={handleChange} required>
+                        <option value="">Select Role</option>
+                        {roles.map((role) => (
+                          <option key={role.id} value={role.id}>{role.name}</option>
+                        ))}
+                      </select>
+
                     </div>
                   </div>
-
                   <div className={addStyles.twoCol}>
                     {!isBulkDeactivation && (
                       <div className={addStyles.formGroup}>
                         <label>Application / Equipment ID *</label>
-                        <input
-                          name="applicationId"
-                          value={form.applicationId}
-                          onChange={handleChange}
-                          required
-                        />
+                        <select name="applicationId" value={form.applicationId} onChange={handleChange} required>
+                          <option value="">Select Application / Equipment ID</option>
+                          {applications.map((app, index) => (
+                            <option key={index} value={app.id}>{app.name}</option>
+                          ))}
+                        </select>
                       </div>
                     )}
                     {!isBulkDeactivation && (
@@ -428,7 +498,6 @@ const AddUserRequest: React.FC = () => {
                         />
                       </div>
                     )}
-
                   </div>
                   <div className={addStyles.formGroup}>
                     <label>Remarks</label>
@@ -571,6 +640,7 @@ const AddUserRequest: React.FC = () => {
       </main>
     </div>
   );
+
 };
 
 export default AddUserRequest;

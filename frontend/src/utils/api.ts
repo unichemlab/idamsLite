@@ -301,3 +301,43 @@ export async function addAccessLogAPI(accessLog: any): Promise<any> {
   return await res.json();
 }
 
+/************************** API for Application / Department / Role *****************************************/
+
+// Fetch departments, roles, and applications by Plant ID
+export async function fetchDepartmentsByPlantId(
+  plantId: number
+): Promise<{
+  departments: { id: number; department_name: string }[];
+}> {
+  try {
+    const res = await fetch(`http://localhost:4000/api/applications/${plantId}`);
+    if (!res.ok) throw new Error("Failed to fetch data by plant ID");
+    const data = await res.json();
+    return data;
+  } catch (error) {
+    console.error("API fetchDepartmentsRolesApplicationsByPlantId error:", error);
+    throw error;
+  }
+}
+
+/************************** API for Applications, Roles by Plant and Department *****************************************/
+
+// Fetch roles and applications by plant ID and department ID
+export async function fetchRolesApplicationsByPlantAndDepartment(
+  plantId: number,
+  deptId: number
+): Promise<{
+  roles: string[];
+  applications: { id: string; name: string }[];
+}> {
+  try {
+    const res = await fetch(`http://localhost:4000/api/applications/${plantId}/${deptId}`);
+    if (!res.ok) throw new Error("Failed to fetch roles and applications");
+    return await res.json();
+  } catch (error) {
+    console.error("API fetchRolesApplicationsByPlantAndDepartment error:", error);
+    throw error;
+  }
+}
+
+
