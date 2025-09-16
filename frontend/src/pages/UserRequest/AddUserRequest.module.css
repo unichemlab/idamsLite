@@ -23,7 +23,7 @@ html, body {
   background: linear-gradient(90deg, #007bff 0%, #0056b3 100%);
   color: #fff;
   padding: 12px 20px;
-  font-size: 1.3rem;
+  font-size: 0.8rem;
   font-weight: 600;
   text-align: left;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -48,7 +48,7 @@ html, body {
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
   padding: 16px;
-  margin: 20px auto;
+  margin: 0px auto;
   max-width: 1000px;
   width: 100%;
   box-sizing: border-box;
@@ -84,7 +84,7 @@ html, body {
 
 .sectionHeaderTitle {
   color: #007bff;
-  font-size: 1rem;
+  font-size: 13px;
   font-weight: 600;
   text-transform: uppercase;
 }

@@ -13,6 +13,7 @@ const AddUserRequest: React.FC = () => {
     name: "",
     employeeCode: "",
     location: "",
+    plant_location: "",
     accessType: "",
     applicationId: "",
     department: "",
@@ -34,14 +35,6 @@ const AddUserRequest: React.FC = () => {
   const [bulkRows, setBulkRows] = useState([
     { location: "", department: "", applicationId: "", role: "" },
   ]);
-
-  const [modalOpen, setModalOpen] = useState(false);
-  const [newApplication, setNewApplication] = useState({
-    location: "",
-    department: "",
-    applicationId: "",
-    role: "",
-  });
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -126,25 +119,25 @@ const AddUserRequest: React.FC = () => {
   const accessOptions =
     form.requestFor === "Vendor / OEM"
       ? [
-          "New User Creation",
-          "Modify Access",
-          "Active / Enable User Access",
-          "Deactivation / Disable / Remove User Access",
-          "Password Reset",
-          "Account Unlock",
-          "Account Unlock and Password Reset",
-        ]
+        "New User Creation",
+        "Modify Access",
+        "Active / Enable User Access",
+        "Deactivation / Disable / Remove User Access",
+        "Password Reset",
+        "Account Unlock",
+        "Account Unlock and Password Reset",
+      ]
       : [
-          "New User Creation",
-          "Modify Access",
-          "Password Reset",
-          "Account Unlock",
-          "Account Unlock and Password Reset",
-          "Active / Enable User Access",
-          "Deactivation / Disable / Remove User Access",
-          "Bulk De-activation",
-          "Bulk New User Creation",
-        ];
+        "New User Creation",
+        "Modify Access",
+        "Password Reset",
+        "Account Unlock",
+        "Account Unlock and Password Reset",
+        "Active / Enable User Access",
+        "Deactivation / Disable / Remove User Access",
+        "Bulk De-activation",
+        "Bulk New User Creation",
+      ];
 
   useEffect(() => {
     console.log("Access Request Type changed:", form.accessType);
@@ -160,7 +153,7 @@ const AddUserRequest: React.FC = () => {
           <h2 className={addStyles["header-title"]}>User Requests</h2>
         </header>
 
-        <div className={addStyles.container} style={{ marginTop: 32 }}>
+        <div className={addStyles.container} >
           <form
             id="userRequestForm"
             className={addStyles.form}
@@ -312,14 +305,22 @@ const AddUserRequest: React.FC = () => {
                     </div>
                   </div>
                   <div className={addStyles.threeCol}>
-                    
                     <div className={addStyles.formGroup}>
-                      <label>Role (auto)</label>
+                      <label>Plant Location *</label>
+                      <input
+                        name="plant_location"
+                        value={form.plant_location}
+                        onChange={handleChange}
+                        required
+                      />
+                    </div>
+                    <div className={addStyles.formGroup}>
+                      <label>Role *</label>
                       <input
                         name="role"
                         value={form.role}
                         readOnly
-                        placeholder="Auto-filled from Allocated ID"
+                        placeholder="Role"
                       />
                     </div>
                     <div className={addStyles.formGroup}>
@@ -331,6 +332,10 @@ const AddUserRequest: React.FC = () => {
                         placeholder="Enter Department"
                       />
                     </div>
+                  </div>
+
+                  {/* Additional fields: Department, Role, Approver, Remarks */}
+                  <div className={addStyles.twoCol}>
                     <div className={addStyles.formGroup}>
                       <label>Approver</label>
                       <select
@@ -343,10 +348,6 @@ const AddUserRequest: React.FC = () => {
                         <option value="Manager's Manager">Manager's Manager</option>
                       </select>
                     </div>
-                  </div>
-
-                  {/* Additional fields: Department, Role, Approver, Remarks */}
-                  <div className={addStyles.oneCol}>    
                     <div className={addStyles.formGroup}>
                       <label>Remarks</label>
                       <textarea
@@ -370,6 +371,15 @@ const AddUserRequest: React.FC = () => {
                   </div>
                   <div className={addStyles.threeCol}>
                     <div className={addStyles.formGroup}>
+                      <label>Plant Location *</label>
+                      <input
+                        name="plant_location"
+                        value={form.plant_location}
+                        onChange={handleChange}
+                        required
+                      />
+                    </div>
+                    <div className={addStyles.formGroup}>
                       <label>Department Name</label>
                       <input
                         name="department"
@@ -384,6 +394,18 @@ const AddUserRequest: React.FC = () => {
                       />
                     </div>
 
+                    <div className={addStyles.formGroup}>
+                      <label>Role *</label>
+                      <input
+                        name="role"
+                        value={form.role}
+                        readOnly
+                        placeholder="Role"
+                      />
+                    </div>
+                  </div>
+
+                  <div className={addStyles.twoCol}>
                     {!isBulkDeactivation && (
                       <div className={addStyles.formGroup}>
                         <label>Application / Equipment ID *</label>
@@ -395,21 +417,6 @@ const AddUserRequest: React.FC = () => {
                         />
                       </div>
                     )}
-
-                    {!isBulkDeactivation && (
-                      <div className={addStyles.formGroup}>
-                        <label>Role *</label>
-                        <input
-                          name="role"
-                          value={form.role}
-                          onChange={handleChange}
-                          required
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className={addStyles.twoCol}>
                     {!isBulkDeactivation && (
                       <div className={addStyles.formGroup}>
                         <label>Approver (Manager/Manager's manager) *</label>
@@ -421,16 +428,17 @@ const AddUserRequest: React.FC = () => {
                         />
                       </div>
                     )}
-                    <div className={addStyles.formGroup}>
-                      <label>Remarks</label>
-                      <textarea
-                        name="remarks"
-                        value={form.remarks}
-                        onChange={handleChange}
-                        maxLength={100}
-                        rows={4}
-                      />
-                    </div>
+
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>Remarks</label>
+                    <textarea
+                      name="remarks"
+                      value={form.remarks}
+                      onChange={handleChange}
+                      maxLength={100}
+                      rows={4}
+                    />
                   </div>
                 </div>
               )}

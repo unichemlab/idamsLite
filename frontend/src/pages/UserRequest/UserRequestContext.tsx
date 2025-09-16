@@ -13,6 +13,7 @@ export type UserRequest = {
   name: string;
   employeeCode?: string;
   location: string;
+  plant_location: string;
   accessType: string;
   applicationId: string;
   department: string;
@@ -55,6 +56,7 @@ export const UserRequestProvider: React.FC<{ children: React.ReactNode }> = ({ c
     requestFor: "Self",
     name: "",
     location: "",
+    plant_location : "",
     accessType: "",
     applicationId: "",
     department: "",
