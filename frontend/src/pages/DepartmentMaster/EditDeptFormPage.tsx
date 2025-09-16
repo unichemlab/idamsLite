@@ -1,17 +1,22 @@
 // src/pages/DepartmentMasterTable/EditDeptFormPage.tsx
 import React, { useState } from "react";
+import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
+import { useAuth } from "../../context/AuthContext";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { useDepartmentContext } from "../../pages/DepartmentMaster/DepartmentContext";
 import type { Department } from "./DepartmentContext";
 import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
-import addStyles from "../PlantMaster/AddPlantMaster.module.css";
+import Styles from "./AddDeptFormPage.module.css";
 import { sidebarConfig } from "../../components/Common/sidebarConfig";
 
 const EditDeptFormPage: React.FC = () => {
   const { id } = useParams();
   const departmentCtx = useDepartmentContext();
+  const { user } = useAuth();
   const navigate = useNavigate();
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingForm, setPendingForm] = useState<Department | null>(null);
 
   const department = departmentCtx?.departments.find(
     (dep) => String(dep.id) === id
@@ -50,13 +55,35 @@ const EditDeptFormPage: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setPendingForm(form);
+    setShowConfirm(true);
+  };
 
-    departmentCtx.updateDepartment(Number(id), form);
-    navigate("/superadmin");
+  const handleConfirm = async (data: Record<string, string>) => {
+    if (pendingForm) {
+      await departmentCtx.updateDepartment(Number(id), pendingForm);
+      setShowConfirm(false);
+      setPendingForm(null);
+      navigate("/superadmin");
+    }
+  };
+
+  const handleCancel = () => {
+    setShowConfirm(false);
+    setPendingForm(null);
   };
 
   return (
     <div className={superAdminStyles["main-container"]}>
+      {showConfirm && (
+        <ConfirmLoginModal
+          username={user?.username}
+          onConfirm={handleConfirm}
+          onCancel={handleCancel}
+          title="Confirm Edit Department"
+          description="Please confirm your identity to update this department."
+        />
+      )}
       {/* Sidebar */}
       <aside className={superAdminStyles.sidebar}>
         <div className={superAdminStyles["sidebar-header"]}>
@@ -149,57 +176,54 @@ const EditDeptFormPage: React.FC = () => {
         </div>
 
         {/* Container for Edit Form */}
-        <div className={addStyles.container} style={{ marginTop: 32 }}>
+        <div className={Styles.container} style={{ marginTop: 32 }}>
           <form
             onSubmit={handleSubmit}
-            className={addStyles.form}
+            className={Styles.form}
             style={{ width: "100%" }}
           >
-            <div className={addStyles.scrollFormContainer}>
-              <div className={addStyles.rowFields}>
-                <div className={addStyles.formGroup}>
-                  <label>Department Name</label>
-                  <input
-                    name="name"
-                    value={form.name}
-                    onChange={handleChange}
-                    required
-                    className={addStyles.input}
-                  />
-                </div>
-
-                <div className={addStyles.formGroup}>
-                  <label>Status</label>
-                  <select
-                    className={addStyles.select}
-                    name="status"
-                    value={form.status}
-                    onChange={handleChange}
-                  >
-                    <option value="ACTIVE">ACTIVE</option>
-                    <option value="INACTIVE">INACTIVE</option>
-                  </select>
-                </div>
-              </div>
-              <div
-                className={addStyles.formGroup}
-                style={{ width: "100%", marginTop: 18 }}
-              >
-                <label>Description</label>
-                <textarea
-                  name="description"
-                  value={form.description}
+            <div className={Styles.rowFields}>
+              <div className={Styles.formGroup} style={{ flex: 1 }}>
+                <label>Department Name</label>
+                <input
+                  name="name"
+                  value={form.name}
                   onChange={handleChange}
                   required
-                  className={addStyles.textarea}
-                  rows={4}
-                  style={{ minHeight: 100, resize: "vertical", width: "100%" }}
-                  placeholder="Enter description..."
+                  className={Styles.input}
                 />
+              </div>
+              <div className={Styles.formGroup} style={{ flex: 1 }}>
+                <label>Status</label>
+                <select
+                  className={Styles.select}
+                  name="status"
+                  value={form.status}
+                  onChange={handleChange}
+                >
+                  <option value="ACTIVE">ACTIVE</option>
+                  <option value="INACTIVE">INACTIVE</option>
+                </select>
               </div>
             </div>
             <div
-              className={addStyles.buttonRow}
+              className={Styles.formGroup}
+              style={{ width: "100%", marginTop: 18 }}
+            >
+              <label>Description</label>
+              <textarea
+                name="description"
+                value={form.description}
+                onChange={handleChange}
+                required
+                className={Styles.textarea}
+                rows={4}
+                style={{ minHeight: 100, resize: "vertical", width: "100%" }}
+                placeholder="Enter description..."
+              />
+            </div>
+            <div
+              className={Styles.buttonRow}
               style={{
                 display: "flex",
                 justifyContent: "flex-start",
@@ -207,12 +231,12 @@ const EditDeptFormPage: React.FC = () => {
                 marginTop: 24,
               }}
             >
-              <button type="submit" className={addStyles.saveBtn}>
+              <button type="submit" className={Styles.saveBtn}>
                 Update
               </button>
               <button
                 type="button"
-                className={addStyles.cancelBtn}
+                className={Styles.cancelBtn}
                 onClick={() => navigate("/superadmin")}
               >
                 Cancel

@@ -5,15 +5,35 @@ import styles from "./UserMasterTable.module.css";
 import { FaEdit, FaTrash } from "react-icons/fa";
 import { FaRegClock } from "react-icons/fa6";
 import { useUserContext } from "../../context/UserContext";
+import { useDepartmentContext } from "../DepartmentMaster/DepartmentContext";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
+// Plant ID to name mapping (should be fetched from backend in production)
+const PLANT_ID_NAME_MAP = {
+  1: "Goa Plant 11",
+  2: "Goa Plant 2",
+  3: "GOA COE",
+  4: "Kolhapur",
+  5: "Ghaziabad",
+  6: "Pithampur",
+  7: "Baddi unit-I",
+  8: "Baddi Unit-II",
+  9: "Baddi Unit-III",
+  10: "Roha",
+  11: "Corporate",
+  14: "Mumbai Plant test1",
+  15: "test new plant",
+  16: "test 223",
+  18: "New test ",
+};
 
 const UserMasterTable = () => {
   const navigate = useNavigate();
   const { users, deleteUser } = useUserContext();
+  const { departments } = useDepartmentContext();
 
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -299,7 +319,6 @@ const UserMasterTable = () => {
                     <th>Employee Code</th>
                     <th>Department</th>
                     <th>Assigned Plants</th>
-
                     <th>Central Master</th>
                     <th>Status</th>
                     <th>Activity Logs</th>
@@ -322,25 +341,81 @@ const UserMasterTable = () => {
                       </td>
                       <td>{user.email}</td>
                       <td>{user.empCode}</td>
-                      <td>{user.department}</td>
                       <td>
-                        {(user.plants || []).map((plant: string, i: number) => (
-                          <span key={i} className={styles.plantBadge}>
-                            {plant}
-                          </span>
-                        ))}
+                        {(() => {
+                          if (user.department_id) {
+                            const dept = departments.find(
+                              (d: any) => d.id === user.department_id
+                            );
+                            return dept ? dept.name : "-";
+                          }
+                          // fallback to user.department if present
+                          return user.department || "-";
+                        })()}
+                      </td>
+                      <td>
+                        {/* Assigned Plants: show unique plant_ids from permissions, fallback to user.plants */}
+                        {Array.isArray(user.permissions) &&
+                        user.permissions.length > 0
+                          ? Array.from(
+                              new Set(
+                                user.permissions.map(
+                                  (perm: any) => perm.plant_id
+                                )
+                              )
+                            )
+                              .filter(Boolean)
+                              .map((plantId: any, i: number) => (
+                                <span key={i} className={styles.plantBadge}>
+                                  {PLANT_ID_NAME_MAP[
+                                    plantId as keyof typeof PLANT_ID_NAME_MAP
+                                  ] || plantId}
+                                </span>
+                              ))
+                          : (user.plants || []).map(
+                              (plant: string, i: number) => (
+                                <span key={i} className={styles.plantBadge}>
+                                  {plant}
+                                </span>
+                              )
+                            )}
                       </td>
 
                       <td>
-                        {Array.isArray(user.centralMaster) &&
-                        user.centralMaster.length > 0 ? (
-                          user.centralMaster.map(
-                            (mod: string, index: number) => (
-                              <span key={index} className={styles.plantBadge}>
-                                {mod}
-                              </span>
-                            )
-                          )
+                        {/* Central Master: show unique module_ids where user has all permissions (A, E, V, D) */}
+                        {Array.isArray(user.permissions) &&
+                        user.permissions.length > 0 ? (
+                          (() => {
+                            const centralModules = user.permissions
+                              .filter(
+                                (perm: any) =>
+                                  perm.can_add &&
+                                  perm.can_edit &&
+                                  perm.can_view &&
+                                  perm.can_delete
+                              )
+                              .map((perm: any) => perm.module_id)
+                              .filter(Boolean);
+                            const uniqueModules = Array.from(
+                              new Set(centralModules)
+                            );
+                            return uniqueModules.length > 0 ? (
+                              uniqueModules.map((mod: any, i: number) => (
+                                <span key={i} className={styles.plantBadge}>
+                                  {mod}
+                                </span>
+                              ))
+                            ) : (
+                              <span className={styles.inactive}>-</span>
+                            );
+                          })()
+                        ) : Array.isArray(user.centralMaster) &&
+                          user.centralMaster.length > 0 ? (
+                          user.centralMaster.map((mod: string, i: number) => (
+                            <span key={i} className={styles.plantBadge}>
+                              {mod}
+                            </span>
+                          ))
                         ) : (
                           <span className={styles.inactive}>-</span>
                         )}
