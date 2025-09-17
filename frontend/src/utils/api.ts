@@ -1,3 +1,9 @@
+// Fetch application master data from backend API
+export async function fetchApplications(): Promise<any[]> {
+  const res = await fetch("http://localhost:4000/api/applications");
+  if (!res.ok) throw new Error("Failed to fetch applications");
+  return await res.json();
+}
 // Fetch role master data from backend API
 export async function fetchRoles(): Promise<any[]> {
   const res = await fetch("http://localhost:4000/api/roles");
@@ -77,7 +83,6 @@ export async function deletePlantAPI(id: number): Promise<void> {
   if (!res.ok) throw new Error("Failed to delete plant");
 }
 
-
 /************************** api for vendor*********************************************** */
 // Fetch vendor activity logs
 export async function fetchVendorActivityLogs(): Promise<any[]> {
@@ -122,22 +127,19 @@ export async function deleteVendorAPI(id: number): Promise<void> {
   if (!res.ok) throw new Error("Failed to delete vendor");
 }
 
-
-
 // Fetch document activity logs
-
 
 // Add this if not already defined
 // Department Activity Logs
 
 // ✅ Department Activity Logs
 export async function fetchDepartmentActivityLogs(): Promise<any[]> {
-  const res = await fetch("http://localhost:4000/api/departments/activity-logs");
+  const res = await fetch(
+    "http://localhost:4000/api/departments/activity-logs"
+  );
   if (!res.ok) throw new Error("Failed to fetch department activity logs");
   return await res.json();
 }
-
-
 
 // Fetch plant master data from backend API
 export async function fetchDepartments(): Promise<any[]> {
@@ -179,7 +181,10 @@ export async function addDepartmentAPI(department: any): Promise<any> {
 }
 
 // Update a plant
-export async function updateDepartmentAPI(id: number, department: any): Promise<any> {
+export async function updateDepartmentAPI(
+  id: number,
+  department: any
+): Promise<any> {
   // Map 'name' to 'department_name' for backend
   const payload = {
     ...department,
@@ -224,7 +229,10 @@ export async function addUserRequestAPI(userRequest: any): Promise<any> {
 }
 
 // Update a user request
-export async function updateUserRequestAPI(id: number, userRequest: any): Promise<any> {
+export async function updateUserRequestAPI(
+  id: number,
+  userRequest: any
+): Promise<any> {
   const res = await fetch(`http://localhost:4000/api/user-requests/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -339,5 +347,4 @@ export async function fetchRolesApplicationsByPlantAndDepartment(
     throw error;
   }
 }
-
 

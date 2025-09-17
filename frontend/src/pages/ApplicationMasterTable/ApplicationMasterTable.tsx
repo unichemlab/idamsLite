@@ -16,7 +16,9 @@ export default function ApplicationMasterTable() {
   const [selectedRow, setSelectedRow] = React.useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   const [showFilterPopover, setShowFilterPopover] = React.useState(false);
-  const [filterColumn, setFilterColumn] = React.useState("name");
+  const [filterColumn, setFilterColumn] = React.useState(
+    "application_hmi_name"
+  );
   const [filterValue, setFilterValue] = React.useState("");
   const [tempFilterColumn, setTempFilterColumn] = React.useState(filterColumn);
   const [tempFilterValue, setTempFilterValue] = React.useState(filterValue);
@@ -38,31 +40,24 @@ export default function ApplicationMasterTable() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [showFilterPopover]);
 
-  const filteredData = applications.filter(
-    (
-      app: import("../../context/ApplicationsContext").Application,
-      idx: number
-    ) => {
-      if (!filterValue.trim()) return true;
-      const value = filterValue.toLowerCase();
-      switch (filterColumn) {
-        case "name":
-          return app.name?.toLowerCase().includes(value);
-        case "version":
-          return app.version?.toLowerCase().includes(value);
-        case "equipmentId":
-          return app.equipmentId?.toLowerCase().includes(value);
-        case "computer":
-          return app.computer?.toLowerCase().includes(value);
-        case "plant":
-          return app.plant?.toLowerCase().includes(value);
-        case "status":
-          return app.status?.toLowerCase().includes(value);
-        default:
-          return true;
-      }
+  const filteredData = applications.filter((app) => {
+    if (!filterValue.trim()) return true;
+    const value = filterValue.toLowerCase();
+    switch (filterColumn) {
+      case "application_hmi_name":
+        return app.application_hmi_name?.toLowerCase().includes(value);
+      case "plant_location_id":
+        return String(app.plant_location_id).includes(value);
+      case "department_id":
+        return String(app.department_id).includes(value);
+      case "role_id":
+        return String(app.role_id).includes(value);
+      case "status":
+        return app.status?.toLowerCase().includes(value);
+      default:
+        return true;
     }
-  );
+  });
 
   const handleDelete = () => setShowDeleteModal(true);
   const confirmDelete = () => {
@@ -97,15 +92,36 @@ export default function ApplicationMasterTable() {
     const dd = String(today.getDate()).padStart(2, "0");
     const fileName = `ApplicationMasterTable_${yyyy}-${mm}-${dd}.pdf`;
     const headers = [
-      ["Application", "Version", "Equipment ID", "Computer", "Plant", "Status"],
+      [
+        "Plant Location ",
+        "Department ",
+        "Application/HMI Name",
+        "Application/HMI Version ",
+        "Equipment/Instrument ID",
+        "Application/HMI Type ",
+        "Display Name ",
+        "Role",
+        "System Name",
+        "Multiple Role Access (Yes/No)",
+        "Status ",
+        "Activity Log",
+      ],
     ];
     const rows = filteredData.map((app: any) => [
-      app.name,
-      app.version,
-      app.equipmentId,
-      app.computer,
-      app.plant,
+      app.plant_location_id,
+      app.department_id,
+      app.application_hmi_name,
+      app.application_hmi_version,
+      app.equipment_instrument_id,
+      app.application_hmi_type,
+      app.display_name,
+      app.role_id,
+      app.system_name,
+      app.multiple_role_access ? "Yes" : "No",
       app.status,
+      Array.isArray(app.activityLogs) && app.activityLogs.length > 0
+        ? "View"
+        : "-",
     ]);
     doc.setFontSize(18);
     doc.text("Application Master Table", 14, 18);
@@ -132,6 +148,7 @@ export default function ApplicationMasterTable() {
     });
     doc.save(fileName);
   };
+
   return (
     <div>
       <header className={styles["main-header"]}>
@@ -193,7 +210,7 @@ export default function ApplicationMasterTable() {
             open={showDeleteModal}
             name={
               selectedRow !== null && filteredData[selectedRow]
-                ? filteredData[selectedRow].name
+                ? filteredData[selectedRow].application_hmi_name
                 : "application"
             }
             onCancel={() => setShowDeleteModal(false)}
@@ -206,103 +223,43 @@ export default function ApplicationMasterTable() {
             type="button"
             style={{ border: "1px solid #0b63ce" }}
           >
-            <span
-              role="img"
-              aria-label="Export PDF"
-              style={{ fontSize: 18 }}
-              className={styles.exportIcon}
-            >
+            <span role="img" aria-label="Export PDF" style={{ fontSize: 18 }}>
               🗎
             </span>
             PDF
           </button>
         </div>
       </div>
-      {/* Filter Popover */}
+
+      {/* Table Section */}
       <div className={styles.wrapper}>
         <div className={styles.container}>
-          <div className={styles.controls}>
-            {showFilterPopover && (
-              <div className={styles.filterPopover} ref={popoverRef}>
-                <div className={styles.filterPopoverHeader}>
-                  Advanced Filter
-                </div>
-                <div className={styles.filterPopoverBody}>
-                  <div className={styles.filterFieldRow}>
-                    <label className={styles.filterLabel}>Column</label>
-                    <select
-                      className={styles.filterDropdown}
-                      value={tempFilterColumn}
-                      onChange={(e) => setTempFilterColumn(e.target.value)}
-                    >
-                      <option value="name">Name</option>
-                      <option value="version">Version</option>
-                      <option value="equipmentId">Equipment ID</option>
-                      <option value="computer">Computer</option>
-                      <option value="plant">Plant</option>
-                      <option value="status">Status</option>
-                    </select>
-                  </div>
-                  <div className={styles.filterFieldRow}>
-                    <label className={styles.filterLabel}>Value</label>
-                    <input
-                      className={styles.filterInput}
-                      type="text"
-                      placeholder={`Enter ${
-                        tempFilterColumn.charAt(0).toUpperCase() +
-                        tempFilterColumn.slice(1)
-                      }`}
-                      value={tempFilterValue}
-                      onChange={(e) => setTempFilterValue(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className={styles.filterPopoverFooter}>
-                  <button
-                    className={styles.applyBtn}
-                    onClick={() => {
-                      setFilterColumn(tempFilterColumn);
-                      setFilterValue(tempFilterValue);
-                      setShowFilterPopover(false);
-                    }}
-                  >
-                    Apply
-                  </button>
-                  <button
-                    className={styles.clearBtn}
-                    onClick={() => {
-                      setTempFilterValue("");
-                      setFilterValue("");
-                      setShowFilterPopover(false);
-                    }}
-                  >
-                    Clear
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-          {/* Table */}
+          <div className={styles.controls}></div>
           <div className={styles.tableUser1}>
             <table className={styles.table}>
               <thead>
                 <tr>
                   <th></th>
-                  <th>Application</th>
-                  <th>Version</th>
-                  <th>Equipment ID</th>
-                  <th>Computer</th>
-                  <th>Plant</th>
-                  <th>Status</th>
-                  <th>Activity Logs</th>
+                  <th>Plant Location </th>
+                  <th>Department </th>
+                  <th>Application/HMI Name</th>
+                  <th>Application/HMI Version </th>
+                  <th>Equipment/Instrument ID </th>
+                  <th>Application/HMI Type</th>
+                  <th>Display Name </th>
+                  <th>Role </th>
+                  <th>System Name </th>
+                  <th>Multiple Role Access (Yes/No)</th>
+                  <th>Status </th>
+                  <th>Activity Log</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredData.map((app, idx) => (
+                {filteredData.map((app: any, idx: number) => (
                   <tr
-                    key={idx}
+                    key={app.id || idx}
                     style={{
-                      background: selectedRow === idx ? "#f0f4ff" : undefined,
+                      background: selectedRow === idx ? "#e6f0fa" : undefined,
                     }}
                   >
                     <td>
@@ -311,28 +268,38 @@ export default function ApplicationMasterTable() {
                         type="radio"
                         checked={selectedRow === idx}
                         onChange={() => setSelectedRow(idx)}
-                        aria-label={`Select ${app.name}`}
+                        aria-label={`Select ${app.application_hmi_name}`}
                       />
                     </td>
-                    <td>{app.name}</td>
-                    <td>{app.version}</td>
-                    <td>{app.equipmentId}</td>
-                    <td>{app.computer}</td>
-                    <td>{app.plant}</td>
+                    <td>{app.plant_location_id}</td>
+                    <td>{app.department_id}</td>
+                    <td>{app.application_hmi_name}</td>
+                    <td>{app.application_hmi_version}</td>
+                    <td>{app.equipment_instrument_id}</td>
+                    <td>{app.application_hmi_type}</td>
+                    <td>{app.display_name}</td>
+                    <td>{app.role_id}</td>
+                    <td>{app.system_name}</td>
+                    <td>{app.multiple_role_access ? "Yes" : "No"}</td>
                     <td>
                       <span className={styles.status}>{app.status}</span>
                     </td>
                     <td>
-                      <button
-                        className={styles.actionBtn}
-                        title="View Activity Logs"
-                        onClick={() => {
-                          setActivityLogsApp(app);
-                          setShowActivityModal(true);
-                        }}
-                      >
-                        <FaRegClock size={17} />
-                      </button>
+                      {Array.isArray(app.activityLogs) &&
+                      app.activityLogs.length > 0 ? (
+                        <button
+                          className={styles.actionBtn}
+                          title="View Activity Logs"
+                          onClick={() => {
+                            setActivityLogsApp(app);
+                            setShowActivityModal(true);
+                          }}
+                        >
+                          <FaRegClock size={17} />
+                        </button>
+                      ) : (
+                        "-"
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -516,14 +483,14 @@ export default function ApplicationMasterTable() {
                     <span>
                       Application:{" "}
                       <span style={{ color: "#0b63ce" }}>
-                        {activityLogsApp.name}
+                        {activityLogsApp.application_hmi_name}
                       </span>
                     </span>
                     &nbsp; | &nbsp;
                     <span>
                       Version:{" "}
                       <span style={{ color: "#0b63ce" }}>
-                        {activityLogsApp.version}
+                        {activityLogsApp.application_hmi_version}
                       </span>
                     </span>
                   </div>
@@ -636,6 +603,74 @@ export default function ApplicationMasterTable() {
                       </tbody>
                     </table>
                   </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Filter Popover */}
+      <div className={styles.wrapper}>
+        <div className={styles.container}>
+          <div className={styles.controls}>
+            {showFilterPopover && (
+              <div className={styles.filterPopover} ref={popoverRef}>
+                <div className={styles.filterPopoverHeader}>
+                  Advanced Filter
+                </div>
+                <div className={styles.filterPopoverBody}>
+                  <div className={styles.filterFieldRow}>
+                    <label className={styles.filterLabel}>Column</label>
+                    <select
+                      className={styles.filterDropdown}
+                      value={tempFilterColumn}
+                      onChange={(e) => setTempFilterColumn(e.target.value)}
+                    >
+                      <option value="application_hmi_name">
+                        Application/HMI Name
+                      </option>
+                      <option value="plant_location_id">Plant Location</option>
+                      <option value="department_id">Department</option>
+                      <option value="role_id">Role</option>
+                      <option value="status">Status</option>
+                    </select>
+                  </div>
+                  <div className={styles.filterFieldRow}>
+                    <label className={styles.filterLabel}>Value</label>
+                    <input
+                      className={styles.filterInput}
+                      type="text"
+                      placeholder={`Enter ${
+                        tempFilterColumn.charAt(0).toUpperCase() +
+                        tempFilterColumn.slice(1)
+                      }`}
+                      value={tempFilterValue}
+                      onChange={(e) => setTempFilterValue(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className={styles.filterPopoverFooter}>
+                  <button
+                    className={styles.applyBtn}
+                    onClick={() => {
+                      setFilterColumn(tempFilterColumn);
+                      setFilterValue(tempFilterValue);
+                      setShowFilterPopover(false);
+                    }}
+                  >
+                    Apply
+                  </button>
+                  <button
+                    className={styles.clearBtn}
+                    onClick={() => {
+                      setTempFilterValue("");
+                      setFilterValue("");
+                      setShowFilterPopover(false);
+                    }}
+                  >
+                    Clear
+                  </button>
                 </div>
               </div>
             )}
