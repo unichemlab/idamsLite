@@ -11,7 +11,8 @@ export interface Application {
   equipment_instrument_id: string;
   application_hmi_type: string;
   display_name: string;
-  role_id: number;
+  role_id: string; // comma-separated string of IDs
+  role_names?: string[]; // for display
   system_name: string;
   system_inventory_id: number;
   multiple_role_access: boolean;
@@ -63,7 +64,8 @@ export function ApplicationsProvider({
             `${app.application_hmi_name || ""} | ${
               app.application_hmi_version || ""
             } | ${app.equipment_instrument_id || ""}`,
-          role_id: app.role_id,
+          role_id: String(app.role_id),
+          role_names: app.role_names || [],
           system_name: app.system_name,
           system_inventory_id: app.system_inventory_id,
           multiple_role_access: app.multiple_role_access,

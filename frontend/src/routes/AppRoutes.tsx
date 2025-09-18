@@ -138,12 +138,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/user-requests/add"
-        element={
-            <AddUserRequest />
-        }
-      />
+      <Route path="/user-requests/add" element={<AddUserRequest />} />
       <Route
         path="/access-details"
         element={

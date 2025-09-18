@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const applicationController = require("../controllers/applicationController");
+// Delete Application
+router.delete("/:id", applicationController.deleteApplication);
 
 /**
  * @swagger
@@ -33,7 +35,6 @@ router.get("/", applicationController.getAllApplications);
  */
 router.get("/:id", applicationController.getDepartmentByPlantId);
 
-
 /**
  * @swagger
  * /api/applications:
@@ -44,8 +45,15 @@ router.get("/:id", applicationController.getDepartmentByPlantId);
  *       200:
  *         description: Get role , applications_id
  */
-router.get("/:id/:dept_id", applicationController.getRoleApplicationIDByPlantIdandDepartment);
+router.get(
+  "/:id/:dept_id",
+  applicationController.getRoleApplicationIDByPlantIdandDepartment
+);
 
-// You can add more routes (POST, PUT, DELETE) as needed
+// Add Application
+router.post("/", applicationController.addApplication);
+
+// Edit Application
+router.put("/:id", applicationController.editApplication);
 
 module.exports = router;

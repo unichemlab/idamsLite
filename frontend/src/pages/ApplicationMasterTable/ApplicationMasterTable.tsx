@@ -51,6 +51,12 @@ export default function ApplicationMasterTable() {
       case "department_id":
         return String(app.department_id).includes(value);
       case "role_id":
+        // Filter by role name or ID (multi-role)
+        if (Array.isArray(app.role_names) && app.role_names.length > 0) {
+          return app.role_names.some((name) =>
+            name.toLowerCase().includes(value)
+          );
+        }
         return String(app.role_id).includes(value);
       case "status":
         return app.status?.toLowerCase().includes(value);
@@ -115,7 +121,7 @@ export default function ApplicationMasterTable() {
       app.equipment_instrument_id,
       app.application_hmi_type,
       app.display_name,
-      app.role_id,
+      Array.isArray(app.role_names) ? app.role_names.join(", ") : app.role_id,
       app.system_name,
       app.multiple_role_access ? "Yes" : "No",
       app.status,
@@ -278,7 +284,12 @@ export default function ApplicationMasterTable() {
                     <td>{app.equipment_instrument_id}</td>
                     <td>{app.application_hmi_type}</td>
                     <td>{app.display_name}</td>
-                    <td>{app.role_id}</td>
+                    <td>
+                      {Array.isArray(app.role_names) &&
+                      app.role_names.length > 0
+                        ? app.role_names.join(", ")
+                        : app.role_id} 
+                    </td>
                     <td>{app.system_name}</td>
                     <td>{app.multiple_role_access ? "Yes" : "No"}</td>
                     <td>
