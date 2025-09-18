@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Select from "react-select";
 import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
 import addStyles from "./AddApplicationMaster.module.css";
 import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
@@ -32,7 +33,7 @@ const AddApplicationFormPage: React.FC = () => {
     status: string;
   };
 
-  const [showRolesDropdown, setShowRolesDropdown] = useState<boolean>(false);
+  // Removed showRolesDropdown state (not needed with react-select)
 
   const [form, setForm] = useState<FormType>({
     transaction_id: "",
@@ -88,16 +89,6 @@ const AddApplicationFormPage: React.FC = () => {
   ) => {
     const target = e.target as HTMLInputElement | HTMLSelectElement;
     const { name, value, type } = target;
-    if (name === "role_id") {
-      // Multi-select
-      const options = (target as HTMLSelectElement).options;
-      const selected: string[] = [];
-      for (let i = 0; i < options.length; i++) {
-        if (options[i].selected) selected.push(options[i].value);
-      }
-      setForm((prev) => ({ ...prev, role_id: selected }));
-      return;
-    }
     const checked =
       type === "checkbox" ? (target as HTMLInputElement).checked : undefined;
     setForm((prev) => ({
@@ -319,15 +310,10 @@ const AddApplicationFormPage: React.FC = () => {
                       placeholder="Enter Application/HMI Name"
                     />
                   </div>
-                  {/* Role (multi-select) */}
-                  {/* Roles Multi-Select (mandatory) as custom dropdown with checkboxes */}
+                  {/* Role (multi-select) using react-select */}
                   <div
                     className={addStyles.formGroup}
-                    style={{
-                      maxWidth: 400,
-                      alignSelf: "flex-end",
-                      position: "relative",
-                    }}
+                    style={{ maxWidth: 400, alignSelf: "flex-end" }}
                   >
                     <label
                       htmlFor="role_id"
@@ -335,100 +321,36 @@ const AddApplicationFormPage: React.FC = () => {
                     >
                       Roles <span style={{ color: "red" }}>*</span>
                     </label>
-                    <div style={{ position: "relative" }}>
-                      <div
-                        style={{
-                          border: "1px solid #bfc8e0",
-                          borderRadius: 8,
-                          background: "#fff",
+                    <Select
+                      id="role_id"
+                      isMulti
+                      isSearchable
+                      name="role_id"
+                      options={roles.map((r) => ({
+                        value: r.id,
+                        label: r.name,
+                      }))}
+                      value={roles
+                        .filter((r) => form.role_id.includes(r.id))
+                        .map((r) => ({ value: r.id, label: r.name }))}
+                      onChange={(selected) => {
+                        setForm((prev) => ({
+                          ...prev,
+                          role_id: Array.isArray(selected)
+                            ? selected.map((s) => s.value)
+                            : [],
+                        }));
+                      }}
+                      placeholder="Select roles..."
+                      styles={{
+                        menu: (base) => ({ ...base, zIndex: 20 }),
+                        control: (base) => ({
+                          ...base,
                           minHeight: 38,
-                          maxHeight: 44,
-                          display: "flex",
-                          alignItems: "center",
-                          padding: "0 12px",
-                          cursor: "pointer",
                           fontSize: 15,
-                          overflow: "hidden",
-                        }}
-                        tabIndex={0}
-                        onClick={() => setShowRolesDropdown((prev) => !prev)}
-                      >
-                        {form.role_id.length === 0 ? (
-                          <span style={{ color: "#888" }}>Select roles</span>
-                        ) : (
-                          roles
-                            .filter((r) => form.role_id.includes(r.id))
-                            .map((r) => r.name)
-                            .join(", ")
-                        )}
-                        <span
-                          style={{
-                            marginLeft: "auto",
-                            color: "#888",
-                            fontSize: 18,
-                          }}
-                        >
-                          &#9662;
-                        </span>
-                      </div>
-                      {showRolesDropdown && (
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: 44,
-                            left: 0,
-                            right: 0,
-                            zIndex: 20,
-                            border: "1px solid #bfc8e0",
-                            borderRadius: 8,
-                            background: "#fff",
-                            boxShadow: "0 2px 8px 0 rgba(0,0,0,0.08)",
-                            maxHeight: 200,
-                            overflowY: "auto",
-                            padding: "8px 0",
-                          }}
-                        >
-                          {roles.length === 0 && (
-                            <div style={{ color: "#888", padding: 8 }}>
-                              No roles available
-                            </div>
-                          )}
-                          {roles.map((role) => (
-                            <label
-                              key={role.id}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                padding: "4px 16px",
-                                cursor: "pointer",
-                                fontSize: 15,
-                              }}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={form.role_id.includes(role.id)}
-                                onChange={(e) => {
-                                  const checked = e.target.checked;
-                                  setForm((prev) => {
-                                    let updated: string[];
-                                    if (checked) {
-                                      updated = [...prev.role_id, role.id];
-                                    } else {
-                                      updated = prev.role_id.filter(
-                                        (id) => id !== role.id
-                                      );
-                                    }
-                                    return { ...prev, role_id: updated };
-                                  });
-                                }}
-                                style={{ marginRight: 8 }}
-                              />
-                              {role.name}
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                        }),
+                      }}
+                    />
                   </div>
                   {/* System Name (mandatory) */}
                   <div className={addStyles.formGroup}>
