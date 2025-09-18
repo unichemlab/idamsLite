@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUserRequestContext, UserRequest } from "./UserRequestContext";
 import { fetchPlants } from "../../utils/api";
-//import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
+import login_headTitle2 from "../../assets/login_headTitle2.png";
 import addStyles from "./AddUserRequest.module.css";
 
 const AddUserRequest: React.FC = () => {
@@ -225,9 +225,13 @@ const AddUserRequest: React.FC = () => {
     <div className={addStyles["main-container"]}>
       <main className={addStyles["main-content"]}>
         <header className={addStyles["main-header"]}>
-          <h2 className={addStyles["header-title"]}>User Requests</h2>
+          <img
+            src={login_headTitle2}
+            alt="Company logo"
+            style={{ width: 250, height: 25 }}
+          />
+          <h2 className={addStyles["header-title"]}>User Access Management</h2>
         </header>
-
         <div className={addStyles.container}>
           <form
             id="userRequestForm"
@@ -235,16 +239,15 @@ const AddUserRequest: React.FC = () => {
             onSubmit={handleSubmit}
             style={{ width: "100%" }}
           >
+
             <div className={addStyles.scrollFormContainer}>
 
               {/* Card 1 */}
               <div className={addStyles.section}>
-                <div className={addStyles.sectionHeader}>
-                  <div className={addStyles.sectionHeaderTitle}>Access Details</div>
-                </div>
-                <div className={addStyles.threeCol}>
+                <span className={addStyles.sectionHeaderTitle}>Requestor Details</span>
+                <div className={addStyles.fourCol}>
                   <div className={addStyles.formGroup}>
-                    <label>Access For *</label>
+
                     <select
                       name="requestFor"
                       value={form.requestFor}
@@ -255,41 +258,43 @@ const AddUserRequest: React.FC = () => {
                       <option value="Others">Others</option>
                       <option value="Vendor / OEM">Vendor / OEM</option>
                     </select>
+                    <label htmlFor="requestFor">Access For *</label>
+
                   </div>
                   <div className={addStyles.formGroup}>
-                    <label>Requestor For /By *</label>
+
                     <input
                       name="name"
                       value={form.name}
                       onChange={handleChange}
-                      placeholder="Search from AD"
                       required
                     />
+                    <label htmlFor="name">Requestor For /By *</label>
                   </div>
                   <div className={addStyles.formGroup}>
-                    <label>Employee Code *</label>
+
                     <input
                       name="employeeCode"
                       value={form.employeeCode}
                       onChange={handleChange}
-                      placeholder="From AD"
                       required
                     />
+                    <label htmlFor="employeeCode">Employee Code *</label>
                   </div>
-                </div>
-                <div className={addStyles.threeCol}>
                   <div className={addStyles.formGroup}>
-                    <label>Location *</label>
+
                     <input
                       name="location"
                       value={form.location}
                       onChange={handleChange}
-                      placeholder="From AD"
                       required
                     />
+                    <label htmlFor="location">Location *</label>
                   </div>
+                </div>
+                <div className={addStyles.fourCol}>
+
                   <div className={addStyles.formGroup}>
-                    <label>Access Request Type *</label>
                     <select
                       name="accessType"
                       value={form.accessType}
@@ -303,42 +308,76 @@ const AddUserRequest: React.FC = () => {
                         </option>
                       ))}
                     </select>
+                    <label htmlFor="accessType">Access Request Type *</label>
                   </div>
+                  <div className={addStyles.formGroup}>
+                    <select
+                      name="trainingStatus"
+                      value={form.trainingStatus}
+                      onChange={handleChange}
+                    >
+                      <option value="Yes">Yes</option>
+                      <option value="No">No</option>
+                    </select>
+                    <label htmlFor="trainingStatus">Training Completed *</label>
+                  </div>
+                  {form.trainingStatus === "Yes" && (
+                    <div className={addStyles.formGroup}>
+                      <input
+                        type="file"
+                        name="trainingAttachment"
+                        accept="application/pdf"
+                        multiple
+                        onChange={handleFileChange}
+                      />
+                      <label htmlFor="trainingAttachment">Attachment (PDF,Max 4MB)</label>
+                    </div>
+                  )}
+                  {!isBulkDeactivation && (
+                    <div className={addStyles.formGroup}>
+
+                      <input
+                        name="reportsTo"
+                        value={form.reportsTo}
+                        onChange={handleChange}
+                        required
+                      />
+                      <label htmlFor="reportsTo">Approver (Manager/Manager's manager) *</label>
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Card 2 Vendor Details */}
               {(form.requestFor === "Vendor / OEM" && !isVendorModify) && (
                 <div className={addStyles.section}>
-                  <div className={addStyles.sectionHeader}>
-                    <div className={addStyles.sectionHeaderTitle}>Vendor Details</div>
-                  </div>
+                  <span className={addStyles.sectionHeaderTitle}>Vendor Details</span>
                   <div className={addStyles.threeCol}>
                     <div className={addStyles.formGroup}>
-                      <label>Vendor Name *</label>
                       <input
                         name="vendorName"
                         value={form.vendorName}
                         onChange={handleChange}
                         required
                       />
+                      <label htmlFor="vendorName">Vendor Name *</label>
                     </div>
                     <div className={addStyles.formGroup}>
-                      <label>Vendor Firm *</label>
                       <input
                         name="vendorFirm"
                         value={form.vendorFirm}
                         onChange={handleChange}
                         required
                       />
+                      <label htmlFor="vendorFirm">Vendor Firm *</label>
                     </div>
                     <div className={addStyles.formGroup}>
-                      <label>Vendor Code</label>
                       <input
                         name="vendorCode"
                         value={form.vendorCode}
                         onChange={handleChange}
                       />
+                      <label htmlFor="vendorCode">Vendor Code</label>
                     </div>
                   </div>
                 </div>
@@ -347,39 +386,34 @@ const AddUserRequest: React.FC = () => {
               {/* Card 3 Vendor Modify */}
               {isVendorModify && (
                 <div className={addStyles.section}>
-                  <div className={addStyles.sectionHeader}>
-                    <div className={addStyles.sectionHeaderTitle}>Vendor Modify</div>
-                  </div>
-                  <div className={addStyles.threeCol}>
+                  <span className={addStyles.sectionHeaderTitle}>Vendor Modify</span>
+                  <div className={addStyles.fourCol}>
                     <div className={addStyles.formGroup}>
-                      <label>Vendor Firm *</label>
                       <input
                         name="vendorFirm"
                         value={form.vendorFirm}
                         onChange={handleChange}
                         required
                       />
+                      <label htmlFor="vendorFirm">Vendor Firm *</label>
                     </div>
                     <div className={addStyles.formGroup}>
-                      <label>Allocated ID *</label>
                       <input
                         name="allocatedId"
                         value={form.allocatedId}
                         onChange={handleChange}
                         required
                       />
+                      <label htmlFor="allocatedId">Allocated ID *</label>
                     </div>
                     <div className={addStyles.formGroup}>
-                      <label>Vendor Name (auto)</label>
                       <input
                         name="vendorName"
                         value={form.vendorName}
                         readOnly
-                        placeholder="Auto-filled from Allocated ID"
                       />
+                      <label htmlFor="vendorName">Vendor Name *</label>
                     </div>
-                  </div>
-                  <div className={addStyles.threeCol}>
                     <div className={addStyles.formGroup}>
                       <label>Plant Location *</label>
                       <select name="plant_location" value={form.plant_location} onChange={handleChange} required>
@@ -388,141 +422,118 @@ const AddUserRequest: React.FC = () => {
                           <option key={plant.id} value={plant.id}>{plant.plant_name}</option>
                         ))}
                       </select>
+                      <label htmlFor="plant_location">Plant Location *</label>
                     </div>
+                  </div>
+                  <div className={addStyles.fourCol}>
+
                     <div className={addStyles.formGroup}>
-                      <label>Role *</label>
                       <select name="role" value={form.role} onChange={handleChange} required>
                         <option value="">Select Role</option>
                         {roles.map((role) => (
                           <option key={role.id} value={role.id}>{role.name}</option>
                         ))}
                       </select>
-
+                      <label htmlFor="role">Role *</label>
                     </div>
                     <div className={addStyles.formGroup}>
-                      <label>Department</label>
                       <select name="department" value={form.department} onChange={handleChange} required>
                         <option value="">Select Department</option>
                         {departments.map((dept) => (
                           <option key={dept.id} value={dept.id}>{dept.department_name}</option>
                         ))}
                       </select>
-
-                    </div>
-                  </div>
-                  <div className={addStyles.twoCol}>
-                    <div className={addStyles.formGroup}>
-                      <label>Approver</label>
-                      <select
-                        name="reportsTo"
-                        value={form.reportsTo}
-                        onChange={handleChange}
-                      >
-                        <option value="">Select Approver</option>
-                        <option value="Manager">Manager</option>
-                        <option value="Manager's Manager">Manager's Manager</option>
-                      </select>
+                      <label htmlFor="department">Department *</label>
                     </div>
                     <div className={addStyles.formGroup}>
-                      <label>Remarks</label>
                       <textarea
                         name="remarks"
-                        value={form.remarks}
-                        onChange={handleChange}
-                        maxLength={100}
-                        rows={4}
-                        placeholder="Enter remarks"
+                        style={{ minHeight: "40px", maxHeight: "42px", resize: "vertical" }}
+                        maxLength={50}
                       />
+                      <label htmlFor="remarks">Remarks </label>
                     </div>
                   </div>
+
                 </div>
               )}
 
               {/* Card 4 Access Information */}
               {(isBulkDeactivation || (!isVendorModify && !isBulkDeactivation)) && (
                 <div className={addStyles.section}>
-                  <div className={addStyles.sectionHeader}>
-                    <div className={addStyles.sectionHeaderTitle}>Access Information</div>
-                  </div>
-                  <div className={addStyles.threeCol}>
+                  <span className={addStyles.sectionHeaderTitle}>Access Information</span>
+                  <div className={addStyles.fourCol}>
                     <div className={addStyles.formGroup}>
-                      <label>Plant Location *</label>
                       <select name="plant_location" value={form.plant_location} onChange={handleChange} required>
                         <option value="">Select Plant</option>
                         {plants.map(plant => (
                           <option key={plant.id} value={plant.id}>{plant.plant_name}</option>
                         ))}
                       </select>
+                      <label htmlFor="plant_location">Plant Location * </label>
                     </div>
                     <div className={addStyles.formGroup}>
-                      <label>Department Name</label>
                       <select name="department" value={form.department} onChange={handleChange} required>
                         <option value="">Select Department</option>
                         {departments.map((dept) => (
                           <option key={dept.id} value={dept.id}>{dept.department_name}</option>
                         ))}
                       </select>
-
+                      <label htmlFor="department">Department Name * </label>
                     </div>
-                    <div className={addStyles.formGroup}>
-                      <label>Role *</label>
-                      <select name="role" value={form.role} onChange={handleChange} required>
-                        <option value="">Select Role</option>
-                        {roles.map((role) => (
-                          <option key={role.id} value={role.id}>{role.name}</option>
-                        ))}
-                      </select>
-
-                    </div>
-                  </div>
-                  <div className={addStyles.twoCol}>
                     {!isBulkDeactivation && (
                       <div className={addStyles.formGroup}>
-                        <label>Application / Equipment ID *</label>
                         <select name="applicationId" value={form.applicationId} onChange={handleChange} required>
                           <option value="">Select Application / Equipment ID</option>
                           {applications.map((app, index) => (
                             <option key={index} value={app.id}>{app.name}</option>
                           ))}
                         </select>
+                        <label htmlFor="applicationId">Application / Equipment ID *</label>
                       </div>
                     )}
-                    {!isBulkDeactivation && (
-                      <div className={addStyles.formGroup}>
-                        <label>Approver (Manager/Manager's manager) *</label>
-                        <input
-                          name="reportsTo"
-                          value={form.reportsTo}
-                          onChange={handleChange}
-                          required
-                        />
-                      </div>
-                    )}
+                    <div className={addStyles.formGroup}>
+                      <select name="role" value={form.role} onChange={handleChange} required>
+                        <option value="">Select Role</option>
+                        {roles.map((role) => (
+                          <option key={role.id} value={role.id}>{role.name}</option>
+                        ))}
+                      </select>
+                      <label htmlFor="role">Role *</label>
+                    </div>
                   </div>
+
+
                   <div className={addStyles.formGroup}>
-                    <label>Remarks</label>
+                    <label></label>
                     <textarea
                       name="remarks"
                       value={form.remarks}
                       onChange={handleChange}
-                      maxLength={100}
-                      rows={4}
+                      maxLength={50}
                     />
+                    <label htmlFor="remarks">Remarks</label>
                   </div>
+
+
                 </div>
               )}
 
               {/* Card 5 Bulk User Creation */}
-              {isBulkNew && (
+              {(form.requestFor !== "Vendor / OEM" && isBulkNew) && (
                 <div className={addStyles.section}>
-                  <div className={addStyles.sectionHeader}>
-                    <div className={addStyles.sectionHeaderTitle}>Bulk User Creation</div>
-                  </div>
+                  <span className={addStyles.sectionHeaderTitle}>Bulk User Creation</span>
                   <div>
                     {bulkRows.length < 7 && (
-                      <button type="button" onClick={handleAddRow}>
-                        Add Row
-                      </button>
+                      <div className={addStyles.addRowWrapper}>
+                        <button
+                          type="button"
+                          onClick={handleAddRow}
+                          className={addStyles.addRowBtn}
+                        >
+                          +
+                        </button>
+                      </div>
                     )}
                     <div className={addStyles.tableContainer}>
                       <table className={addStyles.table}>
@@ -575,7 +586,7 @@ const AddUserRequest: React.FC = () => {
                                 />
                               </td>
                               <td>
-                                <button type="button" onClick={() => handleRemoveRow(index)}>
+                                <button type="button" className={addStyles.deleteBtn} onClick={() => handleRemoveRow(index)}>
                                   Delete
                                 </button>
                               </td>
@@ -588,44 +599,13 @@ const AddUserRequest: React.FC = () => {
                 </div>
               )}
 
-              {/* Card 6 Training Details */}
-              {!isBulkDeactivation && (
-                <div className={addStyles.section}>
-                  <div className={addStyles.sectionHeader}>
-                    <div className={addStyles.sectionHeaderTitle}>Training Details</div>
-                  </div>
-                  <div className={addStyles.twoCol}>
-                    <div className={addStyles.formGroup}>
-                      <label>Training Completed *</label>
-                      <select
-                        name="trainingStatus"
-                        value={form.trainingStatus}
-                        onChange={handleChange}
-                      >
-                        <option value="Yes">Yes</option>
-                        <option value="No">No</option>
-                      </select>
-                    </div>
-                    {form.trainingStatus === "Yes" && (
-                      <div className={addStyles.formGroup}>
-                        <label>Attachment (PDF, Max 4 files / 4MB each)</label>
-                        <input
-                          type="file"
-                          accept="application/pdf"
-                          multiple
-                          onChange={handleFileChange}
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
 
-            {/* Footer Buttons */}
+            </div>
+            {/* Move the footer buttons to the top */}
             <div className={addStyles.formFooter}>
+              <div className={addStyles.formActions}>
               <button type="submit" className={addStyles.saveBtn}>
-                Save
+                Submit
               </button>
               <button
                 type="button"
@@ -634,6 +614,7 @@ const AddUserRequest: React.FC = () => {
               >
                 Cancel
               </button>
+              </div>
             </div>
           </form>
         </div>
