@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
 import { useAuth } from "../../context/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { usePlantContext, Plant } from "./PlantContext";
 import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
 import addStyles from "./AddPlantMaster.module.css";
@@ -49,41 +49,12 @@ const AddPlantMaster: React.FC = () => {
 
   // Always show all sidebar items, regardless of user role
   const filteredSidebarConfig = sidebarConfig;
-
-  // Sidebar navigation handler
+  const location = useLocation();
+  const activeTab = location.state?.activeTab || "plant";
+  // Sidebar navigation handler: always reset to table view for selected master
   const handleSidebarNav = (key: string) => {
-    switch (key) {
-      case "dashboard":
-        navigate("/superadmin", { state: { activeTab: "dashboard" } });
-        break;
-      case "plant":
-        navigate("/superadmin", { state: { activeTab: "plant" } });
-        break;
-      case "role":
-        navigate("/superadmin", { state: { activeTab: "role" } });
-        break;
-      case "vendor":
-        navigate("/superadmin", { state: { activeTab: "vendor" } });
-        break;
-      case "department":
-        navigate("/superadmin", { state: { activeTab: "department" } });
-        break;
-      case "application":
-        navigate("/superadmin", { state: { activeTab: "application" } });
-        break;
-      case "user":
-        navigate("/superadmin", { state: { activeTab: "user" } });
-        break;
-      case "workflow":
-        navigate("/superadmin", { state: { activeTab: "workflow" } });
-        break;
-      default:
-        break;
-    }
+    navigate("/superadmin", { state: { activeTab: key } });
   };
-
-  // Determine active sidebar tab (always "plant" for Add)
-  const activeTab = "plant";
 
   return (
     <React.Fragment>

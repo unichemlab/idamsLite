@@ -1,6 +1,6 @@
 import React, { useContext, useState } from "react";
 import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { PlantContext } from "./PlantContext";
 import type { Plant } from "./PlantContext";
 import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
@@ -13,6 +13,7 @@ const EditPlantMaster: React.FC = () => {
   const { id } = useParams();
   const plantCtx = useContext(PlantContext);
   const navigate = useNavigate();
+  const location = useLocation();
   const index = id ? parseInt(id, 10) : -1;
   const plant = plantCtx?.plants[index];
   const [form, setForm] = useState<Plant>(
@@ -29,40 +30,11 @@ const EditPlantMaster: React.FC = () => {
 
   // Always show all sidebar items, regardless of user role
   const filteredSidebarConfig = sidebarConfig;
-
-  // Sidebar navigation handler
+  const activeTab = location.state?.activeTab || "plant";
+  // Sidebar navigation handler: always reset to table view for selected master
   const handleSidebarNav = (key: string) => {
-    switch (key) {
-      case "dashboard":
-        navigate("/superadmin", { state: { activeTab: "dashboard" } });
-        break;
-      case "plant":
-        navigate("/superadmin", { state: { activeTab: "plant" } });
-        break;
-      case "role":
-        navigate("/superadmin", { state: { activeTab: "role" } });
-        break;
-      case "vendor":
-        navigate("/superadmin", { state: { activeTab: "vendor" } });
-        break;
-      case "department":
-        navigate("/superadmin", { state: { activeTab: "department" } });
-        break;
-      case "application":
-        navigate("/superadmin", { state: { activeTab: "application" } });
-        break;
-      case "user":
-        navigate("/superadmin", { state: { activeTab: "user" } });
-        break;
-      case "workflow":
-        navigate("/superadmin", { state: { activeTab: "workflow" } });
-        break;
-      default:
-        break;
-    }
+    navigate("/superadmin", { state: { activeTab: key } });
   };
-
-  const activeTab = "plant";
 
   const handleChange = (
     e: React.ChangeEvent<

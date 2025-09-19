@@ -1,15 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
 import addStyles from "./AddApplicationMaster.module.css";
 import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
 import { sidebarConfig } from "../../components/Common/sidebarConfig";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useApplications } from "../../context/ApplicationsContext";
-
 import { useAuth } from "../../context/AuthContext";
 
 const EditApplicationFormPage: React.FC = () => {
-  // Use user context for username (for consistency with PlantMaster)
   const { user } = useAuth();
   const username = user?.username || "";
   const [showModal, setShowModal] = useState(false);
@@ -17,7 +15,7 @@ const EditApplicationFormPage: React.FC = () => {
   const location = useLocation();
   const { setApplications } = useApplications();
   const { applicationData } = location.state || {};
-  // Use all fields as in AddApplicationFormPage
+
   type FormType = {
     id: string;
     transaction_id: string;
@@ -34,13 +32,14 @@ const EditApplicationFormPage: React.FC = () => {
     multiple_role_access: boolean;
     status: string;
   };
-  // Convert role_id to array if string
+
   const initialRoleIds = applicationData?.role_id
     ? String(applicationData.role_id)
         .split(",")
         .map((s: string) => s.trim())
         .filter(Boolean)
     : [];
+
   const [form, setForm] = useState<FormType>({
     id: applicationData?.id || "",
     transaction_id: applicationData?.transaction_id || "",
@@ -63,9 +62,8 @@ const EditApplicationFormPage: React.FC = () => {
     status: applicationData?.status || "ACTIVE",
   });
 
-  // Roles for dropdown
-  const [roles, setRoles] = React.useState<{ id: string; name: string }[]>([]);
-  React.useEffect(() => {
+  const [roles, setRoles] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
     fetch("/api/roles")
       .then((res) => res.json())
       .then((data) => {
@@ -76,15 +74,11 @@ const EditApplicationFormPage: React.FC = () => {
       });
   }, []);
 
-  // Sidebar state
-  const [activeTab, setActiveTab] = useState("application");
   const filteredSidebarConfig = sidebarConfig;
+  // Use location.state.activeTab for sidebar highlighting
+  const activeTab = location.state?.activeTab || "application";
   const handleSidebarNav = (key: string) => {
-    setActiveTab(key);
-    if (key === "application") {
-      navigate("/superadmin", { state: { activeTab: "application" } });
-    }
-    // Add more navigation as needed
+    navigate("/superadmin", { state: { activeTab: key } });
   };
 
   const handleChange = (
@@ -95,7 +89,6 @@ const EditApplicationFormPage: React.FC = () => {
     const target = e.target as HTMLInputElement | HTMLSelectElement;
     const { name, value, type } = target;
     if (name === "role_id") {
-      // Multi-select
       const options = (target as HTMLSelectElement).options;
       const selected: string[] = [];
       for (let i = 0; i < options.length; i++) {
@@ -110,7 +103,6 @@ const EditApplicationFormPage: React.FC = () => {
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
-    // Auto-update display_name if relevant fields change
     if (
       [
         "application_hmi_name",
@@ -140,12 +132,10 @@ const EditApplicationFormPage: React.FC = () => {
     setShowModal(true);
   };
 
-  // API call to update application
   const handleConfirm = async (data: Record<string, string>) => {
     if (data.username === username && data.password) {
       try {
         setShowModal(false);
-        // Call backend PUT API
         const res = await fetch(`/api/applications/${form.id}`, {
           method: "PUT",
           headers: {
@@ -155,7 +145,6 @@ const EditApplicationFormPage: React.FC = () => {
         });
         if (!res.ok) throw new Error("Failed to update application");
         const updated = await res.json();
-        // Update context
         setApplications((prev) =>
           prev.map((app) =>
             app.id === updated.id ? { ...app, ...updated } : app
@@ -171,7 +160,7 @@ const EditApplicationFormPage: React.FC = () => {
   };
 
   return (
-    <React.Fragment>
+    <>
       {showModal && (
         <ConfirmLoginModal
           username={username}
@@ -276,152 +265,150 @@ const EditApplicationFormPage: React.FC = () => {
           {/* Container for Edit Form */}
           <div className={addStyles.container} style={{ marginTop: 32 }}>
             <form
-              className={addStyles.form}
               onSubmit={handleSubmit}
+              className={addStyles.form}
               style={{ width: "100%" }}
             >
               <div className={addStyles.scrollFormContainer}>
-                <div className={addStyles.rowFields}>
-                  <div className={addStyles.formGroup}>
-                    <label>Plant Location</label>
+                {/* Department */}
+                <div className={addStyles.formGroup}>
+                  <label>Department</label>
+                  <input
+                    name="department_id"
+                    placeholder="Department ID"
+                    value={form.department_id}
+                    onChange={handleChange}
+                    required
+                    className={addStyles.input}
+                  />
+                </div>
+                {/* Application/HMI Name */}
+                <div className={addStyles.formGroup}>
+                  <label>Application/HMI Name</label>
+                  <input
+                    name="application_hmi_name"
+                    placeholder="Application/HMI Name"
+                    value={form.application_hmi_name}
+                    onChange={handleChange}
+                    required
+                    className={addStyles.input}
+                  />
+                </div>
+                {/* Application/HMI Version */}
+                <div className={addStyles.formGroup}>
+                  <label>Application/HMI Version</label>
+                  <input
+                    name="application_hmi_version"
+                    placeholder="Application/HMI Version"
+                    value={form.application_hmi_version}
+                    onChange={handleChange}
+                    required
+                    className={addStyles.input}
+                  />
+                </div>
+                {/* Equipment/Instrument ID */}
+                <div className={addStyles.formGroup}>
+                  <label>Equipment/Instrument ID</label>
+                  <input
+                    name="equipment_instrument_id"
+                    placeholder="Equipment/Instrument ID"
+                    value={form.equipment_instrument_id}
+                    onChange={handleChange}
+                    required
+                    className={addStyles.input}
+                  />
+                </div>
+                {/* Application/HMI Type */}
+                <div className={addStyles.formGroup}>
+                  <label>Application/HMI Type</label>
+                  <input
+                    name="application_hmi_type"
+                    placeholder="Application/HMI Type"
+                    value={form.application_hmi_type}
+                    onChange={handleChange}
+                    required
+                    className={addStyles.input}
+                  />
+                </div>
+                {/* Display Name */}
+                <div className={addStyles.formGroup}>
+                  <label>Display Name</label>
+                  <input
+                    name="display_name"
+                    placeholder="Display Name"
+                    value={form.display_name}
+                    onChange={handleChange}
+                    required
+                    className={addStyles.input}
+                  />
+                </div>
+                {/* Role(s) */}
+                <div className={addStyles.formGroup}>
+                  <label>Role(s)</label>
+                  <select
+                    className={addStyles.select}
+                    name="role_id"
+                    value={form.role_id}
+                    onChange={handleChange}
+                    multiple
+                    required
+                    size={Math.min(roles.length, 5) || 2}
+                  >
+                    {roles.map((role) => (
+                      <option key={role.id} value={role.id}>
+                        {role.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {/* System Name */}
+                <div className={addStyles.formGroup}>
+                  <label>System Name</label>
+                  <input
+                    name="system_name"
+                    placeholder="System Name"
+                    value={form.system_name}
+                    onChange={handleChange}
+                    className={addStyles.input}
+                  />
+                </div>
+                {/* System Inventory ID */}
+                <div className={addStyles.formGroup}>
+                  <label>System Inventory ID</label>
+                  <input
+                    name="system_inventory_id"
+                    placeholder="System Inventory ID"
+                    value={form.system_inventory_id}
+                    onChange={handleChange}
+                    className={addStyles.input}
+                  />
+                </div>
+                {/* Multiple Role Access */}
+                <div className={addStyles.formGroup}>
+                  <label>
                     <input
-                      name="plant_location_id"
-                      placeholder="Plant Location ID"
-                      value={form.plant_location_id}
+                      type="checkbox"
+                      name="multiple_role_access"
+                      checked={!!form.multiple_role_access}
                       onChange={handleChange}
-                      required
-                      className={addStyles.input}
+                      style={{ marginRight: 8 }}
                     />
-                  </div>
-                  <div className={addStyles.formGroup}>
-                    <label>Department</label>
-                    <input
-                      name="department_id"
-                      placeholder="Department ID"
-                      value={form.department_id}
-                      onChange={handleChange}
-                      required
-                      className={addStyles.input}
-                    />
-                  </div>
-                  <div className={addStyles.formGroup}>
-                    <label>Application/HMI Name</label>
-                    <input
-                      name="application_hmi_name"
-                      placeholder="Application/HMI Name"
-                      value={form.application_hmi_name}
-                      onChange={handleChange}
-                      required
-                      className={addStyles.input}
-                    />
-                  </div>
-                  <div className={addStyles.formGroup}>
-                    <label>Application/HMI Version</label>
-                    <input
-                      name="application_hmi_version"
-                      placeholder="Application/HMI Version"
-                      value={form.application_hmi_version}
-                      onChange={handleChange}
-                      required
-                      className={addStyles.input}
-                    />
-                  </div>
-                  <div className={addStyles.formGroup}>
-                    <label>Equipment/Instrument ID</label>
-                    <input
-                      name="equipment_instrument_id"
-                      placeholder="Equipment/Instrument ID"
-                      value={form.equipment_instrument_id}
-                      onChange={handleChange}
-                      required
-                      className={addStyles.input}
-                    />
-                  </div>
-                  <div className={addStyles.formGroup}>
-                    <label>Application/HMI Type</label>
-                    <input
-                      name="application_hmi_type"
-                      placeholder="Application/HMI Type"
-                      value={form.application_hmi_type}
-                      onChange={handleChange}
-                      required
-                      className={addStyles.input}
-                    />
-                  </div>
-                  <div className={addStyles.formGroup}>
-                    <label>Display Name</label>
-                    <input
-                      name="display_name"
-                      placeholder="Display Name"
-                      value={form.display_name}
-                      onChange={handleChange}
-                      required
-                      className={addStyles.input}
-                    />
-                  </div>
-                  <div className={addStyles.formGroup}>
-                    <label>Role(s)</label>
-                    <select
-                      className={addStyles.select}
-                      name="role_id"
-                      value={form.role_id}
-                      onChange={handleChange}
-                      multiple
-                      required
-                      size={Math.min(roles.length, 5) || 2}
-                    >
-                      {roles.map((role) => (
-                        <option key={role.id} value={role.id}>
-                          {role.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className={addStyles.formGroup}>
-                    <label>System Name</label>
-                    <input
-                      name="system_name"
-                      placeholder="System Name"
-                      value={form.system_name}
-                      onChange={handleChange}
-                      className={addStyles.input}
-                    />
-                  </div>
-                  <div className={addStyles.formGroup}>
-                    <label>System Inventory ID</label>
-                    <input
-                      name="system_inventory_id"
-                      placeholder="System Inventory ID"
-                      value={form.system_inventory_id}
-                      onChange={handleChange}
-                      className={addStyles.input}
-                    />
-                  </div>
-                  <div className={addStyles.formGroup}>
-                    <label>
-                      <input
-                        type="checkbox"
-                        name="multiple_role_access"
-                        checked={!!form.multiple_role_access}
-                        onChange={handleChange}
-                        style={{ marginRight: 8 }}
-                      />
-                      Multiple Role Access
-                    </label>
-                  </div>
-                  <div className={addStyles.formGroup}>
-                    <label>Status</label>
-                    <select
-                      name="status"
-                      value={form.status}
-                      onChange={handleChange}
-                      className={addStyles.select}
-                      required
-                    >
-                      <option value="ACTIVE">ACTIVE</option>
-                      <option value="INACTIVE">INACTIVE</option>
-                    </select>
-                  </div>
+                    Multiple Role Access
+                  </label>
+                </div>
+                {/* Status */}
+                <div className={addStyles.formGroup}>
+                  <label>Status</label>
+                  <select
+                    name="status"
+                    value={form.status}
+                    onChange={handleChange}
+                    className={addStyles.select}
+                    required
+                  >
+                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="INACTIVE">INACTIVE</option>
+                  </select>
                 </div>
               </div>
               <div
@@ -452,7 +439,7 @@ const EditApplicationFormPage: React.FC = () => {
           </div>
         </main>
       </div>
-    </React.Fragment>
+    </>
   );
 };
 

@@ -4,7 +4,7 @@ import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
 import addStyles from "./AddApplicationMaster.module.css";
 import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
 import { sidebarConfig } from "../../components/Common/sidebarConfig";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useApplications } from "../../context/ApplicationsContext";
 
@@ -71,15 +71,12 @@ const AddApplicationFormPage: React.FC = () => {
       });
   }, []);
 
-  // Sidebar state
-  const [activeTab, setActiveTab] = useState("application");
   const filteredSidebarConfig = sidebarConfig;
+  const location = useLocation();
+  const activeTab = location.state?.activeTab || "application";
+  // Sidebar navigation handler: always reset to table view for selected master
   const handleSidebarNav = (key: string) => {
-    setActiveTab(key);
-    if (key === "application") {
-      navigate("/superadmin", { state: { activeTab: "application" } });
-    }
-    // Add more navigation as needed
+    navigate("/superadmin", { state: { activeTab: key } });
   };
 
   const handleChange = (
