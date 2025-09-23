@@ -6,7 +6,10 @@ import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { FaEdit, FaTrash } from "react-icons/fa";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
+
 import { useApplications } from "../../context/ApplicationsContext";
+import { useDepartmentContext } from "../DepartmentMaster/DepartmentContext";
+import { usePlantContext } from "../PlantMaster/PlantContext";
 
 // Removed unused local applications array. Use context instead.
 
@@ -24,6 +27,19 @@ export default function ApplicationMasterTable() {
   const [tempFilterValue, setTempFilterValue] = React.useState(filterValue);
   const popoverRef = React.useRef<HTMLDivElement | null>(null);
   const { applications, setApplications } = useApplications();
+  const { departments } = useDepartmentContext();
+  const { plants } = usePlantContext();
+
+  // Helper to get department name by id
+  const getDepartmentName = (id: number) => {
+    const dept = departments.find((d) => d.id === id);
+    return dept ? dept.name : id;
+  };
+  // Helper to get plant name by id
+  const getPlantName = (id: number) => {
+    const plant = plants.find((p) => p.id === id);
+    return plant ? plant.name || plant.plant_name || id : id;
+  };
   const navigate = require("react-router-dom").useNavigate();
 
   React.useEffect(() => {
@@ -47,9 +63,22 @@ export default function ApplicationMasterTable() {
       case "application_hmi_name":
         return app.application_hmi_name?.toLowerCase().includes(value);
       case "plant_location_id":
-        return String(app.plant_location_id).includes(value);
+        // Allow filtering by plant name or id
+        const plantName = String(
+          getPlantName(app.plant_location_id)
+        ).toLowerCase();
+        return (
+          plantName.includes(value) ||
+          String(app.plant_location_id).includes(value)
+        );
       case "department_id":
-        return String(app.department_id).includes(value);
+        // Allow filtering by department name or id
+        const deptName = String(
+          getDepartmentName(app.department_id)
+        ).toLowerCase();
+        return (
+          deptName.includes(value) || String(app.department_id).includes(value)
+        );
       case "role_id":
         // Filter by role name or ID (multi-role)
         if (Array.isArray(app.role_names) && app.role_names.length > 0) {
@@ -114,8 +143,8 @@ export default function ApplicationMasterTable() {
       ],
     ];
     const rows = filteredData.map((app: any) => [
-      app.plant_location_id,
-      app.department_id,
+      getPlantName(app.plant_location_id),
+      getDepartmentName(app.department_id),
       app.application_hmi_name,
       app.application_hmi_version,
       app.equipment_instrument_id,
@@ -277,8 +306,8 @@ export default function ApplicationMasterTable() {
                         aria-label={`Select ${app.application_hmi_name}`}
                       />
                     </td>
-                    <td>{app.plant_location_id}</td>
-                    <td>{app.department_id}</td>
+                    <td>{getPlantName(app.plant_location_id)}</td>
+                    <td>{getDepartmentName(app.department_id)}</td>
                     <td>{app.application_hmi_name}</td>
                     <td>{app.application_hmi_version}</td>
                     <td>{app.equipment_instrument_id}</td>
@@ -288,7 +317,7 @@ export default function ApplicationMasterTable() {
                       {Array.isArray(app.role_names) &&
                       app.role_names.length > 0
                         ? app.role_names.join(", ")
-                        : app.role_id} 
+                        : app.role_id}
                     </td>
                     <td>{app.system_name}</td>
                     <td>{app.multiple_role_access ? "Yes" : "No"}</td>

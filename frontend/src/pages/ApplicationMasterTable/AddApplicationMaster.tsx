@@ -1,9 +1,11 @@
 import React, { useState } from "react";
+import Select from "react-select";
 import { useNavigate } from "react-router-dom";
 import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
 import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
-import addStyles from "../PlantMaster/AddPlantMaster.module.css";
+import addStyles from "./AddApplicationMaster.module.css";
 import { sidebarConfig } from "../../components/Common/sidebarConfig";
+import { useDepartmentContext } from "../DepartmentMaster/DepartmentContext";
 
 const AddApplicationMaster: React.FC = () => {
   const username = localStorage.getItem("username") || "";
@@ -16,7 +18,18 @@ const AddApplicationMaster: React.FC = () => {
     computer: "",
     plant: "",
     status: "ACTIVE",
+    departmentId: "",
   });
+
+  // Use DepartmentContext for department list
+  const { departments } = useDepartmentContext();
+  // Prepare react-select options for departments (single select)
+  const departmentOptions = Array.isArray(departments)
+    ? departments.map((dept) => ({
+        value: String(dept.id),
+        label: dept.department_name || dept.name || String(dept.id),
+      }))
+    : [];
 
   // Sidebar state
   const [activeTab, setActiveTab] = useState("application");
@@ -45,7 +58,7 @@ const AddApplicationMaster: React.FC = () => {
   };
 
   return (
-    <React.Fragment>
+    <>
       {showModal && (
         <ConfirmLoginModal
           username={username}
@@ -202,6 +215,45 @@ const AddApplicationMaster: React.FC = () => {
                     className={addStyles.formGroup}
                     style={{ flex: 1, minWidth: 180 }}
                   >
+                    <label
+                      htmlFor="departmentId"
+                      style={{ fontWeight: 600, fontSize: 16 }}
+                    >
+                      Department <span style={{ color: "red" }}>*</span>
+                    </label>
+                    <Select
+                      id="departmentId"
+                      name="departmentId"
+                      options={departmentOptions}
+                      value={
+                        departmentOptions.find(
+                          (opt) =>
+                            String(opt.value) === String(form.departmentId)
+                        ) || null
+                      }
+                      onChange={(selected) => {
+                        setForm((prev) => ({
+                          ...prev,
+                          departmentId: selected ? String(selected.value) : "",
+                        }));
+                      }}
+                      placeholder="Select Department..."
+                      isClearable={false}
+                      isSearchable={true}
+                      styles={{
+                        menu: (base) => ({ ...base, zIndex: 20 }),
+                        control: (base) => ({
+                          ...base,
+                          minHeight: 38,
+                          fontSize: 15,
+                        }),
+                      }}
+                    />
+                  </div>
+                  <div
+                    className={addStyles.formGroup}
+                    style={{ flex: 1, minWidth: 180 }}
+                  >
                     <label>Status</label>
                     <select
                       className={addStyles.select}
@@ -284,7 +336,7 @@ const AddApplicationMaster: React.FC = () => {
           </div>
         </main>
       </div>
-    </React.Fragment>
+    </>
   );
 };
 
