@@ -4,7 +4,7 @@ import { useUserRequestContext, UserRequest, TaskRequest, } from "./UserRequestC
 import { useAuth } from "../../context/AuthContext";
 import { fetchPlants } from "../../utils/api";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
-import addStyles from "./AddUserRequest.module.css";
+import addUserRequestStyles from "./AddUserRequest.module.css";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -332,36 +332,6 @@ const handleExportPDF = async (exportedBy: string) => {
   drawFooter();
   doc.save(fileName);
 };
-
-
-  const handleExport = () => {
-    if (!filterResults.length) return;
-    console.log(filterResults);
-    const csvContent = [
-      ["Transaction ID", "Name", "Employee Code", "Plant", "Department", "Role", "Status"],
-      ...filterResults.map(r => [
-        r.transaction_id,
-        r.name,
-        r.employeeCode,
-        r.tasks?.[0]?.location,
-        r.tasks?.[0]?.department,
-        r.tasks?.[0]?.role,
-        r.status,
-      ])
-    ].map(e => e.join(",")).join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "UserRequests.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-
   
 // ===================== Form Submission =====================
 const handleSubmit = async (e: React.FormEvent) => {
@@ -528,17 +498,17 @@ const handleSubmit = async (e: React.FormEvent) => {
 
   // ===================== JSX =====================
   return (
-    <div className={addStyles["main-container"]}>
+    <div className={addUserRequestStyles["main-container"]}>
        {/* ===================== Filter Modal ===================== */}
       {filterModalOpen && (
-        <div className={addStyles.modalOverlay}>
-          <div className={addStyles.filterModalBox}>
-            <h2 className={addStyles.advancedFilterHeader}>Filter User Requests</h2>
+        <div className={addUserRequestStyles.modalOverlay}>
+          <div className={addUserRequestStyles.filterModalBox}>
+            <h2 className={addUserRequestStyles.advancedFilterHeader}>Filter User Requests</h2>
 
-            <div className={addStyles.twoColForm}>
+            <div className={addUserRequestStyles.twoColForm}>
               {/* Column 1 */}
-              <div className={addStyles.twoCol}>
-                <div className={addStyles.formGroup}>
+              <div className={addUserRequestStyles.twoCol}>
+                <div className={addUserRequestStyles.formGroup}>
                   <select
                     name="plant_location"
                     value={filter.plant_location}
@@ -557,7 +527,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   </select>
                   <label htmlFor="plant_location">Plant *</label>
                 </div>
-                <div className={addStyles.formGroup}>
+                <div className={addUserRequestStyles.formGroup}>
                   <select
                     name="department"
                     value={filter.department}
@@ -573,7 +543,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   </select>
                   <label htmlFor="department">Department *</label>
                 </div>
-                 <div className={addStyles.formGroup}>
+                 <div className={addUserRequestStyles.formGroup}>
                   <select
                     name="applicationId"
                     value={filter.applicationId}
@@ -591,9 +561,9 @@ const handleSubmit = async (e: React.FormEvent) => {
               </div>
 
               {/* Column 2 */}
-              <div className={addStyles.twoCol}>
+              <div className={addUserRequestStyles.twoCol}>
                
-                <div className={addStyles.formGroup}>
+                <div className={addUserRequestStyles.formGroup}>
                   <input
                     type="text"
                     name="transactionId"
@@ -603,7 +573,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   />
                   <label htmlFor="transactionId">Transaction ID</label>
                 </div>
-                <div className={addStyles.formGroup}>
+                <div className={addUserRequestStyles.formGroup}>
                   <input
                     type="text"
                     name="employeeCode"
@@ -616,13 +586,13 @@ const handleSubmit = async (e: React.FormEvent) => {
               </div>
             </div>
 
-            <div className={addStyles.advancedFilterActions}>
-              <button type="button" className={addStyles.advancedApplyBtn} onClick={handleFilterSearch}>
+            <div className={addUserRequestStyles.advancedFilterActions}>
+              <button type="button" className={addUserRequestStyles.advancedApplyBtn} onClick={handleFilterSearch}>
                 Search
               </button>
               <button
                 type="button"
-                className={addStyles.advancedClearBtn}
+                className={addUserRequestStyles.advancedClearBtn}
                 onClick={() =>
                   setFilter({
                     plant_location: "",
@@ -637,7 +607,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               </button>
               <button
                 type="button"
-                className={addStyles.advancedClearBtn}
+                className={addUserRequestStyles.advancedClearBtn}
                 onClick={() => setFilterModalOpen(false)}
               >
                 Close
@@ -650,19 +620,19 @@ const handleSubmit = async (e: React.FormEvent) => {
 
       {/* ===================== Result Modal ===================== */}
 {resultModalOpen && (
-  <div className={addStyles.modalOverlay}>
-    <div className={addStyles.modalBox}>
-      <div className={addStyles.modalHeader}>
+  <div className={addUserRequestStyles.modalOverlay}>
+    <div className={addUserRequestStyles.modalBox}>
+      <div className={addUserRequestStyles.modalHeader}>
         <h2>Search Results</h2>
-        <div className={addStyles.modalActions}>
-          <button className={addStyles.primaryBtn} onClick={() => handleExportPDF(user ? user.username : "admin")}>Export PDF</button>
-          <button className={addStyles.secondaryBtn} onClick={() => setResultModalOpen(false)}>Close</button>
+        <div className={addUserRequestStyles.modalActions}>
+          <button className={addUserRequestStyles.primaryBtn} onClick={() => handleExportPDF(user ? user.username : "admin")}>Export PDF</button>
+          <button className={addUserRequestStyles.secondaryBtn} onClick={() => setResultModalOpen(false)}>Close</button>
         </div>
       </div>
 
-      <div className={addStyles.modalContent}>
+      <div className={addUserRequestStyles.modalContent}>
         <div style={{ overflowX: "auto" }}>
-          <table className={addStyles.table}>
+          <table className={addUserRequestStyles.table}>
             <thead>
               <tr>
                 <th>Transaction ID</th>
@@ -689,7 +659,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                     <td>{r.status}</td>
                     <td>
                       <button
-                        className={addStyles.viewTaskBtn}
+                        className={addUserRequestStyles.viewTaskBtn}
                         onClick={() => toggleRowExpansion(r.transaction_id || idx.toString())}
                       >
                         {expandedRows.includes(r.transaction_id || idx.toString())
@@ -704,7 +674,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                     <tr>
                       <td colSpan={8} style={{ padding: 0 }}>
                         <div style={{ overflowX: "auto" }}>
-                          <table className={addStyles.subTable}>
+                          <table className={addUserRequestStyles.subTable}>
                             <thead>
                               <tr>
                                 <th>Task Transaction ID</th>
@@ -747,34 +717,34 @@ const handleSubmit = async (e: React.FormEvent) => {
     </div>
   </div>
 )}
-      <main className={addStyles["main-content"]}>
-        <header className={addStyles["main-header"]}>
-          <div className={addStyles["header-left"]}>
-            <div className={addStyles["header-left"]}>
-              <div className={addStyles["logo-wrapper"]}>
-                <img src={login_headTitle2} alt="Logo" className={addStyles.logo} />
-                <span className={addStyles.version}>v1.00</span>
+      <main className={addUserRequestStyles["main-content"]}>
+        <header className={addUserRequestStyles["main-header"]}>
+          <div className={addUserRequestStyles["header-left"]}>
+            <div className={addUserRequestStyles["header-left"]}>
+              <div className={addUserRequestStyles["logo-wrapper"]}>
+                <img src={login_headTitle2} alt="Logo" className={addUserRequestStyles.logo} />
+                <span className={addUserRequestStyles.version}>v1.00</span>
               </div>
-              <h1 className={addStyles["header-title"]}>User Access Management</h1>
+              <h1 className={addUserRequestStyles["header-title"]}>User Access Management</h1>
             </div>
           </div>
-          <div className={addStyles["header-right"]}>
-            <button className={addStyles["addUserBtn"]} onClick={() => setFilterModalOpen(true)}>
+          <div className={addUserRequestStyles["header-right"]}>
+            <button className={addUserRequestStyles["addUserBtn"]} onClick={() => setFilterModalOpen(true)}>
              Filter User Requests
             </button>
           </div>
         </header>
 
         {/* ===================== Original Form JSX ===================== */}
-        <div className={addStyles.container}>
-          <form id="userRequestForm" className={addStyles.form} onSubmit={handleSubmit} style={{ width: "100%" }}>
-            <div className={addStyles.scrollFormContainer}>
+        <div className={addUserRequestStyles.container}>
+          <form id="userRequestForm" className={addUserRequestStyles.form} onSubmit={handleSubmit} style={{ width: "100%" }}>
+            <div className={addUserRequestStyles.scrollFormContainer}>
 
               {/* Card 1 */}
-              <div className={addStyles.section}>
-                <span className={addStyles.sectionHeaderTitle}>Requestor Details</span>
-                <div className={addStyles.fourCol}>
-                  <div className={addStyles.formGroup}>
+              <div className={addUserRequestStyles.section}>
+                <span className={addUserRequestStyles.sectionHeaderTitle}>Requestor Details</span>
+                <div className={addUserRequestStyles.fourCol}>
+                  <div className={addUserRequestStyles.formGroup}>
 
                     <select
                       name="request_for_by"
@@ -789,7 +759,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                     <label htmlFor="request_for_by">Access For *</label>
 
                   </div>
-                  <div className={addStyles.formGroup}>
+                  <div className={addUserRequestStyles.formGroup}>
 
                     <input
                       name="name"
@@ -799,7 +769,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                     />
                     <label htmlFor="name">Requestor For /By *</label>
                   </div>
-                  <div className={addStyles.formGroup}>
+                  <div className={addUserRequestStyles.formGroup}>
 
                     <input
                       name="employeeCode"
@@ -809,7 +779,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                     />
                     <label htmlFor="employeeCode">Employee Code *</label>
                   </div>
-                  <div className={addStyles.formGroup}>
+                  <div className={addUserRequestStyles.formGroup}>
 
                     <input
                       name="location"
@@ -820,9 +790,9 @@ const handleSubmit = async (e: React.FormEvent) => {
                     <label htmlFor="location">Location *</label>
                   </div>
                 </div>
-                <div className={addStyles.fourCol}>
+                <div className={addUserRequestStyles.fourCol}>
 
-                  <div className={addStyles.formGroup}>
+                  <div className={addUserRequestStyles.formGroup}>
                     <select
                       name="accessType"
                       value={form.accessType}
@@ -838,7 +808,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                     </select>
                     <label htmlFor="accessType">Access Request Type *</label>
                   </div>
-                  <div className={addStyles.formGroup}>
+                  <div className={addUserRequestStyles.formGroup}>
                     <select
                       name="trainingStatus"
                       value={form.trainingStatus}
@@ -850,7 +820,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                     <label htmlFor="trainingStatus">Training Completed *</label>
                   </div>
                   {form.trainingStatus === "Yes" && (
-                    <div className={addStyles.formGroup}>
+                    <div className={addUserRequestStyles.formGroup}>
                       <input
                         type="file"
                         name="trainingAttachment"
@@ -862,7 +832,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                     </div>
                   )}
                   {!isBulkDeactivation && (
-                    <div className={addStyles.formGroup}>
+                    <div className={addUserRequestStyles.formGroup}>
 
                       <input
                         name="reportsTo"
@@ -878,10 +848,10 @@ const handleSubmit = async (e: React.FormEvent) => {
 
               {/* Card 2 Vendor Details */}
               {(form.request_for_by === "Vendor / OEM" && !isVendorModify) && (
-                <div className={addStyles.section}>
-                  <span className={addStyles.sectionHeaderTitle}>Vendor Details</span>
-                  <div className={addStyles.threeCol}>
-                    <div className={addStyles.formGroup}>
+                <div className={addUserRequestStyles.section}>
+                  <span className={addUserRequestStyles.sectionHeaderTitle}>Vendor Details</span>
+                  <div className={addUserRequestStyles.threeCol}>
+                    <div className={addUserRequestStyles.formGroup}>
                       <input
                         name="vendorName"
                         value={form.vendorName}
@@ -890,7 +860,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       />
                       <label htmlFor="vendorName">Vendor Name *</label>
                     </div>
-                    <div className={addStyles.formGroup}>
+                    <div className={addUserRequestStyles.formGroup}>
                       <input
                         name="vendorFirm"
                         value={form.vendorFirm}
@@ -899,7 +869,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       />
                       <label htmlFor="vendorFirm">Vendor Firm *</label>
                     </div>
-                    <div className={addStyles.formGroup}>
+                    <div className={addUserRequestStyles.formGroup}>
                       <input
                         name="vendorCode"
                         value={form.vendorCode}
@@ -913,10 +883,10 @@ const handleSubmit = async (e: React.FormEvent) => {
 
               {/* Card 3 Vendor Modify */}
               {isVendorModify && (
-                <div className={addStyles.section}>
-                  <span className={addStyles.sectionHeaderTitle}>Vendor Modify</span>
-                  <div className={addStyles.fourCol}>
-                    <div className={addStyles.formGroup}>
+                <div className={addUserRequestStyles.section}>
+                  <span className={addUserRequestStyles.sectionHeaderTitle}>Vendor Modify</span>
+                  <div className={addUserRequestStyles.fourCol}>
+                    <div className={addUserRequestStyles.formGroup}>
                       <input
                         name="vendorFirm"
                         value={form.vendorFirm}
@@ -925,7 +895,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       />
                       <label htmlFor="vendorFirm">Vendor Firm *</label>
                     </div>
-                    <div className={addStyles.formGroup}>
+                    <div className={addUserRequestStyles.formGroup}>
                       <input
                         name="allocatedId"
                         value={form.allocatedId}
@@ -934,7 +904,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       />
                       <label htmlFor="allocatedId">Allocated ID *</label>
                     </div>
-                    <div className={addStyles.formGroup}>
+                    <div className={addUserRequestStyles.formGroup}>
                       <input
                         name="vendorName"
                         value={form.vendorName}
@@ -942,7 +912,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       />
                       <label htmlFor="vendorName">Vendor Name *</label>
                     </div>
-                    <div className={addStyles.formGroup}>
+                    <div className={addUserRequestStyles.formGroup}>
                       <select name="plant_location" value={form.plant_location} onChange={handleChange} required>
                         <option value="">Select Plant</option>
                         {plants.map(plant => (
@@ -952,8 +922,8 @@ const handleSubmit = async (e: React.FormEvent) => {
                       <label htmlFor="plant_location">Plant Location *</label>
                     </div>
                   </div>
-                  <div className={addStyles.fourCol}>
-                    <div className={addStyles.formGroup}>
+                  <div className={addUserRequestStyles.fourCol}>
+                    <div className={addUserRequestStyles.formGroup}>
                       <select name="department" value={form.department} onChange={handleChange} required>
                         <option value="">Select Department</option>
                         {departments.map((dept) => (
@@ -962,7 +932,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       </select>
                       <label htmlFor="department">Department *</label>
                     </div>
-                    <div className={addStyles.formGroup}>
+                    <div className={addUserRequestStyles.formGroup}>
                       <select name="role" value={form.role} onChange={handleChange} required>
                         <option value="">Select Role</option>
                         {roles.map((role) => (
@@ -972,7 +942,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       <label htmlFor="role">Role *</label>
                     </div>
 
-                    <div className={addStyles.formGroup}>
+                    <div className={addUserRequestStyles.formGroup}>
                       <textarea
                         name="remarks"
                         style={{ minHeight: "40px", maxHeight: "42px", resize: "vertical" }}
@@ -987,10 +957,10 @@ const handleSubmit = async (e: React.FormEvent) => {
 
               {/* Card 4 Access Information */}
               {(isBulkDeactivation || (!isVendorModify && !isBulkDeactivation)) && (
-                <div className={addStyles.section}>
-                  <span className={addStyles.sectionHeaderTitle}>Access Information</span>
-                  <div className={addStyles.fourCol}>
-                    <div className={addStyles.formGroup}>
+                <div className={addUserRequestStyles.section}>
+                  <span className={addUserRequestStyles.sectionHeaderTitle}>Access Information</span>
+                  <div className={addUserRequestStyles.fourCol}>
+                    <div className={addUserRequestStyles.formGroup}>
                       <select name="plant_location" value={form.plant_location} onChange={handleChange} required>
                         <option value="">Select Plant</option>
                         {plants.map(plant => (
@@ -999,7 +969,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       </select>
                       <label htmlFor="plant_location">Plant Location * </label>
                     </div>
-                    <div className={addStyles.formGroup}>
+                    <div className={addUserRequestStyles.formGroup}>
                       <select name="department" value={form.department} onChange={handleChange} required>
                         <option value="">Select Department</option>
                         {departments.map((dept) => (
@@ -1009,7 +979,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       <label htmlFor="department">Department Name * </label>
                     </div>
                     {(!isBulkDeactivation && !isBulkNew) && (
-                      <div className={addStyles.formGroup}>
+                      <div className={addUserRequestStyles.formGroup}>
                         <select name="applicationId" value={form.applicationId} onChange={handleChange} required>
                           <option value="">Select Application / Equipment ID</option>
                           {applications.map((app, index) => (
@@ -1020,7 +990,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       </div>
                     )}
                     {(!isBulkDeactivation && !isBulkNew) && (
-                      <div className={addStyles.formGroup}>
+                      <div className={addUserRequestStyles.formGroup}>
                         <select name="role" value={form.role} onChange={handleChange} required>
                           <option value="">Select Role</option>
                           {roles.map((role) => (
@@ -1032,7 +1002,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
                     )}
                   </div>
-                  <div className={addStyles.formGroup}>
+                  <div className={addUserRequestStyles.formGroup}>
                     <label></label>
                     <textarea
                       name="remarks"
@@ -1049,22 +1019,22 @@ const handleSubmit = async (e: React.FormEvent) => {
 
               {/* Card 5 Bulk User Creation */}
               {(form.request_for_by !== "Vendor / OEM" && isBulkNew) && (
-                <div className={addStyles.section}>
-                  <span className={addStyles.sectionHeaderTitle}>Bulk User Creation</span>
+                <div className={addUserRequestStyles.section}>
+                  <span className={addUserRequestStyles.sectionHeaderTitle}>Bulk User Creation</span>
                   <div>
                     {bulkRows.length < 7 && (
-                      <div className={addStyles.addRowWrapper}>
+                      <div className={addUserRequestStyles.addRowWrapper}>
                         <button
                           type="button"
                           onClick={handleAddRow}
-                          className={addStyles.addRowBtn}
+                          className={addUserRequestStyles.addRowBtn}
                         >
                           +
                         </button>
                       </div>
                     )}
-                    <div className={addStyles.tableContainer}>
-                      <table className={addStyles.table}>
+                    <div className={addUserRequestStyles.tableContainer}>
+                      <table className={addUserRequestStyles.table}>
                         <thead>
                           <tr>
                             <th>Location</th>
@@ -1145,7 +1115,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                               <td>
                                 <button
                                   type="button"
-                                  className={addStyles.deleteBtn}
+                                  className={addUserRequestStyles.deleteBtn}
                                   onClick={() => handleRemoveRow(index)}
                                 >
                                   Delete
@@ -1164,14 +1134,14 @@ const handleSubmit = async (e: React.FormEvent) => {
 
             </div>
             {/* Move the footer buttons to the top */}
-            <div className={addStyles.formFooter}>
-              <div className={addStyles.formActions}>
-                <button type="submit" className={addStyles.saveBtn}>
+            <div className={addUserRequestStyles.formFooter}>
+              <div className={addUserRequestStyles.formActions}>
+                <button type="submit" className={addUserRequestStyles.saveBtn}>
                   Submit
                 </button>
                 <button
                   type="button"
-                  className={addStyles.cancelBtn}
+                  className={addUserRequestStyles.cancelBtn}
                   onClick={() => navigate("/user-requests")}
                 >
                   Cancel
