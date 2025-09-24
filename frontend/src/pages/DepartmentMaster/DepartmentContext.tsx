@@ -10,6 +10,7 @@ import {
 export type Department = {
   id: number;
   name: string;
+  department_name?: string;
   description?: string;
   status?: string;
 };

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import Select from "react-select";
 import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
 import addStyles from "./AddApplicationMaster.module.css";
 import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
@@ -6,11 +7,13 @@ import { sidebarConfig } from "../../components/Common/sidebarConfig";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useApplications } from "../../context/ApplicationsContext";
 import { useAuth } from "../../context/AuthContext";
+import { FaLock, FaUnlock } from "react-icons/fa";
 
 const EditApplicationFormPage: React.FC = () => {
   const { user } = useAuth();
   const username = user?.username || "";
   const [showModal, setShowModal] = useState(false);
+  const [showUnlockModal, setShowUnlockModal] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { setApplications } = useApplications();
@@ -63,8 +66,18 @@ const EditApplicationFormPage: React.FC = () => {
   });
 
   const [roles, setRoles] = useState<{ id: string; name: string }[]>([]);
+  // Role Lock toggle state, always in sync with backend value
+  const [roleLocked, setRoleLocked] = useState<boolean>(
+    !!applicationData?.role_lock
+  );
+
+  // Sync roleLocked with backend value if applicationData changes
   useEffect(() => {
-    fetch("/api/roles")
+    setRoleLocked(!!applicationData?.role_lock);
+  }, [applicationData?.role_lock]);
+
+  useEffect(() => {
+    fetch("http://localhost:4000/api/roles")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data))
@@ -75,7 +88,6 @@ const EditApplicationFormPage: React.FC = () => {
   }, []);
 
   const filteredSidebarConfig = sidebarConfig;
-  // Use location.state.activeTab for sidebar highlighting
   const activeTab = location.state?.activeTab || "application";
   const handleSidebarNav = (key: string) => {
     navigate("/superadmin", { state: { activeTab: key } });
@@ -88,15 +100,6 @@ const EditApplicationFormPage: React.FC = () => {
   ) => {
     const target = e.target as HTMLInputElement | HTMLSelectElement;
     const { name, value, type } = target;
-    if (name === "role_id") {
-      const options = (target as HTMLSelectElement).options;
-      const selected: string[] = [];
-      for (let i = 0; i < options.length; i++) {
-        if (options[i].selected) selected.push(options[i].value);
-      }
-      setForm((prev) => ({ ...prev, role_id: selected }));
-      return;
-    }
     const checked =
       type === "checkbox" ? (target as HTMLInputElement).checked : undefined;
     setForm((prev) => ({
@@ -132,40 +135,84 @@ const EditApplicationFormPage: React.FC = () => {
     setShowModal(true);
   };
 
+  // Add role lock to payload on confirm (single definition)
   const handleConfirm = async (data: Record<string, string>) => {
     if (data.username === username && data.password) {
       try {
+        // Prepare payload with correct types
+        const payload = {
+          ...form,
+          role_id: Array.isArray(form.role_id)
+            ? form.role_id.join(",")
+            : form.role_id,
+          plant_location_id: form.plant_location_id
+            ? Number(form.plant_location_id)
+            : null,
+          department_id: form.department_id ? Number(form.department_id) : null,
+          system_inventory_id: form.system_inventory_id
+            ? Number(form.system_inventory_id)
+            : null,
+          role_lock: true, // Always lock after save
+        };
         setShowModal(false);
-        const res = await fetch(`/api/applications/${form.id}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(form),
-        });
-        if (!res.ok) throw new Error("Failed to update application");
+        const res = await fetch(
+          `http://localhost:4000/api/applications/${form.id}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+          }
+        );
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(errorText);
+        }
         const updated = await res.json();
         setApplications((prev) =>
           prev.map((app) =>
             app.id === updated.id ? { ...app, ...updated } : app
           )
         );
+        setRoleLocked(true); // Lock roles after save
         navigate("/superadmin", { state: { activeTab: "application" } });
       } catch (err) {
-        alert("Failed to update application. Please try again.");
+        alert(
+          "Failed to update application. Please try again.\n" +
+            (err instanceof Error ? err.message : "")
+        );
       }
     } else {
       alert("Invalid credentials. Please try again.");
     }
   };
 
+  // Handle unlock: show modal, unlock on correct credentials
+  // Confirm unlock modal logic
+  const handleUnlockConfirm = (data: Record<string, string>) => {
+    if (data.username === username && data.password) {
+      setRoleLocked(false);
+      setShowUnlockModal(false);
+    } else {
+      alert("Invalid credentials. Please try again.");
+    }
+  };
+
   return (
-    <>
+    <React.Fragment>
       {showModal && (
         <ConfirmLoginModal
           username={username}
           onConfirm={handleConfirm}
           onCancel={() => setShowModal(false)}
+        />
+      )}
+      {showUnlockModal && (
+        <ConfirmLoginModal
+          username={username}
+          onConfirm={handleUnlockConfirm}
+          onCancel={() => setShowUnlockModal(false)}
         />
       )}
       <div className={superAdminStyles["main-container"]}>
@@ -265,181 +312,286 @@ const EditApplicationFormPage: React.FC = () => {
           {/* Container for Edit Form */}
           <div className={addStyles.container} style={{ marginTop: 32 }}>
             <form
-              onSubmit={handleSubmit}
               className={addStyles.form}
+              onSubmit={handleSubmit}
               style={{ width: "100%" }}
             >
               <div className={addStyles.scrollFormContainer}>
-                {/* Department */}
-                <div className={addStyles.formGroup}>
-                  <label>Department</label>
-                  <input
-                    name="department_id"
-                    placeholder="Department ID"
-                    value={form.department_id}
-                    onChange={handleChange}
-                    required
-                    className={addStyles.input}
-                  />
-                </div>
-                {/* Application/HMI Name */}
-                <div className={addStyles.formGroup}>
-                  <label>Application/HMI Name</label>
-                  <input
-                    name="application_hmi_name"
-                    placeholder="Application/HMI Name"
-                    value={form.application_hmi_name}
-                    onChange={handleChange}
-                    required
-                    className={addStyles.input}
-                  />
-                </div>
-                {/* Application/HMI Version */}
-                <div className={addStyles.formGroup}>
-                  <label>Application/HMI Version</label>
-                  <input
-                    name="application_hmi_version"
-                    placeholder="Application/HMI Version"
-                    value={form.application_hmi_version}
-                    onChange={handleChange}
-                    required
-                    className={addStyles.input}
-                  />
-                </div>
-                {/* Equipment/Instrument ID */}
-                <div className={addStyles.formGroup}>
-                  <label>Equipment/Instrument ID</label>
-                  <input
-                    name="equipment_instrument_id"
-                    placeholder="Equipment/Instrument ID"
-                    value={form.equipment_instrument_id}
-                    onChange={handleChange}
-                    required
-                    className={addStyles.input}
-                  />
-                </div>
-                {/* Application/HMI Type */}
-                <div className={addStyles.formGroup}>
-                  <label>Application/HMI Type</label>
-                  <input
-                    name="application_hmi_type"
-                    placeholder="Application/HMI Type"
-                    value={form.application_hmi_type}
-                    onChange={handleChange}
-                    required
-                    className={addStyles.input}
-                  />
-                </div>
-                {/* Display Name */}
-                <div className={addStyles.formGroup}>
-                  <label>Display Name</label>
-                  <input
-                    name="display_name"
-                    placeholder="Display Name"
-                    value={form.display_name}
-                    onChange={handleChange}
-                    required
-                    className={addStyles.input}
-                  />
-                </div>
-                {/* Role(s) */}
-                <div className={addStyles.formGroup}>
-                  <label>Role(s)</label>
-                  <select
-                    className={addStyles.select}
-                    name="role_id"
-                    value={form.role_id}
-                    onChange={handleChange}
-                    multiple
-                    required
-                    size={Math.min(roles.length, 5) || 2}
-                  >
-                    {roles.map((role) => (
-                      <option key={role.id} value={role.id}>
-                        {role.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {/* System Name */}
-                <div className={addStyles.formGroup}>
-                  <label>System Name</label>
-                  <input
-                    name="system_name"
-                    placeholder="System Name"
-                    value={form.system_name}
-                    onChange={handleChange}
-                    className={addStyles.input}
-                  />
-                </div>
-                {/* System Inventory ID */}
-                <div className={addStyles.formGroup}>
-                  <label>System Inventory ID</label>
-                  <input
-                    name="system_inventory_id"
-                    placeholder="System Inventory ID"
-                    value={form.system_inventory_id}
-                    onChange={handleChange}
-                    className={addStyles.input}
-                  />
-                </div>
-                {/* Multiple Role Access */}
-                <div className={addStyles.formGroup}>
-                  <label>
+                <div className={addStyles.rowFields}>
+                  {/* Plant Location (mandatory) */}
+                  <div className={addStyles.formGroup}>
+                    <label>
+                      Plant Location <span style={{ color: "red" }}>*</span>
+                    </label>
                     <input
+                      className={addStyles.input}
+                      name="plant_location_id"
+                      value={form.plant_location_id}
+                      onChange={handleChange}
+                      required
+                      placeholder="Enter Plant Location ID"
+                      type="number"
+                    />
+                  </div>
+                  {/* Department (mandatory) */}
+                  <div className={addStyles.formGroup}>
+                    <label>
+                      Department <span style={{ color: "red" }}>*</span>
+                    </label>
+                    <input
+                      className={addStyles.input}
+                      name="department_id"
+                      value={form.department_id}
+                      onChange={handleChange}
+                      required
+                      placeholder="Enter Department ID"
+                      type="number"
+                    />
+                  </div>
+                  {/* Application/HMI Name (mandatory) */}
+                  <div className={addStyles.formGroup}>
+                    <label>
+                      Application/HMI Name{" "}
+                      <span style={{ color: "red" }}>*</span>
+                    </label>
+                    <input
+                      className={addStyles.input}
+                      name="application_hmi_name"
+                      value={form.application_hmi_name}
+                      onChange={handleChange}
+                      required
+                      placeholder="Enter Application/HMI Name"
+                    />
+                  </div>
+                  {/* System Name (mandatory) */}
+                  <div className={addStyles.formGroup}>
+                    <label>
+                      System Name <span style={{ color: "red" }}>*</span>
+                    </label>
+                    <input
+                      className={addStyles.input}
+                      name="system_name"
+                      value={form.system_name}
+                      onChange={handleChange}
+                      required
+                      placeholder="Enter System Name"
+                    />
+                  </div>
+                  {/* Application/HMI Version */}
+                  <div className={addStyles.formGroup}>
+                    <label>Application/HMI Version</label>
+                    <input
+                      className={addStyles.input}
+                      name="application_hmi_version"
+                      value={form.application_hmi_version}
+                      onChange={handleChange}
+                      placeholder="Enter Application/HMI Version"
+                    />
+                  </div>
+                  {/* System Inventory ID */}
+                  <div className={addStyles.formGroup}>
+                    <label>System Inventory ID</label>
+                    <input
+                      className={addStyles.input}
+                      name="system_inventory_id"
+                      value={form.system_inventory_id}
+                      onChange={handleChange}
+                      placeholder="Enter System Inventory ID"
+                      type="number"
+                    />
+                  </div>
+                </div>
+                {/* Roles with Role Lock toggle inside label */}
+                <div className={addStyles.rowFields}>
+                  <div
+                    className={addStyles.formGroup}
+                    style={{ maxWidth: 400 }}
+                  >
+                    <label
+                      htmlFor="role_id"
+                      style={{
+                        fontWeight: 600,
+                        fontSize: 16,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                      }}
+                    >
+                      Roles <span style={{ color: "red" }}>*</span>
+                      {/* Role Lock Toggle */}
+                      <span style={{ marginLeft: 10 }}>
+                        <span
+                          className={addStyles.roleLockToggle}
+                          onClick={() => {
+                            if (roleLocked) setShowUnlockModal(true);
+                            else setRoleLocked(true); // Only allow unlock via modal
+                          }}
+                          tabIndex={0}
+                          aria-label="Role Lock Toggle"
+                        >
+                          <span
+                            className={addStyles.roleLockTrack}
+                            style={{
+                              background: roleLocked ? "#1569B0" : "#c4c4c4",
+                            }}
+                          >
+                            <span
+                              className={addStyles.roleLockLabel}
+                              style={{
+                                color: "#fff",
+                                fontWeight: 700,
+                                fontSize: 14,
+                                marginLeft: 12,
+                                marginRight: 6,
+                                width: 32,
+                                textAlign: "center",
+                                letterSpacing: 1,
+                              }}
+                            >
+                              {roleLocked ? "Lock" : "Unlock"}
+                            </span>
+                            <span
+                              className={addStyles.roleLockCircle}
+                              style={{
+                                left: roleLocked ? 52 : 4,
+                                background: "#fff",
+                              }}
+                            >
+                              {roleLocked ? (
+                                <FaLock size={14} color="#1569B0" />
+                              ) : (
+                                <FaUnlock size={14} color="#c4c4c4" />
+                              )}
+                            </span>
+                          </span>
+                        </span>
+                      </span>
+                    </label>
+                    <Select
+                      id="role_id"
+                      isMulti
+                      isSearchable
+                      name="role_id"
+                      options={roles.map((r) => ({
+                        value: r.id,
+                        label: r.name,
+                      }))}
+                      value={roles
+                        .filter((r) => form.role_id.includes(r.id))
+                        .map((r) => ({ value: r.id, label: r.name }))}
+                      onChange={(selected) => {
+                        setForm((prev) => ({
+                          ...prev,
+                          role_id: Array.isArray(selected)
+                            ? selected.map((s) => s.value)
+                            : [],
+                        }));
+                      }}
+                      placeholder="Select roles..."
+                      styles={{
+                        menu: (base) => ({ ...base, zIndex: 20 }),
+                        control: (base) => ({
+                          ...base,
+                          minHeight: 38,
+                          fontSize: 15,
+                        }),
+                      }}
+                      isDisabled={roleLocked}
+                    />
+                  </div>
+                  <div
+                    className={addStyles.formGroup}
+                    style={{
+                      flexDirection: "column",
+                      alignItems: "flex-start",
+                      gap: 10,
+                      margin: 0,
+                      minWidth: 200,
+                    }}
+                  >
+                    <label
+                      htmlFor="status"
+                      style={{
+                        marginBottom: 0,
+                        minWidth: 70,
+                        fontWeight: 500,
+                        marginRight: 8,
+                      }}
+                    >
+                      Status <span style={{ color: "red" }}>*</span>
+                    </label>
+                    <select
+                      id="status"
+                      className={addStyles.select}
+                      name="status"
+                      value={form.status}
+                      onChange={handleChange}
+                      required
+                      style={{ minWidth: 120 }}
+                    >
+                      <option value="ACTIVE">ACTIVE</option>
+                      <option value="INACTIVE">INACTIVE</option>
+                    </select>
+                  </div>
+                </div>
+                {/* Multiple Role Access and Status aligned in a row */}
+                <div
+                  className={addStyles.rowFields}
+                  style={{ alignItems: "center", marginTop: 8 }}
+                >
+                  <div
+                    className={addStyles.formGroup}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 10,
+                      margin: 0,
+                      minWidth: 250,
+                    }}
+                  >
+                    <label
+                      htmlFor="multiple_role_access"
+                      style={{
+                        marginBottom: 0,
+                        minWidth: 170,
+                        fontWeight: 500,
+                        marginRight: 8,
+                      }}
+                    >
+                      Multiple Role Access (Yes/No)
+                    </label>
+                    <input
+                      id="multiple_role_access"
                       type="checkbox"
                       name="multiple_role_access"
-                      checked={!!form.multiple_role_access}
+                      checked={form.multiple_role_access}
                       onChange={handleChange}
-                      style={{ marginRight: 8 }}
+                      style={{ width: 18, height: 18, marginLeft: 0 }}
                     />
-                    Multiple Role Access
-                  </label>
+                  </div>
                 </div>
-                {/* Status */}
-                <div className={addStyles.formGroup}>
-                  <label>Status</label>
-                  <select
-                    name="status"
-                    value={form.status}
-                    onChange={handleChange}
-                    className={addStyles.select}
-                    required
+                <div className={addStyles.buttonRow}>
+                  <button type="submit" className={addStyles.saveBtn}>
+                    Update
+                  </button>
+                  <button
+                    type="button"
+                    className={addStyles.cancelBtn}
+                    onClick={() =>
+                      navigate("/superadmin", {
+                        state: { activeTab: "application" },
+                      })
+                    }
                   >
-                    <option value="ACTIVE">ACTIVE</option>
-                    <option value="INACTIVE">INACTIVE</option>
-                  </select>
+                    Cancel
+                  </button>
                 </div>
-              </div>
-              <div
-                className={addStyles.buttonRow}
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-start",
-                  gap: 24,
-                  marginTop: 24,
-                }}
-              >
-                <button type="submit" className={addStyles.saveBtn}>
-                  Update
-                </button>
-                <button
-                  type="button"
-                  className={addStyles.cancelBtn}
-                  onClick={() =>
-                    navigate("/superadmin", {
-                      state: { activeTab: "application" },
-                    })
-                  }
-                >
-                  Cancel
-                </button>
               </div>
             </form>
           </div>
         </main>
       </div>
-    </>
+    </React.Fragment>
   );
 };
 

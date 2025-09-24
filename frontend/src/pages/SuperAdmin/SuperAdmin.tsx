@@ -29,7 +29,7 @@ import { useAuth } from "../../context/AuthContext";
 import { Role } from "../../utils/rbac";
 import AddRoleFormPage from "RoleMaster/AddRoleFormPage";
 import EditRoleFormPage from "RoleMaster/EditRoleFormPage";
-
+import SystemInventoryMasterTable from "pages/SystemInventoryMasterTable/SystemInventoryMasterTable";
 const SuperAdmin: React.FC = () => {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState(() => {
@@ -108,6 +108,12 @@ const SuperAdmin: React.FC = () => {
       label: "Approval Workflow",
       icon: <AssignmentIcon fontSize="small" />,
       perm: "workflow:view",
+    },
+    {
+      key: "system",
+      label: "System Inventory",
+      icon: <AssignmentIcon fontSize="small" />,
+      perm: "system:view",
     },
   ];
   // Map role_id to role string for RBAC
@@ -217,6 +223,9 @@ const SuperAdmin: React.FC = () => {
         );
       case "workflow":
         return <WorkflowBuilder />;
+
+       case "system":
+        return <SystemInventoryMasterTable />;  
       default:
         return null;
     }

@@ -10,6 +10,7 @@ const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const userRequest = require("./routes/userRequest");
 const applicationRoutes = require("./routes/applicationRoutes");
+const systemRoutes = require("./routes/systemRoutes");
 const swaggerRoutes = require("./routes/swagger");
 const os = require("os");
 const app = express();
@@ -27,6 +28,8 @@ app.use("/uploads", express.static(path.join(__dirname, "src", "uploads")));
 app.use("/api/plants", plantRoutes);
 app.use("/api/vendors", vendorRoutes);
 app.use("/api/roles", roleRoutes);
+app.use("/api/systems", systemRoutes);
+
 app.use("/api/departments", departmentRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);

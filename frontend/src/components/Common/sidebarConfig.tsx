@@ -69,4 +69,10 @@ export const sidebarConfig: SidebarConfigItem[] = [
     icon: <AssignmentIcon fontSize="small" />,
     perm: "workflow:view",
   },
+    {
+    key: "system",
+    label: "System Inventory",
+    icon: <AssignmentIcon fontSize="small" />,
+    perm: "system:view",
+  },
 ];

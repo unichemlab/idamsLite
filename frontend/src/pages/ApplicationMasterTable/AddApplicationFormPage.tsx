@@ -7,16 +7,34 @@ import { sidebarConfig } from "../../components/Common/sidebarConfig";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useApplications } from "../../context/ApplicationsContext";
+import { usePlantContext } from "../PlantMaster/PlantContext";
+
+import { FaLock, FaUnlock } from "react-icons/fa";
 
 const AddApplicationFormPage: React.FC = () => {
-  // State for role lock toggle
+  const { plants } = usePlantContext();
+  const plantOptions = Array.isArray(plants)
+    ? plants.map((plant) => ({
+        value: String(plant.id),
+        label: plant.plant_name || plant.name || String(plant.id),
+      }))
+    : [];
+  const { departments } =
+    require("../DepartmentMaster/DepartmentContext").useDepartmentContext();
+  const departmentOptions = Array.isArray(departments)
+    ? departments.map((dept) => ({
+        value: String(dept.id),
+        label: dept.department_name || dept.name || String(dept.id),
+      }))
+    : [];
+
   const [roleLocked, setRoleLocked] = useState(false);
-  // Use user context for username (for consistency with PlantMaster)
   const { user } = useAuth();
   const username = user?.username || "";
   const [showModal, setShowModal] = useState(false);
   const navigate = useNavigate();
   const { setApplications, applications } = useApplications();
+
   type FormType = {
     transaction_id: string;
     plant_location_id: string;
@@ -32,8 +50,6 @@ const AddApplicationFormPage: React.FC = () => {
     multiple_role_access: boolean;
     status: string;
   };
-
-  // Removed showRolesDropdown state (not needed with react-select)
 
   const [form, setForm] = useState<FormType>({
     transaction_id: "",
@@ -51,10 +67,8 @@ const AddApplicationFormPage: React.FC = () => {
     status: "ACTIVE",
   });
 
-  // Roles for dropdown
   const [roles, setRoles] = useState<{ id: string; name: string }[]>([]);
   React.useEffect(() => {
-    // Fetch all roles for dropdown (use full backend URL)
     fetch("http://localhost:4000/api/roles")
       .then((res) => res.json())
       .then((data) => {
@@ -64,17 +78,12 @@ const AddApplicationFormPage: React.FC = () => {
           );
         }
       })
-      .catch((err) => {
-        setRoles([]);
-        // Optionally log error
-        // console.error('Failed to fetch roles:', err);
-      });
+      .catch(() => setRoles([]));
   }, []);
 
   const filteredSidebarConfig = sidebarConfig;
   const location = useLocation();
   const activeTab = location.state?.activeTab || "application";
-  // Sidebar navigation handler: always reset to table view for selected master
   const handleSidebarNav = (key: string) => {
     navigate("/superadmin", { state: { activeTab: key } });
   };
@@ -92,7 +101,6 @@ const AddApplicationFormPage: React.FC = () => {
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
-    // Auto-update display_name if relevant fields change
     if (
       [
         "application_hmi_name",
@@ -122,28 +130,52 @@ const AddApplicationFormPage: React.FC = () => {
     setShowModal(true);
   };
 
-  // Add application API call and context update
   const handleConfirm = async (data: Record<string, string>) => {
     if (data.username === username && data.password) {
       try {
-        console.log("[AddApplication] Submitting form:", form);
-        // POST to backend (correct port)
+        let newTransactionId = "APP0000001";
+        if (applications && applications.length > 0) {
+          const maxNum = applications
+            .map((a) => {
+              const match = String(a.transaction_id || "").match(/APP(\d+)/);
+              return match ? parseInt(match[1], 10) : 0;
+            })
+            .reduce((a, b) => Math.max(a, b), 0);
+          newTransactionId = `APP${String(maxNum + 1).padStart(7, "0")}`;
+        }
+        const payload = {
+          ...form,
+          transaction_id: newTransactionId,
+          role_id: Array.isArray(form.role_id)
+            ? form.role_id.join(",")
+            : form.role_id,
+          plant_location_id: form.plant_location_id
+            ? Number(form.plant_location_id)
+            : null,
+          department_id: form.department_id ? Number(form.department_id) : null,
+          system_inventory_id: form.system_inventory_id
+            ? Number(form.system_inventory_id)
+            : null,
+          role_lock: roleLocked,
+        };
         const res = await fetch("http://localhost:4000/api/applications", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
+          body: JSON.stringify(payload),
         });
-        console.log("[AddApplication] Response status:", res.status);
-        if (!res.ok) throw new Error("Failed to add application");
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error("Failed to add application: " + errorText);
+        }
         const newApp = await res.json();
-        console.log("[AddApplication] New app from backend:", newApp);
-        // Update context
         setApplications([...(applications || []), newApp]);
         setShowModal(false);
         navigate("/superadmin", { state: { activeTab: "application" } });
       } catch (err) {
-        console.error("[AddApplication] Error:", err);
-        alert("Failed to add application. Please try again.");
+        alert(
+          "Failed to add application. Please try again.\n" +
+            (err instanceof Error ? err.message : "")
+        );
       }
     } else {
       alert("Invalid credentials. Please try again.");
@@ -262,37 +294,71 @@ const AddApplicationFormPage: React.FC = () => {
             >
               <div className={addStyles.scrollFormContainer}>
                 <div className={addStyles.rowFields}>
-                  {/* Plant Location (mandatory) */}
+                  {/* Plant Location */}
                   <div className={addStyles.formGroup}>
                     <label>
                       Plant Location <span style={{ color: "red" }}>*</span>
                     </label>
-                    <input
-                      className={addStyles.input}
+                    <Select
                       name="plant_location_id"
-                      value={form.plant_location_id}
-                      onChange={handleChange}
-                      required
-                      placeholder="Enter Plant Location ID"
-                      type="number"
+                      options={plantOptions}
+                      value={
+                        plantOptions.find(
+                          (opt) => opt.value === form.plant_location_id
+                        ) || null
+                      }
+                      onChange={(selected) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          plant_location_id: selected ? selected.value : "",
+                        }))
+                      }
+                      placeholder="Select Plant Location"
+                      isClearable={false}
+                      isSearchable={true}
+                      styles={{
+                        menu: (base) => ({ ...base, zIndex: 20 }),
+                        control: (base) => ({
+                          ...base,
+                          minHeight: 38,
+                          fontSize: 15,
+                        }),
+                      }}
                     />
                   </div>
-                  {/* Department (mandatory) */}
+                  {/* Department */}
                   <div className={addStyles.formGroup}>
                     <label>
                       Department <span style={{ color: "red" }}>*</span>
                     </label>
-                    <input
-                      className={addStyles.input}
+                    <Select
                       name="department_id"
-                      value={form.department_id}
-                      onChange={handleChange}
-                      required
-                      placeholder="Enter Department ID"
-                      type="number"
+                      options={departmentOptions}
+                      value={
+                        departmentOptions.find(
+                          (opt) => opt.value === form.department_id
+                        ) || null
+                      }
+                      onChange={(selected) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          department_id: selected ? selected.value : "",
+                        }))
+                      }
+                      placeholder="Select Department"
+                      isClearable={false}
+                      isSearchable={true}
+                      styles={{
+                        menu: (base) => ({ ...base, zIndex: 20 }),
+                        control: (base) => ({
+                          ...base,
+                          minHeight: 38,
+                          fontSize: 15,
+                        }),
+                      }}
                     />
                   </div>
-                  {/* Application/HMI Name (mandatory) */}
+                  {/* Application/HMI Name */}
                   <div className={addStyles.formGroup}>
                     <label>
                       Application/HMI Name{" "}
@@ -307,16 +373,106 @@ const AddApplicationFormPage: React.FC = () => {
                       placeholder="Enter Application/HMI Name"
                     />
                   </div>
-                  {/* Role (multi-select) using react-select */}
+                  {/* System Name */}
+                  <div className={addStyles.formGroup}>
+                    <label>
+                      System Name <span style={{ color: "red" }}>*</span>
+                    </label>
+                    <input
+                      className={addStyles.input}
+                      name="system_name"
+                      value={form.system_name}
+                      onChange={handleChange}
+                      required
+                      placeholder="Enter System Name"
+                    />
+                  </div>
+                  {/* Application/HMI Version */}
+                  <div className={addStyles.formGroup}>
+                    <label>Application/HMI Version</label>
+                    <input
+                      className={addStyles.input}
+                      name="application_hmi_version"
+                      value={form.application_hmi_version}
+                      onChange={handleChange}
+                      placeholder="Enter Application/HMI Version"
+                    />
+                  </div>
+                  {/* System Inventory ID */}
+                  <div className={addStyles.formGroup}>
+                    <label>System Inventory ID</label>
+                    <input
+                      className={addStyles.input}
+                      name="system_inventory_id"
+                      value={form.system_inventory_id}
+                      onChange={handleChange}
+                      placeholder="Enter System Inventory ID"
+                      type="number"
+                    />
+                  </div>
+                </div>
+                {/* Roles with Role Lock toggle inside label */}
+                <div className={addStyles.rowFields}>
                   <div
                     className={addStyles.formGroup}
-                    style={{ maxWidth: 400, alignSelf: "flex-end" }}
+                    style={{ maxWidth: 400 }}
                   >
                     <label
                       htmlFor="role_id"
-                      style={{ fontWeight: 600, fontSize: 16 }}
+                      style={{
+                        fontWeight: 600,
+                        fontSize: 16,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                      }}
                     >
                       Roles <span style={{ color: "red" }}>*</span>
+                      {/* Role Lock Toggle */}
+                      <span style={{ marginLeft: 10 }}>
+                        <span
+                          className={addStyles.roleLockToggle}
+                          onClick={() => setRoleLocked((prev) => !prev)}
+                          tabIndex={0}
+                          aria-label="Role Lock Toggle"
+                        >
+                          <span
+                            className={addStyles.roleLockTrack}
+                            style={{
+                              background: roleLocked ? "#1569B0" : "#c4c4c4",
+                            }}
+                          >
+                            <span
+                              className={addStyles.roleLockLabel}
+                              style={{
+                                color: "#fff",
+                                fontWeight: 700,
+                                fontSize: 14,
+                                marginLeft: 12,
+                                marginRight: 6,
+                                width: 32,
+                                textAlign: "center",
+                                letterSpacing: 1,
+                              }}
+                            >
+                              {roleLocked ? "Lock" : "Unlock"}
+                            </span>
+                            <span
+                              className={addStyles.roleLockCircle}
+                              style={{
+                                left: roleLocked ? 52 : 4,
+                                background: "#fff",
+                              }}
+                            >
+                              {roleLocked ? (
+                                <FaLock size={14} color="#1569B0" />
+                              ) : (
+                                <FaUnlock size={14} color="#c4c4c4" />
+                              )}
+                            </span>
+                          </span>
+                        </span>
+                      </span>
                     </label>
                     <Select
                       id="role_id"
@@ -347,165 +503,78 @@ const AddApplicationFormPage: React.FC = () => {
                           fontSize: 15,
                         }),
                       }}
+                      isDisabled={roleLocked}
                     />
                   </div>
-                  {/* System Name (mandatory) */}
-                  <div className={addStyles.formGroup}>
-                    <label>
-                      System Name <span style={{ color: "red" }}>*</span>
-                    </label>
-                    <input
-                      className={addStyles.input}
-                      name="system_name"
-                      value={form.system_name}
-                      onChange={handleChange}
-                      required
-                      placeholder="Enter System Name"
-                    />
-                  </div>
-                  {/* System Inventory ID (optional) */}
-                  <div className={addStyles.formGroup}>
-                    <label>System Inventory ID</label>
-                    <input
-                      className={addStyles.input}
-                      name="system_inventory_id"
-                      value={form.system_inventory_id}
-                      onChange={handleChange}
-                      placeholder="Enter System Inventory ID"
-                      type="number"
-                    />
-                  </div>
-                  {/* Multiple Role Access (Yes/No), Status, and Role Lock/Unlock Toggle */}
                   <div
+                    className={addStyles.formGroup}
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 24,
-                      minHeight: 44,
+                      flexDirection: "column",
+                      alignItems: "flex-start",
+                      gap: 10,
+                      margin: 0,
+                      minWidth: 200,
                     }}
                   >
-                    {/* Multiple Role Access */}
-                    <div
-                      className={addStyles.formGroup}
+                    <label
+                      htmlFor="status"
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                        margin: 0,
+                        marginBottom: 0,
+                        minWidth: 70,
+                        fontWeight: 500,
+                        marginRight: 8,
                       }}
                     >
-                      <label
-                        htmlFor="multiple_role_access"
-                        style={{
-                          marginBottom: 0,
-                          minWidth: 170,
-                          fontWeight: 500,
-                        }}
-                      >
-                        Multiple Role Access (Yes/No)
-                      </label>
-                      <input
-                        id="multiple_role_access"
-                        type="checkbox"
-                        name="multiple_role_access"
-                        checked={form.multiple_role_access}
-                        onChange={handleChange}
-                        style={{ width: 18, height: 18, marginLeft: 0 }}
-                      />
-                    </div>
-                    {/* Status */}
-                    <div
-                      className={addStyles.formGroup}
+                      Status <span style={{ color: "red" }}>*</span>
+                    </label>
+                    <select
+                      id="status"
+                      className={addStyles.select}
+                      name="status"
+                      value={form.status}
+                      onChange={handleChange}
+                      required
+                      style={{ minWidth: 120 }}
+                    >
+                      <option value="ACTIVE">ACTIVE</option>
+                      <option value="INACTIVE">INACTIVE</option>
+                    </select>
+                  </div>
+                </div>
+                {/* Multiple Role Access and Status aligned in a row */}
+                <div
+                  className={addStyles.rowFields}
+                  style={{ alignItems: "center", marginTop: 8 }}
+                >
+                  <div
+                    className={addStyles.formGroup}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 10,
+                      margin: 0,
+                      minWidth: 250,
+                    }}
+                  >
+                    <label
+                      htmlFor="multiple_role_access"
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                        margin: 0,
+                        marginBottom: 0,
+                        minWidth: 170,
+                        fontWeight: 500,
+                        marginRight: 8,
                       }}
                     >
-                      <label
-                        htmlFor="status"
-                        style={{
-                          marginBottom: 0,
-                          minWidth: 70,
-                          fontWeight: 500,
-                        }}
-                      >
-                        Status <span style={{ color: "red" }}>*</span>
-                      </label>
-                      <select
-                        id="status"
-                        className={addStyles.select}
-                        name="status"
-                        value={form.status}
-                        onChange={handleChange}
-                        required
-                        style={{ minWidth: 120 }}
-                      >
-                        <option value="ACTIVE">ACTIVE</option>
-                        <option value="INACTIVE">INACTIVE</option>
-                      </select>
-                    </div>
-                    {/* Role Lock/Unlock Toggle Switch */}
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        marginLeft: 8,
-                        userSelect: "none",
-                      }}
-                    >
-                      <span style={{ marginRight: 8, fontWeight: 500 }}>
-                        Role Lock
-                      </span>
-                      <div
-                        onClick={() => setRoleLocked((prev) => !prev)}
-                        style={{
-                          width: 95,
-                          height: 38,
-                          borderRadius: 24,
-                          background: roleLocked ? "#1569B0" : "#c4c4c4",
-                          display: "flex",
-                          alignItems: "center",
-                          cursor: "pointer",
-                          position: "relative",
-                          transition: "background 0.2s",
-                          padding: 0,
-                        }}
-                        tabIndex={0}
-                        aria-label="Role Lock Toggle"
-                      >
-                        <span
-                          style={{
-                            color: "#fff",
-                            fontWeight: 700,
-                            fontSize: 20,
-                            marginLeft: roleLocked ? 16 : 16,
-                            marginRight: roleLocked ? 0 : 0,
-                            transition: "margin 0.2s",
-                            width: 38,
-                            textAlign: "center",
-                            letterSpacing: 1,
-                          }}
-                        >
-                          {roleLocked ? "Lock" : "Unlock"}
-                        </span>
-                        <div
-                          style={{
-                            position: "absolute",
-                            right: roleLocked ? 6 : 36,
-                            left: roleLocked ? 62 : 6,
-                            top: 4,
-                            width: 30,
-                            height: 30,
-                            borderRadius: "50%",
-                            background: "#fff",
-                            boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-                            transition: "left 0.2s, right 0.2s",
-                          }}
-                        />
-                      </div>
-                    </div>
+                      Multiple Role Access (Yes/No)
+                    </label>
+                    <input
+                      id="multiple_role_access"
+                      type="checkbox"
+                      name="multiple_role_access"
+                      checked={form.multiple_role_access}
+                      onChange={handleChange}
+                      style={{ width: 18, height: 18, marginLeft: 0 }}
+                    />
                   </div>
                 </div>
                 <div className={addStyles.buttonRow}>
