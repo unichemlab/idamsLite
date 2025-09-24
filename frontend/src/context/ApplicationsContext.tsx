@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { fetchApplications } from "../utils/api";
+import { fetchApplications, fetchRoles } from "../utils/api";
 
 export interface Application {
   id: number;
@@ -47,33 +47,46 @@ export function ApplicationsProvider({
   const [applications, setApplications] = useState<Application[]>([]);
 
   useEffect(() => {
-    fetchApplications()
-      .then((data) => {
-        // Directly use API fields, and format display_name if not present
-        const mapped = data.map((app: any) => ({
-          id: app.id,
-          transaction_id: app.transaction_id,
-          plant_location_id: app.plant_location_id,
-          department_id: app.department_id,
-          application_hmi_name: app.application_hmi_name,
-          application_hmi_version: app.application_hmi_version,
-          equipment_instrument_id: app.equipment_instrument_id,
-          application_hmi_type: app.application_hmi_type,
-          display_name:
-            app.display_name ||
-            `${app.application_hmi_name || ""} | ${
-              app.application_hmi_version || ""
-            } | ${app.equipment_instrument_id || ""}`,
-          role_id: String(app.role_id),
-          role_names: app.role_names || [],
-          system_name: app.system_name,
-          system_inventory_id: app.system_inventory_id,
-          multiple_role_access: app.multiple_role_access,
-          status: app.status,
-          created_on: app.created_on,
-          updated_on: app.updated_on,
-          activityLogs: [], // You can enhance this if you add logs in backend
-        }));
+    // Fetch both applications and roles, then map role_id to names
+    Promise.all([fetchApplications(), fetchRoles()])
+      .then(([apps, roles]) => {
+        // Build a map of role id to name
+        const roleMap: Record<string, string> = {};
+        roles.forEach((role: any) => {
+          roleMap[String(role.id)] = role.role_name;
+        });
+        const mapped = apps.map((app: any) => {
+          // role_id is a comma-separated string
+          const roleIds = String(app.role_id || "")
+            .split(",")
+            .map((id: string) => id.trim())
+            .filter(Boolean);
+          const role_names = roleIds.map((id: string) => roleMap[id] || id);
+          return {
+            id: app.id,
+            transaction_id: app.transaction_id,
+            plant_location_id: app.plant_location_id,
+            department_id: app.department_id,
+            application_hmi_name: app.application_hmi_name,
+            application_hmi_version: app.application_hmi_version,
+            equipment_instrument_id: app.equipment_instrument_id,
+            application_hmi_type: app.application_hmi_type,
+            display_name:
+              app.display_name ||
+              `${app.application_hmi_name || ""} | ${
+                app.application_hmi_version || ""
+              } | ${app.equipment_instrument_id || ""}`,
+            role_id: String(app.role_id),
+            role_names,
+            system_name: app.system_name,
+            system_inventory_id: app.system_inventory_id,
+            multiple_role_access: app.multiple_role_access,
+            status: app.status,
+            created_on: app.created_on,
+            updated_on: app.updated_on,
+            activityLogs: [],
+          };
+        });
         setApplications(mapped);
       })
       .catch(() => setApplications([]));
