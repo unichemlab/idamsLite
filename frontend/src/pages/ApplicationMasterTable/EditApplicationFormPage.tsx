@@ -10,17 +10,37 @@ import { useAuth } from "../../context/AuthContext";
 import { FaLock, FaUnlock } from "react-icons/fa";
 
 const EditApplicationFormPage: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { setApplications } = useApplications();
   const { user } = useAuth();
   const username = user?.username || "";
-  const [showModal, setShowModal] = useState(false);
-  const [showUnlockModal, setShowUnlockModal] = useState(false);
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { setApplications } = useApplications();
+
+  // Get applicationData from location.state
   const { applicationData } = location.state || {};
 
+  // Roles
+  const [roles, setRoles] = useState<{ id: string; name: string }[]>([]);
+  // Plant and Department dropdowns
+  const { plants } = require("../PlantMaster/PlantContext").usePlantContext();
+  const plantOptions = Array.isArray(plants)
+    ? plants.map((plant: any) => ({
+        value: String(plant.id),
+        label: plant.plant_name || plant.name || String(plant.id),
+      }))
+    : [];
+  const { departments } =
+    require("../DepartmentMaster/DepartmentContext").useDepartmentContext();
+  const departmentOptions = Array.isArray(departments)
+    ? departments.map((dept: any) => ({
+        value: String(dept.id),
+        label: dept.department_name || dept.name || String(dept.id),
+      }))
+    : [];
+
+  // Form state
   type FormType = {
-    id: string;
+    id: number;
     transaction_id: string;
     plant_location_id: string;
     department_id: string;
@@ -36,45 +56,58 @@ const EditApplicationFormPage: React.FC = () => {
     status: string;
   };
 
-  const initialRoleIds = applicationData?.role_id
-    ? String(applicationData.role_id)
-        .split(",")
-        .map((s: string) => s.trim())
-        .filter(Boolean)
-    : [];
-
-  const [form, setForm] = useState<FormType>({
-    id: applicationData?.id || "",
-    transaction_id: applicationData?.transaction_id || "",
-    plant_location_id: applicationData?.plant_location_id || "",
-    department_id: applicationData?.department_id || "",
-    application_hmi_name: applicationData?.application_hmi_name || "",
-    application_hmi_version: applicationData?.application_hmi_version || "",
-    equipment_instrument_id: applicationData?.equipment_instrument_id || "",
-    application_hmi_type:
-      applicationData?.application_hmi_type || "Application",
-    display_name:
-      applicationData?.display_name ||
-      `${applicationData?.application_hmi_name || ""} | ${
-        applicationData?.application_hmi_version || ""
-      } | ${applicationData?.equipment_instrument_id || ""}`,
-    role_id: initialRoleIds,
-    system_name: applicationData?.system_name || "",
-    system_inventory_id: applicationData?.system_inventory_id || "",
-    multiple_role_access: applicationData?.multiple_role_access || false,
-    status: applicationData?.status || "ACTIVE",
+  const [form, setForm] = useState<FormType>(() => {
+    if (applicationData) {
+      return {
+        id: applicationData.id,
+        transaction_id: applicationData.transaction_id || "",
+        plant_location_id: String(applicationData.plant_location_id || ""),
+        department_id: String(applicationData.department_id || ""),
+        application_hmi_name: applicationData.application_hmi_name || "",
+        application_hmi_version: applicationData.application_hmi_version || "",
+        equipment_instrument_id: applicationData.equipment_instrument_id || "",
+        application_hmi_type:
+          applicationData.application_hmi_type || "Application",
+        display_name: applicationData.display_name || "",
+        role_id: applicationData.role_id
+          ? String(applicationData.role_id)
+              .split(",")
+              .map((id: string) => id.trim())
+          : [],
+        system_name: applicationData.system_name || "",
+        system_inventory_id: String(applicationData.system_inventory_id || ""),
+        multiple_role_access: !!applicationData.multiple_role_access,
+        status: applicationData.status || "ACTIVE",
+      };
+    }
+    // fallback (should not happen)
+    return {
+      id: 0,
+      transaction_id: "",
+      plant_location_id: "",
+      department_id: "",
+      application_hmi_name: "",
+      application_hmi_version: "",
+      equipment_instrument_id: "",
+      application_hmi_type: "Application",
+      display_name: "",
+      role_id: [],
+      system_name: "",
+      system_inventory_id: "",
+      multiple_role_access: false,
+      status: "ACTIVE",
+    };
   });
 
-  const [roles, setRoles] = useState<{ id: string; name: string }[]>([]);
-  // Role Lock toggle state, always in sync with backend value
-  const [roleLocked, setRoleLocked] = useState<boolean>(
-    !!applicationData?.role_lock
-  );
+  // Role Lock: always locked unless explicitly unlocked in this session
+  const [roleLocked, setRoleLocked] = useState<boolean>(true);
+  const [showModal, setShowModal] = useState(false);
+  const [showUnlockModal, setShowUnlockModal] = useState(false);
 
-  // Sync roleLocked with backend value if applicationData changes
+  // When applicationData changes (e.g., user navigates away and returns), relock
   useEffect(() => {
-    setRoleLocked(!!applicationData?.role_lock);
-  }, [applicationData?.role_lock]);
+    setRoleLocked(true);
+  }, [applicationData?.id]);
 
   useEffect(() => {
     fetch("http://localhost:4000/api/roles")
@@ -170,12 +203,12 @@ const EditApplicationFormPage: React.FC = () => {
           throw new Error(errorText);
         }
         const updated = await res.json();
-        setApplications((prev) =>
+        setApplications((prev: any[]) =>
           prev.map((app) =>
             app.id === updated.id ? { ...app, ...updated } : app
           )
         );
-        setRoleLocked(true); // Lock roles after save
+        setRoleLocked(true); // Always lock after save
         navigate("/superadmin", { state: { activeTab: "application" } });
       } catch (err) {
         alert(
@@ -189,7 +222,6 @@ const EditApplicationFormPage: React.FC = () => {
   };
 
   // Handle unlock: show modal, unlock on correct credentials
-  // Confirm unlock modal logic
   const handleUnlockConfirm = (data: Record<string, string>) => {
     if (data.username === username && data.password) {
       setRoleLocked(false);
@@ -318,34 +350,70 @@ const EditApplicationFormPage: React.FC = () => {
             >
               <div className={addStyles.scrollFormContainer}>
                 <div className={addStyles.rowFields}>
-                  {/* Plant Location (mandatory) */}
+                  {/* Plant Location (dropdown) */}
                   <div className={addStyles.formGroup}>
                     <label>
                       Plant Location <span style={{ color: "red" }}>*</span>
                     </label>
-                    <input
-                      className={addStyles.input}
+                    <Select
                       name="plant_location_id"
-                      value={form.plant_location_id}
-                      onChange={handleChange}
-                      required
-                      placeholder="Enter Plant Location ID"
-                      type="number"
+                      options={plantOptions}
+                      value={
+                        plantOptions.find(
+                          (opt: any) =>
+                            String(opt.value) === String(form.plant_location_id)
+                        ) || null
+                      }
+                      onChange={(selected: any) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          plant_location_id: selected ? selected.value : "",
+                        }))
+                      }
+                      placeholder="Select Plant Location"
+                      isClearable={false}
+                      isSearchable={true}
+                      styles={{
+                        menu: (base) => ({ ...base, zIndex: 20 }),
+                        control: (base) => ({
+                          ...base,
+                          minHeight: 38,
+                          fontSize: 15,
+                        }),
+                      }}
                     />
                   </div>
-                  {/* Department (mandatory) */}
+                  {/* Department (dropdown) */}
                   <div className={addStyles.formGroup}>
                     <label>
                       Department <span style={{ color: "red" }}>*</span>
                     </label>
-                    <input
-                      className={addStyles.input}
+                    <Select
                       name="department_id"
-                      value={form.department_id}
-                      onChange={handleChange}
-                      required
-                      placeholder="Enter Department ID"
-                      type="number"
+                      options={departmentOptions}
+                      value={
+                        departmentOptions.find(
+                          (opt: any) =>
+                            String(opt.value) === String(form.department_id)
+                        ) || null
+                      }
+                      onChange={(selected: any) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          department_id: selected ? selected.value : "",
+                        }))
+                      }
+                      placeholder="Select Department"
+                      isClearable={false}
+                      isSearchable={true}
+                      styles={{
+                        menu: (base) => ({ ...base, zIndex: 20 }),
+                        control: (base) => ({
+                          ...base,
+                          minHeight: 38,
+                          fontSize: 15,
+                        }),
+                      }}
                     />
                   </div>
                   {/* Application/HMI Name (mandatory) */}
@@ -479,7 +547,7 @@ const EditApplicationFormPage: React.FC = () => {
                       value={roles
                         .filter((r) => form.role_id.includes(r.id))
                         .map((r) => ({ value: r.id, label: r.name }))}
-                      onChange={(selected) => {
+                      onChange={(selected: any) => {
                         setForm((prev) => ({
                           ...prev,
                           role_id: Array.isArray(selected)
@@ -577,11 +645,12 @@ const EditApplicationFormPage: React.FC = () => {
                   <button
                     type="button"
                     className={addStyles.cancelBtn}
-                    onClick={() =>
+                    onClick={() => {
+                      setRoleLocked(true); // Relock on cancel
                       navigate("/superadmin", {
                         state: { activeTab: "application" },
-                      })
-                    }
+                      });
+                    }}
                   >
                     Cancel
                   </button>

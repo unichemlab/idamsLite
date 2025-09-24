@@ -156,7 +156,7 @@ const AddApplicationFormPage: React.FC = () => {
           system_inventory_id: form.system_inventory_id
             ? Number(form.system_inventory_id)
             : null,
-          role_lock: roleLocked,
+          role_lock: true, // Always set role_lock to true regardless of toggle
         };
         const res = await fetch("http://localhost:4000/api/applications", {
           method: "POST",
