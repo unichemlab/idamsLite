@@ -499,6 +499,40 @@ const EditApplicationFormPage: React.FC = () => {
                       isDisabled={roleLocked}
                     />
                   </div>
+                  <div
+                    className={addStyles.formGroup}
+                    style={{
+                      flexDirection: "column",
+                      alignItems: "flex-start",
+                      gap: 10,
+                      margin: 0,
+                      minWidth: 200,
+                    }}
+                  >
+                    <label
+                      htmlFor="status"
+                      style={{
+                        marginBottom: 0,
+                        minWidth: 70,
+                        fontWeight: 500,
+                        marginRight: 8,
+                      }}
+                    >
+                      Status <span style={{ color: "red" }}>*</span>
+                    </label>
+                    <select
+                      id="status"
+                      className={addStyles.select}
+                      name="status"
+                      value={form.status}
+                      onChange={handleChange}
+                      required
+                      style={{ minWidth: 120 }}
+                    >
+                      <option value="ACTIVE">ACTIVE</option>
+                      <option value="INACTIVE">INACTIVE</option>
+                    </select>
+                  </div>
                 </div>
                 {/* Multiple Role Access and Status aligned in a row */}
                 <div
@@ -534,40 +568,6 @@ const EditApplicationFormPage: React.FC = () => {
                       onChange={handleChange}
                       style={{ width: 18, height: 18, marginLeft: 0 }}
                     />
-                  </div>
-                  <div
-                    className={addStyles.formGroup}
-                    style={{
-                      flexDirection: "column",
-                      alignItems: "flex-start",
-                      gap: 10,
-                      margin: 0,
-                      minWidth: 200,
-                    }}
-                  >
-                    <label
-                      htmlFor="status"
-                      style={{
-                        marginBottom: 0,
-                        minWidth: 70,
-                        fontWeight: 500,
-                        marginRight: 8,
-                      }}
-                    >
-                      Status <span style={{ color: "red" }}>*</span>
-                    </label>
-                    <select
-                      id="status"
-                      className={addStyles.select}
-                      name="status"
-                      value={form.status}
-                      onChange={handleChange}
-                      required
-                      style={{ minWidth: 120 }}
-                    >
-                      <option value="ACTIVE">ACTIVE</option>
-                      <option value="INACTIVE">INACTIVE</option>
-                    </select>
                   </div>
                 </div>
                 <div className={addStyles.buttonRow}>
