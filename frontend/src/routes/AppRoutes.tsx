@@ -10,7 +10,7 @@ import AddApplicationFormPage from "../pages/ApplicationMasterTable/AddApplicati
 import EditApplicationFormPage from "../pages/ApplicationMasterTable/EditApplicationFormPage";
 import GenerateCredentials from "../pages/GenerateCredentials/GenerateCredentials";
 import AddUserRequest from "pages/UserRequest/UserRequestForm";
-import TrackRequest from "../pages/TrackRequest";
+import TrackRequest from "../pages/TaskRequest/TrackRequest";
 import Login from "../pages/Login";
 import ApproverDashboard from "../pages/ApproverDashboard";
 import AccessRequestDetails from "../pages/AccessRequestDetails";
@@ -40,7 +40,7 @@ const allowedRoutes = [
   "/add-user",
   "/edit-user/:idx",
   "/user-requests",
-  "/user-requests/add",
+  "/user-access-managment",
   "/access-details",
   "/approver-step/:step/:id",
   "/review-submit",
@@ -138,7 +138,13 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route path="/user-requests/add" element={<AddUserRequest />} />
+      
+      <Route path="/user-access-managment" element={
+         <ProtectedRoute>
+        <AddUserRequest />
+        </ProtectedRoute>
+      } 
+      />
       <Route
         path="/access-details"
         element={

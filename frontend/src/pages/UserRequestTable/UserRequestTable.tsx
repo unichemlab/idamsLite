@@ -1,310 +1,337 @@
-import React, { useEffect, useState, useRef } from "react";
-import { useUserRequestContext } from "pages/UserRequest/UserRequestContext";
+import React, { useState, useEffect } from "react";
 import styles from "./UserRequestTable.module.css";
-import ProfileIconWithLogout from "./ProfileIconWithLogout";
-import NotificationsIcon from "@mui/icons-material/Notifications";
-import SettingsIcon from "@mui/icons-material/Settings";
-import { FaEdit, FaTrash } from "react-icons/fa";
-import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
+import { fetchUserRequests } from "../../utils/api";
+import login_headTitle2 from "../../assets/login_headTitle2.png";
+import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { useNavigate } from "react-router-dom";
+
+interface Task {
+  application_equip_id: string;
+  transaction_id: string;
+  department: string;
+  role: string;
+  location: string;
+  reports_to: string;
+  task_status: string;
+}
+
+interface UserRequest {
+  id: number;
+  transaction_id?: string;
+  request_for_by?: string;
+  name?: string;
+  employeeCode?: string;
+  location?: string;
+  accessType?: string;
+  trainingStatus?: "Yes" | "No";
+  attachmentName?: string;
+  vendorFirm?: string[];
+  vendorCode?: string[];
+  vendorName?: string[];
+  allocatedId?: string[];
+  status?: string;
+  tasks?: Task[];
+}
 
 const UserRequestTable: React.FC = () => {
-  const { userrequests, deleteUserRequest } = useUserRequestContext();
-  const [selectedRow, setSelectedRow] = useState<number | null>(null);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showFilterPopover, setShowFilterPopover] = useState(false);
-
-  // Filter state
-  const [filterColumn, setFilterColumn] = useState("name");
-  const [filterValue, setFilterValue] = useState("");
-  const [tempFilterColumn, setTempFilterColumn] = useState(filterColumn);
-  const [tempFilterValue, setTempFilterValue] = useState(filterValue);
-  const popoverRef = useRef<HTMLDivElement | null>(null);
-
+  const [userrequests, setUserRequests] = useState<UserRequest[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [modalTasks, setModalTasks] = useState<Task[] | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!showFilterPopover) return;
-    const handleClick = (e: MouseEvent) => {
-      if (
-        popoverRef.current &&
-        !popoverRef.current.contains(e.target as Node)
-      ) {
-        setShowFilterPopover(false);
+    const load = async () => {
+      try {
+        const data = await fetchUserRequests();
+        console.log("data", data);
+        const mappedData: UserRequest[] = data.map((req: any) => ({
+          id: req.id,
+          transaction_id: req.transaction_id,
+          request_for_by: req.request_for_by,
+          name: req.name,
+          employeeCode: req.employee_code,
+          location: req.employee_location,
+          accessType: req.access_request_type,
+          trainingStatus: req.training_status,
+          attachmentName: req.training_attachment_name,
+          vendorFirm: req.vendor_firm ? [req.vendor_firm] : [],
+          vendorCode: req.vendor_code ? [req.vendor_code] : [],
+          vendorName: req.vendor_name ? [req.vendor_name] : [],
+          allocatedId: req.vendor_allocated_id ? [req.vendor_allocated_id] : [],
+          status: req.status,
+          tasks: req.tasks?.map((t: any) => ({
+            transaction_id: t.transaction_id,
+            application_equip_id: t.application_name,
+            department: t.department_name,
+            role: t.role_name,
+            location: t.location,
+            reports_to: t.reports_to,
+            task_status: t.task_status,
+          })),
+        }));
+        setUserRequests(mappedData);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
       }
     };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [showFilterPopover]);
 
-  // Filtering logic
-  const filteredData = userrequests.filter((req) => {
-    if (!filterValue.trim()) return true;
-    const value = filterValue.toLowerCase();
-    switch (filterColumn) {
-      case "name":
-        return req.name?.toLowerCase().includes(value);
-      case "requestFor":
-        return req.requestFor?.toLowerCase().includes(value);
-      case "applicationId":
-        return req.applicationId?.toLowerCase().includes(value);
-      case "status":
-        return req.status?.toLowerCase().includes(value);
-      default:
-        return true;
-    }
-  });
+    setLoading(true);
+    load();
+  }, []);
 
-  // PDF Export
+
+
+
+  const openTaskModal = (tasks?: Task[]) => {
+    if (!tasks) return;
+    setModalTasks(tasks);
+  };
+
+  const closeTaskModal = () => setModalTasks(null);
+
   const handleExportPDF = () => {
     const doc = new jsPDF({ orientation: "landscape" });
     const today = new Date();
     const fileName = `UserRequests_${today.toISOString().split("T")[0]}.pdf`;
 
-    const headers = [
-      ["Name", "Request For", "Application", "Department", "Role", "Status"],
-    ];
-    const rows = filteredData.map((req) => [
-      req.name ?? "",
-      req.requestFor ?? "",
-      req.applicationId ?? "",
-      req.department ?? "",
-      req.role ?? "",
-      req.status ?? "",
-    ]);
-
     doc.setFontSize(18);
     doc.text("User Requests", 14, 18);
-    autoTable(doc, {
-      head: headers,
-      body: rows,
-      startY: 28,
-      styles: {
-        fontSize: 11,
-        cellPadding: 3,
-        halign: "left",
-        valign: "middle",
-      },
-      headStyles: {
-        fillColor: [11, 99, 206],
-        textColor: 255,
-        fontStyle: "bold",
-      },
-      alternateRowStyles: { fillColor: [240, 245, 255] },
-      margin: { left: 14, right: 14 },
-      tableWidth: "auto",
+
+    let startY = 28;
+
+    userrequests.forEach((req) => {
+      autoTable(doc, {
+        head: [
+          [
+            "Transaction ID",
+            "Request For By",
+            "Name",
+            "Employee Code",
+            "Employee Location",
+            "Access Request Type",
+            "Training Status",
+            "Training Attachment",
+            "Vendor Firm",
+            "Vendor Code",
+            "Vendor Name",
+            "Vendor Allocated ID",
+            "Status",
+          ],
+        ],
+        body: [
+          [
+            req.transaction_id || "-",
+            req.request_for_by || "-",
+            req.name || "-",
+            req.employeeCode || "-",
+            req.location || "-",
+            req.accessType || "-",
+            req.trainingStatus || "-",
+            req.attachmentName ? `Download ${req.attachmentName}` : "-",
+            req.vendorFirm?.join(", ") || "-",
+            req.vendorCode?.join(", ") || "-",
+            req.vendorName?.join(", ") || "-",
+            req.allocatedId?.join(", ") || "-",
+            req.status || "-",
+          ],
+        ],
+        startY,
+        styles: { fontSize: 10, cellPadding: 3 },
+        headStyles: { fillColor: [11, 99, 206], textColor: 255, fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [240, 245, 255] },
+        margin: { left: 14, right: 14 },
+      });
+
+      startY += 10;
+
+      if (req.tasks && req.tasks.length > 0) {
+        autoTable(doc, {
+          head: [
+            [
+              "Transcation ID",
+              "Application / Equip ID",
+              "Department",
+              "Role",
+              "Location",
+              "Reports To",
+              "Task Status",
+            ],
+          ],
+          body: req.tasks.map((t) => [
+            t.transaction_id || "-",
+            t.application_equip_id || "-",
+            t.department || "-",
+            t.role || "-",
+            t.location || "-",
+            t.reports_to || "-",
+            t.task_status || "-",
+          ]),
+          startY,
+          styles: { fontSize: 10, cellPadding: 3 },
+          headStyles: { fillColor: [0, 118, 255], textColor: 255, fontStyle: "bold" },
+          alternateRowStyles: { fillColor: [245, 250, 255] },
+          margin: { left: 14, right: 14 },
+        });
+        startY += (req.tasks.length + 1) * 8;
+      }
+
+      startY += 8;
     });
+
     doc.save(fileName);
   };
 
-  const confirmDelete = async () => {
-    if (selectedRow === null) return;
-    const req = filteredData[selectedRow];
-    if (req.id) {
-      await deleteUserRequest(req.id);
-    }
-    setSelectedRow(null);
-    setShowDeleteModal(false);
-  };
+  if (loading) return <p>Loading user requests...</p>;
+  if (error) return <p>Error: {error}</p>;
 
   return (
     <div>
       <header className={styles["main-header"]}>
-        <h2 className={styles["header-title"]}>User Requests</h2>
-        <div className={styles["header-icons"]}>
-          <span className={styles["header-icon"]}>
-            <NotificationsIcon fontSize="small" />
-          </span>
-          <span className={styles["header-icon"]}>
-            <SettingsIcon fontSize="small" />
-          </span>
-          <ProfileIconWithLogout />
+        <div className={styles["header-left"]}>
+          <div className={styles["header-left"]}>
+            <div className={styles["logo-wrapper"]}>
+              <img src={login_headTitle2} alt="Logo" className={styles.logo} />
+              <span className={styles.version}>v1.00</span>
+            </div>
+            <h1 className={styles["header-title"]}>User Access Management</h1>
+          </div>
+        </div>
+        <div className={styles["header-right"]}>
+          <button className={styles["addUserBtn"]} onClick={() => navigate("/user-requests/add")}>
+            + Add New
+          </button>
+          <button className={styles["exportBtn"]} onClick={handleExportPDF}>
+            Export PDF
+          </button>
         </div>
       </header>
 
-      <div className={styles.headerTopRow}>
-        <div className={styles.actionHeaderRow}>
-          <button
-            className={styles.addUserBtn}
-            onClick={() => navigate("/user-requests/add")}
-          >
-            + Add New
-          </button>
-          <button
-            className={styles.filterBtn}
-            onClick={() => setShowFilterPopover((prev) => !prev)}
-            type="button"
-            aria-label="Filter user requests"
-          >
-            🔍 Filter
-          </button>
-          <button
-            className={`${styles.btn} ${styles.editBtn}`}
-            onClick={() => {
-              if (selectedRow !== null) {
-                const req = filteredData[selectedRow];
-                if (req.id) navigate(`/user-requests/edit/${req.id}`);
-              }
-            }}
-            disabled={selectedRow === null}
-          >
-            <FaEdit size={14} /> Edit
-          </button>
-          <button
-            className={`${styles.btn} ${styles.deleteBtn}`}
-            disabled={selectedRow === null}
-            onClick={() => setShowDeleteModal(true)}
-            title="Delete selected request"
-          >
-            <FaTrash size={14} /> Delete
-          </button>
-          <button
-            className={`${styles.btn} ${styles.exportPdfBtn}`}
-            aria-label="Export table to PDF"
-            type="button"
-            onClick={handleExportPDF}
-          >
-            <span role="img" aria-label="Export PDF" style={{ fontSize: 18 }}>
-              🗎
-            </span>
-            PDF
-          </button>
-        </div>
-
-        {/* Filter Popover */}
-        <div className={styles.controls}>
-          {showFilterPopover && (
-            <div className={styles.filterPopover} ref={popoverRef}>
-              <div className={styles.filterPopoverHeader}>Advanced Filter</div>
-              <div className={styles.filterPopoverBody}>
-                <div className={styles.filterFieldRow}>
-                  <label className={styles.filterLabel}>Column</label>
-                  <select
-                    className={styles.filterDropdown}
-                    value={tempFilterColumn}
-                    onChange={(e) => setTempFilterColumn(e.target.value)}
-                  >
-                    <option value="name">Name</option>
-                    <option value="requestFor">Request For</option>
-                    <option value="applicationId">Application</option>
-                    <option value="status">Status</option>
-                  </select>
-                </div>
-                <div className={styles.filterFieldRow}>
-                  <label className={styles.filterLabel}>Value</label>
-                  <input
-                    className={styles.filterInput}
-                    type="text"
-                    placeholder={`Enter ${
-                      tempFilterColumn.charAt(0).toUpperCase() +
-                      tempFilterColumn.slice(1)
-                    }`}
-                    value={tempFilterValue}
-                    onChange={(e) => setTempFilterValue(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className={styles.filterPopoverFooter}>
-                <button
-                  className={styles.applyBtn}
-                  onClick={() => {
-                    setFilterColumn(tempFilterColumn);
-                    setFilterValue(tempFilterValue);
-                    setShowFilterPopover(false);
-                  }}
-                >
-                  Apply
-                </button>
-                <button
-                  className={styles.clearBtn}
-                  onClick={() => {
-                    setTempFilterValue("");
-                    setFilterValue("");
-                    setShowFilterPopover(false);
-                  }}
-                >
-                  Clear
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
       <div className={styles.container}>
-        <div
-          style={{
-            maxHeight: 380,
-            overflowY: "auto",
-            borderRadius: 8,
-            boxShadow: "0 0 4px rgba(0, 0, 0, 0.05)",
-            border: "1px solid #e2e8f0",
-            marginTop: "35px",
-          }}
-        >
+        <div className={styles.tableWrapper}>
           <table className={styles.table}>
             <thead>
               <tr>
-                <th></th>
+                <th>Transaction ID</th>
+                <th>Request For By</th>
                 <th>Name</th>
-                <th>Request For</th>
-                <th>Application</th>
-                <th>Department</th>
-                <th>Role</th>
+                <th>Employee Code</th>
+                <th>Employee Location</th>
+                <th>Access Request Type</th>
+                <th>Training Status</th>
+                <th>Training Attachment</th>
+                <th>Vendor Firm</th>
+                <th>Vendor Code</th>
+                <th>Vendor Name</th>
+                <th>Vendor Allocated ID</th>
                 <th>Status</th>
+                <th>Tasks</th>
               </tr>
             </thead>
             <tbody>
-              {filteredData.map((req, index) => (
-                <tr
-                  key={req.id ?? index}
-                  onClick={() => setSelectedRow(index)}
-                  style={{
-                    background: selectedRow === index ? "#f0f4ff" : undefined,
-                  }}
-                >
+              {userrequests.map((req) => (
+                <tr key={req.id}>
+                  <td>{req.transaction_id || "-"}</td>
+                  <td>{req.request_for_by || "-"}</td>
+                  <td>{req.name || "-"}</td>
+                  <td>{req.employeeCode || "-"}</td>
+                  <td>{req.location || "-"}</td>
+                  <td>{req.accessType || "-"}</td>
+                  <td>{req.trainingStatus || "-"}</td>
                   <td>
-                    <input
-                      type="radio"
-                      className={styles.radioInput}
-                      checked={selectedRow === index}
-                      onChange={() => setSelectedRow(index)}
-                    />
+                    {req.attachmentName ? (
+                      <a
+                        href={`http://localhost:4000/uploads/${req.attachmentName}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Download
+                      </a>
+                    ) : (
+                      "-"
+                    )}
                   </td>
-                  <td>{req.name}</td>
-                  <td>{req.requestFor}</td>
-                  <td>{req.applicationId}</td>
-                  <td>{req.department}</td>
-                  <td>{req.role}</td>
+                  <td>{req.vendorFirm?.join(", ") || "-"}</td>
+                  <td>{req.vendorCode?.join(", ") || "-"}</td>
+                  <td>{req.vendorName?.join(", ") || "-"}</td>
+                  <td>{req.allocatedId?.join(", ") || "-"}</td>
                   <td>
                     <span
-                      className={
-                        req.status === "Rejected"
-                          ? styles.statusInactive
-                          : styles.status
-                      }
+                      className={`${styles.statusBadge} ${req.status === "Pending"
+                          ? styles.pending
+                          : req.status === "Approved"
+                            ? styles.approved
+                            : styles.rejected
+                        }`}
                     >
-                      {req.status}
+                      {req.status || "-"}
                     </span>
+                  </td>
+                  <td>
+                    <button
+                      className={styles.taskDetailsBtn}
+                      onClick={() => openTaskModal(req.tasks)}
+                    >
+                      View Tasks ({req.tasks?.length || 0})
+                    </button>
                   </td>
                 </tr>
               ))}
-              <ConfirmDeleteModal
-                open={showDeleteModal}
-                name={
-                  selectedRow !== null && filteredData[selectedRow]
-                    ? filteredData[selectedRow].name ?? "request"
-                    : "request"
-                }
-                onCancel={() => setShowDeleteModal(false)}
-                onConfirm={confirmDelete}
-              />
             </tbody>
           </table>
         </div>
       </div>
+
+      {modalTasks && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent}>
+            <h3>Task Details</h3>
+            <button className={styles.closeModalBtn} onClick={closeTaskModal}>
+              ×
+            </button>
+            <table className={styles.modalTable}>
+              <thead>
+                <tr>
+                  <th>Transaction ID</th>
+                  <th>Application / Equip ID</th>
+                  <th>Department</th>
+                  <th>Role</th>
+                  <th>Location</th>
+                  <th>Reports To</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {modalTasks.map((task, idx) => (
+                  <tr key={idx}>
+                    <td>{task.transaction_id}</td>
+                    <td>{task.application_equip_id}</td>
+                    <td>{task.department}</td>
+                    <td>{task.role}</td>
+                    <td>{task.location}</td>
+                    <td>{task.reports_to}</td>
+                    <td>
+                      <span
+                        className={`${styles.statusBadge} ${task.task_status === "Pending"
+                            ? styles.pending
+                            : task.task_status === "Approved"
+                              ? styles.approved
+                              : styles.rejected
+                          }`}
+                      >
+                        {task.task_status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
