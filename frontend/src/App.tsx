@@ -11,7 +11,7 @@ import { ApplicationsProvider } from "./context/ApplicationsContext";
 import { ApproverProvider } from "./context/ApproverContext";
 import { PlantProvider } from "pages/PlantMaster/PlantContext";
 import { VendorProvider } from "pages/VendorMaster/VendorContext";
-
+import { SystemProvider } from "pages/SystemInventoryMaster/SystemContext";
 // Import the new contexts
 import { UserRequestProvider } from "pages/UserRequest/UserRequestContext";
 // import { TaskProvider } from "pages/TaskClosureTracking/TaskContext";
@@ -33,6 +33,7 @@ const App: React.FC = () => {
                       <UserProvider>
                         <ApplicationsProvider>
                           <VendorProvider>
+                            <SystemProvider>
                             <BrowserRouter>
                               {/* Main App Routes */}
                               <AppRoutes />
@@ -41,6 +42,7 @@ const App: React.FC = () => {
                               <SpeedInsights />
                               <Analytics />
                             </BrowserRouter>
+                            </SystemProvider>
                           </VendorProvider>
                         </ApplicationsProvider>
                       </UserProvider>

@@ -33,6 +33,10 @@ import DepartmentMasterTable from "pages/DepartmentMasterTable/DepartmentMasterT
 import DepartmentTable from "pages/DepartmentTable/DepartmentTable";
 import AddDeptFormPage from "pages/DepartmentMaster/AddDeptFormPage";
 import EditDeptFormPage from "pages/DepartmentMaster/EditDeptFormPage";
+import SystemInventoryMasterTable from "../pages/SystemInventoryMasterTable/SystemInventoryMasterTable";
+import AddSystemInventory from "../pages/SystemInventoryMaster/AddSystemInventory";
+import EditSystemInventory from "../pages/SystemInventoryMaster/EditSystemInventory";
+// Removed unused SystemInventoryMasterTable, AddSystemInventory, EditSystemInventory imports
 // List of allowed routes for matching
 const allowedRoutes = [
   "/", // login
@@ -65,6 +69,9 @@ const allowedRoutes = [
   "/vendors/add",
   "/vendors/edit/:id",
   "/user-information",
+  "/systems",
+  "/systems/add",
+  "/systems/edit/:id",
 ];
 
 const NotFound = () => (
@@ -345,6 +352,35 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <EditVendorMaster />
+          </ProtectedRoute>
+        }
+      />
+
+
+
+      {/* System Inventory Master */}
+
+      <Route
+        path="/systems"
+        element={
+          <ProtectedRoute>
+            <SystemInventoryMasterTable />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/systems/add"
+        element={
+          <ProtectedRoute>
+            <AddSystemInventory />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/systems/edit/:id"
+        element={
+          <ProtectedRoute>
+            <EditSystemInventory />
           </ProtectedRoute>
         }
       />

@@ -1,3 +1,36 @@
+// System Inventory API
+export async function fetchSystems(): Promise<any[]> {
+  const res = await fetch("http://localhost:4000/api/systems");
+  if (!res.ok) throw new Error("Failed to fetch systems");
+  return await res.json();
+}
+
+export async function addSystemAPI(system: any): Promise<any> {
+  const res = await fetch("http://localhost:4000/api/systems", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(system),
+  });
+  if (!res.ok) throw new Error("Failed to add system");
+  return await res.json();
+}
+
+export async function updateSystemAPI(id: number, system: any): Promise<any> {
+  const res = await fetch(`http://localhost:4000/api/systems/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(system),
+  });
+  if (!res.ok) throw new Error("Failed to update system");
+  return await res.json();
+}
+
+export async function deleteSystemAPI(id: number): Promise<void> {
+  const res = await fetch(`http://localhost:4000/api/systems/${id}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to delete system");
+}
 // Fetch application master data from backend API
 export async function fetchApplications(): Promise<any[]> {
   const res = await fetch("http://localhost:4000/api/applications");
