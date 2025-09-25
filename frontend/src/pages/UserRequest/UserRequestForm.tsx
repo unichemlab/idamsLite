@@ -278,7 +278,8 @@ const handleExportPDF = async (exportedBy: string) => {
     const cardBgColor = index % 2 === 0 ? [245, 247, 250] : [230, 235, 245];
 
     // Card text
-    const textContent = `Transaction ID: ${req.transaction_id || "-"} | Name: ${req.name || "-"} | Employee Code: ${req.employeeCode || "-"} | Location: ${req.tasks?.[0]?.location || "-"} | Access Type: ${req.accessType || "-"}`;
+    const textContent = `Transaction ID: ${req.transaction_id || "-"} | Name: ${req.name || "-"} | Employee Code: ${req.employeeCode || "-"} | Location: ${req.tasks?.[0]?.location || "-"} | Department: ${req.tasks?.[0]?.department || "-"} | Access Type: ${req.accessType || "-"}
+    | Approver 1: ${ "Pending"} | Approver 2: ${"Pending"} | Status: ${"Pending"}`;
     const textLines = doc.splitTextToSize(textContent, pageWidth - 2 * pageMargin - 4);
     const lineHeight = 6;
     const cardHeight = textLines.length * lineHeight + 10;
@@ -307,14 +308,14 @@ const handleExportPDF = async (exportedBy: string) => {
     // Task table
     if (req.tasks && req.tasks.length > 0) {
       autoTable(doc, {
-        head: [["Task ID", "Application / Equip", "Department", "Role", "Location", "Reports To", "Status"]],
+        head: [["Task ID", "Application / Equip", "Department","Location", "Requestor Role",  "Granted Role", "Status"]],
         body: req.tasks.map((t) => [
           t.transaction_id || "-",
           t.application_equip_id || "-",
           t.department || "-",
-          t.role || "-",
           t.location || "-",
-          t.reports_to || "-",
+          t.role || "-",
+          t.role || "-",
           t.task_status || "-",
         ]),
         startY,
@@ -640,6 +641,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                 <th>Employee Code</th>
                 <th>Location</th>
                 <th>Department</th>
+                <th>Access Type</th>
                 <th>Approver 1</th>
                 <th>Approver 2</th>
                 <th>Status</th>
@@ -655,7 +657,9 @@ const handleSubmit = async (e: React.FormEvent) => {
                     <td>{r.employeeCode}</td>
                     <td>{r.tasks?.[0]?.location}</td>
                     <td>{r.tasks?.[0]?.department || "—"}</td>
-                    <td>{r.tasks?.[0]?.role || "—"}</td>
+                    <td>{r.accessType || "—"}</td>
+                    <td>{"Pending"}</td>
+                    <td>{"Pending"}</td>
                     <td>{r.status}</td>
                     <td>
                       <button
@@ -672,7 +676,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   {/* Collapsible task rows */}
                   {expandedRows.includes(r.transaction_id || idx.toString()) && r.tasks && r.tasks.length > 0 && (
                     <tr>
-                      <td colSpan={8} style={{ padding: 0 }}>
+                      <td colSpan={10} style={{ padding: 0 }}>
                         <div style={{ overflowX: "auto" }}>
                           <table className={addUserRequestStyles.subTable}>
                             <thead>
@@ -680,9 +684,9 @@ const handleSubmit = async (e: React.FormEvent) => {
                                 <th>Task Transaction ID</th>
                                 <th>Application / Equip ID</th>
                                 <th>Department</th>
-                                <th>Role</th>
                                 <th>Location</th>
-                                <th>Reports To</th>
+                                <th>Requestor Role</th>
+                                <th>Granted Role</th>
                                 <th>Status</th>
                               </tr>
                             </thead>
@@ -692,9 +696,9 @@ const handleSubmit = async (e: React.FormEvent) => {
                                   <td>{task.transaction_id || "-"}</td>
                                   <td>{task.application_name || "-"}</td>
                                   <td>{task.department || "-"}</td>
-                                  <td>{task.role || "-"}</td>
                                   <td>{task.location || "-"}</td>
-                                  <td>{task.reports_to || "-"}</td>
+                                  <td>{task.role || "-"}</td>
+                                  <td>{task.role || "-"}</td>
                                   <td>{task.task_status || "-"}</td>
                                 </tr>
                               ))}
@@ -1012,8 +1016,6 @@ const handleSubmit = async (e: React.FormEvent) => {
                     />
                     <label htmlFor="remarks">Remarks</label>
                   </div>
-
-
                 </div>
               )}
 
