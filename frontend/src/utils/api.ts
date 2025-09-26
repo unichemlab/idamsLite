@@ -251,11 +251,10 @@ export async function fetchUserRequests(): Promise<any[]> {
 }
 
 // Add a new user request
-export async function addUserRequestAPI(userRequest: any): Promise<any> {
+export async function addUserRequestAPI(userRequest: FormData): Promise<any> {
   const res = await fetch("http://localhost:4000/api/user-requests", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(userRequest),
+    body: userRequest, // <-- send FormData directly
   });
   if (!res.ok) throw new Error("Failed to add user request");
   return await res.json();

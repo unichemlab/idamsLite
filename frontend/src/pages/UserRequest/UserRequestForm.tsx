@@ -1,16 +1,39 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useUserRequestContext, UserRequest } from "./UserRequestContext";
+import { useUserRequestContext, UserRequest, TaskRequest, } from "./UserRequestContext";
+import { useAuth } from "../../context/AuthContext";
 import { fetchPlants } from "../../utils/api";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
-import addStyles from "./AddUserRequest.module.css";
+import addUserRequestStyles from "./AddUserRequest.module.css";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
 
 const AddUserRequest: React.FC = () => {
   const { addUserRequest } = useUserRequestContext();
   const navigate = useNavigate();
+ const { user } = useAuth();
+  // ===================== Filter + Search State =====================
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [filter, setFilter] = useState({
+    plant_location: "",
+    department: "",
+    applicationId: "",   // ← add this
+    employeeCode: "",
+    transactionId: "",
+  });
 
+  const [filterResults, setFilterResults] = useState<UserRequest[]>([]);
+  const [resultModalOpen, setResultModalOpen] = useState(false);
+  // extra state for the filter modal
+  const [filterApplications, setFilterApplications] = useState<{ id: string; name: string }[]>([]);
+  const [filterRoles, setFilterRoles] = useState<{ id: number; name: string }[]>([]);
+  const [taskModalOpen, setTaskModalOpen] = useState(false);
+const [selectedTasks, setSelectedTasks] = useState<TaskRequest[]>([]);
+
+  // ===================== Main Form State =====================
   const [form, setForm] = useState<UserRequest>({
-    requestFor: "Self",
+    request_for_by: "Self",
     name: "",
     employeeCode: "",
     location: "",
@@ -33,17 +56,14 @@ const AddUserRequest: React.FC = () => {
   });
 
   const [attachments, setAttachments] = useState<File[]>([]);
-  const [bulkRows, setBulkRows] = useState([
-    { location: "", department: "", applicationId: "", role: "" },
-  ]);
-
+  const [bulkRows, setBulkRows] = useState([{ location: "", department: "", applicationId: "", role: "" }]);
+ const [modalTasks, setModalTasks] = useState<TaskRequest[] | null>(null);
   const [plants, setPlants] = useState<{ id: number; plant_name: string }[]>([]);
   const [departments, setDepartments] = useState<{ id: number; department_name: string }[]>([]);
   const [roles, setRoles] = useState<{ id: number; name: string }[]>([]);
   const [applications, setApplications] = useState<{ id: string; name: string }[]>([]);
 
-
-
+  // ===================== Form Handlers =====================
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
@@ -54,12 +74,12 @@ const AddUserRequest: React.FC = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
-      if (files.length > 4) {
-        alert("You can only upload up to 4 files.");
+      if (files.length > 1) {
+        alert("You can only upload one file.");
         return;
       }
-      if (files.some((f) => f.size > 4 * 1024 * 1024)) {
-        alert("Each file must be less than 4 MB.");
+      if (files[0].size > 4 * 1024 * 1024 * 1024) {
+        alert("The file size must be less than or equal to 4GB.");
         return;
       }
       setAttachments(files);
@@ -68,15 +88,21 @@ const AddUserRequest: React.FC = () => {
 
   const handleAddRow = () => {
     if (bulkRows.length < 7) {
-      setBulkRows([...bulkRows, { location: "", department: "", applicationId: "", role: "" }]);
+      setBulkRows([...bulkRows, {
+        location: form.plant_location,
+        department: form.department,
+        applicationId: "",
+        role: "",
+      }]);
     } else {
       alert("You can only add up to 7 applications.");
     }
   };
 
   const handleRemoveRow = (index: number) => {
-    const updated = bulkRows.filter((_, i) => i !== index);
-    setBulkRows(updated);
+    const updatedRows = [...bulkRows];
+    updatedRows.splice(index, 1);
+    setBulkRows(updatedRows);
   };
 
   const handleBulkRowChange = (index: number, field: string, value: string) => {
@@ -85,172 +111,648 @@ const AddUserRequest: React.FC = () => {
     setBulkRows(updated);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (
-      form.requestFor === "Vendor / OEM" &&
-      form.accessType === "Modify Access" &&
-      (!form.vendorFirm || !form.allocatedId)
-    ) {
-      alert("Vendor Firm and Allocated ID are required for Vendor/OEM Modify.");
-      return;
-    }
-
-    if (form.accessType === "Bulk New User Creation" && bulkRows.length === 0) {
-      alert("Please add at least one bulk entry.");
-      return;
-    }
-
-    if (
-      form.trainingStatus === "Yes" &&
-      (form.accessType === "New User Creation" || form.accessType === "Bulk New User Creation") &&
-      attachments.length === 0
-    ) {
-      alert("Attachment is mandatory for training records.");
-      return;
-    }
-
-    const submissionData = {
-      ...form,
-      bulkEntries: form.accessType === "Bulk New User Creation" ? bulkRows : undefined,
-    };
-
-    await addUserRequest(submissionData);
-    navigate("/user-requests");
+  // ===================== Filter Handlers =====================
+  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFilter((prev) => ({ ...prev, [name]: value }));
   };
 
-  const isVendorModify = form.requestFor === "Vendor / OEM" && form.accessType === "Modify Access";
+
+  // inside your component
+  const handleFilterSearch = async () => {
+    const plantId = parseInt(filter.plant_location, 10);
+    const departmentId = parseInt(filter.department, 10);
+    const applicationId = filter.applicationId
+      ? parseInt(filter.applicationId, 10)
+      : undefined;
+
+    // Validate numeric fields on frontend
+    if (isNaN(plantId) || isNaN(departmentId)) {
+      alert("Please enter valid plant and department IDs");
+      return;
+    }
+
+    const queryParams: Record<string, string> = {
+      transactionId: filter.transactionId || "",
+      employeeCode: filter.employeeCode || "",
+      plant_location: plantId.toString(),
+      department: departmentId.toString(),
+      applicationId: applicationId ? applicationId.toString() : "",
+    };
+
+    // remove empty
+    Object.keys(queryParams).forEach((key) => {
+      if (!queryParams[key]) delete queryParams[key];
+    });
+
+    const query = new URLSearchParams(queryParams).toString();
+    console.log("Outgoing query:", query); // Debug
+
+    try {
+      const res = await fetch(
+        `http://localhost:4000/api/user-requests/search?${query}`
+      );
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        console.error("API Error:", errorData);
+        alert(errorData.error || "Search failed");
+        setFilterResults([]);
+        return;
+      }
+
+      const data = await res.json();
+      console.log("data", data);
+      setFilterResults(data);
+      // ✅ Close filter modal and open result modal
+      setFilterModalOpen(false);
+      setResultModalOpen(true);
+    } catch (err) {
+      console.error("Fetch failed:", err);
+      alert("Network error");
+    }
+  };
+
+const [expandedRows, setExpandedRows] = useState<string[]>([]);
+
+const toggleRowExpansion = (transactionId: string) => {
+  setExpandedRows((prev) =>
+    prev.includes(transactionId)
+      ? prev.filter((id) => id !== transactionId)
+      : [...prev, transactionId]
+  );
+};
+
+
+const openTaskModal = (tasks?: TaskRequest[]) => {
+  if (!tasks) return;
+  setSelectedTasks(tasks);
+  setTaskModalOpen(true);
+};
+
+const closeTaskModal = () => {
+  setSelectedTasks([]);
+  setTaskModalOpen(false);
+};
+
+const loadImage = (url: string): Promise<HTMLImageElement> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.src = url;
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+  });
+};
+
+const handleExportPDF = async (exportedBy: string) => {
+  const doc = new jsPDF({ orientation: "landscape" });
+  const today = new Date();
+  const fileName = `UserRequests_${today.toISOString().split("T")[0]}.pdf`;
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const pageMargin = 14;
+  const headerHeight = 28;
+  const footerHeight = 12;
+  let startY = headerHeight + 8;
+
+  // --- HEADER ---
+  const drawHeader = async () => {
+    doc.setFillColor(0, 82, 155);
+    doc.rect(0, 0, pageWidth, headerHeight, "F");
+
+    // Logo
+    let logoWidth = 0;
+    let logoHeight = 0;
+    if (login_headTitle2) {
+      try {
+        const img = await loadImage(login_headTitle2);
+        const maxLogoHeight = headerHeight * 0.6;
+        const scale = maxLogoHeight / img.height;
+        logoWidth = img.width * scale;
+        logoHeight = img.height * scale;
+        const logoY = headerHeight / 2 - logoHeight / 2;
+        doc.addImage(img, "PNG", pageMargin, logoY, logoWidth, logoHeight);
+      } catch (e) {
+        console.warn("Logo load failed", e);
+      }
+    }
+
+    // Title + Exported by on the same line
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    const titleX = pageMargin + logoWidth + 10;
+    const titleY = headerHeight / 2 + 5;
+    doc.text("User Access Requests", titleX, titleY);
+
+    doc.setFontSize(9);
+    doc.setTextColor(220, 230, 245);
+    const exportedText = `Exported by: ${exportedBy}  On: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
+    const textWidth = doc.getTextWidth(exportedText);
+    doc.text(exportedText, pageWidth - pageMargin - textWidth, titleY);
+
+    doc.setDrawColor(0, 82, 155);
+    doc.setLineWidth(0.5);
+    doc.line(0, headerHeight, pageWidth, headerHeight);
+  };
+
+  // --- FOOTER ---
+  const drawFooter = () => {
+    const pageCount = doc.internal.getNumberOfPages();
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.text("Unichem Laboratories", pageMargin, pageHeight - 6);
+      doc.text(`Page ${i} of ${pageCount}`, pageWidth - pageMargin - 30, pageHeight - 6);
+    }
+  };
+
+  await drawHeader();
+
+  // --- REQUEST CARDS + TASK TABLES ---
+  for (let index = 0; index < filterResults.length; index++) {
+    const req = filterResults[index];
+
+    // Card background color
+    const cardBgColor = index % 2 === 0 ? [245, 247, 250] : [230, 235, 245];
+
+    // Card text
+    const textContent = `Transaction ID: ${req.transaction_id || "-"} | Name: ${req.name || "-"} | Employee Code: ${req.employeeCode || "-"} | Location: ${req.tasks?.[0]?.location || "-"} | Department: ${req.tasks?.[0]?.department || "-"} | Access Type: ${req.accessType || "-"}
+    | Approver 1: ${ "Pending"} | Approver 2: ${"Pending"} | Status: ${"Pending"}`;
+    const textLines = doc.splitTextToSize(textContent, pageWidth - 2 * pageMargin - 4);
+    const lineHeight = 6;
+    const cardHeight = textLines.length * lineHeight + 10;
+
+    const tableEstimateHeight = req.tasks ? req.tasks.length * 12 + 20 : 0;
+    const neededSpace = cardHeight + 6 + tableEstimateHeight + 8 + footerHeight;
+
+    if (startY + neededSpace > pageHeight) {
+      doc.addPage();
+      startY = headerHeight + 8;
+      await drawHeader();
+    }
+
+    // Draw card
+    doc.setFillColor(cardBgColor[0], cardBgColor[1], cardBgColor[2]);
+    doc.setDrawColor(200);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(pageMargin, startY, pageWidth - 2 * pageMargin, cardHeight, 3, 3, "FD");
+
+    doc.setFontSize(10);
+    doc.setTextColor(0);
+    doc.text(textLines, pageMargin + 2, startY + 6);
+
+    startY += cardHeight + 6;
+
+    // Task table
+    if (req.tasks && req.tasks.length > 0) {
+      autoTable(doc, {
+        head: [["Task ID", "Application / Equip", "Department","Location", "Requestor Role",  "Granted Role", "Status"]],
+        body: req.tasks.map((t) => [
+          t.transaction_id || "-",
+          t.application_equip_id || "-",
+          t.department || "-",
+          t.location || "-",
+          t.role || "-",
+          t.role || "-",
+          t.task_status || "-",
+        ]),
+        startY,
+        styles: { fontSize: 10, cellPadding: 4, overflow: "linebreak", valign: "middle" },
+        headStyles: { fillColor: [0, 118, 255], textColor: 255, fontStyle: "bold", halign: "center" },
+        alternateRowStyles: { fillColor: [245, 250, 255] },
+        margin: { left: pageMargin, right: pageMargin },
+        theme: "grid",
+        showHead: "everyPage",
+        didDrawPage: (data) => { startY = (data.cursor?.y ?? startY) + 8; },
+      });
+    } else startY += 6;
+  }
+
+  drawFooter();
+  doc.save(fileName);
+};
+  
+// ===================== Form Submission =====================
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  if (
+    form.request_for_by === "Vendor / OEM" &&
+    form.accessType === "Modify Access" &&
+    (!form.vendorFirm || !form.allocatedId)
+  ) {
+    alert("Vendor Firm and Allocated ID are required for Vendor/OEM Modify.");
+    return;
+  }
+
+  if (form.accessType === "Bulk New User Creation" && bulkRows.length === 0) {
+    alert("Please add at least one bulk entry.");
+    return;
+  }
+
+  if (
+    form.trainingStatus === "Yes" &&
+    (form.accessType === "New User Creation" ||
+      form.accessType === "Bulk New User Creation") &&
+    attachments.length === 0
+  ) {
+    alert("Attachment is mandatory for training records.");
+    return;
+  }
+
+  // Build tasks
+  const tasks: TaskRequest[] = [];
+  if (form.accessType === "Bulk New User Creation") {
+    bulkRows.forEach((row) => {
+      tasks.push({
+        application_equip_id: row.applicationId,
+        department: form.department,
+        role: row.role,
+        location: form.plant_location,
+        reports_to: form.reportsTo,
+        task_status: "Pending",
+      });
+    });
+  } else {
+    tasks.push({
+      application_equip_id: form.applicationId,
+      department: form.department,
+      role: form.role,
+      location: form.plant_location,
+      reports_to: form.reportsTo,
+      task_status: "Pending",
+    });
+  }
+
+  // Build FormData
+  const formData = new FormData();
+  formData.append("request_for_by", form.request_for_by || "");
+  formData.append("name", form.name || "");
+  formData.append("employee_code", form.employeeCode || "");
+  formData.append("employee_location", form.location || "");
+  formData.append("plant_location", form.plant_location || "");
+  formData.append("department", form.department || "");
+  formData.append("role", form.role || "");
+  formData.append("status", form.status || "Pending");
+  formData.append("reports_to", form.reportsTo || "");
+  formData.append("training_status", form.trainingStatus || "");
+  formData.append("access_request_type", form.accessType || "");
+  formData.append("vendor_name", form.vendorName?.toString() || "");
+  formData.append("vendor_firm", form.vendorFirm?.toString() || "");
+  formData.append("vendor_code", form.vendorCode?.toString() || "");
+  formData.append("vendor_allocated_id", form.allocatedId?.toString() || "");
+
+  // Attach file
+  if (attachments.length > 0) {
+    formData.append("training_attachment", attachments[0]);
+  }
+
+  // Attach tasks JSON
+  formData.append("tasks", JSON.stringify(tasks));
+
+  console.log("Submitting FormData:", Object.fromEntries(formData.entries()));
+
+  try {
+    await addUserRequest(formData); // now sending FormData
+    navigate("/user-requests");
+  } catch (err) {
+    console.error("Failed to save request:", err);
+    alert("Something went wrong while saving the request.");
+  }
+};
+
+
+  const isVendorModify = form.request_for_by === "Vendor / OEM" && form.accessType === "Modify Access";
   const isBulkDeactivation = form.accessType === "Bulk De-activation";
   const isBulkNew = form.accessType === "Bulk New User Creation";
 
   const accessOptions =
-    form.requestFor === "Vendor / OEM"
-      ? [
-        "New User Creation",
-        "Modify Access",
-        "Active / Enable User Access",
-        "Deactivation / Disable / Remove User Access",
-        "Password Reset",
-        "Account Unlock",
-        "Account Unlock and Password Reset",
-      ]
-      : [
-        "New User Creation",
-        "Modify Access",
-        "Password Reset",
-        "Account Unlock",
-        "Account Unlock and Password Reset",
-        "Active / Enable User Access",
-        "Deactivation / Disable / Remove User Access",
-        "Bulk De-activation",
-        "Bulk New User Creation",
-      ];
+    form.request_for_by === "Vendor / OEM"
+      ? ["New User Creation", "Modify Access", "Active / Enable User Access", "Deactivation / Disable / Remove User Access", "Password Reset", "Account Unlock", "Account Unlock and Password Reset"]
+      : ["New User Creation", "Modify Access", "Password Reset", "Account Unlock", "Account Unlock and Password Reset", "Active / Enable User Access", "Deactivation / Disable / Remove User Access", "Bulk De-activation", "Bulk New User Creation"];
 
+  // ===================== Data Fetch =====================
+  useEffect(() => { fetchPlants().then(data => setPlants(data.map((p: any) => ({ id: p.id, plant_name: p.plant_name })))).catch(() => setPlants([])); }, []);
   useEffect(() => {
-    console.log("Access Request Type changed:", form.accessType);
-  }, [form.accessType]);
-
-  useEffect(() => {
-    fetchPlants()
-      .then((data) => {
-        const normalized = data.map((p: any) => ({
-          id: p.id,
-          plant_name: p.plant_name, // Keep the expected property name
-        }));
-        console.error("fetch plants:", normalized);
-        setPlants(normalized);
-      })
-      .catch((err) => {
-        console.error("Failed to fetch plants:", err);
-        setPlants([]);
-      });
-  }, []);
-
-  useEffect(() => {
-    if (form.plant_location) {
-      fetch(`http://localhost:4000/api/applications/${form.plant_location}`)
-        .then(res => res.json())
-        .then(data => {
-          console.error("fetch departments:", data);
-          setDepartments(Array.isArray(data) ? data : []);// Extract names from objects
-        })
-        .catch((err) => {
-          console.error("Failed to fetch departments:", err);
-          setDepartments([]);
-        });
-    }
+    if (form.plant_location) fetch(`http://localhost:4000/api/applications/${form.plant_location}`).then(res => res.json()).then(data => setDepartments(Array.isArray(data) ? data : [])).catch(() => setDepartments([]));
   }, [form.plant_location]);
-
-
   useEffect(() => {
     if (form.plant_location && form.department) {
       fetch(`http://localhost:4000/api/applications/${form.plant_location}/${form.department}`)
-        .then(res => res.json())
-        .then(data => {
-          console.error("fetch roles and applications:", data);
-          setRoles(Array.isArray(data.roles) ? data.roles : []); // Extract role names
-          setApplications(Array.isArray(data.applications) ? data.applications : []); // Applications are already in {id, name} format
-        })
-        .catch((err) => {
-          console.error("Failed to fetch roles and applications:", err);
-          setRoles([]);
-          setApplications([]);
-        });
+        .then(res => res.json()).then(data => { setRoles(Array.isArray(data.roles) ? data.roles : []); setApplications(Array.isArray(data.applications) ? data.applications : []); })
+        .catch(() => { setRoles([]); setApplications([]); });
     }
   }, [form.plant_location, form.department]);
+  useEffect(() => { if (form.vendorName.length > 0) { fetch(`/api/vendors/${form.vendorName}`).then(res => res.json()).then(data => setForm(prev => ({ ...prev, vendorFirm: data.firm, vendorCode: data.code }))); } }, [form.vendorName]);
 
-
+  // Fetch departments when plant changes
   useEffect(() => {
-    if (form.vendorName.length > 0) {
-      fetch(`/api/vendors/${form.vendorName}`)
+    if (filter.plant_location) {
+      fetch(`http://localhost:4000/api/applications/${filter.plant_location}`)
+        .then((res) => res.json())
+        .then((data) => setDepartments(Array.isArray(data) ? data : []))
+        .catch(() => setDepartments([]));
+    }
+  }, [filter.plant_location]);
+  useEffect(() => {
+    setFilter(prev => ({ ...prev, department: "" })); // reset department
+    if (filter.plant_location) {
+      fetch(`http://localhost:4000/api/applications/${filter.plant_location}`)
+        .then((res) => res.json())
+        .then((data) => setDepartments(Array.isArray(data) ? data : []))
+        .catch(() => setDepartments([]));
+    } else {
+      setDepartments([]);
+    }
+  }, [filter.plant_location]);
+  // fetch applications when department changes in filter modal
+  useEffect(() => {
+    if (filter.plant_location && filter.department) {
+      fetch(`http://localhost:4000/api/applications/${filter.plant_location}/${filter.department}`)
         .then(res => res.json())
         .then(data => {
-          setForm(prev => ({
-            ...prev,
-            vendorFirm: data.firm,
-            vendorCode: data.code
-          }));
+          setFilterApplications(Array.isArray(data.applications) ? data.applications : []);
+          setFilterRoles([]); // reset roles
+          setFilter(prev => ({ ...prev, applicationId: "", role: "" })); // reset values in filter object
+        })
+        .catch(() => {
+          setFilterApplications([]);
+          setFilterRoles([]);
         });
     }
-  }, [form.vendorName]);
+  }, [filter.plant_location, filter.department]);
+
+  // fetch roles when application changes in filter modal
+  useEffect(() => {
+    if (filter.applicationId) {
+      fetch(`http://localhost:4000/api/roles/${filter.applicationId}`)
+        .then(res => res.json())
+        .then(data => setFilterRoles(Array.isArray(data) ? data : []))
+        .catch(() => setFilterRoles([]));
+    } else {
+      setFilterRoles([]);
+    }
+  }, [filter.applicationId]);
 
 
-
-
-  console.log("Current Access Type:", form.accessType);
-  console.log("isBulkNew:", isBulkNew);
-
+  // ===================== JSX =====================
   return (
-    <div className={addStyles["main-container"]}>
-      <main className={addStyles["main-content"]}>
-        <header className={addStyles["main-header"]}>
-          <img
-            src={login_headTitle2}
-            alt="Company logo"
-            style={{ width: 250, height: 25 }}
-          />
-          <h2 className={addStyles["header-title"]}>User Access Management</h2>
-        </header>
-        <div className={addStyles.container}>
-          <form
-            id="userRequestForm"
-            className={addStyles.form}
-            onSubmit={handleSubmit}
-            style={{ width: "100%" }}
-          >
+    <div className={addUserRequestStyles["main-container"]}>
+       {/* ===================== Filter Modal ===================== */}
+      {filterModalOpen && (
+        <div className={addUserRequestStyles.modalOverlay}>
+          <div className={addUserRequestStyles.filterModalBox}>
+            <h2 className={addUserRequestStyles.advancedFilterHeader}>Filter User Requests</h2>
 
-            <div className={addStyles.scrollFormContainer}>
+            <div className={addUserRequestStyles.twoColForm}>
+              {/* Column 1 */}
+              <div className={addUserRequestStyles.twoCol}>
+                <div className={addUserRequestStyles.formGroup}>
+                  <select
+                    name="plant_location"
+                    value={filter.plant_location}
+                    onChange={(e) => {
+                      handleFilterChange(e);
+                      setFilter(prev => ({ ...prev, department: "" }));
+                    }}
+                    required
+                  >
+                    <option value="">Select Plant</option>
+                    {plants.map((plant) => (
+                      <option key={plant.id} value={plant.id} title={plant.plant_name}>
+                        {plant.plant_name}
+                      </option>
+                    ))}
+                  </select>
+                  <label htmlFor="plant_location">Plant *</label>
+                </div>
+                <div className={addUserRequestStyles.formGroup}>
+                  <select
+                    name="department"
+                    value={filter.department}
+                    onChange={handleFilterChange}
+                    required
+                  >
+                    <option value="">Select Department</option>
+                    {departments.map((dept) => (
+                      <option key={dept.id} value={dept.id} title={dept.department_name}>
+                        {dept.department_name}
+                      </option>
+                    ))}
+                  </select>
+                  <label htmlFor="department">Department *</label>
+                </div>
+                 <div className={addUserRequestStyles.formGroup}>
+                  <select
+                    name="applicationId"
+                    value={filter.applicationId}
+                    onChange={handleFilterChange}
+                  >
+                    <option value="">Select Application / Equipment ID</option>
+                    {filterApplications.map((app) => (
+                      <option key={app.id} value={app.id} title={app.name}>
+                        {app.name}
+                      </option>
+                    ))}
+                  </select>
+                  <label htmlFor="applicationId">Application</label>
+                </div>
+              </div>
+
+              {/* Column 2 */}
+              <div className={addUserRequestStyles.twoCol}>
+               
+                <div className={addUserRequestStyles.formGroup}>
+                  <input
+                    type="text"
+                    name="transactionId"
+                    value={filter.transactionId}
+                    onChange={handleFilterChange}
+                    placeholder=""
+                  />
+                  <label htmlFor="transactionId">Transaction ID</label>
+                </div>
+                <div className={addUserRequestStyles.formGroup}>
+                  <input
+                    type="text"
+                    name="employeeCode"
+                    value={filter.employeeCode}
+                    onChange={handleFilterChange}
+                    placeholder=""
+                  />
+                  <label htmlFor="employeeCode">Employee Code</label>
+                </div>
+              </div>
+            </div>
+
+            <div className={addUserRequestStyles.advancedFilterActions}>
+              <button type="button" className={addUserRequestStyles.advancedApplyBtn} onClick={handleFilterSearch}>
+                Search
+              </button>
+              <button
+                type="button"
+                className={addUserRequestStyles.advancedClearBtn}
+                onClick={() =>
+                  setFilter({
+                    plant_location: "",
+                    department: "",
+                    applicationId: "",
+                    employeeCode: "",
+                    transactionId: "",
+                  })
+                }
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                className={addUserRequestStyles.advancedClearBtn}
+                onClick={() => setFilterModalOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* ===================== Result Modal ===================== */}
+{resultModalOpen && (
+  <div className={addUserRequestStyles.modalOverlay}>
+    <div className={addUserRequestStyles.modalBox}>
+      <div className={addUserRequestStyles.modalHeader}>
+        <h2>Search Results</h2>
+        <div className={addUserRequestStyles.modalActions}>
+          <button className={addUserRequestStyles.primaryBtn} onClick={() => handleExportPDF(user ? user.username : "admin")}>Export PDF</button>
+          <button className={addUserRequestStyles.secondaryBtn} onClick={() => setResultModalOpen(false)}>Close</button>
+        </div>
+      </div>
+
+      <div className={addUserRequestStyles.modalContent}>
+        <div style={{ overflowX: "auto" }}>
+          <table className={addUserRequestStyles.table}>
+            <thead>
+              <tr>
+                <th>Transaction ID</th>
+                <th>Name</th>
+                <th>Employee Code</th>
+                <th>Location</th>
+                <th>Department</th>
+                <th>Access Type</th>
+                <th>Approver 1</th>
+                <th>Approver 2</th>
+                <th>Status</th>
+                <th>Task</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filterResults.length > 0 ? filterResults.map((r, idx) => (
+                <React.Fragment key={idx}>
+                  <tr>
+                    <td>{r.transaction_id}</td>
+                    <td>{r.name}</td>
+                    <td>{r.employeeCode}</td>
+                    <td>{r.tasks?.[0]?.location}</td>
+                    <td>{r.tasks?.[0]?.department || "—"}</td>
+                    <td>{r.accessType || "—"}</td>
+                    <td>{"Pending"}</td>
+                    <td>{"Pending"}</td>
+                    <td>{r.status}</td>
+                    <td>
+                      <button
+                        className={addUserRequestStyles.viewTaskBtn}
+                        onClick={() => toggleRowExpansion(r.transaction_id || idx.toString())}
+                      >
+                        {expandedRows.includes(r.transaction_id || idx.toString())
+                          ? "Hide Tasks"
+                          : `View Tasks (${r.tasks?.length || 0})`}
+                      </button>
+                    </td>
+                  </tr>
+
+                  {/* Collapsible task rows */}
+                  {expandedRows.includes(r.transaction_id || idx.toString()) && r.tasks && r.tasks.length > 0 && (
+                    <tr>
+                      <td colSpan={10} style={{ padding: 0 }}>
+                        <div style={{ overflowX: "auto" }}>
+                          <table className={addUserRequestStyles.subTable}>
+                            <thead>
+                              <tr>
+                                <th>Task Transaction ID</th>
+                                <th>Application / Equip ID</th>
+                                <th>Department</th>
+                                <th>Location</th>
+                                <th>Requestor Role</th>
+                                <th>Granted Role</th>
+                                <th>Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {r.tasks.map((task, tIdx) => (
+                                <tr key={tIdx}>
+                                  <td>{task.transaction_id || "-"}</td>
+                                  <td>{task.application_name || "-"}</td>
+                                  <td>{task.department || "-"}</td>
+                                  <td>{task.location || "-"}</td>
+                                  <td>{task.role || "-"}</td>
+                                  <td>{task.role || "-"}</td>
+                                  <td>{task.task_status || "-"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              )) : (
+                <tr>
+                  <td colSpan={8} style={{ textAlign: "center" }}>No records found</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+      <main className={addUserRequestStyles["main-content"]}>
+        <header className={addUserRequestStyles["main-header"]}>
+          <div className={addUserRequestStyles["header-left"]}>
+            <div className={addUserRequestStyles["header-left"]}>
+              <div className={addUserRequestStyles["logo-wrapper"]}>
+                <img src={login_headTitle2} alt="Logo" className={addUserRequestStyles.logo} />
+                <span className={addUserRequestStyles.version}>v1.00</span>
+              </div>
+              <h1 className={addUserRequestStyles["header-title"]}>User Access Management</h1>
+            </div>
+          </div>
+          <div className={addUserRequestStyles["header-right"]}>
+            <button className={addUserRequestStyles["addUserBtn"]} onClick={() => setFilterModalOpen(true)}>
+             Filter User Requests
+            </button>
+          </div>
+        </header>
+
+        {/* ===================== Original Form JSX ===================== */}
+        <div className={addUserRequestStyles.container}>
+          <form id="userRequestForm" className={addUserRequestStyles.form} onSubmit={handleSubmit} style={{ width: "100%" }}>
+            <div className={addUserRequestStyles.scrollFormContainer}>
 
               {/* Card 1 */}
-              <div className={addStyles.section}>
-                <span className={addStyles.sectionHeaderTitle}>Requestor Details</span>
-                <div className={addStyles.fourCol}>
-                  <div className={addStyles.formGroup}>
+              <div className={addUserRequestStyles.section}>
+                <span className={addUserRequestStyles.sectionHeaderTitle}>Requestor Details</span>
+                <div className={addUserRequestStyles.fourCol}>
+                  <div className={addUserRequestStyles.formGroup}>
 
                     <select
-                      name="requestFor"
-                      value={form.requestFor}
+                      name="request_for_by"
+                      value={form.request_for_by}
                       onChange={handleChange}
                       required
                     >
@@ -258,10 +760,10 @@ const AddUserRequest: React.FC = () => {
                       <option value="Others">Others</option>
                       <option value="Vendor / OEM">Vendor / OEM</option>
                     </select>
-                    <label htmlFor="requestFor">Access For *</label>
+                    <label htmlFor="request_for_by">Access For *</label>
 
                   </div>
-                  <div className={addStyles.formGroup}>
+                  <div className={addUserRequestStyles.formGroup}>
 
                     <input
                       name="name"
@@ -271,7 +773,7 @@ const AddUserRequest: React.FC = () => {
                     />
                     <label htmlFor="name">Requestor For /By *</label>
                   </div>
-                  <div className={addStyles.formGroup}>
+                  <div className={addUserRequestStyles.formGroup}>
 
                     <input
                       name="employeeCode"
@@ -281,7 +783,7 @@ const AddUserRequest: React.FC = () => {
                     />
                     <label htmlFor="employeeCode">Employee Code *</label>
                   </div>
-                  <div className={addStyles.formGroup}>
+                  <div className={addUserRequestStyles.formGroup}>
 
                     <input
                       name="location"
@@ -292,9 +794,9 @@ const AddUserRequest: React.FC = () => {
                     <label htmlFor="location">Location *</label>
                   </div>
                 </div>
-                <div className={addStyles.fourCol}>
+                <div className={addUserRequestStyles.fourCol}>
 
-                  <div className={addStyles.formGroup}>
+                  <div className={addUserRequestStyles.formGroup}>
                     <select
                       name="accessType"
                       value={form.accessType}
@@ -303,14 +805,14 @@ const AddUserRequest: React.FC = () => {
                     >
                       <option value="">Select</option>
                       {accessOptions.map((type) => (
-                        <option key={type} value={type}>
+                        <option key={type} value={type} title={type}>
                           {type}
                         </option>
                       ))}
                     </select>
                     <label htmlFor="accessType">Access Request Type *</label>
                   </div>
-                  <div className={addStyles.formGroup}>
+                  <div className={addUserRequestStyles.formGroup}>
                     <select
                       name="trainingStatus"
                       value={form.trainingStatus}
@@ -322,7 +824,7 @@ const AddUserRequest: React.FC = () => {
                     <label htmlFor="trainingStatus">Training Completed *</label>
                   </div>
                   {form.trainingStatus === "Yes" && (
-                    <div className={addStyles.formGroup}>
+                    <div className={addUserRequestStyles.formGroup}>
                       <input
                         type="file"
                         name="trainingAttachment"
@@ -334,7 +836,7 @@ const AddUserRequest: React.FC = () => {
                     </div>
                   )}
                   {!isBulkDeactivation && (
-                    <div className={addStyles.formGroup}>
+                    <div className={addUserRequestStyles.formGroup}>
 
                       <input
                         name="reportsTo"
@@ -349,11 +851,11 @@ const AddUserRequest: React.FC = () => {
               </div>
 
               {/* Card 2 Vendor Details */}
-              {(form.requestFor === "Vendor / OEM" && !isVendorModify) && (
-                <div className={addStyles.section}>
-                  <span className={addStyles.sectionHeaderTitle}>Vendor Details</span>
-                  <div className={addStyles.threeCol}>
-                    <div className={addStyles.formGroup}>
+              {(form.request_for_by === "Vendor / OEM" && !isVendorModify) && (
+                <div className={addUserRequestStyles.section}>
+                  <span className={addUserRequestStyles.sectionHeaderTitle}>Vendor Details</span>
+                  <div className={addUserRequestStyles.threeCol}>
+                    <div className={addUserRequestStyles.formGroup}>
                       <input
                         name="vendorName"
                         value={form.vendorName}
@@ -362,7 +864,7 @@ const AddUserRequest: React.FC = () => {
                       />
                       <label htmlFor="vendorName">Vendor Name *</label>
                     </div>
-                    <div className={addStyles.formGroup}>
+                    <div className={addUserRequestStyles.formGroup}>
                       <input
                         name="vendorFirm"
                         value={form.vendorFirm}
@@ -371,7 +873,7 @@ const AddUserRequest: React.FC = () => {
                       />
                       <label htmlFor="vendorFirm">Vendor Firm *</label>
                     </div>
-                    <div className={addStyles.formGroup}>
+                    <div className={addUserRequestStyles.formGroup}>
                       <input
                         name="vendorCode"
                         value={form.vendorCode}
@@ -385,10 +887,10 @@ const AddUserRequest: React.FC = () => {
 
               {/* Card 3 Vendor Modify */}
               {isVendorModify && (
-                <div className={addStyles.section}>
-                  <span className={addStyles.sectionHeaderTitle}>Vendor Modify</span>
-                  <div className={addStyles.fourCol}>
-                    <div className={addStyles.formGroup}>
+                <div className={addUserRequestStyles.section}>
+                  <span className={addUserRequestStyles.sectionHeaderTitle}>Vendor Modify</span>
+                  <div className={addUserRequestStyles.fourCol}>
+                    <div className={addUserRequestStyles.formGroup}>
                       <input
                         name="vendorFirm"
                         value={form.vendorFirm}
@@ -397,7 +899,7 @@ const AddUserRequest: React.FC = () => {
                       />
                       <label htmlFor="vendorFirm">Vendor Firm *</label>
                     </div>
-                    <div className={addStyles.formGroup}>
+                    <div className={addUserRequestStyles.formGroup}>
                       <input
                         name="allocatedId"
                         value={form.allocatedId}
@@ -406,46 +908,45 @@ const AddUserRequest: React.FC = () => {
                       />
                       <label htmlFor="allocatedId">Allocated ID *</label>
                     </div>
-                    <div className={addStyles.formGroup}>
+                    <div className={addUserRequestStyles.formGroup}>
                       <input
                         name="vendorName"
                         value={form.vendorName}
-                        readOnly
+
                       />
                       <label htmlFor="vendorName">Vendor Name *</label>
                     </div>
-                    <div className={addStyles.formGroup}>
-                      <label>Plant Location *</label>
+                    <div className={addUserRequestStyles.formGroup}>
                       <select name="plant_location" value={form.plant_location} onChange={handleChange} required>
                         <option value="">Select Plant</option>
                         {plants.map(plant => (
-                          <option key={plant.id} value={plant.id}>{plant.plant_name}</option>
+                          <option key={plant.id} value={plant.id} title={plant.plant_name}>{plant.plant_name}</option>
                         ))}
                       </select>
                       <label htmlFor="plant_location">Plant Location *</label>
                     </div>
                   </div>
-                  <div className={addStyles.fourCol}>
-
-                    <div className={addStyles.formGroup}>
-                      <select name="role" value={form.role} onChange={handleChange} required>
-                        <option value="">Select Role</option>
-                        {roles.map((role) => (
-                          <option key={role.id} value={role.id}>{role.name}</option>
-                        ))}
-                      </select>
-                      <label htmlFor="role">Role *</label>
-                    </div>
-                    <div className={addStyles.formGroup}>
+                  <div className={addUserRequestStyles.fourCol}>
+                    <div className={addUserRequestStyles.formGroup}>
                       <select name="department" value={form.department} onChange={handleChange} required>
                         <option value="">Select Department</option>
                         {departments.map((dept) => (
-                          <option key={dept.id} value={dept.id}>{dept.department_name}</option>
+                          <option key={dept.id} value={dept.id} title={dept.department_name}>{dept.department_name}</option>
                         ))}
                       </select>
                       <label htmlFor="department">Department *</label>
                     </div>
-                    <div className={addStyles.formGroup}>
+                    <div className={addUserRequestStyles.formGroup}>
+                      <select name="role" value={form.role} onChange={handleChange} required>
+                        <option value="">Select Role</option>
+                        {roles.map((role) => (
+                          <option key={role.id} value={role.id} title={role.name}>{role.name}</option>
+                        ))}
+                      </select>
+                      <label htmlFor="role">Role *</label>
+                    </div>
+
+                    <div className={addUserRequestStyles.formGroup}>
                       <textarea
                         name="remarks"
                         style={{ minHeight: "40px", maxHeight: "42px", resize: "vertical" }}
@@ -460,51 +961,52 @@ const AddUserRequest: React.FC = () => {
 
               {/* Card 4 Access Information */}
               {(isBulkDeactivation || (!isVendorModify && !isBulkDeactivation)) && (
-                <div className={addStyles.section}>
-                  <span className={addStyles.sectionHeaderTitle}>Access Information</span>
-                  <div className={addStyles.fourCol}>
-                    <div className={addStyles.formGroup}>
+                <div className={addUserRequestStyles.section}>
+                  <span className={addUserRequestStyles.sectionHeaderTitle}>Access Information</span>
+                  <div className={addUserRequestStyles.fourCol}>
+                    <div className={addUserRequestStyles.formGroup}>
                       <select name="plant_location" value={form.plant_location} onChange={handleChange} required>
                         <option value="">Select Plant</option>
                         {plants.map(plant => (
-                          <option key={plant.id} value={plant.id}>{plant.plant_name}</option>
+                          <option key={plant.id} value={plant.id} title={plant.plant_name}>{plant.plant_name}</option>
                         ))}
                       </select>
                       <label htmlFor="plant_location">Plant Location * </label>
                     </div>
-                    <div className={addStyles.formGroup}>
+                    <div className={addUserRequestStyles.formGroup}>
                       <select name="department" value={form.department} onChange={handleChange} required>
                         <option value="">Select Department</option>
                         {departments.map((dept) => (
-                          <option key={dept.id} value={dept.id}>{dept.department_name}</option>
+                          <option key={dept.id} value={dept.id} title={dept.department_name}>{dept.department_name}</option>
                         ))}
                       </select>
                       <label htmlFor="department">Department Name * </label>
                     </div>
-                    {!isBulkDeactivation && (
-                      <div className={addStyles.formGroup}>
+                    {(!isBulkDeactivation && !isBulkNew) && (
+                      <div className={addUserRequestStyles.formGroup}>
                         <select name="applicationId" value={form.applicationId} onChange={handleChange} required>
                           <option value="">Select Application / Equipment ID</option>
                           {applications.map((app, index) => (
-                            <option key={index} value={app.id}>{app.name}</option>
+                            <option key={index} value={app.id} title={app.name}>{app.name}</option>
                           ))}
                         </select>
                         <label htmlFor="applicationId">Application / Equipment ID *</label>
                       </div>
                     )}
-                    <div className={addStyles.formGroup}>
-                      <select name="role" value={form.role} onChange={handleChange} required>
-                        <option value="">Select Role</option>
-                        {roles.map((role) => (
-                          <option key={role.id} value={role.id}>{role.name}</option>
-                        ))}
-                      </select>
-                      <label htmlFor="role">Role *</label>
-                    </div>
+                    {(!isBulkDeactivation && !isBulkNew) && (
+                      <div className={addUserRequestStyles.formGroup}>
+                        <select name="role" value={form.role} onChange={handleChange} required>
+                          <option value="">Select Role</option>
+                          {roles.map((role) => (
+                            <option key={role.id} value={role.id} title={role.name}>{role.name}</option>
+                          ))}
+                        </select>
+                        <label htmlFor="role">Role *</label>
+                      </div>
+
+                    )}
                   </div>
-
-
-                  <div className={addStyles.formGroup}>
+                  <div className={addUserRequestStyles.formGroup}>
                     <label></label>
                     <textarea
                       name="remarks"
@@ -514,29 +1016,27 @@ const AddUserRequest: React.FC = () => {
                     />
                     <label htmlFor="remarks">Remarks</label>
                   </div>
-
-
                 </div>
               )}
 
               {/* Card 5 Bulk User Creation */}
-              {(form.requestFor !== "Vendor / OEM" && isBulkNew) && (
-                <div className={addStyles.section}>
-                  <span className={addStyles.sectionHeaderTitle}>Bulk User Creation</span>
+              {(form.request_for_by !== "Vendor / OEM" && isBulkNew) && (
+                <div className={addUserRequestStyles.section}>
+                  <span className={addUserRequestStyles.sectionHeaderTitle}>Bulk User Creation</span>
                   <div>
                     {bulkRows.length < 7 && (
-                      <div className={addStyles.addRowWrapper}>
+                      <div className={addUserRequestStyles.addRowWrapper}>
                         <button
                           type="button"
                           onClick={handleAddRow}
-                          className={addStyles.addRowBtn}
+                          className={addUserRequestStyles.addRowBtn}
                         >
                           +
                         </button>
                       </div>
                     )}
-                    <div className={addStyles.tableContainer}>
-                      <table className={addStyles.table}>
+                    <div className={addUserRequestStyles.tableContainer}>
+                      <table className={addUserRequestStyles.table}>
                         <thead>
                           <tr>
                             <th>Location</th>
@@ -549,50 +1049,84 @@ const AddUserRequest: React.FC = () => {
                         <tbody>
                           {bulkRows.map((row, index) => (
                             <tr key={index}>
+                              {/* Plant Location (read-only, from main form) */}
                               <td>
-                                <input
-                                  value={row.location}
-                                  onChange={(e) =>
-                                    handleBulkRowChange(index, "location", e.target.value)
-                                  }
-                                  placeholder="Location"
-                                />
+                                <select
+                                  value={form.plant_location} // stores ID
+                                  disabled
+                                >
+                                  {plants.map((plant) => (
+                                    <option key={plant.id} value={plant.id}>
+                                      {plant.plant_name}
+                                    </option>
+                                  ))}
+                                </select>
                               </td>
+
+                              {/* Department (read-only, from main form) */}
                               <td>
-                                <input
-                                  value={row.department}
-                                  onChange={(e) =>
-                                    handleBulkRowChange(index, "department", e.target.value)
-                                  }
-                                  placeholder="Department"
-                                />
+                                <select
+                                  value={form.department} // stores ID
+                                  disabled
+                                >
+                                  {departments.map((dept) => (
+                                    <option key={dept.id} value={dept.id}>
+                                      {dept.department_name}
+                                    </option>
+                                  ))}
+                                </select>
                               </td>
+
+                              {/* Application dropdown */}
                               <td>
-                                <input
+                                <select
                                   value={row.applicationId}
                                   onChange={(e) =>
                                     handleBulkRowChange(index, "applicationId", e.target.value)
                                   }
-                                  placeholder="Application / Equipment ID"
-                                />
+                                  required
+                                >
+                                  <option value="">Select Application</option>
+                                  {applications.map((app) => (
+                                    <option key={app.id} value={app.id} title={app.name}>
+                                      {app.name}
+                                    </option>
+                                  ))}
+                                </select>
                               </td>
+
+                              {/* Role dropdown */}
                               <td>
-                                <input
+                                <select
                                   value={row.role}
                                   onChange={(e) =>
                                     handleBulkRowChange(index, "role", e.target.value)
                                   }
-                                  placeholder="Role"
-                                />
+                                  required
+                                >
+                                  <option value="">Select Role</option>
+                                  {roles.map((role) => (
+                                    <option key={role.id} value={role.id} title={role.name}>
+                                      {role.name}
+                                    </option>
+                                  ))}
+                                </select>
                               </td>
+
+                              {/* Delete button */}
                               <td>
-                                <button type="button" className={addStyles.deleteBtn} onClick={() => handleRemoveRow(index)}>
+                                <button
+                                  type="button"
+                                  className={addUserRequestStyles.deleteBtn}
+                                  onClick={() => handleRemoveRow(index)}
+                                >
                                   Delete
                                 </button>
                               </td>
                             </tr>
                           ))}
                         </tbody>
+
                       </table>
                     </div>
                   </div>
@@ -602,18 +1136,18 @@ const AddUserRequest: React.FC = () => {
 
             </div>
             {/* Move the footer buttons to the top */}
-            <div className={addStyles.formFooter}>
-              <div className={addStyles.formActions}>
-              <button type="submit" className={addStyles.saveBtn}>
-                Submit
-              </button>
-              <button
-                type="button"
-                className={addStyles.cancelBtn}
-                onClick={() => navigate("/user-requests")}
-              >
-                Cancel
-              </button>
+            <div className={addUserRequestStyles.formFooter}>
+              <div className={addUserRequestStyles.formActions}>
+                <button type="submit" className={addUserRequestStyles.saveBtn}>
+                  Submit
+                </button>
+                <button
+                  type="button"
+                  className={addUserRequestStyles.cancelBtn}
+                  onClick={() => navigate("/user-requests")}
+                >
+                  Cancel
+                </button>
               </div>
             </div>
           </form>
@@ -621,7 +1155,6 @@ const AddUserRequest: React.FC = () => {
       </main>
     </div>
   );
-
 };
 
 export default AddUserRequest;

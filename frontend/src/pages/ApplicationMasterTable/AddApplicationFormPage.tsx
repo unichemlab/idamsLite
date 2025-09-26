@@ -97,32 +97,33 @@ const AddApplicationFormPage: React.FC = () => {
     const { name, value, type } = target;
     const checked =
       type === "checkbox" ? (target as HTMLInputElement).checked : undefined;
-    setForm((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
-    if (
-      [
-        "application_hmi_name",
-        "application_hmi_version",
-        "equipment_instrument_id",
-      ].includes(name)
-    ) {
-      setForm((prev) => ({
+    setForm((prev) => {
+      const updated = {
         ...prev,
-        display_name: `${
-          name === "application_hmi_name" ? value : prev.application_hmi_name
+        [name]: type === "checkbox" ? checked : value,
+      };
+      // Auto-generate display_name from three fields
+      if (
+        [
+          "application_hmi_name",
+          "application_hmi_version",
+          "equipment_instrument_id",
+        ].includes(name)
+      ) {
+        updated.display_name = `${
+          name === "application_hmi_name" ? value : updated.application_hmi_name
         } | ${
           name === "application_hmi_version"
             ? value
-            : prev.application_hmi_version
+            : updated.application_hmi_version
         } | ${
           name === "equipment_instrument_id"
             ? value
-            : prev.equipment_instrument_id
-        }`,
-      }));
-    }
+            : updated.equipment_instrument_id
+        }`;
+      }
+      return updated;
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -156,7 +157,7 @@ const AddApplicationFormPage: React.FC = () => {
           system_inventory_id: form.system_inventory_id
             ? Number(form.system_inventory_id)
             : null,
-          role_lock: roleLocked,
+          role_lock: true, // Always set role_lock to true regardless of toggle
         };
         const res = await fetch("http://localhost:4000/api/applications", {
           method: "POST",
@@ -168,7 +169,15 @@ const AddApplicationFormPage: React.FC = () => {
           throw new Error("Failed to add application: " + errorText);
         }
         const newApp = await res.json();
-        setApplications([...(applications || []), newApp]);
+        // Map role_id to role_names for immediate display
+        const roleIdArr = String(newApp.role_id || "")
+          .split(",")
+          .map((id) => id.trim())
+          .filter(Boolean);
+        const role_names = roleIdArr.map(
+          (id) => roles.find((r) => r.id === id)?.name || id
+        );
+        setApplications([...(applications || []), { ...newApp, role_names }]);
         setShowModal(false);
         navigate("/superadmin", { state: { activeTab: "application" } });
       } catch (err) {
@@ -373,6 +382,53 @@ const AddApplicationFormPage: React.FC = () => {
                       placeholder="Enter Application/HMI Name"
                     />
                   </div>
+                  {/* Application/HMI Version */}
+                  <div className={addStyles.formGroup}>
+                    <label>
+                      Application/HMI Version{" "}
+                      <span style={{ color: "red" }}>*</span>
+                    </label>
+                    <input
+                      className={addStyles.input}
+                      name="application_hmi_version"
+                      value={form.application_hmi_version}
+                      onChange={handleChange}
+                      required
+                      placeholder="Enter Application/HMI Version"
+                    />
+                  </div>
+                  {/* Equipment/Instrument ID */}
+                  <div className={addStyles.formGroup}>
+                    <label>
+                      Equipment/Instrument ID{" "}
+                      <span style={{ color: "red" }}>*</span>
+                    </label>
+                    <input
+                      className={addStyles.input}
+                      name="equipment_instrument_id"
+                      value={form.equipment_instrument_id}
+                      onChange={handleChange}
+                      required
+                      placeholder="Enter Equipment/Instrument ID"
+                    />
+                  </div>
+                  {/* Application/HMI Type */}
+                  <div className={addStyles.formGroup}>
+                    <label>
+                      Application/HMI Type{" "}
+                      <span style={{ color: "red" }}>*</span>
+                    </label>
+                    <select
+                      className={addStyles.select}
+                      name="application_hmi_type"
+                      value={form.application_hmi_type}
+                      onChange={handleChange}
+                      required
+                    >
+                      <option value="Application">Application</option>
+                      <option value="HMI">HMI</option>
+                    </select>
+                  </div>
                   {/* System Name */}
                   <div className={addStyles.formGroup}>
                     <label>
@@ -385,17 +441,6 @@ const AddApplicationFormPage: React.FC = () => {
                       onChange={handleChange}
                       required
                       placeholder="Enter System Name"
-                    />
-                  </div>
-                  {/* Application/HMI Version */}
-                  <div className={addStyles.formGroup}>
-                    <label>Application/HMI Version</label>
-                    <input
-                      className={addStyles.input}
-                      name="application_hmi_version"
-                      value={form.application_hmi_version}
-                      onChange={handleChange}
-                      placeholder="Enter Application/HMI Version"
                     />
                   </div>
                   {/* System Inventory ID */}
@@ -506,6 +551,40 @@ const AddApplicationFormPage: React.FC = () => {
                       isDisabled={roleLocked}
                     />
                   </div>
+                  <div
+                    className={addStyles.formGroup}
+                    style={{
+                      flexDirection: "column",
+                      alignItems: "flex-start",
+                      gap: 10,
+                      margin: 0,
+                      minWidth: 200,
+                    }}
+                  >
+                    <label
+                      htmlFor="status"
+                      style={{
+                        marginBottom: 0,
+                        minWidth: 70,
+                        fontWeight: 500,
+                        marginRight: 8,
+                      }}
+                    >
+                      Status <span style={{ color: "red" }}>*</span>
+                    </label>
+                    <select
+                      id="status"
+                      className={addStyles.select}
+                      name="status"
+                      value={form.status}
+                      onChange={handleChange}
+                      required
+                      style={{ minWidth: 120 }}
+                    >
+                      <option value="ACTIVE">ACTIVE</option>
+                      <option value="INACTIVE">INACTIVE</option>
+                    </select>
+                  </div>
                 </div>
                 {/* Multiple Role Access and Status aligned in a row */}
                 <div
@@ -541,40 +620,6 @@ const AddApplicationFormPage: React.FC = () => {
                       onChange={handleChange}
                       style={{ width: 18, height: 18, marginLeft: 0 }}
                     />
-                  </div>
-                  <div
-                    className={addStyles.formGroup}
-                    style={{
-                      flexDirection: "column",
-                      alignItems: "flex-start",
-                      gap: 10,
-                      margin: 0,
-                      minWidth: 200,
-                    }}
-                  >
-                    <label
-                      htmlFor="status"
-                      style={{
-                        marginBottom: 0,
-                        minWidth: 70,
-                        fontWeight: 500,
-                        marginRight: 8,
-                      }}
-                    >
-                      Status <span style={{ color: "red" }}>*</span>
-                    </label>
-                    <select
-                      id="status"
-                      className={addStyles.select}
-                      name="status"
-                      value={form.status}
-                      onChange={handleChange}
-                      required
-                      style={{ minWidth: 120 }}
-                    >
-                      <option value="ACTIVE">ACTIVE</option>
-                      <option value="INACTIVE">INACTIVE</option>
-                    </select>
                   </div>
                 </div>
                 <div className={addStyles.buttonRow}>

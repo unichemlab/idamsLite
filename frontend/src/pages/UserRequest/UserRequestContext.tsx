@@ -7,31 +7,48 @@ import {
   deleteUserRequestAPI,
 } from "../../utils/api";
 
+export type TaskRequest = {
+   task_id?: number;
+  transaction_id?: string;   // ✅ add this
+  access_request_type?: string;
+  application_equip_id: string;
+  application_name?: string;
+  department: string;
+  role: string;
+  location: string;
+  reports_to: string;
+  task_status: string;
+};
+
+
 export type UserRequest = {
   id?: number;
-  requestFor: "Self" | "Others" | "Vendor / OEM";
+  request_for_by: "Self" | "Others" | "Vendor / OEM";
+  transaction_id?: string;
   name: string;
   employeeCode?: string;
   location: string;
-  plant_location:string;
+  plant_location: string;
   accessType: string;
   applicationId: string;
   department: string;
   role: string;
   reportsTo: string;
   trainingStatus: "Yes" | "No";
-  attachment?: File | null;
-  attachmentPath?: string;
+  attachment?: File | null;          // file uploaded
+  attachmentPath?: string;           // saved server path
+  attachmentName?: string;           // original filename
   remarks?: string;
   approver1: string;
   approver2: string[];
   approver3: string[];
   status?: "Pending" | "Approved" | "Rejected";
-  // Vendor fields
-    vendorName: string[];
-    vendorFirm: string[];
-    vendorCode: string[];
-    allocatedId:[],
+  vendorName: string[];
+  vendorFirm: string[];
+  vendorCode: string[];
+  allocatedId: string[];
+  bulkEntries?: { location: string; department: string; applicationId: string; role: string }[];
+  tasks?: TaskRequest[];
   created_at?: string;
   updated_at?: string;
 };
@@ -41,7 +58,7 @@ type UserRequestContextType = {
   request: UserRequest;
   setRequest: React.Dispatch<React.SetStateAction<UserRequest>>;
   fetchUserRequests: () => void;
-  addUserRequest: (req: UserRequest) => Promise<void>;
+  addUserRequest: (req: FormData) => Promise<void>;
   updateUserRequest: (id: number, req: UserRequest) => Promise<void>;
   deleteUserRequest: (id: number) => Promise<void>;
   loading: boolean;
@@ -53,10 +70,11 @@ const UserRequestContext = createContext<UserRequestContextType | undefined>(und
 export const UserRequestProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [userrequests, setUserRequests] = useState<UserRequest[]>([]);
   const [request, setRequest] = useState<UserRequest>({
-    requestFor: "Self",
+    request_for_by: "Self",
+    transaction_id: "",
     name: "",
     location: "",
-    plant_location:"",
+    plant_location: "",
     accessType: "",
     applicationId: "",
     department: "",
@@ -68,11 +86,12 @@ export const UserRequestProvider: React.FC<{ children: React.ReactNode }> = ({ c
     approver1: "",
     approver2: [],
     approver3: [],
-       vendorName: [],
+    vendorName: [],
     vendorFirm: [],
     vendorCode: [],
-    allocatedId:[],
+    allocatedId: [],
     status: "Pending",
+    tasks: []
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,18 +109,18 @@ export const UserRequestProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   };
 
-  const addUserRequest = async (req: UserRequest) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const newReq = await addUserRequestAPI(req);
-      setUserRequests((prev) => [...prev, newReq]);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const addUserRequest = async (req: FormData) => {
+  setLoading(true);
+  setError(null);
+  try {
+    const newReq = await addUserRequestAPI(req);
+    setUserRequests((prev) => [...prev, newReq]);
+  } catch (err: any) {
+    setError(err.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const updateUserRequest = async (id: number, req: UserRequest) => {
     setLoading(true);
