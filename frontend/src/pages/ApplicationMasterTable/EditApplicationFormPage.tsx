@@ -135,32 +135,33 @@ const EditApplicationFormPage: React.FC = () => {
     const { name, value, type } = target;
     const checked =
       type === "checkbox" ? (target as HTMLInputElement).checked : undefined;
-    setForm((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
-    if (
-      [
-        "application_hmi_name",
-        "application_hmi_version",
-        "equipment_instrument_id",
-      ].includes(name)
-    ) {
-      setForm((prev) => ({
+    setForm((prev) => {
+      const updated = {
         ...prev,
-        display_name: `${
-          name === "application_hmi_name" ? value : prev.application_hmi_name
+        [name]: type === "checkbox" ? checked : value,
+      };
+      // Auto-generate display_name from three fields
+      if (
+        [
+          "application_hmi_name",
+          "application_hmi_version",
+          "equipment_instrument_id",
+        ].includes(name)
+      ) {
+        updated.display_name = `${
+          name === "application_hmi_name" ? value : updated.application_hmi_name
         } | ${
           name === "application_hmi_version"
             ? value
-            : prev.application_hmi_version
+            : updated.application_hmi_version
         } | ${
           name === "equipment_instrument_id"
             ? value
-            : prev.equipment_instrument_id
-        }`,
-      }));
-    }
+            : updated.equipment_instrument_id
+        }`;
+      }
+      return updated;
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -431,6 +432,53 @@ const EditApplicationFormPage: React.FC = () => {
                       placeholder="Enter Application/HMI Name"
                     />
                   </div>
+                  {/* Application/HMI Version */}
+                  <div className={addStyles.formGroup}>
+                    <label>
+                      Application/HMI Version{" "}
+                      <span style={{ color: "red" }}>*</span>
+                    </label>
+                    <input
+                      className={addStyles.input}
+                      name="application_hmi_version"
+                      value={form.application_hmi_version}
+                      onChange={handleChange}
+                      required
+                      placeholder="Enter Application/HMI Version"
+                    />
+                  </div>
+                  {/* Equipment/Instrument ID */}
+                  <div className={addStyles.formGroup}>
+                    <label>
+                      Equipment/Instrument ID{" "}
+                      <span style={{ color: "red" }}>*</span>
+                    </label>
+                    <input
+                      className={addStyles.input}
+                      name="equipment_instrument_id"
+                      value={form.equipment_instrument_id}
+                      onChange={handleChange}
+                      required
+                      placeholder="Enter Equipment/Instrument ID"
+                    />
+                  </div>
+                  {/* Application/HMI Type */}
+                  <div className={addStyles.formGroup}>
+                    <label>
+                      Application/HMI Type{" "}
+                      <span style={{ color: "red" }}>*</span>
+                    </label>
+                    <select
+                      className={addStyles.select}
+                      name="application_hmi_type"
+                      value={form.application_hmi_type}
+                      onChange={handleChange}
+                      required
+                    >
+                      <option value="Application">Application</option>
+                      <option value="HMI">HMI</option>
+                    </select>
+                  </div>
                   {/* System Name (mandatory) */}
                   <div className={addStyles.formGroup}>
                     <label>
@@ -443,17 +491,6 @@ const EditApplicationFormPage: React.FC = () => {
                       onChange={handleChange}
                       required
                       placeholder="Enter System Name"
-                    />
-                  </div>
-                  {/* Application/HMI Version */}
-                  <div className={addStyles.formGroup}>
-                    <label>Application/HMI Version</label>
-                    <input
-                      className={addStyles.input}
-                      name="application_hmi_version"
-                      value={form.application_hmi_version}
-                      onChange={handleChange}
-                      placeholder="Enter Application/HMI Version"
                     />
                   </div>
                   {/* System Inventory ID */}
