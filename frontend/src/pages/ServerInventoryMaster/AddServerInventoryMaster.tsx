@@ -4,12 +4,14 @@ import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useServerContext, Server } from "./ServerContext";
 import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
-import addStyles from "../../pages/PlantMaster/AddPlantMaster.module.css";
+import addStyles from "../../pages/ServerInventoryMaster/AddServerInventoryMaster.module.css";
 import { sidebarConfig } from "../../components/Common/sidebarConfig";
 
 const AddServerInventory: React.FC = () => {
   const { addServer } = useServerContext();
   const navigate = useNavigate();
+
+  // Handle input changes for all fields
   const [form, setForm] = useState<Server>({
     id: 0,
     transaction_id: "",
@@ -66,20 +68,39 @@ const AddServerInventory: React.FC = () => {
     created_on: "",
     updated_on: "",
   });
-  const { user } = useAuth();
-  const [showConfirm, setShowConfirm] = useState(false);
 
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
     >
   ) => {
-    const { name, value } = e.target;
-    setForm({
-      ...form,
-      [name]: name === "status" ? (value as "ACTIVE" | "INACTIVE") : value,
-    });
+    const { name, value, type } = e.target;
+    if (
+      [
+        "part_no",
+        "server_managed_by",
+        "current_rpo",
+        "sap_asset_no",
+        "amc_vendor",
+      ].includes(name)
+    ) {
+      const checked =
+        type === "checkbox"
+          ? (e.target as HTMLInputElement).checked
+          : undefined;
+      setForm({ ...form, [name]: type === "checkbox" ? checked : value });
+    } else if (["purchase_po", "windows_activated"].includes(name)) {
+      setForm({
+        ...form,
+        [name]: type === "number" ? Number(value) : Number(value),
+      });
+    } else {
+      setForm({ ...form, [name]: value });
+    }
   };
+
+  const { user } = useAuth();
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,7 +108,6 @@ const AddServerInventory: React.FC = () => {
   };
 
   const handleConfirm = (data: Record<string, string>) => {
-    // Optionally, you can check password here with backend
     addServer(form);
     setShowConfirm(false);
     navigate("/superadmin");
@@ -97,10 +117,8 @@ const AddServerInventory: React.FC = () => {
     setShowConfirm(false);
   };
 
-  // Always show all sidebar items, regardless of user role
   const filteredSidebarConfig = sidebarConfig;
 
-  // Sidebar navigation handler
   const handleSidebarNav = (key: string) => {
     switch (key) {
       case "dashboard":
@@ -129,16 +147,15 @@ const AddServerInventory: React.FC = () => {
         break;
       case "system":
         navigate("/superadmin", { state: { activeTab: "system" } });
-        break; 
-       case "server":
+        break;
+      case "server":
         navigate("/superadmin", { state: { activeTab: "server" } });
-        break;     
+        break;
       default:
         break;
     }
   };
 
-  // Determine active sidebar tab (always "plant" for Add)
   const activeTab = "server";
 
   return (
@@ -249,45 +266,512 @@ const AddServerInventory: React.FC = () => {
             >
               <div className={addStyles.scrollFormContainer}>
                 <div className={addStyles.rowFields}>
-                  {/* Render all inventory fields except created_at and updated_at */}
-                  <div className={addStyles.formGroup} style={{ flex: 1, minWidth: 180 }}>
+                  <div className={addStyles.formGroup}>
                     <label>Transaction ID</label>
-                    <input name="transaction_id" value={form.transaction_id} onChange={handleChange} className={addStyles.input} />
+                    <input
+                      name="transaction_id"
+                      value={form.transaction_id}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
                   </div>
-                  <div className={addStyles.formGroup} style={{ flex: 1, minWidth: 180 }}>
-                    <label>Server Name</label>
-                <input name="host_name" value={form.host_name} onChange={handleChange} required className={addStyles.input} />
+                  <div className={addStyles.formGroup}>
+                    <label>Plant Location</label>
+                    <input
+                      name="plant_location_id"
+                      value={form.plant_location_id}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
                   </div>
-                  <div className={addStyles.formGroup} style={{ flex: 1, minWidth: 180 }}>
+                  <div className={addStyles.formGroup}>
+                    <label>RACK NUMBER</label>
+                    <input
+                      name="rack_number"
+                      value={form.rack_number}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                </div>
+                <div className={addStyles.rowFields}>
+                  <div className={addStyles.formGroup}>
+                    <label>SERVER OWNER</label>
+                    <input
+                      name="server_owner"
+                      value={form.server_owner}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>Type Tower / Rack mounted</label>
+                    <input
+                      name="type_tower_rack_mounted"
+                      value={form.type_tower_rack_mounted}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>Server / RACK Location / Area</label>
+                    <input
+                      name="server_rack_location_area"
+                      value={form.server_rack_location_area}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                </div>
+                <div className={addStyles.rowFields}>
+                  <div className={addStyles.formGroup}>
+                    <label>Asset No.</label>
+                    <input
+                      name="asset_no"
+                      value={form.asset_no}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>Host Name</label>
+                    <input
+                      name="host_name"
+                      value={form.host_name}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>MAKE</label>
+                    <input
+                      name="make"
+                      value={form.make}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                </div>
+                <div className={addStyles.rowFields}>
+                  <div className={addStyles.formGroup}>
+                    <label>MODEL</label>
+                    <input
+                      name="model"
+                      value={form.model}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>SERIAL NO.</label>
+                    <input
+                      name="serial_no"
+                      value={form.serial_no}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>OS</label>
+                    <input
+                      name="os"
+                      value={form.os}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                </div>
+                <div className={addStyles.rowFields}>
+                  <div className={addStyles.formGroup}>
+                    <label>Physical Server Host Name</label>
+                    <input
+                      name="physical_server_host_name"
+                      value={form.physical_server_host_name}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>IDRAC/ILO</label>
+                    <input
+                      name="idrac_ilo"
+                      value={form.idrac_ilo}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>IP-ADDRESS</label>
+                    <input
+                      name="ip_address"
+                      value={form.ip_address}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                </div>
+                <div className={addStyles.rowFields}>
+                  <div className={addStyles.formGroup}>
+                    <label>Part No.</label>
+                    <input
+                      name="part_no"
+                      type="checkbox"
+                      checked={!!form.part_no}
+                      onChange={handleChange}
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>APPLICATION</label>
+                    <input
+                      name="application"
+                      value={form.application}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>Application Version</label>
+                    <input
+                      name="application_version"
+                      value={form.application_version}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                </div>
+                <div className={addStyles.rowFields}>
+                  <div className={addStyles.formGroup}>
+                    <label>Application OEM</label>
+                    <input
+                      name="application_oem"
+                      value={form.application_oem}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>Application Vendor</label>
+                    <input
+                      name="application_vendor"
+                      value={form.application_vendor}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>System Owner</label>
+                    <input
+                      name="system_owner"
+                      value={form.system_owner}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                </div>
+                <div className={addStyles.rowFields}>
+                  <div className={addStyles.formGroup}>
+                    <label>VM Display Name</label>
+                    <input
+                      name="vm_display_name"
+                      value={form.vm_display_name}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>TYPE</label>
+                    <input
+                      name="vm_type"
+                      value={form.vm_type}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>VM OS</label>
+                    <input
+                      name="vm_os"
+                      value={form.vm_os}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                </div>
+                <div className={addStyles.rowFields}>
+                  <div className={addStyles.formGroup}>
+                    <label>VM Version</label>
+                    <input
+                      name="vm_version"
+                      value={form.vm_version}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>VM Server IP</label>
+                    <input
+                      name="vm_server_ip"
+                      value={form.vm_server_ip}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>
+                      Domain / Work Group CORP Domain / GXP - mention name of
+                      Domain
+                    </label>
+                    <input
+                      name="domain_workgroup"
+                      value={form.domain_workgroup}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                </div>
+                <div className={addStyles.rowFields}>
+                  <div className={addStyles.formGroup}>
+                    <label>Is Windows Activated Yes / No</label>
+                    <select
+                      name="windows_activated"
+                      value={form.windows_activated}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    >
+                      <option value={1}>Yes</option>
+                      <option value={0}>No</option>
+                    </select>
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>Backup Agent VEEAM / Acronis Version</label>
+                    <input
+                      name="backup_agent"
+                      value={form.backup_agent}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>Antivirus CS / TM / McAfee/ Symantec</label>
+                    <input
+                      name="antivirus"
+                      value={form.antivirus}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                </div>
+                <div className={addStyles.rowFields}>
+                  <div className={addStyles.formGroup}>
+                    <label>Category GxP or Non GxP</label>
+                    <input
+                      name="category_gxp"
+                      value={form.category_gxp}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>Current Status of Server</label>
+                    <input
+                      name="current_status"
+                      value={form.current_status}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>Server Managed By IT or ESD</label>
+                    <input
+                      name="server_managed_by"
+                      type="checkbox"
+                      checked={!!form.server_managed_by}
+                      onChange={handleChange}
+                    />
+                  </div>
+                </div>
+                <div className={addStyles.rowFields}>
+                  <div className={addStyles.formGroup}>
+                    <label>Remarks for Application usage purpose</label>
+                    <input
+                      name="remarks_application_usage"
+                      value={form.remarks_application_usage}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>START DATE</label>
+                    <input
+                      name="start_date"
+                      value={form.start_date}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                      type="date"
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>END DATE</label>
+                    <input
+                      name="end_date"
+                      value={form.end_date}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                      type="date"
+                    />
+                  </div>
+                </div>
+                <div className={addStyles.rowFields}>
+                  <div className={addStyles.formGroup}>
+                    <label>AGING</label>
+                    <input
+                      name="aging"
+                      value={form.aging}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>Environment</label>
+                    <input
+                      name="environment"
+                      value={form.environment}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>Server Critility</label>
+                    <input
+                      name="server_critility"
+                      value={form.server_critility}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                </div>
+                <div className={addStyles.rowFields}>
+                  <div className={addStyles.formGroup}>
+                    <label>Database/Application</label>
+                    <input
+                      name="database_appplication"
+                      value={form.database_appplication}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>Current RPO</label>
+                    <input
+                      name="current_rpo"
+                      type="checkbox"
+                      checked={!!form.current_rpo}
+                      onChange={handleChange}
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>Reduce RPO time from 24 Hrs</label>
+                    <input
+                      name="reduce_rpo_time"
+                      value={form.reduce_rpo_time}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                </div>
+                <div className={addStyles.rowFields}>
+                  <div className={addStyles.formGroup}>
+                    <label>Server to SO Timeline</label>
+                    <input
+                      name="server_to_so_timeline"
+                      value={form.server_to_so_timeline}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>Purchased Date</label>
+                    <input
+                      name="purchase_date"
+                      value={form.purchase_date}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                      type="date"
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>Purchased PO</label>
+                    <input
+                      name="purchase_po"
+                      value={form.purchase_po}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                      type="number"
+                    />
+                  </div>
+                </div>
+                <div className={addStyles.rowFields}>
+                  <div className={addStyles.formGroup}>
+                    <label>Warranty New Start Date</label>
+                    <input
+                      name="warranty_new_start_date"
+                      value={form.warranty_new_start_date}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                      type="date"
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>AMC/Warranty Expiry date</label>
+                    <input
+                      name="amc_warranty_expiry_date"
+                      value={form.amc_warranty_expiry_date}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                      type="date"
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>SAP Asset No.</label>
+                    <input
+                      name="sap_asset_no"
+                      type="checkbox"
+                      checked={!!form.sap_asset_no}
+                      onChange={handleChange}
+                    />
+                  </div>
+                </div>
+                <div className={addStyles.rowFields}>
+                  <div className={addStyles.formGroup}>
+                    <label>AMC Vendor</label>
+                    <input
+                      name="amc_vendor"
+                      type="checkbox"
+                      checked={!!form.amc_vendor}
+                      onChange={handleChange}
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
+                    <label>Remarks If Any</label>
+                    <input
+                      name="remarks"
+                      value={form.remarks}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    />
+                  </div>
+                  <div className={addStyles.formGroup}>
                     <label>Status</label>
-                    <select className={addStyles.select} name="status" value={form.status} onChange={handleChange}>
+                    <select
+                      name="status"
+                      value={form.status}
+                      onChange={handleChange}
+                      className={addStyles.input}
+                    >
                       <option value="ACTIVE">ACTIVE</option>
                       <option value="INACTIVE">INACTIVE</option>
                     </select>
                   </div>
-                  <div className={addStyles.formGroup} style={{ flex: 1, minWidth: 180 }}>
-                    <label>Description</label>
-                <textarea name="remarks" value={form.remarks} onChange={handleChange} className={addStyles.textarea} rows={2} />
-                  </div>
-                  {/* Add more fields as needed below */}
-                  <div className={addStyles.formGroup} style={{ flex: 1, minWidth: 180 }}>
-                    <label>Plant Location</label>
-                    <input name="plant_location_id" value={form.plant_location_id} onChange={handleChange} className={addStyles.input} />
-                  </div>
-                  <div className={addStyles.formGroup} style={{ flex: 1, minWidth: 180 }}>
-                    {/* Removed fields not present in Server interface */}
-                  <div className={addStyles.formGroup} style={{ flex: 1, minWidth: 180 }}>
-                    <label>Serial No.</label>
-                    <input name="serial_no" value={form.serial_no} onChange={handleChange} className={addStyles.input} />
-                  </div>
-                  {/* Removed processor, ram_capacity, hdd_capacity fields not present in Server interface */}
-                  <div className={addStyles.formGroup} style={{ flex: 1, minWidth: 180 }}>
-                    <label>IP Address</label>
-                    <input name="ip_address" value={form.ip_address} onChange={handleChange} className={addStyles.input} />
-                  </div>
-                  {/* Add all other fields similarly... */}
-                  {/* For boolean fields, use checkboxes or selects */}
-                  {/* For brevity, not all fields are rendered here, but you should add all except created_at and updated_at */}
                 </div>
               </div>
               <div
@@ -297,6 +781,12 @@ const AddServerInventory: React.FC = () => {
                   justifyContent: "flex-start",
                   gap: 24,
                   marginTop: 24,
+                  position: "sticky",
+                  bottom: 0,
+                  background: "#fff",
+                  padding: "16px 0 8px 0",
+                  zIndex: 2,
+                  borderTop: "1px solid #e2e8f0",
                 }}
               >
                 <button type="submit" className={addStyles.saveBtn}>
@@ -309,7 +799,6 @@ const AddServerInventory: React.FC = () => {
                 >
                   Cancel
                 </button>
-              </div>
               </div>
             </form>
           </div>

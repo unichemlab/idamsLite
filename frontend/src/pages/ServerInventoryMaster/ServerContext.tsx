@@ -31,7 +31,7 @@ export interface Server {
   physical_server_host_name?: string;
   idrac_ilo?: string;
   ip_address?: string;
-  part_no?: boolean;
+  part_no?: boolean | string;
   application?: string;
   application_version?: string;
   application_oem?: string;
@@ -43,12 +43,12 @@ export interface Server {
   vm_version?: string;
   vm_server_ip?: string;
   domain_workgroup?: string;
-  windows_activated?: number;
+  windows_activated?: number | string;
   backup_agent?: string;
   antivirus?: string;
   category_gxp?: string;
   current_status?: string;
-  server_managed_by?: boolean;
+  server_managed_by?: boolean | string;
   remarks_application_usage?: string;
   start_date?: string;
   end_date?: string;
@@ -56,22 +56,20 @@ export interface Server {
   environment?: string;
   server_critility?: string;
   database_appplication?: string;
-  current_rpo?: boolean;
+  current_rpo?: boolean | string;
   reduce_rpo_time?: string;
   server_to_so_timeline?: string;
   purchase_date?: string;
   purchase_po?: number;
   warranty_new_start_date?: string;
   amc_warranty_expiry_date?: string;
-  sap_asset_no?: boolean;
-  amc_vendor?: boolean;
+  sap_asset_no?: boolean | string;
+  amc_vendor?: boolean | string;
   remarks?: string;
   status?: string;
   created_on?: string;
   updated_on?: string;
-  
 }
-
 
 interface ServerContextType {
   servers: Server[];
@@ -144,10 +142,7 @@ export const ServerProvider = ({ children }: { children: ReactNode }) => {
           amc_warranty_expiry_date: p.amc_warranty_expiry_date,
           sap_asset_no: p.sap_asset_no,
           amc_vendor: p.amc_vendor,
-        
-          
-          
-         
+
           remarks: p.remarks,
           status: p.status,
           created_on: p.created_on,
@@ -157,7 +152,7 @@ export const ServerProvider = ({ children }: { children: ReactNode }) => {
         }));
         setServers(normalized as Server[]);
       })
-  .catch((err: unknown) => {
+      .catch((err: unknown) => {
         setServers([]);
       });
   };
