@@ -188,9 +188,13 @@
   position: relative;
 }
 .container {
-  padding: 24px;
+  
+   background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 
-  font-family: "Segoe UI", sans-serif;
+ 
+ 
 }
 
 .header {
@@ -553,4 +557,14 @@
   background: #eef5fe;
   z-index: 2;
   box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.04);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.06);
+  height: 100%;
 }

@@ -2,87 +2,69 @@ import React, { useState } from "react";
 import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { useSystemContext, System } from "./SystemContext";
+import { useServerContext, Server } from "./ServerContext";
 import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
 import addStyles from "../../pages/PlantMaster/AddPlantMaster.module.css";
 import { sidebarConfig } from "../../components/Common/sidebarConfig";
 
-const AddSystemInventory: React.FC = () => {
-  const { addSystem } = useSystemContext();
+const AddServerInventory: React.FC = () => {
+  const { addServer } = useServerContext();
   const navigate = useNavigate();
-  const [form, setForm] = useState<System>({
+  const [form, setForm] = useState<Server>({
     id: 0,
     transaction_id: "",
     plant_location_id: "",
-    user_location: "",
-    building_location: "",
-    department_id: "",
-    allocated_to_user_name: "",
+    rack_number: "",
+    server_owner: "",
+    type_tower_rack_mounted: "",
+    server_rack_location_area: "",
+    asset_no: "",
     host_name: "",
     make: "",
     model: "",
     serial_no: "",
-    processor: "",
-    ram_capacity: "",
-    hdd_capacity: "",
+    os: "",
+    physical_server_host_name: "",
+    idrac_ilo: "",
     ip_address: "",
-    other_software: "",
-    windows_activated: false,
-    os_version_service_pack: "",
-    architecture: "",
-    type_of_asset: "",
-    category_gxp: "",
-    gamp_category: "",
-    instrument_equipment_name: "",
-    equipment_instrument_id: "",
-    instrument_owner: "",
-    service_tag: "",
-    warranty_status: "",
-    warranty_end_date: "",
-    connected_no_of_equipments: 0,
-    application_name: "",
+    part_no: false,
+    application: "",
     application_version: "",
     application_oem: "",
     application_vendor: "",
-    user_management_applicable: false,
-    application_onboard: "",
-    system_process_owner: "",
-    database_version: "",
+    system_owner: "",
+    vm_display_name: "",
+    vm_type: "",
+    vm_os: "",
+    vm_version: "",
+    vm_server_ip: "",
     domain_workgroup: "",
-    connected_through: "",
-    specific_vlan: "",
-    ip_address_type: "",
-    date_time_sync_available: false,
+    windows_activated: 0,
+    backup_agent: "",
     antivirus: "",
-    antivirus_version: "",
-    backup_type: "",
-    backup_frequency_days: 0,
-    backup_path: "",
-    backup_tool: "",
-    backup_procedure_available: false,
-    folder_deletion_restriction: false,
-    remote_tool_available: false,
-    os_administrator: "",
-    system_running_with: "",
-    audit_trail_adequacy: "",
-    user_roles_availability: false,
-    user_roles_challenged: false,
-    system_managed_by: "",
-    planned_upgrade_fy2526: false,
-    eol_eos_upgrade_status: "",
-    system_current_status: "",
-    purchase_po: "",
-    purchase_vendor_name: "",
-    amc_vendor_name: "",
-    renewal_po: "",
-    warranty_period: "",
-    amc_start_date: "",
-    amc_expiry_date: "",
-    sap_asset_no: "",
+    category_gxp: "",
+    current_status: "",
+    server_managed_by: false,
+    remarks_application_usage: "",
+    start_date: "",
+    end_date: "",
+    aging: "",
+    environment: "",
+    server_critility: "",
+    database_appplication: "",
+    current_rpo: false,
+    reduce_rpo_time: "",
+    server_to_so_timeline: "",
+    purchase_date: "",
+    purchase_po: 0,
+    warranty_new_start_date: "",
+    amc_warranty_expiry_date: "",
+    sap_asset_no: false,
+    amc_vendor: false,
     remarks: "",
     status: "ACTIVE",
-    system_name: "",
-    description: "",
+    created_on: "",
+    updated_on: "",
   });
   const { user } = useAuth();
   const [showConfirm, setShowConfirm] = useState(false);
@@ -106,7 +88,7 @@ const AddSystemInventory: React.FC = () => {
 
   const handleConfirm = (data: Record<string, string>) => {
     // Optionally, you can check password here with backend
-    addSystem(form);
+    addServer(form);
     setShowConfirm(false);
     navigate("/superadmin");
   };
@@ -147,14 +129,17 @@ const AddSystemInventory: React.FC = () => {
         break;
       case "system":
         navigate("/superadmin", { state: { activeTab: "system" } });
-        break;  
+        break; 
+       case "server":
+        navigate("/superadmin", { state: { activeTab: "server" } });
+        break;     
       default:
         break;
     }
   };
 
   // Determine active sidebar tab (always "plant" for Add)
-  const activeTab = "system";
+  const activeTab = "server";
 
   return (
     <React.Fragment>
@@ -214,7 +199,7 @@ const AddSystemInventory: React.FC = () => {
         <main className={superAdminStyles["main-content"]}>
           {/* Header */}
           <header className={superAdminStyles["main-header"]}>
-            <h2 className={superAdminStyles["header-title"]}>System Master</h2>
+            <h2 className={superAdminStyles["header-title"]}>Server Master</h2>
             <div className={superAdminStyles["header-icons"]}></div>
           </header>
 
@@ -241,15 +226,15 @@ const AddSystemInventory: React.FC = () => {
                 transition: "color 0.2s",
               }}
               onClick={() =>
-                navigate("/superadmin", { state: { activeTab: "system" } })
+                navigate("/superadmin", { state: { activeTab: "server" } })
               }
               onMouseOver={(e) => (e.currentTarget.style.color = "#084a9e")}
               onMouseOut={(e) => (e.currentTarget.style.color = "#0b63ce")}
               tabIndex={0}
               role="button"
-              aria-label="Go to Plant Master table"
+              aria-label="Go to Server Master table"
             >
-              System Master
+              Server Master
             </span>
             <span>&gt;</span>
             <span style={{ color: "#2d3748" }}>Add Plant</span>
@@ -270,8 +255,8 @@ const AddSystemInventory: React.FC = () => {
                     <input name="transaction_id" value={form.transaction_id} onChange={handleChange} className={addStyles.input} />
                   </div>
                   <div className={addStyles.formGroup} style={{ flex: 1, minWidth: 180 }}>
-                    <label>System Name</label>
-                    <input name="system_name" value={form.system_name} onChange={handleChange} required className={addStyles.input} />
+                    <label>Server Name</label>
+                <input name="host_name" value={form.host_name} onChange={handleChange} required className={addStyles.input} />
                   </div>
                   <div className={addStyles.formGroup} style={{ flex: 1, minWidth: 180 }}>
                     <label>Status</label>
@@ -282,7 +267,7 @@ const AddSystemInventory: React.FC = () => {
                   </div>
                   <div className={addStyles.formGroup} style={{ flex: 1, minWidth: 180 }}>
                     <label>Description</label>
-                    <textarea name="description" value={form.description} onChange={handleChange} className={addStyles.textarea} rows={2} />
+                <textarea name="remarks" value={form.remarks} onChange={handleChange} className={addStyles.textarea} rows={2} />
                   </div>
                   {/* Add more fields as needed below */}
                   <div className={addStyles.formGroup} style={{ flex: 1, minWidth: 180 }}>
@@ -290,49 +275,12 @@ const AddSystemInventory: React.FC = () => {
                     <input name="plant_location_id" value={form.plant_location_id} onChange={handleChange} className={addStyles.input} />
                   </div>
                   <div className={addStyles.formGroup} style={{ flex: 1, minWidth: 180 }}>
-                    <label>User Location</label>
-                    <input name="user_location" value={form.user_location} onChange={handleChange} className={addStyles.input} />
-                  </div>
-                  <div className={addStyles.formGroup} style={{ flex: 1, minWidth: 180 }}>
-                    <label>Building Location</label>
-                    <input name="building_location" value={form.building_location} onChange={handleChange} className={addStyles.input} />
-                  </div>
-                  <div className={addStyles.formGroup} style={{ flex: 1, minWidth: 180 }}>
-                    <label>Department</label>
-                    <input name="department_id" value={form.department_id} onChange={handleChange} className={addStyles.input} />
-                  </div>
-                  <div className={addStyles.formGroup} style={{ flex: 1, minWidth: 180 }}>
-                    <label>Allocated to User Name</label>
-                    <input name="allocated_to_user_name" value={form.allocated_to_user_name} onChange={handleChange} className={addStyles.input} />
-                  </div>
-                  <div className={addStyles.formGroup} style={{ flex: 1, minWidth: 180 }}>
-                    <label>Host Name</label>
-                    <input name="host_name" value={form.host_name} onChange={handleChange} className={addStyles.input} />
-                  </div>
-                  <div className={addStyles.formGroup} style={{ flex: 1, minWidth: 180 }}>
-                    <label>Make</label>
-                    <input name="make" value={form.make} onChange={handleChange} className={addStyles.input} />
-                  </div>
-                  <div className={addStyles.formGroup} style={{ flex: 1, minWidth: 180 }}>
-                    <label>Model</label>
-                    <input name="model" value={form.model} onChange={handleChange} className={addStyles.input} />
-                  </div>
+                    {/* Removed fields not present in Server interface */}
                   <div className={addStyles.formGroup} style={{ flex: 1, minWidth: 180 }}>
                     <label>Serial No.</label>
                     <input name="serial_no" value={form.serial_no} onChange={handleChange} className={addStyles.input} />
                   </div>
-                  <div className={addStyles.formGroup} style={{ flex: 1, minWidth: 180 }}>
-                    <label>Processor</label>
-                    <input name="processor" value={form.processor} onChange={handleChange} className={addStyles.input} />
-                  </div>
-                  <div className={addStyles.formGroup} style={{ flex: 1, minWidth: 180 }}>
-                    <label>RAM Capacity</label>
-                    <input name="ram_capacity" value={form.ram_capacity} onChange={handleChange} className={addStyles.input} />
-                  </div>
-                  <div className={addStyles.formGroup} style={{ flex: 1, minWidth: 180 }}>
-                    <label>HDD Capacity</label>
-                    <input name="hdd_capacity" value={form.hdd_capacity} onChange={handleChange} className={addStyles.input} />
-                  </div>
+                  {/* Removed processor, ram_capacity, hdd_capacity fields not present in Server interface */}
                   <div className={addStyles.formGroup} style={{ flex: 1, minWidth: 180 }}>
                     <label>IP Address</label>
                     <input name="ip_address" value={form.ip_address} onChange={handleChange} className={addStyles.input} />
@@ -362,6 +310,7 @@ const AddSystemInventory: React.FC = () => {
                   Cancel
                 </button>
               </div>
+              </div>
             </form>
           </div>
         </main>
@@ -370,4 +319,4 @@ const AddSystemInventory: React.FC = () => {
   );
 };
 
-export default AddSystemInventory;
+export default AddServerInventory;

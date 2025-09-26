@@ -244,7 +244,7 @@ const UserMasterTable = () => {
         </div>
         {/* Professional Filter Button with Popover */}
         <div className={styles.wrapper}>
-          <div className={styles.container}>
+          <div  >
             <div className={styles.controls}>
               {showFilterPopover && (
                 <div className={styles.filterPopover} ref={popoverRef}>
@@ -309,7 +309,15 @@ const UserMasterTable = () => {
               )}
             </div>
             {/* Table */}
-            <div className={styles.tableUser}>
+            <div  style={{
+            maxHeight: 380,
+            overflowY: "auto",
+            borderRadius: 8,
+            boxShadow: "0 0 4px rgba(0, 0, 0, 0.05)",
+            border: "1px solid #e2e8f0",
+            marginTop: "11px",
+            height: "100",
+          }} >
               <table className={styles.userTable}>
                 <thead>
                   <tr>

@@ -258,7 +258,7 @@ export default function ApplicationMasterTable() {
             type="button"
             style={{ border: "1px solid #0b63ce" }}
           >
-            <span role="img" aria-label="Export PDF" style={{ fontSize: 18 }}>
+            <span role="img" aria-label="Export PDF" style={{ fontSize: 18, marginRight:6 }}>
               🗎
             </span>
             PDF
@@ -270,7 +270,18 @@ export default function ApplicationMasterTable() {
       <div className={styles.wrapper}>
         <div className={styles.container}>
           <div className={styles.controls}></div>
-          <div className={styles.tableUser1}>
+          
+            <div
+          style={{
+            maxHeight: 380,
+            overflowY: "auto",
+            borderRadius: 8,
+            boxShadow: "0 0 4px rgba(0, 0, 0, 0.05)",
+            border: "1px solid #e2e8f0",
+            marginTop: "11px",
+            height: "100",
+          }}
+        >
             <table className={styles.table}>
               <thead>
                 <tr>
@@ -345,6 +356,7 @@ export default function ApplicationMasterTable() {
                 ))}
               </tbody>
             </table>
+          </div>
             {/* Activity Logs Modal */}
             {showActivityModal && activityLogsApp && (
               <div
@@ -646,7 +658,7 @@ export default function ApplicationMasterTable() {
                 </div>
               </div>
             )}
-          </div>
+          
         </div>
       </div>
 

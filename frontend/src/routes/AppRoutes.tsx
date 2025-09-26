@@ -36,6 +36,9 @@ import EditDeptFormPage from "pages/DepartmentMaster/EditDeptFormPage";
 import SystemInventoryMasterTable from "../pages/SystemInventoryMasterTable/SystemInventoryMasterTable";
 import AddSystemInventory from "../pages/SystemInventoryMaster/AddSystemInventory";
 import EditSystemInventory from "../pages/SystemInventoryMaster/EditSystemInventory";
+import ServerInventoryMasterTable from "../pages/ServerInventoryMasterTable/ServerInventoryMasterTable";
+import AddServerInventory from "../pages/ServerInventoryMaster/AddServerInventoryMaster";
+import EditServerInventory from "../pages/ServerInventoryMaster/EditServerInventoryMaster";
 // Removed unused SystemInventoryMasterTable, AddSystemInventory, EditSystemInventory imports
 // List of allowed routes for matching
 const allowedRoutes = [
@@ -72,6 +75,9 @@ const allowedRoutes = [
   "/systems",
   "/systems/add",
   "/systems/edit/:id",
+   "/servers",
+  "/servers/add",
+  "/servers/edit/:id",
 ];
 
 const NotFound = () => (
@@ -384,6 +390,35 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
+
+      {/* Server Inventory Master */}
+
+      <Route
+        path="/servers"
+        element={
+          <ProtectedRoute>
+            <ServerInventoryMasterTable />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/servers/add"
+        element={
+          <ProtectedRoute>
+            <AddServerInventory />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/servers/edit/:id"
+        element={
+          <ProtectedRoute>
+            <EditServerInventory />
+          </ProtectedRoute>
+        }
+      />
+
       {/* Catch-all route for 404 */}
       <Route path="*" element={<NotFound />} />
     </Routes>

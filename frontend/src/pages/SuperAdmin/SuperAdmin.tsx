@@ -30,6 +30,8 @@ import { Role } from "../../utils/rbac";
 import AddRoleFormPage from "RoleMaster/AddRoleFormPage";
 import EditRoleFormPage from "RoleMaster/EditRoleFormPage";
 import SystemInventoryMasterTable from "pages/SystemInventoryMasterTable/SystemInventoryMasterTable";
+import ServerInventoryMasterTable from "pages/ServerInventoryMasterTable/ServerInventoryMasterTable";
+
 const SuperAdmin: React.FC = () => {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState(() => {
@@ -114,6 +116,12 @@ const SuperAdmin: React.FC = () => {
       label: "System Inventory",
       icon: <AssignmentIcon fontSize="small" />,
       perm: "system:view",
+    },
+    {
+      key: "server",
+      label: "Server Inventory",
+      icon: <AssignmentIcon fontSize="small" />,
+      perm: "server:view",
     },
   ];
   // Map role_id to role string for RBAC
@@ -226,6 +234,9 @@ const SuperAdmin: React.FC = () => {
 
        case "system":
         return <SystemInventoryMasterTable />;  
+
+       case "server":
+        return <ServerInventoryMasterTable />;    
       default:
         return null;
     }

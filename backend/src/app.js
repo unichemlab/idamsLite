@@ -13,6 +13,7 @@ const userRequest = require("./routes/userRequest");
 const applicationRoutes = require("./routes/applicationRoutes");
 const systemRoutes = require("./routes/systemRoutes");
 const swaggerRoutes = require("./routes/swagger");
+const serverRoutes = require("./routes/serverRoutes");
 
 const app = express();
 
@@ -28,7 +29,7 @@ app.use("/api/plants", plantRoutes);
 app.use("/api/vendors", vendorRoutes);
 app.use("/api/roles", roleRoutes);
 app.use("/api/systems", systemRoutes);
-
+app.use("/api/servers", serverRoutes);
 app.use("/api/departments", departmentRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);

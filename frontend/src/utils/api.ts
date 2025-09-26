@@ -381,3 +381,40 @@ export async function fetchRolesApplicationsByPlantAndDepartment(
   }
 }
 
+
+
+
+
+// Server Inventory API
+export async function fetchServers(): Promise<any[]> {
+  const res = await fetch("http://localhost:4000/api/servers");
+  if (!res.ok) throw new Error("Failed to fetch servers");
+  return await res.json();
+}
+
+export async function addServerAPI(server: any): Promise<any> {
+  const res = await fetch("http://localhost:4000/api/servers", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(server),
+  });
+  if (!res.ok) throw new Error("Failed to add server");
+  return await res.json();
+}
+
+export async function updateServerAPI(id: number, server: any): Promise<any> {
+  const res = await fetch(`http://localhost:4000/api/servers/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(server),
+  });
+  if (!res.ok) throw new Error("Failed to update server");
+  return await res.json();
+}
+
+export async function deleteServerAPI(id: number): Promise<void> {
+  const res = await fetch(`http://localhost:4000/api/servers/${id}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to delete server");
+}

@@ -75,4 +75,10 @@ export const sidebarConfig: SidebarConfigItem[] = [
     icon: <AssignmentIcon fontSize="small" />,
     perm: "system:view",
   },
+  {
+    key: "server",
+    label: "Server Inventory",
+    icon: <AssignmentIcon fontSize="small" />,
+    perm: "server:view",
+  },
 ];
