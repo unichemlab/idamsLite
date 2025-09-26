@@ -32,9 +32,13 @@ const ServerInventoryMasterTable: React.FC = () => {
     const value = filterValue.toLowerCase();
     switch (filterColumn) {
       case "host_name":
-        return server.host_name ? server.host_name.toLowerCase().includes(value) : false;
+        return server.host_name
+          ? server.host_name.toLowerCase().includes(value)
+          : false;
       case "remarks":
-        return server.remarks ? server.remarks.toLowerCase().includes(value) : false;
+        return server.remarks
+          ? server.remarks.toLowerCase().includes(value)
+          : false;
       case "status":
         return server.status?.toLowerCase().includes(value);
       default:
@@ -50,9 +54,60 @@ const ServerInventoryMasterTable: React.FC = () => {
     const mm = String(today.getMonth() + 1).padStart(2, "0");
     const dd = String(today.getDate()).padStart(2, "0");
     const fileName = `ServerMaster_${yyyy}-${mm}-${dd}.pdf`;
-    const headers = [[
-      "Plant Location", "RACK NUMBER", "SERVER OWNER", "Type Tower / Rack mounted", "Server / RACK Location / Area", "Asset No.", "Host Name", "MAKE", "MODEL", "SERIAL NO.", "OS", "Physical Server Host Name", "IDRAC/ILO", "IP-ADDRESS", "Part No.", "APPLICATION", "Application Version", "Application OEM", "Application Vendor", "System Owner", "VM Display Name", "TYPE", "VM OS", "VM Version", "VM Server IP", "Domain / Work Group CORP Domain / GXP - mention name of Domain", "Is Windows Activated Yes / No", "Backup Agent VEEAM / Acronis Version", "Antivirus CS / TM / McAfee/ Symantec", "Category GxP or Non GxP", "Current Status of Server", "Server Managed By IT or ESD", "Remarks for Application usage pupose", "START DATE", "END DATE", "AGING", "Environment", "Server Critility", "Database/Application", "Current RPO", "Reduse RPO time from 24 Hrs", "Server to SO Timeline", "Purchased Date", "Purchased PO", "Warranty New Start Date", "AMC/Warranty Expiry date", "SAP Asset No.", "AMC Vendor", "Remarks If Any",
-    ]];
+    const headers = [
+      [
+        "Plant Location",
+        "RACK NUMBER",
+        "SERVER OWNER",
+        "Type Tower / Rack mounted",
+        "Server / RACK Location / Area",
+        "Asset No.",
+        "Host Name",
+        "MAKE",
+        "MODEL",
+        "SERIAL NO.",
+        "OS",
+        "Physical Server Host Name",
+        "IDRAC/ILO",
+        "IP-ADDRESS",
+        "Part No.",
+        "APPLICATION",
+        "Application Version",
+        "Application OEM",
+        "Application Vendor",
+        "System Owner",
+        "VM Display Name",
+        "TYPE",
+        "VM OS",
+        "VM Version",
+        "VM Server IP",
+        "Domain / Work Group CORP Domain / GXP - mention name of Domain",
+        "Is Windows Activated Yes / No",
+        "Backup Agent VEEAM / Acronis Version",
+        "Antivirus CS / TM / McAfee/ Symantec",
+        "Category GxP or Non GxP",
+        "Current Status of Server",
+        "Server Managed By IT or ESD",
+        "Remarks for Application usage pupose",
+        "START DATE",
+        "END DATE",
+        "AGING",
+        "Environment",
+        "Server Critility",
+        "Database/Application",
+        "Current RPO",
+        "Reduse RPO time from 24 Hrs",
+        "Server to SO Timeline",
+        "Purchased Date",
+        "Purchased PO",
+        "Warranty New Start Date",
+        "AMC/Warranty Expiry date",
+        "SAP Asset No.",
+        "AMC Vendor",
+        "Remarks If Any",
+        "Status",
+      ],
+    ];
     const rows = filteredData.map((server) => [
       server.plant_location_id ?? "",
       server.rack_number ?? "",
@@ -86,27 +141,24 @@ const ServerInventoryMasterTable: React.FC = () => {
       server.category_gxp ?? "",
       server.current_status ?? "",
       server.server_managed_by ?? "",
-     
       server.remarks_application_usage ?? "",
       server.start_date ?? "",
       server.end_date ?? "",
       server.aging ?? "",
       server.environment ?? "",
       server.server_critility ?? "",
-  server.database_appplication ?? "",
+      server.database_appplication ?? "",
       server.current_rpo ?? "",
       server.reduce_rpo_time ?? "",
       server.server_to_so_timeline ?? "",
-  server.purchase_date ?? "",
-  server.purchase_po ?? "",
+      server.purchase_date ?? "",
+      server.purchase_po ?? "",
       server.warranty_new_start_date ?? "",
       server.amc_warranty_expiry_date ?? "",
       server.sap_asset_no ?? "",
       server.amc_vendor ?? "",
       server.remarks ?? "",
       server.status ?? "",
-      server.created_on ?? "",
-      server.updated_on ?? "",
     ]);
     doc.setFontSize(18);
     doc.text("Server Master", 14, 18);
@@ -324,7 +376,9 @@ const ServerInventoryMasterTable: React.FC = () => {
                 <th>VM OS</th>
                 <th>VM Version</th>
                 <th>VM Server IP</th>
-                <th>Domain / Work Group CORP Domain / GXP - mention name of Domain</th>
+                <th>
+                  Domain / Work Group CORP Domain / GXP - mention name of Domain
+                </th>
                 <th>Is Windows Activated Yes / No</th>
                 <th>Backup Agent VEEAM / Acronis Version</th>
                 <th>Antivirus CS / TM / McAfee/ Symantec</th>
@@ -335,7 +389,7 @@ const ServerInventoryMasterTable: React.FC = () => {
                 <th>START DATE</th>
                 <th>END DATE</th>
                 <th>AGING</th>
-                <th>Environment</th> 
+                <th>Environment</th>
                 <th>Server Critility</th>
                 <th>Database/Application</th>
                 <th>Current RPO</th>
@@ -349,9 +403,6 @@ const ServerInventoryMasterTable: React.FC = () => {
                 <th>AMC Vendor</th>
                 <th>Remarks If Any</th>
                 <th>Status</th>
-                <th>Created On</th>
-                <th>Updated On</th>
-                
               </tr>
             </thead>
             <tbody>
@@ -382,12 +433,12 @@ const ServerInventoryMasterTable: React.FC = () => {
                   <td>{server.make}</td>
                   <td>{server.model}</td>
                   <td>{server.serial_no}</td>
-                 
+
                   <td>{server.os}</td>
                   <td>{server.physical_server_host_name}</td>
                   <td>{server.idrac_ilo}</td>
                   <td>{server.ip_address}</td>
-                  
+
                   <td>{server.part_no}</td>
                   <td>{server.application}</td>
                   <td>{server.application_version}</td>
@@ -405,7 +456,7 @@ const ServerInventoryMasterTable: React.FC = () => {
                   <td>{server.antivirus}</td>
                   <td>{server.category_gxp}</td>
                   <td>{server.current_status}</td>
-                  
+
                   <td>{server.server_managed_by}</td>
                   <td>{server.remarks_application_usage}</td>
                   <td>{server.start_date}</td>
@@ -413,24 +464,21 @@ const ServerInventoryMasterTable: React.FC = () => {
                   <td>{server.aging}</td>
                   <td>{server.environment}</td>
                   <td>{server.server_critility}</td>
-                  
+
                   <td>{server.database_appplication}</td>
                   <td>{server.current_rpo}</td>
                   <td>{server.reduce_rpo_time}</td>
                   <td>{server.server_to_so_timeline}</td>
                   <td>{server.purchase_date}</td>
                   <td>{server.purchase_po}</td>
-                  
+
                   <td>{server.warranty_new_start_date}</td>
                   <td>{server.amc_warranty_expiry_date}</td>
                   <td>{server.sap_asset_no}</td>
-                  
+
                   <td>{server.amc_vendor}</td>
                   <td>{server.remarks}</td>
                   <td>{server.status}</td>
-                  <td>{server.created_on}</td>
-                  <td>{server.updated_on}</td>
-                 
                 </tr>
               ))}
               <ConfirmDeleteModal
