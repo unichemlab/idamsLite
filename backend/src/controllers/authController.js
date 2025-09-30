@@ -43,7 +43,9 @@ exports.login = async (req, res) => {
   logDebug("Login attempt", { username });
 
   if (!username || !password) {
-    return res.status(400).json({ message: "Username and password are required" });
+    return res
+      .status(400)
+      .json({ message: "Username and password are required" });
   }
 
   try {
@@ -63,39 +65,55 @@ exports.login = async (req, res) => {
       return res.status(403).json({ message: "User is not active" });
     }
 
-    // ---------------- AD Authentication ----------------
-    const baseDN = "DC=uniwin,DC=local";
-    const ad = new ActiveDirectory({
-      url: AD_SERVER,
-      username: AD_USER,
-      password: AD_PASSWORD,
-      baseDN
-    });
-
-    const adUsernameOptions = [`${AD_DOMAIN}\\${username}`, `${username}@${AD_DOMAIN}.local`];
-
+    // ---------------- AD Authentication (conditional) ----------------
     let authenticated = false;
-
-    for (const adUsername of adUsernameOptions) {
-      authenticated = await new Promise((resolve) => {
-        ad.authenticate(adUsername, password, (err, auth) => {
-          if (err) {
-            logDebug(`AD authentication failed for ${adUsername}`, err.message || err.lde_message);
-            return resolve(false);
-          }
-          return resolve(auth);
-        });
+    const useAdAuth = process.env.USE_AD_AUTH === "true";
+    if (useAdAuth) {
+      const baseDN = "DC=uniwin,DC=local";
+      const ad = new ActiveDirectory({
+        url: AD_SERVER,
+        username: AD_USER,
+        password: AD_PASSWORD,
+        baseDN,
       });
-      if (authenticated) {
-        logDebug(`AD authentication successful for ${adUsername}`);
-        break;
-      }
-    }
 
-    // ---------------- Fallback: default DB password ----------------
-    if (!authenticated && password === DEFAULT_PASSWORD) {
-      logDebug(`AD failed, but default password used for ${username}`);
-      authenticated = true;
+      const adUsernameOptions = [
+        `${AD_DOMAIN}\\${username}`,
+        `${username}@${AD_DOMAIN}.local`,
+      ];
+
+      for (const adUsername of adUsernameOptions) {
+        authenticated = await new Promise((resolve) => {
+          ad.authenticate(adUsername, password, (err, auth) => {
+            if (err) {
+              logDebug(
+                `AD authentication failed for ${adUsername}`,
+                err.message || err.lde_message
+              );
+              return resolve(false);
+            }
+            return resolve(auth);
+          });
+        });
+        if (authenticated) {
+          logDebug(`AD authentication successful for ${adUsername}`);
+          break;
+        }
+      }
+      // Fallback: default DB password
+      if (!authenticated && password === DEFAULT_PASSWORD) {
+        logDebug(`AD failed, but default password used for ${username}`);
+        authenticated = true;
+      }
+    } else {
+      // Development: only DB password check
+      if (password === DEFAULT_PASSWORD) {
+        logDebug(`Dev mode: default password used for ${username}`);
+        authenticated = true;
+      } else {
+        logDebug("Dev mode: invalid password");
+        authenticated = false;
+      }
     }
 
     if (!authenticated) {
@@ -134,8 +152,8 @@ exports.login = async (req, res) => {
         role_id: user.role_id,
         status: user.status,
         email: user.email,
-        full_name: user.employee_name
-      }
+        full_name: user.employee_name,
+      },
     });
   } catch (err) {
     console.error("[AUTH ERROR]", err);
