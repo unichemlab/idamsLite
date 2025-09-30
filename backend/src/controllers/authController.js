@@ -49,11 +49,12 @@ exports.login = async (req, res) => {
   }
 
   try {
-    // ---------------- DB fetch first ----------------
+    // ---------------- Fetch user from DB ----------------
     const userQuery = "SELECT * FROM user_master WHERE employee_id = $1";
     const { rows } = await db.query(userQuery, [username]);
+
     if (!rows.length) {
-      logDebug(`User not found in database for employee_id = ${username}`);
+      logDebug(`User not found in database: ${username}`);
       return res.status(404).json({ message: "User not found" });
     }
 
@@ -61,63 +62,60 @@ exports.login = async (req, res) => {
     user.status = (user.status ?? "").toUpperCase();
 
     if (user.status !== "ACTIVE") {
-      logDebug(`User status is not active: ${user.status}`);
+      logDebug(`User is not active: ${username}`);
       return res.status(403).json({ message: "User is not active" });
     }
 
-    // ---------------- AD Authentication (conditional) ----------------
+    // ---------------- AD Authentication (optional) ----------------
     let authenticated = false;
     const useAdAuth = process.env.USE_AD_AUTH === "true";
-    if (useAdAuth) {
-      const baseDN = "DC=uniwin,DC=local";
-      const ad = new ActiveDirectory({
-        url: AD_SERVER,
-        username: AD_USER,
-        password: AD_PASSWORD,
-        baseDN,
-      });
 
-      const adUsernameOptions = [
-        `${AD_DOMAIN}\\${username}`,
-        `${username}@${AD_DOMAIN}.local`,
-      ];
-
-      for (const adUsername of adUsernameOptions) {
-        authenticated = await new Promise((resolve) => {
-          ad.authenticate(adUsername, password, (err, auth) => {
-            if (err) {
-              logDebug(
-                `AD authentication failed for ${adUsername}`,
-                err.message || err.lde_message
-              );
-              return resolve(false);
-            }
-            return resolve(auth);
-          });
+    if (useAdAuth && AD_SERVER && AD_USER && AD_PASSWORD && AD_DOMAIN) {
+      try {
+        const baseDN = "DC=uniwin,DC=local";
+        const ad = new ActiveDirectory({
+          url: AD_SERVER,
+          username: AD_USER,
+          password: AD_PASSWORD,
+          baseDN,
         });
-        if (authenticated) {
-          logDebug(`AD authentication successful for ${adUsername}`);
-          break;
+
+        const adUsernameOptions = [
+          `${AD_DOMAIN}\\${username}`,
+          `${username}@${AD_DOMAIN}.local`,
+        ];
+
+        for (const adUsername of adUsernameOptions) {
+          authenticated = await new Promise((resolve) => {
+            ad.authenticate(adUsername, password, (err, auth) => {
+              if (err) {
+                logDebug(
+                  `AD authentication failed for ${adUsername}`,
+                  err.message || err.lde_message
+                );
+                return resolve(false);
+              }
+              return resolve(auth);
+            });
+          });
+          if (authenticated) {
+            logDebug(`AD authentication successful for ${adUsername}`);
+            break;
+          }
         }
-      }
-      // Fallback: default DB password
-      if (!authenticated && password === DEFAULT_PASSWORD) {
-        logDebug(`AD failed, but default password used for ${username}`);
-        authenticated = true;
-      }
-    } else {
-      // Development: only DB password check
-      if (password === DEFAULT_PASSWORD) {
-        logDebug(`Dev mode: default password used for ${username}`);
-        authenticated = true;
-      } else {
-        logDebug("Dev mode: invalid password");
-        authenticated = false;
+      } catch (adErr) {
+        logDebug("AD service unavailable or failed:", adErr.message);
       }
     }
 
+    // ---------------- Fallback: default DB password ----------------
+    if (!authenticated && password === DEFAULT_PASSWORD) {
+      logDebug(`AD failed or unavailable, default password used for ${username}`);
+      authenticated = true;
+    }
+
     if (!authenticated) {
-      logDebug("Authentication failed for all methods");
+      logDebug(`Authentication failed for ${username}`);
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
@@ -126,7 +124,6 @@ exports.login = async (req, res) => {
     if (Array.isArray(user.role_id)) roleIds = user.role_id;
     else if (typeof user.role_id === "number") roleIds = [user.role_id];
     else if (typeof user.role_id === "string") {
-      // Handle Postgres array string like "{1,12}"
       roleIds = user.role_id
         .replace(/[{}]/g, "")
         .split(",")
@@ -144,7 +141,7 @@ exports.login = async (req, res) => {
       { expiresIn: "8h" }
     );
 
-    res.json({
+    return res.json({
       token,
       user: {
         id: user.id || user.user_id,
@@ -157,6 +154,7 @@ exports.login = async (req, res) => {
     });
   } catch (err) {
     console.error("[AUTH ERROR]", err);
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Server error" });
   }
 };
+

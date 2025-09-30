@@ -24,9 +24,11 @@ app.use(express.json());
 // -----------------------------
 // Hardcoded AD credentials (for testing)
 // -----------------------------
-const AD_SERVER = "ldap://10.1.19.11:389";
-const AD_USER = "UNIWIN\\parag.pendhari";
-const AD_PASSWORD = "Bank@777";
+const AD_SERVER = process.env.AD_SERVER;
+const AD_USER = process.env.AD_USER;
+const AD_PASSWORD = process.env.AD_PASSWORD;
+
+console.log("Connecting to AD:", AD_SERVER);
 
 // Static file serving middleware (ensuring uploads folder is correctly handled)
 app.use("/uploads", express.static(path.join(__dirname, "src", "uploads")));
