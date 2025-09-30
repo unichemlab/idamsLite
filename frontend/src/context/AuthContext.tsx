@@ -71,7 +71,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (typeof role_id !== "number" && typeof data.user.role === "string") {
         role_id = roleMap[data.user.role] || 0;
       }
-      let status = data.user.status;
+      let status = (data.user.status ?? "").toUpperCase();
       if (typeof status === "string" && status.toLowerCase() === "active") {
         status = "ACTIVE";
       }
@@ -82,19 +82,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         (typeof data.user.id === "number" && data.user.id) ||
         null;
 
-      // Validate required fields before constructing user
-      if (
-        !userId ||
-        !data.user.username ||
-        !role_id ||
-        !status ||
-        !data.token
-      ) {
-        setError("Login failed: invalid user data returned from server");
+    console.log(data.user);
+      const missingFields: string[] = [];
+      if (!userId) missingFields.push("userId");
+      if (!data.user.username) missingFields.push("username");
+      if (!role_id) missingFields.push("role_id");
+      if (!status) missingFields.push("status");
+      if (!data.token) missingFields.push("token");
+
+      console.log("Missing fields:", missingFields);
+
+      if (missingFields.length > 0) {
+        setError(`Login failed: missing required field(s) from server: ${missingFields.join(", ")}`);
         setUser(null);
         return;
       }
 
+      console.log(!userId || !data.user.username || !role_id || !status || !data.token);
+      if (!userId || !data.user.username || !role_id || !status || !data.token) {
+        setError("Login failed: invalid user data returned from server");
+        setUser(null);
+        return;
+      }
       const authUser: AuthUser = {
         id: userId,
         username: data.user.username,

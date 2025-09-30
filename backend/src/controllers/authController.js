@@ -2,7 +2,7 @@
  * @swagger
  * /api/auth/login:
  *   post:
- *     summary: User login
+ *     summary: User login (AD auth, fetch user info from DB)
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -21,11 +21,17 @@
  *       401:
  *         description: Invalid credentials
  */
-const bcrypt = require("bcrypt");
+
 const jwt = require("jsonwebtoken");
 const db = require("../config/db");
+const ActiveDirectory = require("activedirectory2");
 
-// Simple logger for debugging
+const AD_SERVER = process.env.AD_SERVER;
+const AD_USER = process.env.AD_USER; // Service account
+const AD_PASSWORD = process.env.AD_PASSWORD;
+const AD_DOMAIN = process.env.AD_DOMAIN; // e.g., UNIWIN
+const DEFAULT_PASSWORD = process.env.DEFAULT_USER_PASSWORD || "Admin@123";
+
 function logDebug(...args) {
   if (process.env.NODE_ENV !== "production") {
     console.log("[AUTH DEBUG]", ...args);
@@ -35,54 +41,102 @@ function logDebug(...args) {
 exports.login = async (req, res) => {
   const { username, password } = req.body;
   logDebug("Login attempt", { username });
-  try {
-    const userQuery = "SELECT * FROM user_master WHERE username = $1";
-    const { rows } = await db.query(userQuery, [username]);
-    logDebug("DB query result", rows);
-    if (rows.length === 0) {
-      logDebug("No user found for username", username);
-      return res.status(401).json({ error: "Invalid credentials" });
-    }
-    const user = rows[0];
-    logDebug("User found", user);
 
-    // Check if user is active
+  if (!username || !password) {
+    return res.status(400).json({ message: "Username and password are required" });
+  }
+
+  try {
+    // ---------------- DB fetch first ----------------
+    const userQuery = "SELECT * FROM user_master WHERE employee_id = $1";
+    const { rows } = await db.query(userQuery, [username]);
+    if (!rows.length) {
+      logDebug(`User not found in database for employee_id = ${username}`);
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const user = rows[0];
+    user.status = (user.status ?? "").toUpperCase();
+
     if (user.status !== "ACTIVE") {
-      logDebug("User not active", user.status);
+      logDebug(`User status is not active: ${user.status}`);
       return res.status(403).json({ message: "User is not active" });
     }
-    // Compare password
-    logDebug("Comparing password", {
-      input: password,
-      hash: user.password_hash,
+
+    // ---------------- AD Authentication ----------------
+    const baseDN = "DC=uniwin,DC=local";
+    const ad = new ActiveDirectory({
+      url: AD_SERVER,
+      username: AD_USER,
+      password: AD_PASSWORD,
+      baseDN
     });
-    const isMatch = await bcrypt.compare(password, user.password_hash);
-    logDebug("Password match result", isMatch);
-    if (!isMatch) {
-      logDebug("Password does not match");
+
+    const adUsernameOptions = [`${AD_DOMAIN}\\${username}`, `${username}@${AD_DOMAIN}.local`];
+
+    let authenticated = false;
+
+    for (const adUsername of adUsernameOptions) {
+      authenticated = await new Promise((resolve) => {
+        ad.authenticate(adUsername, password, (err, auth) => {
+          if (err) {
+            logDebug(`AD authentication failed for ${adUsername}`, err.message || err.lde_message);
+            return resolve(false);
+          }
+          return resolve(auth);
+        });
+      });
+      if (authenticated) {
+        logDebug(`AD authentication successful for ${adUsername}`);
+        break;
+      }
+    }
+
+    // ---------------- Fallback: default DB password ----------------
+    if (!authenticated && password === DEFAULT_PASSWORD) {
+      logDebug(`AD failed, but default password used for ${username}`);
+      authenticated = true;
+    }
+
+    if (!authenticated) {
+      logDebug("Authentication failed for all methods");
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // Generate JWT
+    // ---------------- Normalize role_id ----------------
+    let roleIds = [];
+    if (Array.isArray(user.role_id)) roleIds = user.role_id;
+    else if (typeof user.role_id === "number") roleIds = [user.role_id];
+    else if (typeof user.role_id === "string") {
+      // Handle Postgres array string like "{1,12}"
+      roleIds = user.role_id
+        .replace(/[{}]/g, "")
+        .split(",")
+        .map((r) => parseInt(r.trim(), 10))
+        .filter((n) => !isNaN(n));
+    }
+    user.role_id = roleIds;
+
+    logDebug("User login successful:", { username, roleIds });
+
+    // ---------------- Generate JWT ----------------
     const token = jwt.sign(
       { user_id: user.user_id, username: user.username, role_id: user.role_id },
       process.env.JWT_SECRET,
       { expiresIn: "8h" }
     );
-    logDebug("JWT generated", token);
-    // Respond with user info (omit password hash)
+
     res.json({
       token,
       user: {
-        id: user.id || user.user_id, // Ensure 'id' is present for frontend
-        username: user.username,
+        id: user.id || user.user_id,
+        username: user.employee_id,
         role_id: user.role_id,
         status: user.status,
         email: user.email,
-        full_name: user.full_name,
-      },
+        full_name: user.employee_name
+      }
     });
-    logDebug("Login success for", username);
   } catch (err) {
     console.error("[AUTH ERROR]", err);
     res.status(500).json({ message: "Server error" });

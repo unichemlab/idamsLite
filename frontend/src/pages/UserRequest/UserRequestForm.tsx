@@ -571,6 +571,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                     value={filter.transactionId}
                     onChange={handleFilterChange}
                     placeholder=""
+                    autoFocus
                   />
                   <label htmlFor="transactionId">Transaction ID</label>
                 </div>
@@ -580,10 +581,12 @@ const handleSubmit = async (e: React.FormEvent) => {
                     name="employeeCode"
                     value={filter.employeeCode}
                     onChange={handleFilterChange}
-                    placeholder=""
+                    placeholder=" "
+                    autoFocus
                   />
                   <label htmlFor="employeeCode">Employee Code</label>
                 </div>
+                <div className={addUserRequestStyles.formGroup}></div>
               </div>
             </div>
 

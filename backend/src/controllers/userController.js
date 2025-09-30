@@ -70,7 +70,7 @@
  */
 exports.getAllUsers = async (req, res) => {
   try {
-    // Join user_master with user_plant_permission and aggregate permissions per user
+    // Join admin_master with user_plant_permission and aggregate permissions per user
     const query = `
       SELECT um.*, 
         COALESCE(json_agg(
@@ -85,8 +85,8 @@ exports.getAllUsers = async (req, res) => {
             )
           ELSE NULL END
         ) FILTER (WHERE upp.user_id IS NOT NULL), '[]') AS permissions
-      FROM user_master um
-      LEFT JOIN user_plant_permission upp ON um.id = upp.user_id
+      FROM admin_master um
+      LEFT JOIN admin_plant_permission upp ON um.id = upp.user_id
       GROUP BY um.id
       ORDER BY um.id;
     `;
@@ -157,7 +157,7 @@ exports.addUser = async (req, res) => {
 
     // Insert user
     const insertQuery = `
-      INSERT INTO user_master
+      INSERT INTO admin_master
         (username, full_name, email, emp_code, department_id, role_id, password_hash, status, plants, permissions, central_permission, comment, corporate_access_enabled)
       VALUES
         ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
@@ -205,7 +205,7 @@ exports.editUser = async (req, res) => {
     } = req.body;
 
     const updateQuery = `
-      UPDATE user_master SET
+      UPDATE admin_master SET
         full_name = $1,
         email = $2,
         emp_code = $3,

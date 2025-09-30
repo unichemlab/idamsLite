@@ -35,29 +35,35 @@ const Login: React.FC = () => {
     await login(username, password);
   };
 
-  React.useEffect(() => {
-    console.log("[Login] useEffect user:", user);
-    if (user && user.status === "ACTIVE") {
-      let target = "/";
-      switch (user.role_id) {
-        case 1:
-          target = "/superadmin";
-          break;
-        case 2:
-          target = "/plantadmin";
-          break;
-        case 3:
-          target = "/qamanager";
-          break;
-        default:
-          target = "/";
-      }
-      if (location.pathname !== target) {
-        console.log("[Login] Redirecting to:", target);
-        navigate(target, { replace: true });
-      }
-    }
-  }, [user, navigate, location.pathname]);
+ // Type definition
+type User = {
+  status: string;
+  role_id: number | number[] | null; // single number OR array
+};
+
+React.useEffect(() => {
+  if (!user) return;
+
+  if (user.status.toUpperCase() !== "ACTIVE") return;
+
+  // Normalize role_id to a number array
+  const roleIds: number[] = Array.isArray(user.role_id)
+    ? user.role_id
+    : typeof user.role_id === "number"
+    ? [user.role_id]
+    : [];
+
+  let target = "/user-access-managment";
+
+  if (roleIds.includes(1)) target = "/superadmin";
+  else if (roleIds.includes(2)) target = "/plantadmin";
+  else if (roleIds.includes(3)) target = "/qamanager";
+
+  if (location.pathname !== target) {
+    navigate(target, { replace: true });
+  }
+}, [user, navigate, location.pathname]);
+
 
   return (
     <div className={styles.loginBackground}>
