@@ -5,6 +5,7 @@ import {
   addUserRequestAPI,
   updateUserRequestAPI,
   deleteUserRequestAPI,
+  fetchUserByEmployeeCode
 } from "../../utils/api";
 
 export type TaskRequest = {
@@ -20,6 +21,14 @@ export type TaskRequest = {
   task_status: string;
 };
 
+export type Manager = {
+  dn: string;
+  email: string;
+  managerDN: string;
+  displayName: string;
+  employeeCode: string;
+  sAMAccountName: string;
+};
 
 export type UserRequest = {
   id?: number;
@@ -34,6 +43,7 @@ export type UserRequest = {
   department: string;
   role: string;
   reportsTo: string;
+  reportsToOptions: Manager[];
   trainingStatus: "Yes" | "No";
   attachment?: File | null;          // file uploaded
   attachmentPath?: string;           // saved server path
@@ -58,6 +68,7 @@ type UserRequestContextType = {
   request: UserRequest;
   setRequest: React.Dispatch<React.SetStateAction<UserRequest>>;
   fetchUserRequests: () => void;
+ fetchUserByEmployeeCode: (employeeCode: string) => Promise<void>;
   addUserRequest: (req: FormData) => Promise<void>;
   updateUserRequest: (id: number, req: UserRequest) => Promise<void>;
   deleteUserRequest: (id: number) => Promise<void>;
@@ -80,6 +91,7 @@ export const UserRequestProvider: React.FC<{ children: React.ReactNode }> = ({ c
     department: "",
     role: "",
     reportsTo: "",
+    reportsToOptions:[],
     trainingStatus: "Yes",
     attachment: null,
     remarks: "",
@@ -122,6 +134,42 @@ export const UserRequestProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }
 };
 
+const fetchUserByEmployeeCode = async (employeeCode: string) => {
+    if (!employeeCode) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`http://localhost:4000/api/users/${employeeCode}`);
+      if (!res.ok) throw new Error("User not found");
+      const data = await res.json();
+
+      const managerNames: string[] = [];
+      if (data.reporting_manager?.displayName) managerNames.push(data.reporting_manager.displayName);
+      if (data.managers_manager?.displayName) managerNames.push(data.managers_manager.displayName);
+
+      setRequest(prev => ({
+        ...prev,
+        name: data.name || "",
+        location: data.location || "",
+        department: data.department || "",
+        reportsTo: managerNames.join(", ") || "",
+      }));
+    } catch (err: any) {
+      console.error(err);
+      setRequest(prev => ({
+        ...prev,
+        name: "",
+        location: "",
+        department: "",
+        reportsTo: "",
+      }));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+
   const updateUserRequest = async (id: number, req: UserRequest) => {
     setLoading(true);
     setError(null);
@@ -159,6 +207,7 @@ export const UserRequestProvider: React.FC<{ children: React.ReactNode }> = ({ c
         request,
         setRequest,
         fetchUserRequests: fetchUserRequestsHandler,
+        fetchUserByEmployeeCode,
         addUserRequest,
         updateUserRequest,
         deleteUserRequest,

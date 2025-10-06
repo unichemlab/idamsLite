@@ -9,4 +9,6 @@ router.post("/", userController.addUser);
 // Edit user
 router.put("/:id", userController.editUser);
 
+router.get("/users/:employeeCode", userController.getUserByEmployeeCode);
+
 module.exports = router;

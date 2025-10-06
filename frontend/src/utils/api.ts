@@ -417,3 +417,21 @@ export async function deleteServerAPI(id: number): Promise<void> {
   });
   if (!res.ok) throw new Error("Failed to delete server");
 }
+
+
+// Fetch employee details by employee code
+export async function fetchUserByEmployeeCode(
+  employeeCode: number
+): Promise<{
+  user: [];
+}> {
+  try {
+    const res = await fetch(`http://localhost:4000/api/users/${employeeCode}`);
+    if (!res.ok) throw new Error("Failed to fetch data by employeeCode");
+    const data = await res.json();
+    return data;
+  } catch (error) {
+    console.error("API employeeCode error:", error);
+    throw error;
+  }
+}

@@ -234,3 +234,47 @@ exports.editUser = async (req, res) => {
     res.status(500).json({ error: "Failed to edit user" });
   }
 };
+
+/**
+ * GET /api/users/:employeeCode
+ * Returns user info including manager and manager's manager
+ */
+
+exports.getUserByEmployeeCode = async (req, res) => {
+  try {
+    const employeeCode = req.params.employeeCode;
+
+    const query = `
+      SELECT 
+        name,
+        employee_code,
+        location,
+        department,
+        reports_to AS reporting_manager,
+        managers_manager
+      FROM user_master
+      WHERE employee_code = $1
+      LIMIT 1`;
+
+    const { result } = await db.query(query, [employeeCode]);
+
+     if (result.rowCount === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const user = result.rows[0];
+
+     res.json({
+      name: user.name,
+      employeeCode: user.employee_code,
+      location: user.location,
+      department: user.department,
+      reporting_manager: user.reporting_manager,
+      managers_manager: user.managers_manager,
+    });
+  } catch (err) {
+    console.error("[GET USER ERROR]", err);
+    res.status(500).json({ error: "Failed to fetch user" });
+  }
+};
+

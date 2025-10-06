@@ -9,6 +9,12 @@ import React, {
 export interface AuthUser {
   id: number;
   username: string;
+  employee_code: string;
+  location: string;
+  department: string;
+  designation: string;
+  reporting_manager: string,
+  managers_manager: string,
   name: string;
   email: string;
   role_id: number;
@@ -82,33 +88,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         (typeof data.user.id === "number" && data.user.id) ||
         null;
 
-    console.log(data.user);
-      const missingFields: string[] = [];
-      if (!userId) missingFields.push("userId");
-      if (!data.user.username) missingFields.push("username");
-      if (!role_id) missingFields.push("role_id");
-      if (!status) missingFields.push("status");
-      if (!data.token) missingFields.push("token");
-
-      console.log("Missing fields:", missingFields);
-
-      if (missingFields.length > 0) {
-        setError(`Login failed: missing required field(s) from server: ${missingFields.join(", ")}`);
-        setUser(null);
-        return;
-      }
-
-      console.log(!userId || !data.user.username || !role_id || !status || !data.token);
       if (!userId || !data.user.username || !role_id || !status || !data.token) {
         setError("Login failed: invalid user data returned from server");
         setUser(null);
         return;
       }
+
       const authUser: AuthUser = {
         id: userId,
         username: data.user.username,
         name: data.user.full_name ?? data.user.name ?? "",
         email: data.user.email ?? "",
+        employee_code: data.user.employee_code ?? "",
+        location: data.user.location ?? "",
+        department: data.user.department ?? "",
+        designation: data.user.designation ?? "",
+        reporting_manager: data.user.reporting_manager ?? "",
+        managers_manager: data.user.managers_manager ?? "",
         role_id,
         status,
         token: data.token,
