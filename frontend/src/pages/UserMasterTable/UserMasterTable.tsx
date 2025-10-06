@@ -11,6 +11,7 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
+
 // Plant ID to name mapping (should be fetched from backend in production)
 const PLANT_ID_NAME_MAP = {
   1: "Goa Plant 11",
@@ -41,7 +42,7 @@ const UserMasterTable = () => {
   const [activityLogsUser, setActivityLogsUser] = useState<any>(null);
 
   // Filtering logic state/hooks
-  const [filterColumn, setFilterColumn] = useState("fullName");
+  const [filterColumn, setFilterColumn] = useState("employee_name");
   const [filterValue, setFilterValue] = useState("");
 
   // Filter popover state
@@ -65,28 +66,33 @@ const UserMasterTable = () => {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [showFilterPopover]);
 
+  // Filter logic for user_master fields (search box: emp name, email, emp code, emp id)
   const filteredUsers = users.filter((user: any) => {
     if (!filterValue.trim()) return true;
     const value = filterValue.toLowerCase();
-    switch (filterColumn) {
-      case "fullName":
-        return user.fullName?.toLowerCase().includes(value);
-      case "email":
-        return user.email?.toLowerCase().includes(value);
-      case "empCode":
-        return user.empCode?.toLowerCase().includes(value);
-      case "department":
-        return user.department?.toLowerCase().includes(value);
-      case "plants":
-        return user.plants?.some((plant: string) =>
-          plant.toLowerCase().includes(value)
-        );
-      case "status":
-        return user.status?.toLowerCase().includes(value);
-      default:
-        return true;
-    }
+    return (
+      (user.employee_name &&
+        user.employee_name.toLowerCase().includes(value)) ||
+      (user.email && user.email.toLowerCase().includes(value)) ||
+      (user.employee_code &&
+        user.employee_code.toLowerCase().includes(value)) ||
+      (user.employee_id &&
+        String(user.employee_id).toLowerCase().includes(value))
+    );
   });
+
+  // Pagination state (must be after filteredUsers is defined)
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 10;
+  // Reset to first page when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterValue]);
+  const totalPages = Math.ceil(filteredUsers.length / rowsPerPage) || 1;
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  );
 
   // PDF Export Handler
   const handleExportPDF = () => {
@@ -104,28 +110,25 @@ const UserMasterTable = () => {
         "Email",
         "Employee Code",
         "Department",
-        "Assigned Plants",
+        "Location",
+        "Designation",
         "Status",
-        "Central Master",
+        "Company",
       ],
     ];
     // Table rows
     const rows = filteredUsers.map((user: any) => [
-      user.fullName,
+      user.employee_name,
       user.email,
-      user.empCode,
+      user.employee_code,
       user.department,
-      Array.isArray(user.plants) ? user.plants.join(", ") : "-",
+      user.location,
+      user.designation,
       user.status,
-      Array.isArray(user.centralMaster) && user.centralMaster.length > 0
-        ? user.centralMaster.join(", ")
-        : "-",
+      user.company,
     ]);
-
-    // Title
     doc.setFontSize(18);
     doc.text("User Master Table", 14, 18);
-    // Table
     autoTable(doc, {
       head: headers,
       body: rows,
@@ -152,8 +155,6 @@ const UserMasterTable = () => {
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
-      {/* Sidebar: Uncomment and provide navItems if needed */}
-      {/* <Sidebar open={true} onToggle={() => {}} navItems={navItems} onLogout={() => {}} /> */}
       <div style={{ flex: 1 }}>
         <header className={styles["main-header"]}>
           <h2 className={styles["header-title"]}>User Master</h2>
@@ -169,82 +170,142 @@ const UserMasterTable = () => {
         </header>
 
         <div className={styles.headerTopRow}>
-          <div className={styles.actionHeaderRow}>
-            <button
-              className={styles.addUserBtn}
-              onClick={() => navigate("/add-user")}
-              aria-label="Add New"
-            >
-              + Add New
-            </button>
-            <button
-              className={styles.filterBtn}
-              onClick={() => setShowFilterPopover((prev) => !prev)}
-              type="button"
-              aria-label="Filter users"
-            >
-              🔍 Filter
-            </button>
-            <button
-              className={`${styles.btn} ${styles.editBtn}`}
-              disabled={selectedRow === null}
-              title="Edit Selected User"
-              onClick={() => {
-                if (selectedRow !== null) {
-                  navigate(`/edit-user/${selectedRow}`, {
-                    state: {
-                      userData: filteredUsers[selectedRow],
-                      userIdx: selectedRow,
-                    },
-                  });
-                }
+          <div className={styles.headerRowFlex}>
+            <form
+              className={styles.searchForm}
+              onSubmit={(e) => {
+                e.preventDefault();
+              }}
+              autoComplete="off"
+              style={{
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                minWidth: 0,
               }}
             >
-              <FaEdit size={14} /> Edit
-            </button>
-            <button
-              className={`${styles.btn} ${styles.deleteBtn}`}
-              disabled={selectedRow === null}
-              title="Delete Selected User"
-              onClick={() => setShowDeleteModal(true)}
+              <input
+                className={styles.searchInput}
+                type="text"
+                placeholder="Search here"
+                value={filterValue}
+                onChange={(e) => setFilterValue(e.target.value)}
+                aria-label="Search by name, email, code, id"
+                style={{ minWidth: 0, flex: 1 }}
+              />
+              <button
+                className={styles.searchBtn}
+                type="submit"
+                tabIndex={-1}
+                aria-label="Search"
+              >
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 22 22"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <circle
+                    cx="10"
+                    cy="10"
+                    r="8"
+                    stroke="#a14b8c"
+                    strokeWidth="2"
+                  />
+                  <line
+                    x1="16.0607"
+                    y1="16.4749"
+                    x2="20"
+                    y2="20"
+                    stroke="#a14b8c"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            </form>
+            <div
+              className={styles.actionHeaderRow}
+              style={{ marginLeft: "auto" }}
             >
-              {" "}
-              <FaTrash size={14} /> Delete
-            </button>
-
-            <ConfirmDeleteModal
-              open={showDeleteModal}
-              name={
-                selectedRow !== null && filteredUsers[selectedRow]
-                  ? filteredUsers[selectedRow].fullName
-                  : "user"
-              }
-              onCancel={() => setShowDeleteModal(false)}
-              onConfirm={() => {
-                if (selectedRow !== null) {
-                  deleteUser(selectedRow);
-                  setSelectedRow(null);
+              <button
+                className={styles.addUserBtn}
+                onClick={() => navigate("/add-user")}
+                aria-label="Add New"
+              >
+                + Add New
+              </button>
+              <button
+                className={styles.filterBtn}
+                onClick={() => setShowFilterPopover((prev) => !prev)}
+                type="button"
+                aria-label="Filter users"
+              >
+                🔍 Filter
+              </button>
+              <button
+                className={`${styles.btn} ${styles.editBtn}`}
+                disabled={selectedRow === null}
+                title="Edit Selected User"
+                onClick={() => {
+                  if (selectedRow !== null) {
+                    navigate(`/edit-user/${selectedRow}`, {
+                      state: {
+                        userData: filteredUsers[selectedRow],
+                        userIdx: selectedRow,
+                      },
+                    });
+                  }
+                }}
+              >
+                <FaEdit size={14} /> Edit
+              </button>
+              <button
+                className={`${styles.btn} ${styles.deleteBtn}`}
+                disabled={selectedRow === null}
+                title="Delete Selected User"
+                onClick={() => setShowDeleteModal(true)}
+              >
+                <FaTrash size={14} /> Delete
+              </button>
+              <ConfirmDeleteModal
+                open={showDeleteModal}
+                name={
+                  selectedRow !== null && filteredUsers[selectedRow]
+                    ? filteredUsers[selectedRow].fullName
+                    : "user"
                 }
-                setShowDeleteModal(false);
-              }}
-            />
-            <button
-              className={styles.exportPdfBtn}
-              onClick={handleExportPDF}
-              aria-label="Export table to PDF"
-              type="button"
-              style={{ border: "1px solid #0b63ce" }}
-            >
-              <span role="img" aria-label="Export PDF" style={{ fontSize: 18 }}>
-                🗎
-              </span>
-              PDF
-            </button>
+                onCancel={() => setShowDeleteModal(false)}
+                onConfirm={() => {
+                  if (selectedRow !== null) {
+                    deleteUser(selectedRow);
+                    setSelectedRow(null);
+                  }
+                  setShowDeleteModal(false);
+                }}
+              />
+              <button
+                className={styles.exportPdfBtn}
+                onClick={handleExportPDF}
+                aria-label="Export table to PDF"
+                type="button"
+                style={{ border: "1px solid #0b63ce" }}
+              >
+                <span
+                  role="img"
+                  aria-label="Export PDF"
+                  style={{ fontSize: 18 }}
+                >
+                  🗎
+                </span>
+                PDF
+              </button>
+            </div>
           </div>
         </div>
-        {/* Professional Filter Button with Popover */}
         <div className={styles.wrapper}>
-          <div  >
+          <div>
             <div className={styles.controls}>
               {showFilterPopover && (
                 <div className={styles.filterPopover} ref={popoverRef}>
@@ -259,11 +320,12 @@ const UserMasterTable = () => {
                         value={tempFilterColumn}
                         onChange={(e) => setTempFilterColumn(e.target.value)}
                       >
-                        <option value="fullName">Name</option>
+                        <option value="employee_name">Name</option>
                         <option value="email">Email</option>
-                        <option value="empCode">Employee Code</option>
+                        <option value="employee_code">Employee Code</option>
                         <option value="department">Department</option>
-                        <option value="plants">Assigned Plants</option>
+                        <option value="location">Location</option>
+                        <option value="designation">Designation</option>
                         <option value="status">Status</option>
                       </select>
                     </div>
@@ -273,7 +335,7 @@ const UserMasterTable = () => {
                         className={styles.filterInput}
                         type="text"
                         placeholder={`Enter ${
-                          tempFilterColumn === "fullName"
+                          tempFilterColumn === "employee_name"
                             ? "Name"
                             : tempFilterColumn.charAt(0).toUpperCase() +
                               tempFilterColumn.slice(1)
@@ -308,16 +370,21 @@ const UserMasterTable = () => {
                 </div>
               )}
             </div>
-            {/* Table */}
-            <div  style={{
-            maxHeight: 380,
-            overflowY: "auto",
-            borderRadius: 8,
-            boxShadow: "0 0 4px rgba(0, 0, 0, 0.05)",
-            border: "1px solid #e2e8f0",
-            marginTop: "11px",
-            height: "100",
-          }} >
+            <div
+              style={{
+                maxHeight: 380,
+                overflowY: "auto",
+                borderRadius: 8,
+                boxShadow: "0 0 4px rgba(0, 0, 0, 0.05)",
+                border: "1px solid #e2e8f0",
+                marginTop: "11px",
+                height: "100",
+                maxWidth: "1030px",
+                marginLeft: "18px",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
               <table className={styles.userTable}>
                 <thead>
                   <tr>
@@ -326,135 +393,91 @@ const UserMasterTable = () => {
                     <th>Email</th>
                     <th>Employee Code</th>
                     <th>Department</th>
-                    <th>Assigned Plants</th>
-                    <th>Central Master</th>
+                    <th>Location</th>
+                    <th>Designation</th>
                     <th>Status</th>
+                    <th>Company</th>
                     <th>Activity Logs</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredUsers.map((user: any, idx: number) => (
-                    <tr key={idx}>
-                      <td>
-                        <input
-                          type="radio"
-                          checked={selectedRow === idx}
-                          onChange={() => setSelectedRow(idx)}
-                          className={styles.radioInput}
-                          aria-label={`Select ${user.fullName}`}
-                        />
-                      </td>
-                      <td>
-                        <strong>{user.fullName}</strong>
-                      </td>
-                      <td>{user.email}</td>
-                      <td>{user.empCode}</td>
-                      <td>
-                        {(() => {
-                          if (user.department_id) {
-                            const dept = departments.find(
-                              (d: any) => d.id === user.department_id
-                            );
-                            return dept ? dept.name : "-";
-                          }
-                          // fallback to user.department if present
-                          return user.department || "-";
-                        })()}
-                      </td>
-                      <td>
-                        {/* Assigned Plants: show unique plant_ids from permissions, fallback to user.plants */}
-                        {Array.isArray(user.permissions) &&
-                        user.permissions.length > 0
-                          ? Array.from(
-                              new Set(
-                                user.permissions.map(
-                                  (perm: any) => perm.plant_id
-                                )
-                              )
-                            )
-                              .filter(Boolean)
-                              .map((plantId: any, i: number) => (
-                                <span key={i} className={styles.plantBadge}>
-                                  {PLANT_ID_NAME_MAP[
-                                    plantId as keyof typeof PLANT_ID_NAME_MAP
-                                  ] || plantId}
-                                </span>
-                              ))
-                          : (user.plants || []).map(
-                              (plant: string, i: number) => (
-                                <span key={i} className={styles.plantBadge}>
-                                  {plant}
-                                </span>
-                              )
-                            )}
-                      </td>
-
-                      <td>
-                        {/* Central Master: show unique module_ids where user has all permissions (A, E, V, D) */}
-                        {Array.isArray(user.permissions) &&
-                        user.permissions.length > 0 ? (
-                          (() => {
-                            const centralModules = user.permissions
-                              .filter(
-                                (perm: any) =>
-                                  perm.can_add &&
-                                  perm.can_edit &&
-                                  perm.can_view &&
-                                  perm.can_delete
-                              )
-                              .map((perm: any) => perm.module_id)
-                              .filter(Boolean);
-                            const uniqueModules = Array.from(
-                              new Set(centralModules)
-                            );
-                            return uniqueModules.length > 0 ? (
-                              uniqueModules.map((mod: any, i: number) => (
-                                <span key={i} className={styles.plantBadge}>
-                                  {mod}
-                                </span>
-                              ))
-                            ) : (
-                              <span className={styles.inactive}>-</span>
-                            );
-                          })()
-                        ) : Array.isArray(user.centralMaster) &&
-                          user.centralMaster.length > 0 ? (
-                          user.centralMaster.map((mod: string, i: number) => (
-                            <span key={i} className={styles.plantBadge}>
-                              {mod}
-                            </span>
-                          ))
-                        ) : (
-                          <span className={styles.inactive}>-</span>
-                        )}
-                      </td>
-                      <td>
-                        <span
-                          className={
-                            user.status === "Active"
-                              ? styles.inactiveBadge
-                              : styles.activeBadge
-                          }
-                        >
-                          {user.status}
-                        </span>
-                      </td>
-                      <td>
-                        <button
-                          className={styles.actionBtn}
-                          title="View Activity Logs"
-                          onClick={() => {
-                            setActivityLogsUser(user);
-                            setShowActivityModal(true);
-                          }}
-                        >
-                          <FaRegClock size={17} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {paginatedUsers.map((user: any, idx: number) => {
+                    const globalIdx = (currentPage - 1) * rowsPerPage + idx;
+                    return (
+                      <tr key={globalIdx}>
+                        <td>
+                          <input
+                            type="radio"
+                            checked={selectedRow === globalIdx}
+                            onChange={() => setSelectedRow(globalIdx)}
+                            className={styles.radioInput}
+                            aria-label={`Select ${user.employee_name}`}
+                          />
+                        </td>
+                        <td>
+                          <strong>{user.employee_name}</strong>
+                        </td>
+                        <td>{user.email}</td>
+                        <td>{user.employee_code}</td>
+                        <td>{user.department}</td>
+                        <td>{user.location}</td>
+                        <td>{user.designation}</td>
+                        <td>
+                          <span
+                            className={
+                              user.status === "Active"
+                                ? styles.activeBadge
+                                : styles.inactiveBadge
+                            }
+                          >
+                            {user.status}
+                          </span>
+                        </td>
+                        <td>{user.company}</td>
+                        <td>
+                          <button
+                            className={styles.actionBtn}
+                            title="View Activity Logs"
+                            onClick={() => {
+                              setActivityLogsUser(user);
+                              setShowActivityModal(true);
+                            }}
+                          >
+                            <FaRegClock size={17} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
+              <div className={styles.pagination}>
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className={
+                    currentPage === 1 ? styles.disabledPageBtn : styles.pageBtn
+                  }
+                >
+                  Previous
+                </button>
+                <span className={styles.pageInfo}>
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  }
+                  disabled={currentPage === totalPages}
+                  className={
+                    currentPage === totalPages
+                      ? styles.disabledPageBtn
+                      : styles.pageBtn
+                  }
+                >
+                  Next
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -628,14 +651,14 @@ const UserMasterTable = () => {
                 <span>
                   Username:{" "}
                   <span style={{ color: "#0b63ce" }}>
-                    {activityLogsUser.fullName}
+                    {activityLogsUser.employee_name}
                   </span>
                 </span>
                 &nbsp; | &nbsp;
                 <span>
                   Emp ID:{" "}
                   <span style={{ color: "#0b63ce" }}>
-                    {activityLogsUser.empCode}
+                    {activityLogsUser.employee_code}
                   </span>
                 </span>
               </div>

@@ -70,54 +70,47 @@
  */
 exports.getAllUsers = async (req, res) => {
   try {
-    // Join admin_master with user_plant_permission and aggregate permissions per user
+    // Fetch only required columns from user_master
     const query = `
-      SELECT um.*, 
-        COALESCE(json_agg(
-          CASE WHEN upp.user_id IS NOT NULL THEN
-            json_build_object(
-              'plant_id', upp.plant_id,
-              'module_id', upp.module_id,
-              'can_add', upp.can_add,
-              'can_edit', upp.can_edit,
-              'can_view', upp.can_view,
-              'can_delete', upp.can_delete
-            )
-          ELSE NULL END
-        ) FILTER (WHERE upp.user_id IS NOT NULL), '[]') AS permissions
-      FROM admin_master um
-      LEFT JOIN admin_plant_permission upp ON um.id = upp.user_id
-      GROUP BY um.id
-      ORDER BY um.id;
+      SELECT 
+        id,
+        transaction_id,
+        employee_name,
+        employee_id,
+        employee_code,
+        department,
+        location,
+        status,
+        company,
+        mobile,
+        email,
+        designation,
+        last_sync,
+        created_on,
+        updated_on,
+        role_id
+      FROM user_master
+      ORDER BY id;
     `;
     const { rows } = await db.query(query);
-    // Normalize user data for frontend display
+    // Map DB fields to UI fields (keep names as in DB)
     const users = rows.map((user) => ({
-      ...user,
-      department_id: user.department_id, // ensure department_id is present
-      permissions: user.permissions || [],
-      plants: Array.isArray(user.plants)
-        ? user.plants
-        : typeof user.plants === "string" && user.plants
-        ? user.plants
-            .split(",")
-            .map((p) => p.trim())
-            .filter(Boolean)
-        : [],
-      centralMaster: Array.isArray(user.central_master)
-        ? user.central_master
-        : user.central_master
-        ? typeof user.central_master === "string"
-          ? user.central_master
-              .split(",")
-              .map((m) => m.trim())
-              .filter(Boolean)
-          : []
-        : [],
-      department: user.department || "-",
-      fullName: user.full_name || user.fullName || user.username || "",
-      empCode: user.emp_code || user.empCode || "",
-      status: (user.status || "").toUpperCase(),
+      id: user.id,
+      transaction_id: user.transaction_id,
+      employee_name: user.employee_name,
+      employee_id: user.employee_id,
+      employee_code: user.employee_code,
+      department: user.department,
+      location: user.location,
+      status: user.status,
+      company: user.company,
+      mobile: user.mobile,
+      email: user.email,
+      designation: user.designation,
+      last_sync: user.last_sync,
+      created_on: user.created_on,
+      updated_on: user.updated_on,
+      role_id: user.role_id,
     }));
     res.json({ users });
   } catch (err) {

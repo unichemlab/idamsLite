@@ -46,11 +46,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
     // Map backend fields to frontend camelCase fields
     const mapUser = (user: any) => ({
       id: user.id,
-      fullName: user.full_name || user.fullName || "",
+      fullName: user.full_name || user.employee_name || user.fullName || "",
       email: user.email,
       empCode: user.employee_code || user.empCode || "",
       department: user.department || "-", // Optionally map department_id to name
-      department_id: user.department_id, // <-- add this line
+      department_id: user.department_id,
       status: user.status,
       plants: user.plants || [],
       centralMaster: user.centralMaster || [],
@@ -59,6 +59,16 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
       comment: user.comment || "",
       corporateAccessEnabled: user.corporate_access_enabled || false,
       activityLogs: user.activityLogs || [],
+      // Add all backend fields for direct access if needed
+      employee_name: user.employee_name,
+      employee_code: user.employee_code,
+      location: user.location,
+      designation: user.designation,
+      company: user.company,
+      mobile: user.mobile,
+      role_id: user.role_id,
+      created_on: user.created_on,
+      updated_on: user.updated_on,
     });
     setUsers(Array.isArray(data.users) ? data.users.map(mapUser) : []);
   };
