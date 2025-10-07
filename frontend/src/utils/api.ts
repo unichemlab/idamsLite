@@ -5,6 +5,13 @@ export async function fetchSystems(): Promise<any[]> {
   return await res.json();
 }
 
+// System Inventory API
+export async function fetchActivityLog(): Promise<any[]> {
+  const res = await fetch("http://localhost:4000/api/activity-logs");
+  if (!res.ok) throw new Error("Failed to fetch systems");
+  return await res.json();
+}
+
 export async function addSystemAPI(system: any): Promise<any> {
   const res = await fetch("http://localhost:4000/api/systems", {
     method: "POST",

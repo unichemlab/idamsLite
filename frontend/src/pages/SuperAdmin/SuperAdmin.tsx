@@ -23,6 +23,7 @@ import DonutChart from "../../components/Common/DonutChart";
 import PlantMasterTable from "pages/PlantMasterTable/PlantMasterTable";
 import DepartmentMasterTable from "pages/DepartmentMasterTable/DepartmentMasterTable";
 import VendorMasterTable from "pages/VendorMasterTable/VendorMasterTable";
+import ActivityMasterTable from "pages/ActivityMasterTable/ActivityMasterTable";
 import UserRequestTable from "pages/UserRequestTable/UserRequestTable";
 import RoleMasterTable from "pages/RoleMasterTable/RoleMasterTable";
 import UserMasterTable from "pages/UserMasterTable/UserMasterTable";
@@ -77,6 +78,7 @@ const SuperAdmin: React.FC = () => {
     { key: "application", label: "Application Master", icon: <AppsIcon fontSize="small" />, perm: "applicationMaster:view" },
     { key: "user", label: "User Master", icon: <PersonIcon fontSize="small" />, perm: "userMaster:view" },
     { key: "request", label: "User Request", icon: <ListAltIcon fontSize="small" />, perm: "userRequest:view" },
+    { key: "activity-logs", label: "Activity Logs", icon: <ListAltIcon fontSize="small" />, perm: "activityMaster:view" },
     { key: "workflow", label: "Approval Workflow", icon: <AssignmentIcon fontSize="small" />, perm: "workflow:view" },
     { key: "system", label: "System Inventory", icon: <AssignmentIcon fontSize="small" />, perm: "system:view" },
     {
@@ -172,7 +174,7 @@ console.log("[SuperAdmin] roleIdsArray:", roleIdsArray);
       case "request": return <UserRequestTable />;
       case "workflow": return <WorkflowBuilder />;
       case "system": return <SystemInventoryMasterTable />;
-
+      case "activity-logs": return <ActivityMasterTable />;
        case "server":
         return <ServerInventoryMasterTable />;    
       default: return null;

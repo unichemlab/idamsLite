@@ -63,6 +63,12 @@ export const sidebarConfig: SidebarConfigItem[] = [
     icon: <ListAltIcon fontSize="small" />,
     perm: "userRequest:view",
   },
+   {
+    key: "activity-logs",
+    label: "Activity Logs",
+    icon: <ListAltIcon fontSize="small" />,
+    perm: "ActivityMaster:view",
+  },
   {
     key: "workflow",
     label: "Approval Workflow",

@@ -13,6 +13,7 @@ const userRequest = require("./routes/userRequest");
 const applicationRoutes = require("./routes/applicationRoutes");
 const systemRoutes = require("./routes/systemRoutes");
 const swaggerRoutes = require("./routes/swagger");
+const activityLogsRoutes=require("./routes/activityLog")
 const ActiveDirectory = require("activedirectory2");
 const adSyncRoutes = require("./routes/employeeSyncRoutes");
 const os = require("os");
@@ -42,6 +43,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/user-requests", userRequest);
 app.use("/api/applications", applicationRoutes);
 app.use("/api/docs", swaggerRoutes);
+app.use("/api/activity-logs", activityLogsRoutes);
 app.use("/api/servers", serverRoutes);
 // Use AD sync routes
 app.use(adSyncRoutes);

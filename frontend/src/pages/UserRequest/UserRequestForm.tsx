@@ -352,7 +352,10 @@ const AddUserRequest: React.FC = () => {
 
     // --- FOOTER ---
     const drawFooter = () => {
-      const pageCount = doc.internal.getNumberOfPages();
+      const pageCount =
+        (doc as any).getNumberOfPages?.() ||
+        (doc as any).internal?.getNumberOfPages?.() ||
+        1;
       doc.setFontSize(9);
       doc.setTextColor(100);
       for (let i = 1; i <= pageCount; i++) {
@@ -968,6 +971,24 @@ const AddUserRequest: React.FC = () => {
                     </select>
                     <label htmlFor="accessType">Access Request Type *</label>
                   </div>
+                  {!isBulkDeactivation && (
+                    <div className={addUserRequestStyles.formGroup}>
+                      <select
+                        name="reportsTo"
+                        value={form.reportsTo}
+                        onChange={(e) => setForm(prev => ({ ...prev, reportsTo: e.target.value }))}
+                        required
+                      >
+                        <option value="">Select Approver</option>
+                        {form.reportsToOptions?.map((mgr) => (
+                          <option key={mgr.employeeCode} value={mgr.displayName}>
+                            {mgr.displayName}
+                          </option>
+                        ))}
+                      </select>
+                      <label htmlFor="reportsTo">Approver 1(Manager / Manager's Manager)*</label>
+                    </div>
+                  )}
                   <div className={addUserRequestStyles.formGroup}>
                     <select
                       name="trainingStatus"
@@ -991,24 +1012,7 @@ const AddUserRequest: React.FC = () => {
                       <label htmlFor="trainingAttachment">Attachment (PDF,Max 4MB)</label>
                     </div>
                   )}
-                  {!isBulkDeactivation && (
-  <div className={addUserRequestStyles.formGroup}>
-    <select
-      name="reportsTo"
-      value={form.reportsTo}
-      onChange={(e) => setForm(prev => ({ ...prev, reportsTo: e.target.value }))}
-      required
-    >
-      <option value="">Select Approver</option>
-      {form.reportsToOptions?.map((mgr) => (
-        <option key={mgr.employeeCode} value={mgr.displayName}>
-          {mgr.displayName}
-        </option>
-      ))}
-    </select>
-    <label htmlFor="reportsTo">Approver 1(Manager / Manager's Manager)*</label>
-  </div>
-)}
+
 
 
                 </div>

@@ -22,6 +22,7 @@ import EditUserFormPage from "../pages/AddUserPanel/EditUserFormPage";
 import AddRoleFormPage from "../RoleMaster/AddRoleFormPage";
 import EditRoleFormPage from "../RoleMaster/EditRoleFormPage";
 import VendorMasterTable from "../pages/VendorMasterTable/VendorMasterTable";
+import ActivityMasterTable from "../pages/ActivityMasterTable/ActivityMasterTable";
 import SuperAdmin from "../pages/SuperAdmin/SuperAdmin";
 import PlantMasterTable from "../pages/PlantMasterTable/PlantMasterTable";
 import AddPlantMaster from "../pages/PlantMaster/AddPlantMaster";
@@ -71,6 +72,7 @@ const allowedRoutes = [
   "/vendors",
   "/vendors/add",
   "/vendors/edit/:id",
+  "/activity-logs",
   "/user-information",
   "/systems",
   "/systems/add",
@@ -368,7 +370,14 @@ function AppRoutes() {
         }
       />
 
-
+      <Route
+        path="/activity-logs"
+        element={
+          <ProtectedRoute>
+            <ActivityMasterTable />
+          </ProtectedRoute>
+        }
+      />
 
       {/* System Inventory Master */}
 

@@ -11,6 +11,7 @@ import { ApplicationsProvider } from "./context/ApplicationsContext";
 import { ApproverProvider } from "./context/ApproverContext";
 import { PlantProvider } from "pages/PlantMaster/PlantContext";
 import { VendorProvider } from "pages/VendorMaster/VendorContext";
+import { ActivityLogProvider } from "pages/ActivityMasterTable/ActivityLogContext";
 import { SystemProvider } from "pages/SystemInventoryMaster/SystemContext";
 import { ServerProvider } from "pages/ServerInventoryMaster/ServerContext";
 // Import the new contexts
@@ -28,6 +29,7 @@ const App: React.FC = () => {
       <AuthProvider>
         <PlantProvider>
           <UserRequestProvider>
+            <ActivityLogProvider>
                 <FormProvider>
                   <RolesProvider>
                     <DepartmentProvider>
@@ -52,6 +54,7 @@ const App: React.FC = () => {
                     </DepartmentProvider>
                   </RolesProvider>
                 </FormProvider>
+                </ActivityLogProvider>
           </UserRequestProvider>
         </PlantProvider>
       </AuthProvider>
