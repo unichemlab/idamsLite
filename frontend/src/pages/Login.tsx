@@ -53,7 +53,7 @@ React.useEffect(() => {
     ? [user.role_id]
     : [];
 
-  let target = "/user-access-managment";
+  let target = "/user-access-management";
 
   if (roleIds.includes(1)) target = "/superadmin";
   else if (roleIds.includes(2)) target = "/plantadmin";

@@ -48,7 +48,7 @@ const allowedRoutes = [
   "/add-user",
   "/edit-user/:idx",
   "/user-requests",
-  "/user-access-managment",
+  "/user-access-management",
   "/access-details",
   "/approver-step/:step/:id",
   "/review-submit",
@@ -154,7 +154,7 @@ function AppRoutes() {
         }
       />
       
-      <Route path="/user-access-managment" element={
+      <Route path="/user-access-management" element={
          <ProtectedRoute>
         <AddUserRequest />
         </ProtectedRoute>
