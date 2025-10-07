@@ -12,7 +12,7 @@ import autoTable from "jspdf-autotable";
 const AddUserRequest: React.FC = () => {
   const { addUserRequest } = useUserRequestContext();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user,logout } = useAuth();
   // ===================== Filter + Search State =====================
   const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [filter, setFilter] = useState({
@@ -63,6 +63,7 @@ const AddUserRequest: React.FC = () => {
   const [departments, setDepartments] = useState<{ id: number; department_name: string }[]>([]);
   const [roles, setRoles] = useState<{ id: number; name: string }[]>([]);
   const [applications, setApplications] = useState<{ id: string; name: string }[]>([]);
+  
 
   // ===================== Form Handlers =====================
 
@@ -649,6 +650,10 @@ const AddUserRequest: React.FC = () => {
     }
   }, [filter.applicationId]);
 
+const handleLogout = () => {
+    logout();
+    navigate("/");
+  };
 
   // ===================== JSX =====================
   return (
@@ -889,12 +894,28 @@ const AddUserRequest: React.FC = () => {
             </div>
           </div>
           <div className={addUserRequestStyles["header-right"]}>
-            <button className={addUserRequestStyles["addUserBtn"]} onClick={() => setFilterModalOpen(true)}>
+             <button className={addUserRequestStyles["addUserBtn"]} onClick={() => setFilterModalOpen(true)}>
               Filter User Requests
             </button>
+            {user?.role_id != 12 ? (
+            <button
+                className={addUserRequestStyles["addUserBtn"]}
+                onClick={() => navigate("/superadmin")}
+              >
+                View Admin Panel
+              </button>
+            ):(
+              <button
+                className={addUserRequestStyles["addUserBtn"]}
+                style={{ backgroundColor: "#d32f2f", color: "white", marginLeft: "10px" }}
+                onClick={handleLogout}
+              >
+                Logout
+              </button>
+            )}
+           
           </div>
         </header>
-
         {/* ===================== Original Form JSX ===================== */}
         <div className={addUserRequestStyles.container}>
           <form id="userRequestForm" className={addUserRequestStyles.form} onSubmit={handleSubmit} style={{ width: "100%" }}>
