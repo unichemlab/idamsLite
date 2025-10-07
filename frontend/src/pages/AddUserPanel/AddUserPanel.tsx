@@ -10,6 +10,7 @@ export type UserForm = {
   email: string;
   empCode: string;
   department: string;
+  location: string;
   status: string;
   plants: string[];
   permissions: {
@@ -36,60 +37,33 @@ const AddUserPanel = ({
   panelClassName = "",
 }: AddUserPanelProps) => {
   const [form, setForm] = useState<UserForm>(() => {
-    const base: UserForm = initialData ?? {
-      fullName: "",
-      email: "",
-      empCode: "",
-      department: "",
-      status: "Active",
-      plants: [],
-      permissions: {},
-      centralPermission: false,
-      comment: "",
-      corporateAccessEnabled: false,
-    };
-
-    // Ensure all plant-module and central module keys are present in permissions
-    const safePermissions: { [key: string]: string[] } = {
-      ...base.permissions,
-    };
-    // Add plant-module keys
-    plants.forEach((plant) => {
-      [
-        "Role Master",
-        "Vendor Master",
-        "Plant Master",
-        "Application Master",
-        "Approval Workflow",
-        "User Request",
-      ].forEach((mod) => {
-        const key = `${plant}-${mod}`;
-        if (!safePermissions[key]) safePermissions[key] = [];
-      });
-    });
-    // Add central module keys
-    [
-      "Role Master",
-      "Vendor Master",
-      "Plant Master",
-      "Approval Workflow1",
-      "Approval Workflow2",
-      "User Request",
-    ].forEach((mod) => {
-      if (!safePermissions[mod]) safePermissions[mod] = [];
-    });
-
-    return { ...base, permissions: safePermissions };
+    return (
+      initialData ?? {
+        fullName: "",
+        email: "",
+        empCode: "",
+        department: "",
+        location: "",
+        status: "Active",
+        plants: [],
+        permissions: {},
+        centralPermission: false,
+        comment: "",
+        corporateAccessEnabled: false,
+      }
+    );
   });
-
-  // Set activePlant to the first selected plant on initial load (edit mode)
-  const [activePlant, setActivePlant] = React.useState<string | null>(() => {
+  const [activePlant, setActivePlant] = useState<string | null>(() => {
     if (initialData && initialData.plants && initialData.plants.length > 0) {
       return initialData.plants[0];
     }
     return null;
   });
+  const [showModal, setShowModal] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
+  // Checkbox for plant selection
   const handleCheckboxChange = (plant: string) => {
     setForm((prev) => {
       const isSelected = prev.plants.includes(plant);
@@ -100,7 +74,7 @@ const AddUserPanel = ({
         "Plant Master",
         "Application Master",
         "Approval Workflow",
-        "User Request",
+        // "User Request" removed as per requirement
       ].map((mod) => `${plant}-${mod}`);
 
       // Check if any permission is checked for this plant
@@ -137,6 +111,7 @@ const AddUserPanel = ({
     });
   };
 
+  // Permission toggle for modules
   const handlePermissionToggle = (module: string, action: string) => {
     setForm((prev) => {
       let currentPermissions = prev.permissions[module] || [];
@@ -153,13 +128,6 @@ const AddUserPanel = ({
             updatedPermissions.push("View");
         } else {
           updatedPermissions = updatedPermissions.filter((a) => a !== action);
-          // If none of Add/Edit/Delete is checked, allow View to be toggled
-          const stillChecked = triggers.some(
-            (t) => t !== action && updatedPermissions.includes(t)
-          );
-          if (!stillChecked) {
-            // Do not auto-uncheck View, just allow toggling
-          }
         }
       } else if (action === "View") {
         // Only allow toggling 'View' if none of Add/Edit/Delete is checked
@@ -211,7 +179,7 @@ const AddUserPanel = ({
         "Plant Master",
         "Application Master",
         "Approval Workflow",
-        "User Request",
+        // "User Request" removed as per requirement
       ].map((mod) => `${plantPrefix}-${mod}`);
       const hasAnyPermission = plantModules.some(
         (modKey) => (updatedForm.permissions[modKey] || []).length > 0
@@ -229,9 +197,7 @@ const AddUserPanel = ({
     });
   };
 
-  const [showModal, setShowModal] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
+  // Form submit
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -255,7 +221,6 @@ const AddUserPanel = ({
   };
 
   const username = localStorage.getItem("username") || "";
-  const [saving, setSaving] = useState(false);
   const handleConfirmLogin = async (data: Record<string, string>) => {
     if (data.username === username && data.password === "superadmin123") {
       setSaving(true);
@@ -289,6 +254,11 @@ const AddUserPanel = ({
         </div>
 
         <div className={styles.form}>
+          {error && (
+            <div className={styles.errorMessage}>
+              {error}
+            </div>
+          )}
           <div className={styles.sectionCard}>
             <label className={styles.formLabel}>User Details</label>
             <div className={styles.grid}>
@@ -299,6 +269,8 @@ const AddUserPanel = ({
                   onChange={(e) =>
                     setForm({ ...form, fullName: e.target.value })
                   }
+                  disabled={mode === "edit"}
+                  className={mode === "edit" ? styles.disabledInput : undefined}
                 />
               </div>
               <div>
@@ -306,6 +278,8 @@ const AddUserPanel = ({
                 <input
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  disabled={mode === "edit"}
+                  className={mode === "edit" ? styles.disabledInput : undefined}
                 />
               </div>
               <div>
@@ -315,6 +289,8 @@ const AddUserPanel = ({
                   onChange={(e) =>
                     setForm({ ...form, empCode: e.target.value })
                   }
+                  disabled={mode === "edit"}
+                  className={mode === "edit" ? styles.disabledInput : undefined}
                 />
               </div>
               <div>
@@ -324,6 +300,8 @@ const AddUserPanel = ({
                   onChange={(e) =>
                     setForm({ ...form, department: e.target.value })
                   }
+                  disabled={mode === "edit"}
+                  className={mode === "edit" ? styles.disabledInput : undefined}
                 >
                   <option value="">Select Department</option>
                   <option value="IT">IT</option>
@@ -332,6 +310,16 @@ const AddUserPanel = ({
                   <option value="Production">Production</option>
                   <option value="Finance">Finance</option>
                 </select>
+              </div>
+              <div>
+                <label>Location *</label>
+                <input
+                  value={form.location}
+                  onChange={(e) =>
+                    setForm({ ...form, location: e.target.value })
+                  }
+                  required
+                />
               </div>
               <div>
                 <label>Status *</label>
@@ -356,7 +344,7 @@ const AddUserPanel = ({
                   "Plant Master",
                   "Application Master",
                   "Approval Workflow",
-                  "User Request",
+                  // "User Request" removed as per requirement
                 ].map((mod) => `${plant}-${mod}`);
                 const hasAnyPermission = plantModules.some(
                   (modKey) => (form.permissions[modKey] || []).length > 0
@@ -370,7 +358,6 @@ const AddUserPanel = ({
                     key={plant}
                     style={{ cursor: "pointer" }}
                     onClick={() => {
-                      // Always allow selecting a chip to view permissions
                       setActivePlant(plant);
                     }}
                   >
@@ -381,11 +368,9 @@ const AddUserPanel = ({
                       onChange={(e) => {
                         e.stopPropagation();
                         handleCheckboxChange(plant);
-                        // If plant is being checked, set as active
                         if (!form.plants.includes(plant)) {
                           setActivePlant(plant);
                         } else if (activePlant === plant) {
-                          // If plant is being unchecked and was active, set next available as active
                           const remaining = form.plants.filter(
                             (p) => p !== plant
                           );
@@ -424,19 +409,17 @@ const AddUserPanel = ({
                   "Plant Master",
                   "Application Master",
                   "Approval Workflow",
-                  "User Request",
+                  // \"User Request\" row removed as per requirement
                 ].map((mod) => {
                   const moduleKey = `${activePlant}-${mod}`;
                   return (
                     <div className={styles.row} key={moduleKey}>
                       <span>{mod}</span>
-
                       {permissions.map((perm) => {
                         const isApprovalWorkflow = mod === "Approval Workflow";
                         let isDisabled =
                           isApprovalWorkflow &&
                           (perm === "Add" || perm === "Delete");
-                        // Disable 'View' if any of Add/Edit/Delete is checked
                         const triggers = ["Add", "Edit", "Delete"];
                         if (!isDisabled && perm === "View") {
                           const anyTriggerChecked = triggers.some((t) =>
@@ -506,15 +489,14 @@ const AddUserPanel = ({
                   "Role Master",
                   "Vendor Master",
                   "Plant Master",
-                  "Approval Workflow1",
-                  "Approval Workflow2",
-                  "User Request",
+                  "Application Master",
+                  "Approval Workflow",
+                  // "User Request" removed as per requirement
                 ].map((mod) => (
                   <div className={styles.row} key={`central-${mod}`}>
                     <span>{mod}</span>
                     {permissions.map((perm) => {
                       let isDisabled = false;
-                      // For central, if any of Add/Edit/Delete is checked, disable 'View'
                       const triggers = ["Add", "Edit", "Delete"];
                       if (perm === "View") {
                         const anyTriggerChecked = triggers.some((t) =>
@@ -553,36 +535,6 @@ const AddUserPanel = ({
               />
             </div>
           </div>
-          {error && (
-            <div
-              className={styles.fancyErrorBox}
-              role="alert"
-              aria-live="assertive"
-            >
-              <svg
-                width="22"
-                height="22"
-                fill="none"
-                viewBox="0 0 24 24"
-                style={{
-                  marginRight: 8,
-                  flexShrink: 0,
-                  background: "white",
-                  borderRadius: "50%",
-                }}
-              >
-                <circle cx="12" cy="12" r="12" fill="#fff2" />
-                <path
-                  d="M12 7v4m0 4h.01"
-                  stroke="#ff5858"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              <span>{error}</span>
-            </div>
-          )}
           <div className={styles.actions}>
             <button
               type="button"
@@ -604,7 +556,6 @@ const AddUserPanel = ({
         </div>
       </form>
 
-      {/* ✅ Modal moved inside JSX return */}
       {showModal && (
         <ConfirmLoginModal
           title={mode === "edit" ? "Confirm Edit" : "Confirm Add"}

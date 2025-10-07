@@ -7,6 +7,7 @@ export type UserForm = {
   email: string;
   empCode: string;
   department: string;
+  location: string;
   status: string;
   plants: string[];
   permissions: {
@@ -93,6 +94,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
       central_permission: user.centralPermission,
       comment: user.comment,
       corporate_access_enabled: user.corporateAccessEnabled,
+      location: user.location,
     };
     const res = await fetch(API_URL, {
       method: "POST",
@@ -117,6 +119,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
       central_permission: user.centralPermission,
       comment: user.comment,
       corporate_access_enabled: user.corporateAccessEnabled,
+      location: user.location,
     };
     const res = await fetch(`${API_URL}/${userId}`, {
       method: "PUT",
