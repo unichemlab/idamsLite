@@ -684,7 +684,7 @@ const handleLogout = () => {
                       </option>
                     ))}
                   </select>
-                  <label htmlFor="plant_location">Plant *</label>
+                  <label htmlFor="plant_location">Plant <span style={{ color: "red" }}>*</span></label>
                 </div>
                 <div className={addUserRequestStyles.formGroup}>
                   <select
@@ -700,7 +700,7 @@ const handleLogout = () => {
                       </option>
                     ))}
                   </select>
-                  <label htmlFor="department">Department *</label>
+                  <label htmlFor="department">Department <span style={{ color: "red" }}>*</span></label>
                 </div>
                 <div className={addUserRequestStyles.formGroup}>
                   <select
@@ -937,7 +937,7 @@ const handleLogout = () => {
                       <option value="Others">Others</option>
                       <option value="Vendor / OEM">Vendor / OEM</option>
                     </select>
-                    <label htmlFor="request_for_by">Access For *</label>
+                    <label htmlFor="request_for_by">Access For <span style={{ color: "red" }}>*</span></label>
 
                   </div>
                   <div className={addUserRequestStyles.formGroup}>
@@ -948,7 +948,7 @@ const handleLogout = () => {
                       disabled={form.request_for_by === "Self" && !!form.employeeCode}
                       required
                     />
-                    <label htmlFor="employeeCode">Employee Code *</label>
+                    <label htmlFor="employeeCode">Employee Code <span style={{ color: "red" }}>*</span></label>
                   </div>
                   <div className={addUserRequestStyles.formGroup}>
 
@@ -959,7 +959,7 @@ const handleLogout = () => {
                       required
                       disabled={form.request_for_by === "Self" && !!form.name}
                     />
-                    <label htmlFor="name">Requestor For /By *</label>
+                    <label htmlFor="name">Requestor For /By <span style={{ color: "red" }}>*</span></label>
                   </div>
 
                   <div className={addUserRequestStyles.formGroup}>
@@ -971,7 +971,7 @@ const handleLogout = () => {
                       required
                       disabled={!!form.location}
                     />
-                    <label htmlFor="location">Location *</label>
+                    <label htmlFor="location">Location <span style={{ color: "red" }}>*</span></label>
                   </div>
                 </div>
                 <div className={addUserRequestStyles.fourCol}>
@@ -990,7 +990,7 @@ const handleLogout = () => {
                         </option>
                       ))}
                     </select>
-                    <label htmlFor="accessType">Access Request Type *</label>
+                    <label htmlFor="accessType">Access Request Type <span style={{ color: "red" }}>*</span></label>
                   </div>
                   {!isBulkDeactivation && (
                     <div className={addUserRequestStyles.formGroup}>
@@ -1007,7 +1007,7 @@ const handleLogout = () => {
                           </option>
                         ))}
                       </select>
-                      <label htmlFor="reportsTo">Approver 1(Manager / Manager's Manager)*</label>
+                      <label htmlFor="reportsTo">Approver 1(Manager/Manager's Manager) <span style={{ color: "red" }}>*</span></label>
                     </div>
                   )}
                   <div className={addUserRequestStyles.formGroup}>
@@ -1019,7 +1019,7 @@ const handleLogout = () => {
                       <option value="Yes">Yes</option>
                       <option value="No">No</option>
                     </select>
-                    <label htmlFor="trainingStatus">Training Completed *</label>
+                    <label htmlFor="trainingStatus">Training Completed <span style={{ color: "red" }}>*</span></label>
                   </div>
                   {form.trainingStatus === "Yes" && (
                     <div className={addUserRequestStyles.formGroup}>
@@ -1051,7 +1051,7 @@ const handleLogout = () => {
                         onChange={handleChange}
                         required
                       />
-                      <label htmlFor="vendorName">Vendor Name *</label>
+                      <label htmlFor="vendorName">Vendor Name <span style={{ color: "red" }}>*</span></label>
                     </div>
                     <div className={addUserRequestStyles.formGroup}>
                       <input
@@ -1060,7 +1060,7 @@ const handleLogout = () => {
                         onChange={handleChange}
                         required
                       />
-                      <label htmlFor="vendorFirm">Vendor Firm *</label>
+                      <label htmlFor="vendorFirm">Vendor Firm <span style={{ color: "red" }}>*</span></label>
                     </div>
                     <div className={addUserRequestStyles.formGroup}>
                       <input
@@ -1086,7 +1086,7 @@ const handleLogout = () => {
                         onChange={handleChange}
                         required
                       />
-                      <label htmlFor="vendorFirm">Vendor Firm *</label>
+                      <label htmlFor="vendorFirm">Vendor Firm <span style={{ color: "red" }}>*</span></label>
                     </div>
                     <div className={addUserRequestStyles.formGroup}>
                       <input
@@ -1095,7 +1095,7 @@ const handleLogout = () => {
                         onChange={handleChange}
                         required
                       />
-                      <label htmlFor="allocatedId">Allocated ID *</label>
+                      <label htmlFor="allocatedId">Allocated ID <span style={{ color: "red" }}>*</span></label>
                     </div>
                     <div className={addUserRequestStyles.formGroup}>
                       <input
@@ -1103,7 +1103,7 @@ const handleLogout = () => {
                         value={form.vendorName}
 
                       />
-                      <label htmlFor="vendorName">Vendor Name *</label>
+                      <label htmlFor="vendorName">Vendor Name <span style={{ color: "red" }}>*</span></label>
                     </div>
                     <div className={addUserRequestStyles.formGroup}>
                       <select name="plant_location" value={form.plant_location} onChange={handleChange} required>
@@ -1112,7 +1112,7 @@ const handleLogout = () => {
                           <option key={plant.id} value={plant.id} title={plant.plant_name}>{plant.plant_name}</option>
                         ))}
                       </select>
-                      <label htmlFor="plant_location">Plant Location *</label>
+                      <label htmlFor="plant_location">Plant Location <span style={{ color: "red" }}>*</span></label>
                     </div>
                   </div>
                   <div className={addUserRequestStyles.fourCol}>
@@ -1123,7 +1123,7 @@ const handleLogout = () => {
                           <option key={dept.id} value={dept.id} title={dept.department_name}>{dept.department_name}</option>
                         ))}
                       </select>
-                      <label htmlFor="department">Department *</label>
+                      <label htmlFor="department">Department <span style={{ color: "red" }}>*</span></label>
                     </div>
                     <div className={addUserRequestStyles.formGroup}>
                       <select name="role" value={form.role} onChange={handleChange} required>
@@ -1132,7 +1132,7 @@ const handleLogout = () => {
                           <option key={role.id} value={role.id} title={role.name}>{role.name}</option>
                         ))}
                       </select>
-                      <label htmlFor="role">Role *</label>
+                      <label htmlFor="role">Role <span style={{ color: "red" }}>*</span></label>
                     </div>
 
                     <div className={addUserRequestStyles.formGroup}>
@@ -1160,7 +1160,7 @@ const handleLogout = () => {
                           <option key={plant.id} value={plant.id} title={plant.plant_name}>{plant.plant_name}</option>
                         ))}
                       </select>
-                      <label htmlFor="plant_location">Plant Location * </label>
+                      <label htmlFor="plant_location">Plant Location <span style={{ color: "red" }}>*</span> </label>
                     </div>
                     <div className={addUserRequestStyles.formGroup}>
                       <select name="department" value={form.department} onChange={handleChange} required>
@@ -1169,7 +1169,7 @@ const handleLogout = () => {
                           <option key={dept.id} value={dept.id} title={dept.department_name}>{dept.department_name}</option>
                         ))}
                       </select>
-                      <label htmlFor="department">Department Name * </label>
+                      <label htmlFor="department">Department Name <span style={{ color: "red" }}>*</span> </label>
                     </div>
                     {(!isBulkDeactivation && !isBulkNew) && (
                       <div className={addUserRequestStyles.formGroup}>
@@ -1179,7 +1179,7 @@ const handleLogout = () => {
                             <option key={index} value={app.id} title={app.name}>{app.name}</option>
                           ))}
                         </select>
-                        <label htmlFor="applicationId">Application / Equipment ID *</label>
+                        <label htmlFor="applicationId">Application / Equipment ID <span style={{ color: "red" }}>*</span></label>
                       </div>
                     )}
                     {(!isBulkDeactivation && !isBulkNew) && (
@@ -1190,7 +1190,7 @@ const handleLogout = () => {
                             <option key={role.id} value={role.id} title={role.name}>{role.name}</option>
                           ))}
                         </select>
-                        <label htmlFor="role">Role *</label>
+                        <label htmlFor="role">Role <span style={{ color: "red" }}>*</span></label>
                       </div>
 
                     )}

@@ -432,7 +432,7 @@ const AddApplicationFormPage: React.FC = () => {
                   {/* System Name */}
                   <div className={addStyles.formGroup}>
                     <label>
-                      System Name <span style={{ color: "red" }}>*</span>
+                      System Name(Hostname) <span style={{ color: "red" }}>*</span>
                     </label>
                     <input
                       className={addStyles.input}

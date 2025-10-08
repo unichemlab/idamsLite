@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import styles from "./UserRequestTable.module.css";
+import ProfileIconWithLogout from "./ProfileIconWithLogout";
+import NotificationsIcon from "@mui/icons-material/Notifications";
+import SettingsIcon from "@mui/icons-material/Settings";
 import { fetchUserRequests } from "../../utils/api";
-import login_headTitle2 from "../../assets/login_headTitle2.png";
 import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -39,7 +41,14 @@ const UserRequestTable: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modalTasks, setModalTasks] = useState<Task[] | null>(null);
-  const navigate = useNavigate();
+    // Filter state
+    const [showFilterPopover, setShowFilterPopover] = React.useState(false);
+    const [filterColumn, setFilterColumn] = React.useState("name");
+    const [filterValue, setFilterValue] = React.useState("");
+    const [tempFilterColumn, setTempFilterColumn] = React.useState(filterColumn);
+    const [tempFilterValue, setTempFilterValue] = React.useState(filterValue);
+    const popoverRef = React.useRef<HTMLDivElement | null>(null);
+    const navigate = useNavigate();
 
   useEffect(() => {
     const load = async () => {
@@ -190,28 +199,94 @@ const UserRequestTable: React.FC = () => {
 
   return (
     <div>
-      <header className={styles["main-header"]}>
-        <div className={styles["header-left"]}>
-          <div className={styles["header-left"]}>
-            <div className={styles["logo-wrapper"]}>
-              <img src={login_headTitle2} alt="Logo" className={styles.logo} />
-              <span className={styles.version}>v1.00</span>
-            </div>
-            <h1 className={styles["header-title"]}>User Access Management</h1>
-          </div>
-        </div>
-        <div className={styles["header-right"]}>
-          <button className={styles["addUserBtn"]} onClick={() => navigate("/user-requests/add")}>
-            + Add New
-          </button>
-          <button className={styles["exportBtn"]} onClick={handleExportPDF}>
-            Export PDF
-          </button>
+     <header className={styles["main-header"]}>
+        <h2 className={styles["header-title"]}>User Access Managemant</h2>
+        <div className={styles["header-icons"]}>
+          <span className={styles["header-icon"]}><NotificationsIcon fontSize="small" /></span>
+          <span className={styles["header-icon"]}><SettingsIcon fontSize="small" /></span>
+          <ProfileIconWithLogout />
         </div>
       </header>
-
+      <div className={styles.headerTopRow}>
+              <div className={styles.actionHeaderRow}>
+                <button
+                  onClick={() => setShowFilterPopover(!showFilterPopover)}
+                 className={styles.filterBtn}
+                >
+                  Filter
+                </button>
+                <button onClick={handleExportPDF} className={`${styles.btn} ${styles.exportPdfBtn}`}
+            aria-label="Export table to PDF">
+                  🗎 Export PDF
+                </button>
+      
+                {showFilterPopover && (
+                  <div className={styles.filterPopover} ref={popoverRef}>
+                    <div className={styles.filterPopoverHeader}>Advanced Filter</div>
+                    <div className={styles.filterPopoverBody}>
+                      <div className={styles.filterFieldRow}>
+                        <label className={styles.filterLabel}>Column</label>
+                        <select
+                          className={styles.filterDropdown}
+                          value={tempFilterColumn}
+                          onChange={(e) =>
+                            setTempFilterColumn(e.target.value as keyof UserRequest)
+                          }
+                        >
+                          {Object.keys(userrequests[0] || {}).map((col) => (
+                            <option key={col} value={col}>{col}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className={styles.filterFieldRow}>
+                        <label className={styles.filterLabel}>Value</label>
+                        <input
+                          className={styles.filterInput}
+                          type="text"
+                          placeholder="Enter filter value"
+                          value={tempFilterValue}
+                          onChange={(e) => setTempFilterValue(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className={styles.filterPopoverFooter}>
+                      <button
+                        className={styles.applyBtn}
+                        onClick={() => {
+                          setFilterColumn(tempFilterColumn);
+                          setFilterValue(tempFilterValue);
+                          setShowFilterPopover(false);
+                         // setCurrentPage(1);
+                        }}
+                      >
+                        Apply
+                      </button>
+                      <button
+                        className={styles.clearBtn}
+                        onClick={() => {
+                          setTempFilterValue("");
+                          setFilterValue("");
+                          setShowFilterPopover(false);
+                        //  setCurrentPage(1);
+                        }}
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
       <div className={styles.container}>
-        <div className={styles.tableWrapper}>
+        <div  style={{
+            maxHeight: 380,
+            overflowY: "auto",
+            borderRadius: 8,
+            boxShadow: "0 0 4px rgba(0, 0, 0, 0.05)",
+            border: "1px solid #e2e8f0",
+            marginTop: "11px",
+            height: "100",
+          }}>
           <table className={styles.table}>
             <thead>
               <tr>
