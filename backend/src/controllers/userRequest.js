@@ -83,6 +83,49 @@ const pool = require("../config/db");
 const path = require("path");
 const fs = require("fs");
 
+// Helper: fetch user request and tasks
+const getUserRequestWithTasks = async (id) => {
+  const { rows: userRows } = await pool.query( `SELECT * FROM user_requests WHERE id=$1`, [id]  );
+  if (!userRows[0]) return null;
+  const request = userRows[0];
+
+  const { rows: taskRows } = await pool.query(
+    `SELECT tr.transaction_id AS task_id,
+            tr.application_equip_id,
+            app.display_name AS application_name,
+            tr.department,
+            d.department_name,
+            tr.role,
+            r.role_name AS role_name,
+            tr.location,
+            p.plant_name AS location_name,
+            tr.reports_to,
+            tr.task_status
+     FROM task_requests tr
+     LEFT JOIN department_master d ON tr.department = d.id
+     LEFT JOIN role_master r ON tr.role = r.id
+     LEFT JOIN plant_master p ON tr.location = p.id
+     LEFT JOIN application_master app ON tr.application_equip_id = app.id
+     WHERE tr.user_request_id=$1
+     ORDER BY tr.id`,
+    [id]
+  );
+
+  const tasks = taskRows.map(t => ({
+    task_id: t.task_id,
+    application_equip_id: t.application_equip_id,
+    application_name: t.application_name,
+    department_id: t.department,
+    department_name: t.department_name,
+    role_id: t.role,
+    role_name: t.role_name,
+    location: t.location_name,
+    reports_to: t.reports_to,
+    task_status: t.task_status
+  }));
+
+  return { request, tasks };
+};
 /**
  * Get all user requests with tasks
  */
@@ -237,8 +280,9 @@ exports.createUserRequest = async (req, res) => {
     const userRequest = rows[0];
 
     // Insert tasks
+    
     for (const task of tasks) {
-      await pool.query(
+        await pool.query(
         `INSERT INTO task_requests
         (user_request_id, application_equip_id, department, role, location, reports_to, task_status,approver1_id,approver2_id, created_on)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())`,
@@ -256,7 +300,7 @@ exports.createUserRequest = async (req, res) => {
         ]
       );
     }
-
+     const { request: user_request, tasks: task_request } = await getUserRequestWithTasks(userRequest.id);;
     // --- Send email to Approver 1 ---
     if (approver1_email) {
       const token = Buffer.from(`${userRequest.id}|${approver1_email}`).toString("base64");
@@ -268,7 +312,8 @@ exports.createUserRequest = async (req, res) => {
         to: approver1_email,
         subject: "New User Request Approval Required",
         html: getApprovalEmail({
-          userRequest,
+          userRequest: user_request,
+          tasks: task_request,
           approveLink,
           rejectLink,
           approverName: "Approver 1"
@@ -282,7 +327,10 @@ exports.createUserRequest = async (req, res) => {
       });
     }
 
-    res.status(201).json(userRequest);
+     res.status(201).json({
+      userRequest: user_request,
+          tasks: task_request,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
