@@ -1,17 +1,22 @@
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import React from "react";
+import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 
-const donutData = [
-  { name: 'Active Applications', value: 400, color: '#22c0d3' },
-  { name: 'Inactive Applications', value: 100, color: '#ffcf87' },
-  { name: 'Pending Requests', value: 300, color: '#c64a3c' },
-  { name: 'Approved Requests', value: 200, color: '#56838c' },
-];
+type DonutChartData = {
+  name: string;
+  value: number;
+  color: string;
+};
 
-const DonutChart = () => (
-  <ResponsiveContainer width="100%" height={250}>
+type DonutChartProps = {
+  data: DonutChartData[];
+  height?: number;
+};
+
+const DonutChart: React.FC<DonutChartProps> = ({ data, height = 250 }) => (
+  <ResponsiveContainer width="100%" height={height}>
     <PieChart>
       <Pie
-        data={donutData}
+        data={data}
         dataKey="value"
         nameKey="name"
         cx="50%"
@@ -20,7 +25,7 @@ const DonutChart = () => (
         outerRadius={90}
         paddingAngle={4}
       >
-        {donutData.map((entry, index) => (
+        {data.map((entry, index) => (
           <Cell key={`cell-${index}`} fill={entry.color} />
         ))}
       </Pie>

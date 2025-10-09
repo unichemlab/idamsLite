@@ -16,6 +16,8 @@ const swaggerRoutes = require("./routes/swagger");
 const activityLogsRoutes=require("./routes/activityLog")
 const ActiveDirectory = require("activedirectory2");
 const adSyncRoutes = require("./routes/employeeSyncRoutes");
+const dashboardRoutes=require("./routes/dashboardRoutes");
+const approvalRoutes=require("./routes/approvalRoutes");
 const os = require("os");
 const serverRoutes = require("./routes/serverRoutes");
 
@@ -32,12 +34,16 @@ const AD_PASSWORD = process.env.AD_PASSWORD;
 console.log("Connecting to AD:", AD_SERVER);
 
 // Static file serving middleware (ensuring uploads folder is correctly handled)
-app.use("/uploads", express.static(path.join(__dirname, "src", "uploads")));
+app.use(
+  "/uploads",
+  express.static(path.join(__dirname, "uploads"))
+);
 app.use("/api/plants", plantRoutes);
 app.use("/api/vendors", vendorRoutes);
 app.use("/api/roles", roleRoutes);
 app.use("/api/systems", systemRoutes);
 app.use("/api/departments", departmentRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/user-requests", userRequest);
@@ -45,6 +51,7 @@ app.use("/api/applications", applicationRoutes);
 app.use("/api/docs", swaggerRoutes);
 app.use("/api/activity-logs", activityLogsRoutes);
 app.use("/api/servers", serverRoutes);
+app.use("/api/approval", approvalRoutes);
 // Use AD sync routes
 app.use(adSyncRoutes);
 

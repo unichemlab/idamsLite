@@ -46,9 +46,10 @@ const AddUserRequest: React.FC = () => {
     reportsToOptions: [],
     trainingStatus: "Yes",
     remarks: "",
-    approver1: "",
-    approver2: [],
-    approver3: [],
+    approver1_email: "",
+    approver2_email: [],
+    approver1_status: "Pending",
+     approver2_status: "Pending",
     status: "Pending",
     vendorName: [],
     vendorFirm: [],
@@ -434,92 +435,116 @@ const AddUserRequest: React.FC = () => {
 
   // ===================== Form Submission =====================
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (
-      form.request_for_by === "Vendor / OEM" &&
-      form.accessType === "Modify Access" &&
-      (!form.vendorFirm || !form.allocatedId)
-    ) {
+  // =================== Validations ===================
+  if (form.request_for_by === "Vendor / OEM" && form.accessType === "Modify Access") {
+    if (!form.vendorFirm || !form.allocatedId) {
       alert("Vendor Firm and Allocated ID are required for Vendor/OEM Modify.");
       return;
     }
+  }
 
-    if (form.accessType === "Bulk New User Creation" && bulkRows.length === 0) {
-      alert("Please add at least one bulk entry.");
-      return;
-    }
+  if (form.accessType === "Bulk New User Creation" && bulkRows.length === 0) {
+    alert("Please add at least one bulk entry.");
+    return;
+  }
 
-    if (
-      form.trainingStatus === "Yes" &&
-      (form.accessType === "New User Creation" ||
-        form.accessType === "Bulk New User Creation") &&
-      attachments.length === 0
-    ) {
-      alert("Attachment is mandatory for training records.");
-      return;
-    }
+  if (
+    form.trainingStatus === "Yes" &&
+    (form.accessType === "New User Creation" || form.accessType === "Bulk New User Creation") &&
+    attachments.length === 0
+  ) {
+    alert("Attachment is mandatory for training records.");
+    return;
+  }
 
-    // Build tasks
-    const tasks: TaskRequest[] = [];
-    if (form.accessType === "Bulk New User Creation") {
-      bulkRows.forEach((row) => {
-        tasks.push({
-          application_equip_id: row.applicationId,
-          department: form.department,
-          role: row.role,
-          location: form.plant_location,
-          reports_to: form.reportsTo,
-          task_status: "Pending",
-        });
-      });
-    } else {
+  // =================== Approver Info ===================
+  const approver1 = form.reportsToOptions[0]; // Manager
+  const approver2 = form.reportsToOptions[1]; // Managers Manager (second level)
+
+  // Convert to string to satisfy TypeScript
+  const approver1_id_str = String(approver1?.employeeCode || "");
+  const approver2_id_str = String(approver2?.employeeCode || "");
+
+  const approver1_email = approver1?.email || "";
+  const approver2_email = approver2?.email ? [approver2.email] : [];
+
+  // =================== Build Tasks ===================
+  const tasks: TaskRequest[] = [];
+
+  if (form.accessType === "Bulk New User Creation") {
+    bulkRows.forEach((row) => {
       tasks.push({
-        application_equip_id: form.applicationId,
+        application_equip_id: row.applicationId,
         department: form.department,
-        role: form.role,
+        role: row.role,
         location: form.plant_location,
         reports_to: form.reportsTo,
         task_status: "Pending",
+        approver1_id: approver1_id_str,
+        approver2_id: approver2_id_str,
       });
-    }
+    });
+  } else {
+    tasks.push({
+      application_equip_id: form.applicationId,
+      department: form.department,
+      role: form.role,
+      location: form.plant_location,
+      reports_to: form.reportsTo,
+      task_status: "Pending",
+      approver1_id: approver1_id_str,
+      approver2_id: approver2_id_str,
+    });
+  }
 
-    // Build FormData
-    const formData = new FormData();
-    formData.append("request_for_by", form.request_for_by || "");
-    formData.append("name", form.name || "");
-    formData.append("employee_code", form.employeeCode || "");
-    formData.append("employee_location", form.location || "");
-    formData.append("plant_location", form.plant_location || "");
-    formData.append("department", form.department || "");
-    formData.append("role", form.role || "");
-    formData.append("status", form.status || "Pending");
-    formData.append("reports_to", form.reportsTo || "");
-    formData.append("training_status", form.trainingStatus || "");
-    formData.append("access_request_type", form.accessType || "");
-    formData.append("vendor_name", form.vendorName?.toString() || "");
-    formData.append("vendor_firm", form.vendorFirm?.toString() || "");
-    formData.append("vendor_code", form.vendorCode?.toString() || "");
-    formData.append("vendor_allocated_id", form.allocatedId?.toString() || "");
+  // =================== Build FormData ===================
+  const formData = new FormData();
 
-    // Attach file
-    if (attachments.length > 0) {
-      formData.append("training_attachment", attachments[0]);
-    }
+  formData.append("request_for_by", form.request_for_by || "");
+  formData.append("name", form.name || "");
+  formData.append("employee_code", form.employeeCode || "");
+  formData.append("employee_location", form.location || "");
+  formData.append("plant_location", form.plant_location || "");
+  formData.append("department", form.department || "");
+  formData.append("role", form.role || "");
+  formData.append("status", form.status || "Pending");
+  formData.append("reports_to", form.reportsTo || "");
+  formData.append("training_status", form.trainingStatus || "");
+  formData.append("access_request_type", form.accessType || "");
+  formData.append("vendor_name", form.vendorName?.toString() || "");
+  formData.append("vendor_firm", form.vendorFirm?.toString() || "");
+  formData.append("vendor_code", form.vendorCode?.toString() || "");
+  formData.append("vendor_allocated_id", form.allocatedId?.toString() || "");
 
-    // Attach tasks JSON
-    formData.append("tasks", JSON.stringify(tasks));
+  // Approver info
+  formData.append("approver1_email", approver1_email);
+  formData.append("approver2_email", approver2_email?.toString() || "");
+  formData.append("approver1_status", "Pending");
+  formData.append("approver2_status", "Pending");
 
-    console.log("Submitting FormData:", Object.fromEntries(formData.entries()));
+  // Attach file
+  if (attachments.length > 0) {
+    formData.append("training_attachment", attachments[0]);
+  }
 
-    try {
-      await addUserRequest(formData); // now sending FormData
-      navigate("/user-requests");
-    } catch (err) {
-      console.error("Failed to save request:", err);
-      alert("Something went wrong while saving the request.");
-    }
-  };
+  // Attach tasks
+  formData.append("tasks", JSON.stringify(tasks));
+
+  console.log("Submitting FormData:", Object.fromEntries(formData.entries()));
+
+  try {
+    await addUserRequest(formData); // send FormData to backend
+    alert("Request submitted successfully!");
+    navigate("/user-requests");
+  } catch (err) {
+    console.error("Failed to save request:", err);
+    alert("Something went wrong while saving the request.");
+  }
+};
+
+
 
 
   const isVendorModify = form.request_for_by === "Vendor / OEM" && form.accessType === "Modify Access";

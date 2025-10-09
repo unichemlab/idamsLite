@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import styles from "./SuperAdmin.module.css";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import {
   Dashboard as DashboardIcon,
   Factory as FactoryIcon,
@@ -11,15 +12,10 @@ import {
   Logout as LogoutIcon,
   Notifications as NotificationsIcon,
   Settings as SettingsIcon,
-  CalendarMonth as CalendarMonthIcon,
   Assignment as AssignmentIcon,
-  Group as GroupIcon,
-  Sync as SyncIcon,
 } from "@mui/icons-material";
 // ----- Component -----
 import ServerInventoryMasterTable from "pages/ServerInventoryMasterTable/ServerInventoryMasterTable";
-
-import DonutChart from "../../components/Common/DonutChart";
 import PlantMasterTable from "pages/PlantMasterTable/PlantMasterTable";
 import DepartmentMasterTable from "pages/DepartmentMasterTable/DepartmentMasterTable";
 import VendorMasterTable from "pages/VendorMasterTable/VendorMasterTable";
@@ -45,6 +41,18 @@ type SidebarItem = {
   perm: string;
 };
 
+interface DashboardCounts {
+  applications: { total: string; active: string; inactive: string };
+  departments: { total: string; active: string; inactive: string };
+  networkInventory: { total: string; active: string | null; inactive: string | null };
+  plants: { total: string; active: string; inactive: string };
+  roles: { total: string; active: string; inactive: string };
+  serverInventory: { total: string; active: string; inactive: string };
+  systemInventory: { total: string; active: string; inactive: string };
+  userRequests: { pending: string; approved: string; rejected: string };
+  users: { total: string; active: string; inactive: string };
+  vendors: { total: string; active: string; inactive: string };
+}
 
 const SuperAdmin: React.FC = () => {
   const location = useLocation();
@@ -105,14 +113,14 @@ const SuperAdmin: React.FC = () => {
 
   // ----- Compute user permissions based on roles -----
   const roleIdsArray: number[] = user
-  ? Array.isArray(user.role_id)
-    ? user.role_id
-    : typeof user.role_id === "number"
-    ? [user.role_id]
-    : []
-  : [];
+    ? Array.isArray(user.role_id)
+      ? user.role_id
+      : typeof user.role_id === "number"
+        ? [user.role_id]
+        : []
+    : [];
 
-console.log("[SuperAdmin] roleIdsArray:", roleIdsArray);
+  console.log("[SuperAdmin] roleIdsArray:", roleIdsArray);
   const userRoles = getRolesFromIds(roleIdsArray);
 
   console.log("[SuperAdmin] roleIdsArray:", roleIdsArray);
@@ -175,11 +183,13 @@ console.log("[SuperAdmin] roleIdsArray:", roleIdsArray);
       case "workflow": return <WorkflowBuilder />;
       case "system": return <SystemInventoryMasterTable />;
       case "activity-logs": return <ActivityMasterTable />;
-       case "server":
-        return <ServerInventoryMasterTable />;    
+      case "server":
+        return <ServerInventoryMasterTable />;
       default: return null;
     }
   };
+
+ 
 
   // ----- Render -----
   return (
@@ -215,8 +225,8 @@ console.log("[SuperAdmin] roleIdsArray:", roleIdsArray);
                 <strong>{user?.username || "admin"}</strong>
                 <div className={styles.subtext}>
                   {userRoles.includes("superAdmin") ? "Super Admin" :
-                   userRoles.includes("plantAdmin") ? "Plant Admin" :
-                   userRoles.includes("qaManager") ? "QA Manager" : "User"}
+                    userRoles.includes("plantAdmin") ? "Plant Admin" :
+                      userRoles.includes("qaManager") ? "QA Manager" : "User"}
                 </div>
               </div>
             </div>
@@ -235,7 +245,42 @@ console.log("[SuperAdmin] roleIdsArray:", roleIdsArray);
 const DashboardView = ({ handleLogout }: { handleLogout: () => void }) => {
   const [profileOpen, setProfileOpen] = useState(false);
   const handleProfileClick = () => setProfileOpen((prev) => !prev);
+const [counts, setCounts] = useState<DashboardCounts | null>(null);
+ useEffect(() => {
+    fetch("http://localhost:4000/api/dashboard/counts")
+      .then((res) => res.json())
+      .then((data) => setCounts(data))
+      .catch((err) => console.error("Dashboard fetch error:", err));
+  }, []);
 
+  if (!counts) return <p>Loading dashboard...</p>;
+
+  const userRequestData = [
+    { name: "Pending", value: Number(counts.userRequests.pending), color: "#FFA500" },
+    { name: "Approved", value: Number(counts.userRequests.approved), color: "#4CAF50" },
+    { name: "Rejected", value: Number(counts.userRequests.rejected), color: "#F44336" },
+  ];
+
+  const userStatusData = [
+    { name: "Active Users", value: Number(counts.users.active), color: "#2196F3" },
+    { name: "Inactive Users", value: Number(counts.users.inactive), color: "#9E9E9E" },
+  ];
+
+  // Cards data mapping
+  const cards = [
+    { label: "Applications", icon: <AppsIcon />, data: counts.applications },
+    { label: "Plants", icon: <FactoryIcon />, data: counts.plants },
+    { label: "Users", icon: <PersonIcon />, data: counts.users },
+    { label: "User Requests", icon: <AssignmentIcon />, data: counts.userRequests },
+    { label: "Departments", icon: <FactoryIcon />, data: counts.departments },
+    { label: "Roles", icon: <PersonIcon />, data: counts.roles },
+    { label: "Vendors", icon: <FactoryIcon />, data: counts.vendors },
+    { label: "Network Inventory", icon: <FactoryIcon />, data: counts.networkInventory },
+    { label: "Server Inventory", icon: <FactoryIcon />, data: counts.serverInventory },
+    { label: "System Inventory", icon: <FactoryIcon />, data: counts.systemInventory },
+  ];
+
+console.log(counts);
   return (
     <div>
       <header className={styles["main-header"]}>
@@ -257,7 +302,96 @@ const DashboardView = ({ handleLogout }: { handleLogout: () => void }) => {
       <div className={styles.dashboard1}>
         <h2>System Overview</h2>
         <div className={styles["overview-cards"]}>
-          {/* Example cards */}
+          {/* Cards */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
+            {cards.map((card, idx) => (
+          <div
+            key={idx}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              padding: 16,
+              background: "#fff",
+              borderRadius: 8,
+              boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
+            }}
+          >
+            <div style={{ fontSize: 32, marginRight: 12, color: "#1976d2" }}>{card.icon}</div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 14, color: "#555" }}>{card.label}</h3>
+              {"total" in card.data ? (
+                <p style={{ margin: "4px 0 0", fontSize: 16, fontWeight: "bold" }}>
+                  Total: {card.data.total} | Active: {card.data.active || 0} | Inactive: {card.data.inactive || 0}
+                </p>
+              ) : (
+                <p style={{ margin: "4px 0 0", fontSize: 16, fontWeight: "bold" }}>
+                  Pending: {card.data.pending} | Approved: {card.data.approved} | Rejected: {card.data.rejected}
+                </p>
+              )}
+            </div>
+          </div>
+        ))}
+          </div>
+
+          
+          {/* Donut Charts */}
+      <div style={{ display: "flex", gap: 30, marginTop: 40 }}>
+        {/* User Requests */}
+        <div style={{ flex: 1, background: "#fff", padding: 20, borderRadius: 16, boxShadow: "0 4px 10px rgba(0,0,0,0.1)" }}>
+          <h3 style={{ textAlign: "center" }}>User Request Status</h3>
+          <div style={{ width: "100%", height: 300 }}>
+            <ResponsiveContainer>
+              <PieChart>
+                <Pie
+                  data={userRequestData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={70}
+                  outerRadius={100}
+                  paddingAngle={4}
+                  label
+                >
+                  {userRequestData.map((entry, idx) => (
+                    <Cell key={idx} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Users */}
+        <div style={{ flex: 1, background: "#fff", padding: 20, borderRadius: 16, boxShadow: "0 4px 10px rgba(0,0,0,0.1)" }}>
+          <h3 style={{ textAlign: "center" }}>User Status</h3>
+          <div style={{ width: "100%", height: 300 }}>
+            <ResponsiveContainer>
+              <PieChart>
+                <Pie
+                  data={userStatusData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={70}
+                  outerRadius={100}
+                  paddingAngle={4}
+                  label
+                >
+                  {userStatusData.map((entry, idx) => (
+                    <Cell key={idx} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
         </div>
       </div>
     </div>

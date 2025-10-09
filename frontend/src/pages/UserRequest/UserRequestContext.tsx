@@ -19,6 +19,8 @@ export type TaskRequest = {
   location: string;
   reports_to: string;
   task_status: string;
+  approver1_id: string;
+  approver2_id: string;
 };
 
 export type Manager = {
@@ -49,9 +51,10 @@ export type UserRequest = {
   attachmentPath?: string;           // saved server path
   attachmentName?: string;           // original filename
   remarks?: string;
-  approver1: string;
-  approver2: string[];
-  approver3: string[];
+  approver1_email: string;
+  approver2_email: string[];
+  approver1_status: string;
+  approver2_status: string;
   status?: "Pending" | "Approved" | "Rejected";
   vendorName: string[];
   vendorFirm: string[];
@@ -95,9 +98,10 @@ export const UserRequestProvider: React.FC<{ children: React.ReactNode }> = ({ c
     trainingStatus: "Yes",
     attachment: null,
     remarks: "",
-    approver1: "",
-    approver2: [],
-    approver3: [],
+    approver1_email: "",
+    approver2_email: [],
+    approver1_status: "",
+    approver2_status: "",
     vendorName: [],
     vendorFirm: [],
     vendorCode: [],

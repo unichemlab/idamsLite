@@ -77,6 +77,8 @@
  *         description: File downloaded
  */
 
+const { sendEmail } = require("../utils/email");
+const { getApprovalEmail } = require("../utils/emailTemplate");
 const pool = require("../config/db");
 const path = require("path");
 const fs = require("fs");
@@ -172,9 +174,9 @@ exports.getAllUserRequests = async (req, res) => {
   }
 };
 
+// Inside your existing exports.createUserRequest
 exports.createUserRequest = async (req, res) => {
   try {
-    // Extract main fields
     const {
       request_for_by,
       name,
@@ -187,17 +189,17 @@ exports.createUserRequest = async (req, res) => {
       vendor_code,
       vendor_allocated_id,
       status,
+      approver1_email, // send email to Approver 1
+      approver2_email  // send email to Approver 2
     } = req.body;
 
     // Parse tasks safely
     let tasks = [];
-    console.log("task req",req.body.tasks)
     if (req.body.tasks) {
       try {
         tasks = JSON.parse(req.body.tasks);
       } catch (err) {
-        console.log('error json',err);
-        return res.status(400).json({ error: "Invalid tasks JSON1" });
+        return res.status(400).json({ error: "Invalid tasks JSON" });
       }
     }
 
@@ -209,8 +211,9 @@ exports.createUserRequest = async (req, res) => {
       `INSERT INTO user_requests
       (request_for_by, name, employee_code, employee_location, access_request_type,
        training_status, training_attachment, training_attachment_name,
-       vendor_name, vendor_firm, vendor_code, vendor_allocated_id, status, created_on)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW())
+       vendor_name, vendor_firm, vendor_code, vendor_allocated_id, status,
+       approver1_email, approver1_status, approver2_email, approver2_status, created_on)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'Pending',$15,'Pending',NOW())
       RETURNING *`,
       [
         request_for_by,
@@ -226,6 +229,8 @@ exports.createUserRequest = async (req, res) => {
         vendor_code || null,
         vendor_allocated_id || null,
         status || "Pending",
+        approver1_email,
+        approver2_email,
       ]
     );
 
@@ -235,8 +240,8 @@ exports.createUserRequest = async (req, res) => {
     for (const task of tasks) {
       await pool.query(
         `INSERT INTO task_requests
-        (user_request_id, application_equip_id, department, role, location, reports_to, task_status, created_on)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())`,
+        (user_request_id, application_equip_id, department, role, location, reports_to, task_status,approver1_id,approver2_id, created_on)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())`,
         [
           userRequest.id,
           task.application_equip_id,
@@ -245,8 +250,36 @@ exports.createUserRequest = async (req, res) => {
           task.location,
           task.reports_to,
           task.task_status || "Pending",
+          task.approver1_id,
+          task.approver2_id,
+          
         ]
       );
+    }
+
+    // --- Send email to Approver 1 ---
+    if (approver1_email) {
+      const token = Buffer.from(`${userRequest.id}|${approver1_email}`).toString("base64");
+
+      const approveLink = `${process.env.FRONTEND_URL}/approve-request/${userRequest.id}?token=${token}&action=approve&approverEmail=${approver1_email}`;
+      const rejectLink = `${process.env.FRONTEND_URL}/approve-request/${userRequest.id}?token=${token}&action=reject&approverEmail=${approver1_email}`;
+
+      await sendEmail({
+        to: approver1_email,
+        subject: "New User Request Approval Required",
+        html: getApprovalEmail({
+          userRequest,
+          approveLink,
+          rejectLink,
+          approverName: "Approver 1"
+        }),
+        attachments: training_attachment ? [
+          {
+            filename: training_attachment_name,
+            path: path.join(__dirname, "../uploads", training_attachment),
+          },
+        ] : [],
+      });
     }
 
     res.status(201).json(userRequest);
@@ -447,7 +480,8 @@ exports.downloadAttachment = async (req, res) => {
 
     const filePath = path.join(__dirname, "../uploads", rows[0].training_attachment);
     const originalName = rows[0].training_attachment_name || "attachment";
-
+console.log("filepath:",filePath);
+console.log("originalpath:",originalName);
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: "File not found" });
     }

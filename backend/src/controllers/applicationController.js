@@ -213,7 +213,7 @@ exports.getRoleApplicationIDByPlantIdandDepartment = async (req, res) => {
       `SELECT DISTINCT r.id AS role_id, r.role_name AS role_name, a.id AS application_id, a.display_name 
        FROM application_master a
        JOIN role_master r ON r.id = ANY(string_to_array(a.role_id, ',')::int[])
-       WHERE a.plant_location_id = $1 AND a.department_id = $2
+       WHERE a.plant_location_id = $1 AND a.department_id = $2 AND a.status='ACTIVE'
        ORDER BY r.role_name`,
       [plantID, departmentID]
     );
@@ -228,10 +228,10 @@ exports.getRoleApplicationIDByPlantIdandDepartment = async (req, res) => {
     ).map(item => JSON.parse(item));
 
     // Applications
-    const applications = result.rows.map(row => ({
+    const applications = Array.from(new Set (result.rows.map(row => JSON.stringify({
       id: row.application_id,
       name: row.display_name
-    }));
+    })))).map(item => JSON.parse(item));
 
     res.status(200).json({ roles, applications });
   } catch (err) {

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import styles from "./UserRequestTable.module.css";
+import styles from "../UserRequestTable/UserRequestTable.module.css";
 import ProfileIconWithLogout from "./ProfileIconWithLogout";
 import NotificationsIcon from "@mui/icons-material/Notifications";
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import SettingsIcon from "@mui/icons-material/Settings";
 import { fetchUserRequests } from "../../utils/api";
 import { useNavigate } from "react-router-dom";
@@ -41,14 +42,14 @@ const UserRequestTable: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modalTasks, setModalTasks] = useState<Task[] | null>(null);
-    // Filter state
-    const [showFilterPopover, setShowFilterPopover] = React.useState(false);
-    const [filterColumn, setFilterColumn] = React.useState("name");
-    const [filterValue, setFilterValue] = React.useState("");
-    const [tempFilterColumn, setTempFilterColumn] = React.useState(filterColumn);
-    const [tempFilterValue, setTempFilterValue] = React.useState(filterValue);
-    const popoverRef = React.useRef<HTMLDivElement | null>(null);
-    const navigate = useNavigate();
+  // Filter state
+  const [showFilterPopover, setShowFilterPopover] = React.useState(false);
+  const [filterColumn, setFilterColumn] = React.useState("name");
+  const [filterValue, setFilterValue] = React.useState("");
+  const [tempFilterColumn, setTempFilterColumn] = React.useState(filterColumn);
+  const [tempFilterValue, setTempFilterValue] = React.useState(filterValue);
+  const popoverRef = React.useRef<HTMLDivElement | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const load = async () => {
@@ -199,7 +200,7 @@ const UserRequestTable: React.FC = () => {
 
   return (
     <div>
-     <header className={styles["main-header"]}>
+      <header className={styles["main-header"]}>
         <h2 className={styles["header-title"]}>User Access Managemant</h2>
         <div className={styles["header-icons"]}>
           <span className={styles["header-icon"]}><NotificationsIcon fontSize="small" /></span>
@@ -208,85 +209,92 @@ const UserRequestTable: React.FC = () => {
         </div>
       </header>
       <div className={styles.headerTopRow}>
-              <div className={styles.actionHeaderRow}>
-                <button
-                  onClick={() => setShowFilterPopover(!showFilterPopover)}
-                 className={styles.filterBtn}
-                >
-                  Filter
-                </button>
-                <button onClick={handleExportPDF} className={`${styles.btn} ${styles.exportPdfBtn}`}
+        <div className={styles.actionHeaderRow}>
+          <button
+            className={styles.addUserBtn}
+            onClick={() => navigate("/user-access-management")}
+          >
+            + Add New
+          </button>
+          <button
+            onClick={() => setShowFilterPopover(!showFilterPopover)}
+            className={styles.filterBtn}
+          >
+            Filter
+          </button>
+          <button onClick={handleExportPDF} className={`${styles.btn} ${styles.exportPdfBtn}`}
             aria-label="Export table to PDF">
-                  🗎 Export PDF
+            🗎 Export PDF
+          </button>
+        </div>
+        <div className={styles.controls}>
+          {showFilterPopover && (
+            <div className={styles.filterPopover} ref={popoverRef}>
+              <div className={styles.filterPopoverHeader}>Advanced Filter</div>
+              <div className={styles.filterPopoverBody}>
+                <div className={styles.filterFieldRow}>
+                  <label className={styles.filterLabel}>Column</label>
+                  <select
+                    className={styles.filterDropdown}
+                    value={tempFilterColumn}
+                    onChange={(e) =>
+                      setTempFilterColumn(e.target.value as keyof UserRequest)
+                    }
+                  >
+                    {Object.keys(userrequests[0] || {}).map((col) => (
+                      <option key={col} value={col}>{col}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className={styles.filterFieldRow}>
+                  <label className={styles.filterLabel}>Value</label>
+                  <input
+                    className={styles.filterInput}
+                    type="text"
+                    placeholder="Enter filter value"
+                    value={tempFilterValue}
+                    onChange={(e) => setTempFilterValue(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className={styles.filterPopoverFooter}>
+                <button
+                  className={styles.applyBtn}
+                  onClick={() => {
+                    setFilterColumn(tempFilterColumn);
+                    setFilterValue(tempFilterValue);
+                    setShowFilterPopover(false);
+                    // setCurrentPage(1);
+                  }}
+                >
+                  Apply
                 </button>
-      
-                {showFilterPopover && (
-                  <div className={styles.filterPopover} ref={popoverRef}>
-                    <div className={styles.filterPopoverHeader}>Advanced Filter</div>
-                    <div className={styles.filterPopoverBody}>
-                      <div className={styles.filterFieldRow}>
-                        <label className={styles.filterLabel}>Column</label>
-                        <select
-                          className={styles.filterDropdown}
-                          value={tempFilterColumn}
-                          onChange={(e) =>
-                            setTempFilterColumn(e.target.value as keyof UserRequest)
-                          }
-                        >
-                          {Object.keys(userrequests[0] || {}).map((col) => (
-                            <option key={col} value={col}>{col}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className={styles.filterFieldRow}>
-                        <label className={styles.filterLabel}>Value</label>
-                        <input
-                          className={styles.filterInput}
-                          type="text"
-                          placeholder="Enter filter value"
-                          value={tempFilterValue}
-                          onChange={(e) => setTempFilterValue(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <div className={styles.filterPopoverFooter}>
-                      <button
-                        className={styles.applyBtn}
-                        onClick={() => {
-                          setFilterColumn(tempFilterColumn);
-                          setFilterValue(tempFilterValue);
-                          setShowFilterPopover(false);
-                         // setCurrentPage(1);
-                        }}
-                      >
-                        Apply
-                      </button>
-                      <button
-                        className={styles.clearBtn}
-                        onClick={() => {
-                          setTempFilterValue("");
-                          setFilterValue("");
-                          setShowFilterPopover(false);
-                        //  setCurrentPage(1);
-                        }}
-                      >
-                        Clear
-                      </button>
-                    </div>
-                  </div>
-                )}
+                <button
+                  className={styles.clearBtn}
+                  onClick={() => {
+                    setTempFilterValue("");
+                    setFilterValue("");
+                    setShowFilterPopover(false);
+                    //  setCurrentPage(1);
+                  }}
+                >
+                  Clear
+                </button>
               </div>
             </div>
+          )}
+        </div>
+      </div>
       <div className={styles.container}>
-        <div  style={{
-            maxHeight: 380,
-            overflowY: "auto",
-            borderRadius: 8,
-            boxShadow: "0 0 4px rgba(0, 0, 0, 0.05)",
-            border: "1px solid #e2e8f0",
-            marginTop: "11px",
-            height: "100",
-          }}>
+        <div style={{
+          maxHeight: 380,
+          overflowY: "auto",
+          borderRadius: 8,
+          boxShadow: "0 0 4px rgba(0, 0, 0, 0.05)",
+          border: "1px solid #e2e8f0",
+          marginTop: "11px",
+          height: "100",
+        }}>
           <table className={styles.table}>
             <thead>
               <tr>
@@ -319,16 +327,20 @@ const UserRequestTable: React.FC = () => {
                   <td>
                     {req.attachmentName ? (
                       <a
-                        href={`http://localhost:4000/uploads/${req.attachmentName}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        href={`http://localhost:4000/api/user-requests/${req.id}/attachment`}
+                        download={req.attachmentName}
+                        style={{ display: "inline-flex", alignItems: "center" }}
+                        title={`Download ${req.attachmentName}`}
                       >
-                        Download
+                        <PictureAsPdfIcon fontSize="small" style={{ color: "#e53935" }} />
                       </a>
                     ) : (
                       "-"
                     )}
                   </td>
+
+
+
                   <td>{req.vendorFirm?.join(", ") || "-"}</td>
                   <td>{req.vendorCode?.join(", ") || "-"}</td>
                   <td>{req.vendorName?.join(", ") || "-"}</td>
@@ -336,10 +348,10 @@ const UserRequestTable: React.FC = () => {
                   <td>
                     <span
                       className={`${styles.statusBadge} ${req.status === "Pending"
-                          ? styles.pending
-                          : req.status === "Approved"
-                            ? styles.approved
-                            : styles.rejected
+                        ? styles.pending
+                        : req.status === "Approved"
+                          ? styles.approved
+                          : styles.rejected
                         }`}
                     >
                       {req.status || "-"}
@@ -348,7 +360,7 @@ const UserRequestTable: React.FC = () => {
                   <td>
                     <button
                       className={styles.taskDetailsBtn}
-                      onClick={() => openTaskModal(req.tasks)}
+                      onClick={() => openTaskModal(req.tasks ?? [])}
                     >
                       View Tasks ({req.tasks?.length || 0})
                     </button>
@@ -391,10 +403,10 @@ const UserRequestTable: React.FC = () => {
                     <td>
                       <span
                         className={`${styles.statusBadge} ${task.task_status === "Pending"
-                            ? styles.pending
-                            : task.task_status === "Approved"
-                              ? styles.approved
-                              : styles.rejected
+                          ? styles.pending
+                          : task.task_status === "Approved"
+                            ? styles.approved
+                            : styles.rejected
                           }`}
                       >
                         {task.task_status}
