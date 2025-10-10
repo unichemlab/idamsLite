@@ -197,37 +197,46 @@ exports.editUser = async (req, res) => {
       corporate_access_enabled,
     } = req.body;
 
+    // Map incoming fields to the actual user_master table columns.
+    // The database in this project stores users in `user_master` with columns
+    // like id, employee_name, employee_code, department, location, email, status, role_id.
+    // Frontend may send department_id (placeholder). Prefer `department` if provided,
+    // otherwise fall back to department_id.
+    const department = req.body.department || department_id || null;
     const updateQuery = `
-      UPDATE admin_master SET
-        full_name = $1,
+      UPDATE user_master SET
+        employee_name = $1,
         email = $2,
-        emp_code = $3,
-        department_id = $4,
-        role_id = $5,
+        employee_code = $3,
+        department = $4,
+        location = $5,
         status = $6,
-        plants = $7,
-        permissions = $8,
-        central_permission = $9,
-        comment = $10,
-        corporate_access_enabled = $11
-      WHERE user_id = $12
+        role_id = $7,
+        updated_on = NOW()
+      WHERE id = $8
       RETURNING *;
     `;
+    // Ensure role_id is passed as an array when DB column is integer[]
+    const roleArray = Array.isArray(role_id)
+      ? role_id
+      : role_id !== undefined && role_id !== null
+      ? [role_id]
+      : null;
+
     const values = [
       full_name,
       email,
       emp_code,
-      department_id,
-      role_id,
+      department,
+      req.body.location || null,
       status,
-      plants,
-      JSON.stringify(permissions),
-      central_permission,
-      comment,
-      corporate_access_enabled,
+      roleArray,
       user_id,
     ];
     const { rows } = await db.query(updateQuery, values);
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
     res.json({ user: rows[0] });
   } catch (err) {
     console.error("[USER EDIT ERROR]", err);
@@ -258,13 +267,13 @@ exports.getUserByEmployeeCode = async (req, res) => {
 
     const { result } = await db.query(query, [employeeCode]);
 
-     if (result.rowCount === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ error: "User not found" });
     }
 
     const user = result.rows[0];
 
-     res.json({
+    res.json({
       name: user.name,
       employeeCode: user.employee_code,
       location: user.location,
@@ -277,4 +286,3 @@ exports.getUserByEmployeeCode = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch user" });
   }
 };
-

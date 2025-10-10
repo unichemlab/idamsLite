@@ -63,6 +63,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
       // Add all backend fields for direct access if needed
       employee_name: user.employee_name,
       employee_code: user.employee_code,
+      // expose employee_id so consumers can use it directly (e.g., WorkflowBuilder)
+      employee_id: user.employee_id,
       location: user.location,
       designation: user.designation,
       company: user.company,

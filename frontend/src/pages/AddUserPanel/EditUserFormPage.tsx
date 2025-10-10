@@ -11,9 +11,13 @@ const EditUserFormPage: React.FC = () => {
   const userData: UserForm | null = location.state?.userData || null;
   const userIdx: number | null = location.state?.userIdx ?? null;
   const handleSave = async (user: UserForm) => {
-    if (typeof userIdx === "number" && userData && userData.empCode) {
-      // Use empCode as userId for backend (adjust if you use another unique id)
-      await editUser(userData.empCode, user);
+    if (userData) {
+      // Prefer DB id if available, otherwise fall back to empCode
+      // editUser expects a string userId which should match backend's identifier
+      const backendId = (userData as any).id
+        ? String((userData as any).id)
+        : userData.empCode;
+      await editUser(backendId, user);
     }
     navigate("/superadmin", { state: { activeTab: "user" } });
   };
