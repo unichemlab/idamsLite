@@ -452,7 +452,7 @@ textarea:focus {
   display: flex;
   gap: 16px;
   flex-wrap: wrap;
-  margin-top: 14px;
+  position: relative; /* allow absolute-positioned toast inside */
 }
 
 .chip {
@@ -612,4 +612,25 @@ textarea:focus {
 .row input[type="checkbox"]:disabled {
   cursor: not-allowed;
   accent-color: #cbd5e1;
+}
+
+/* Inline toast used by AddUserPanel */
+.toast {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 9999;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.12);
+  max-width: 420px;
+  color: #fff;
+}
+.toastError {
+  background: linear-gradient(90deg, #ff5858 0%, #f44336 100%);
+}
+.toastInfo {
+  background: linear-gradient(90deg, #2563eb 0%, #3b82f6 100%);
 }

@@ -80,6 +80,12 @@ const AddUserPanel = ({
   const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // Inline toast state to replace alert() calls
+  const [toast, setToast] = useState<{
+    message: string;
+    type?: "info" | "error" | "success";
+  } | null>(null);
+  const toastTimerRef = React.useRef<number | null>(null);
   // Track if department was initially present (from backend)
   const [departmentInitiallyPresent, setDepartmentInitiallyPresent] = useState(
     () => {
@@ -96,19 +102,55 @@ const AddUserPanel = ({
   const handleCheckboxChange = (plant: string) => {
     setForm((prev) => {
       const isSelected = prev.plants.includes(plant);
+
+      // If attempting to select a plant, ensure all already-selected plants
+      // have at least one permission. If any selected plant has no permissions,
+      // disallow selecting a new plant until permissions are assigned or the
+      // existing plant is manually unchecked.
+      if (!isSelected) {
+        const anySelectedWithoutPerm = prev.plants.some((p) => {
+          const pModules = moduleList.map((mod) => `${p}-${mod}`);
+          return !pModules.some(
+            (modKey) => (prev.permissions[modKey] || []).length > 0
+          );
+        });
+        if (anySelectedWithoutPerm) {
+          setToast({
+            message:
+              "Please assign at least one permission (Add/Edit/View/Delete) to the already selected plant before selecting another.",
+            type: "error",
+          });
+          // auto-dismiss
+          if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+          toastTimerRef.current = window.setTimeout(() => setToast(null), 4000);
+          return prev;
+        }
+      }
+
+      // proceed with toggling selection
       const plantModules = moduleList.map((mod) => `${plant}-${mod}`);
       const hasAnyPermission = plantModules.some(
         (modKey) => (prev.permissions[modKey] || []).length > 0
       );
 
-      let updatedPlants;
+      let updatedPlants: string[] = [...prev.plants];
       let newActive = activePlant;
 
       if (!isSelected) {
-        updatedPlants = [...prev.plants, plant];
+        // add plant
+        updatedPlants = [...new Set([...prev.plants, plant])];
         newActive = plant;
       } else {
+        // remove plant only if it has no permissions
         if (hasAnyPermission) {
+          // don't allow unselecting a plant that currently has permissions
+          setToast({
+            message:
+              "This plant has assigned permissions. Remove permissions first to unselect the plant.",
+            type: "error",
+          });
+          if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+          toastTimerRef.current = window.setTimeout(() => setToast(null), 4000);
           return prev;
         } else {
           updatedPlants = prev.plants.filter((p) => p !== plant);
@@ -301,11 +343,21 @@ const AddUserPanel = ({
       }
     } else {
       // Username mismatch — do not proceed
-      alert(
-        `Username mismatch. Please confirm you are logged in as ${username} before confirming.`
-      );
+      setToast({
+        message: `Username mismatch. Please confirm you are logged in as ${username} before confirming.`,
+        type: "error",
+      });
+      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = window.setTimeout(() => setToast(null), 4000);
     }
   };
+
+  // cleanup toast timer on unmount
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    };
+  }, []);
 
   return (
     <div>
@@ -313,6 +365,15 @@ const AddUserPanel = ({
         className={`${styles.panel} ${panelClassName}`}
         onSubmit={handleSubmit}
       >
+        {toast && (
+          <div
+            className={`${styles.toast} ${
+              toast.type === "error" ? styles.toastError : styles.toastInfo
+            }`}
+          >
+            {toast.message}
+          </div>
+        )}
         <div className={styles.header}>
           <h2 className={styles.title}>
             {mode === "edit" ? `Edit User - ${form.fullName}` : "Add New User"}

@@ -21,9 +21,6 @@ const EditUserFormPage: React.FC = () => {
     }
     navigate("/superadmin", { state: { activeTab: "user" } });
   };
-  // Import Sidebar and navItems if needed
-  // import Sidebar from "../../components/Common/Sidebar";
-  // import navItems from "../../components/Common/navItems";
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
       {/* Sidebar */}
