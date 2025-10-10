@@ -4,16 +4,12 @@
         "backend": {
             "rootDirectory": "backend",
             "buildCommand": "npm install",
-            "startCommand": "npm run dev",
-            "env": {
-                "PORT": "3000",
-                "NODE_ENV": "production"
-            }
+            "startCommand": "npm start"
         },
         "frontend": {
             "rootDirectory": "frontend",
             "buildCommand": "npm install && npm run build",
-            "startCommand": "npm run start",
+            "startCommand": "npx serve -s dist -l $PORT",
             "env": {
                 "VITE_API_BASE_URL": "https://pharmacorp-backend-production.up.railway.app"
             }
