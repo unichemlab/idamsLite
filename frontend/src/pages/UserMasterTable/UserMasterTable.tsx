@@ -12,24 +12,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
 
-// Plant ID to name mapping (should be fetched from backend in production)
-const PLANT_ID_NAME_MAP = {
-  1: "Goa Plant 11",
-  2: "Goa Plant 2",
-  3: "GOA COE",
-  4: "Kolhapur",
-  5: "Ghaziabad",
-  6: "Pithampur",
-  7: "Baddi unit-I",
-  8: "Baddi Unit-II",
-  9: "Baddi Unit-III",
-  10: "Roha",
-  11: "Corporate",
-  14: "Mumbai Plant test1",
-  15: "test new plant",
-  16: "test 223",
-  18: "New test ",
-};
+// (Plant mapping removed — not used here)
 
 const UserMasterTable = () => {
   const navigate = useNavigate();
@@ -403,6 +386,47 @@ const UserMasterTable = () => {
                 <tbody>
                   {paginatedUsers.map((user: any, idx: number) => {
                     const globalIdx = (currentPage - 1) * rowsPerPage + idx;
+                    // Resolve department display name: prefer explicit name, otherwise map department_id to name
+                    let deptName = "";
+                    if (
+                      user.department &&
+                      String(user.department).trim() &&
+                      String(user.department) !== "-"
+                    ) {
+                      const parsed = Number(user.department);
+                      if (
+                        !Number.isNaN(parsed) &&
+                        departments &&
+                        departments.length > 0
+                      ) {
+                        const found = departments.find((d) => d.id === parsed);
+                        deptName = found
+                          ? found.name ||
+                            found.department_name ||
+                            String(parsed)
+                          : String(parsed);
+                      } else {
+                        deptName = String(user.department);
+                      }
+                    } else if (
+                      user.department_id !== undefined &&
+                      user.department_id !== null
+                    ) {
+                      const idNum = Number(user.department_id);
+                      if (
+                        !Number.isNaN(idNum) &&
+                        departments &&
+                        departments.length > 0
+                      ) {
+                        const found = departments.find((d) => d.id === idNum);
+                        deptName = found
+                          ? found.name || found.department_name || String(idNum)
+                          : String(idNum);
+                      } else {
+                        deptName = String(user.department_id);
+                      }
+                    }
+
                     return (
                       <tr key={globalIdx}>
                         <td>
@@ -419,7 +443,7 @@ const UserMasterTable = () => {
                         </td>
                         <td>{user.email}</td>
                         <td>{user.employee_code}</td>
-                        <td>{user.department}</td>
+                        <td>{deptName}</td>
                         <td>{user.location}</td>
                         <td>{user.designation}</td>
                         <td>

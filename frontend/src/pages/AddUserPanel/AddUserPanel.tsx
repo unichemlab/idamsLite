@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { usePlantContext } from "../PlantMaster/PlantContext";
 import { useAuth } from "../../context/AuthContext";
+import { useDepartmentContext } from "../DepartmentMaster/DepartmentContext";
 import styles from "./AddUserPanel.module.css";
 import ConfirmLoginModal from "components/Common/ConfirmLoginModal";
 
@@ -49,6 +50,7 @@ const AddUserPanel = ({
   panelClassName = "",
 }: AddUserPanelProps) => {
   const { plants } = usePlantContext();
+  const { departments } = useDepartmentContext();
   const { user } = useAuth();
   const [form, setForm] = useState<UserForm>(() => {
     const base = initialData ?? {
@@ -64,11 +66,13 @@ const AddUserPanel = ({
       comment: "",
       corporateAccessEnabled: false,
     };
-    // If department is missing, empty, or '-', set to ''
+    // If department is missing, empty, or '-', set to '' (we'll resolve ids later)
+    const initialDept = base.department ?? (base as any).department_id ?? "";
+    const deptString =
+      !initialDept || initialDept === "-" ? "" : String(initialDept);
     return {
       ...base,
-      department:
-        !base.department || base.department === "-" ? "" : base.department,
+      department: deptString,
     };
   });
   const [activePlant, setActivePlant] = useState<string | null>(() => {
@@ -89,14 +93,31 @@ const AddUserPanel = ({
   // Track if department was initially present (from backend)
   const [departmentInitiallyPresent, setDepartmentInitiallyPresent] = useState(
     () => {
-      return Boolean(
-        initialData &&
-          initialData.department &&
-          initialData.department.trim() &&
-          initialData.department !== "-"
-      );
+      const dept =
+        (initialData as any)?.department ?? (initialData as any)?.department_id;
+      return Boolean(dept && String(dept).trim() && String(dept) !== "-");
     }
   );
+
+  // If initialData contains a numeric department id, map it to its name once departments list is available
+  useEffect(() => {
+    if (!initialData) return;
+    const deptVal =
+      (initialData as any).department ?? (initialData as any).department_id;
+    if (!deptVal) return;
+    const deptId = Number(deptVal);
+    if (Number.isNaN(deptId)) return; // already a name
+    if (departments && departments.length > 0) {
+      const found = departments.find((d) => d.id === deptId);
+      if (found) {
+        setForm((prev) => ({
+          ...prev,
+          department: found.name || found.department_name || String(deptVal),
+        }));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [departments]);
 
   // Checkbox for plant selection
   const handleCheckboxChange = (plant: string) => {

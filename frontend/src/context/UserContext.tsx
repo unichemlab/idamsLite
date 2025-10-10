@@ -87,7 +87,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
       full_name: user.fullName,
       email: user.email,
       emp_code: user.empCode,
-      department_id: 1, // TODO: map department to id
+      // send department name (DB stores department as name string)
+      department: user.department,
       role_id: 4, // TODO: map role if needed
       password: "changeme123", // TODO: prompt or generate
       status: user.status.toUpperCase(),
@@ -113,7 +114,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
       full_name: user.fullName,
       email: user.email,
       emp_code: user.empCode,
-      department_id: 1, // TODO: map department to id
+      // send department name so backend stores the name
+      department: user.department,
       role_id: 4, // TODO: map role if needed
       status: user.status.toUpperCase(),
       plants: user.plants,
