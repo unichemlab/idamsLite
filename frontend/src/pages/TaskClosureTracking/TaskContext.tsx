@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { API_BASE } from "../../utils/api";
 interface TaskLog {
-    task_id: number;
+  task_id: number;
   user_request_id: number;
   user_request_transaction_id: string;
   name: string;
@@ -22,7 +22,9 @@ interface TaskContextType {
 
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
 
-export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [tasks, setTasks] = useState<TaskLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +32,9 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const fetchTasks = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE}/api/task`);
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL || "http://localhost:4000"}/api/task`
+      );
       if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
       const data = await response.json();
       setTasks(data);
@@ -47,7 +51,9 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   return (
-    <TaskContext.Provider value={{ tasks, loading, error, refreshTasks: fetchTasks }}>
+    <TaskContext.Provider
+      value={{ tasks, loading, error, refreshTasks: fetchTasks }}
+    >
       {children}
     </TaskContext.Provider>
   );
