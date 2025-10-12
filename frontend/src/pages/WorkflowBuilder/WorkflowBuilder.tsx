@@ -124,7 +124,7 @@ const WorkflowBuilder: React.FC = () => {
   useEffect(() => {
     const fetchPlants = async () => {
       try {
-        const res = await fetch("http://localhost:4000/api/plants");
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/plants`);
         if (!res.ok) throw new Error("Failed to fetch plants");
         const data = await res.json();
         setPlants(Array.isArray(data) ? data : []);
@@ -162,7 +162,9 @@ const WorkflowBuilder: React.FC = () => {
     // Fetch workflow for the selected plant from backend
     try {
       const res = await fetch(
-        `http://localhost:4000/api/workflows?plant=${encodeURIComponent(value)}`
+        `${
+          process.env.REACT_APP_API_URL
+        }/api/workflows?plant=${encodeURIComponent(value)}`
       );
       if (!res.ok) throw new Error("Failed to fetch workflows");
       const data = await res.json();
@@ -240,7 +242,9 @@ const WorkflowBuilder: React.FC = () => {
     // Try fetching workflow for corporate label (transaction_id or plant_id may differ)
     try {
       const res = await fetch(
-        `http://localhost:4000/api/workflows?plant=${encodeURIComponent(value)}`
+        `${
+          process.env.REACT_APP_API_URL
+        }/api/workflows?plant=${encodeURIComponent(value)}`
       );
       if (!res.ok) throw new Error("Failed to fetch workflows");
       const data = await res.json();
@@ -326,7 +330,7 @@ const WorkflowBuilder: React.FC = () => {
       let res;
       if (currentWorkflowId) {
         res = await fetch(
-          `http://localhost:4000/api/workflows/${currentWorkflowId}`,
+          `${process.env.REACT_APP_API_URL}/api/workflows/${currentWorkflowId}`,
           {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
@@ -334,7 +338,7 @@ const WorkflowBuilder: React.FC = () => {
           }
         );
       } else {
-        res = await fetch("http://localhost:4000/api/workflows", {
+        res = await fetch(`${process.env.REACT_APP_API_URL}/api/workflows`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
@@ -403,7 +407,7 @@ const WorkflowBuilder: React.FC = () => {
         let res;
         if (currentWorkflowId) {
           res = await fetch(
-            `http://localhost:4000/api/workflows/${currentWorkflowId}`,
+            `${process.env.REACT_APP_API_URL}/api/workflows/${currentWorkflowId}`,
             {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
@@ -411,7 +415,7 @@ const WorkflowBuilder: React.FC = () => {
             }
           );
         } else {
-          res = await fetch("http://localhost:4000/api/workflows", {
+          res = await fetch(`${process.env.REACT_APP_API_URL}/api/workflows`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
@@ -497,7 +501,7 @@ const WorkflowBuilder: React.FC = () => {
         let res;
         if (currentWorkflowId) {
           res = await fetch(
-            `http://localhost:4000/api/workflows/${currentWorkflowId}`,
+            `${process.env.REACT_APP_API_URL}/api/workflows/${currentWorkflowId}`,
             {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
@@ -505,7 +509,7 @@ const WorkflowBuilder: React.FC = () => {
             }
           );
         } else {
-          res = await fetch("http://localhost:4000/api/workflows", {
+          res = await fetch(`${process.env.REACT_APP_API_URL}/api/workflows`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),

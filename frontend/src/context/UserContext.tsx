@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { API_BASE } from "../utils/api";
 // Backend API base URL
-const API_URL = "http://localhost:4000/api/users";
+const API_URL = `${API_BASE}/api/users`;
 
 export type UserForm = {
   fullName: string;

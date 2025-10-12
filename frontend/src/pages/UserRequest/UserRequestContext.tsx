@@ -5,12 +5,12 @@ import {
   addUserRequestAPI,
   updateUserRequestAPI,
   deleteUserRequestAPI,
-  fetchUserByEmployeeCode
+  fetchUserByEmployeeCode,
 } from "../../utils/api";
 
 export type TaskRequest = {
-   task_id?: number;
-  transaction_id?: string;   // ✅ add this
+  task_id?: number;
+  transaction_id?: string; // ✅ add this
   access_request_type?: string;
   application_equip_id: string;
   application_name?: string;
@@ -47,9 +47,9 @@ export type UserRequest = {
   reportsTo: string;
   reportsToOptions: Manager[];
   trainingStatus: "Yes" | "No";
-  attachment?: File | null;          // file uploaded
-  attachmentPath?: string;           // saved server path
-  attachmentName?: string;           // original filename
+  attachment?: File | null; // file uploaded
+  attachmentPath?: string; // saved server path
+  attachmentName?: string; // original filename
   remarks?: string;
   approver1_email: string;
   approver2_email: string[];
@@ -60,7 +60,12 @@ export type UserRequest = {
   vendorFirm: string[];
   vendorCode: string[];
   allocatedId: string[];
-  bulkEntries?: { location: string; department: string; applicationId: string; role: string }[];
+  bulkEntries?: {
+    location: string;
+    department: string;
+    applicationId: string;
+    role: string;
+  }[];
   tasks?: TaskRequest[];
   created_at?: string;
   updated_at?: string;
@@ -71,7 +76,7 @@ type UserRequestContextType = {
   request: UserRequest;
   setRequest: React.Dispatch<React.SetStateAction<UserRequest>>;
   fetchUserRequests: () => void;
- fetchUserByEmployeeCode: (employeeCode: string) => Promise<void>;
+  fetchUserByEmployeeCode: (employeeCode: string) => Promise<void>;
   addUserRequest: (req: FormData) => Promise<void>;
   updateUserRequest: (id: number, req: UserRequest) => Promise<void>;
   deleteUserRequest: (id: number) => Promise<void>;
@@ -79,9 +84,13 @@ type UserRequestContextType = {
   error: string | null;
 };
 
-const UserRequestContext = createContext<UserRequestContextType | undefined>(undefined);
+const UserRequestContext = createContext<UserRequestContextType | undefined>(
+  undefined
+);
 
-export const UserRequestProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const UserRequestProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [userrequests, setUserRequests] = useState<UserRequest[]>([]);
   const [request, setRequest] = useState<UserRequest>({
     request_for_by: "Self",
@@ -94,7 +103,7 @@ export const UserRequestProvider: React.FC<{ children: React.ReactNode }> = ({ c
     department: "",
     role: "",
     reportsTo: "",
-    reportsToOptions:[],
+    reportsToOptions: [],
     trainingStatus: "Yes",
     attachment: null,
     remarks: "",
@@ -107,7 +116,7 @@ export const UserRequestProvider: React.FC<{ children: React.ReactNode }> = ({ c
     vendorCode: [],
     allocatedId: [],
     status: "Pending",
-    tasks: []
+    tasks: [],
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -126,32 +135,36 @@ export const UserRequestProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const addUserRequest = async (req: FormData) => {
-  setLoading(true);
-  setError(null);
-  try {
-    const newReq = await addUserRequestAPI(req);
-    setUserRequests((prev) => [...prev, newReq]);
-  } catch (err: any) {
-    setError(err.message);
-  } finally {
-    setLoading(false);
-  }
-};
+    setLoading(true);
+    setError(null);
+    try {
+      const newReq = await addUserRequestAPI(req);
+      setUserRequests((prev) => [...prev, newReq]);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-const fetchUserByEmployeeCode = async (employeeCode: string) => {
+  const fetchUserByEmployeeCode = async (employeeCode: string) => {
     if (!employeeCode) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`http://localhost:4000/api/users/${employeeCode}`);
+      const res = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/users/${employeeCode}`
+      );
       if (!res.ok) throw new Error("User not found");
       const data = await res.json();
 
       const managerNames: string[] = [];
-      if (data.reporting_manager?.displayName) managerNames.push(data.reporting_manager.displayName);
-      if (data.managers_manager?.displayName) managerNames.push(data.managers_manager.displayName);
+      if (data.reporting_manager?.displayName)
+        managerNames.push(data.reporting_manager.displayName);
+      if (data.managers_manager?.displayName)
+        managerNames.push(data.managers_manager.displayName);
 
-      setRequest(prev => ({
+      setRequest((prev) => ({
         ...prev,
         name: data.name || "",
         location: data.location || "",
@@ -160,7 +173,7 @@ const fetchUserByEmployeeCode = async (employeeCode: string) => {
       }));
     } catch (err: any) {
       console.error(err);
-      setRequest(prev => ({
+      setRequest((prev) => ({
         ...prev,
         name: "",
         location: "",
@@ -171,8 +184,6 @@ const fetchUserByEmployeeCode = async (employeeCode: string) => {
       setLoading(false);
     }
   };
-
-
 
   const updateUserRequest = async (id: number, req: UserRequest) => {
     setLoading(true);
@@ -226,6 +237,9 @@ const fetchUserByEmployeeCode = async (employeeCode: string) => {
 
 export function useUserRequestContext() {
   const ctx = useContext(UserRequestContext);
-  if (!ctx) throw new Error("useUserRequestContext must be used inside UserRequestProvider");
+  if (!ctx)
+    throw new Error(
+      "useUserRequestContext must be used inside UserRequestProvider"
+    );
   return ctx;
 }

@@ -5,7 +5,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/app.js",
-    "dev": "nodemon src/app.js"
+    "dev": "nodemon src/app.js",
+    "start:prod": "cross-env NODE_ENV=production node src/app.js"
   },
   "keywords": [],
   "author": "",
@@ -27,6 +28,7 @@
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
+    "cross-env": "^7.0.3",
     "dotenv-cli": "^10.0.0",
     "nodemon": "^3.1.10"
   }

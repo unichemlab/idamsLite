@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useUserRequestContext, UserRequest, TaskRequest, Manager } from "./UserRequestContext";
+import {
+  useUserRequestContext,
+  UserRequest,
+  TaskRequest,
+  Manager,
+} from "./UserRequestContext";
 import { useAuth } from "../../context/AuthContext";
 import { fetchPlants } from "../../utils/api";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
@@ -8,17 +13,16 @@ import addUserRequestStyles from "./AddUserRequest.module.css";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-
 const AddUserRequest: React.FC = () => {
   const { addUserRequest } = useUserRequestContext();
   const navigate = useNavigate();
-  const { user,logout } = useAuth();
+  const { user, logout } = useAuth();
   // ===================== Filter + Search State =====================
   const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [filter, setFilter] = useState({
     plant_location: "",
     department: "",
-    applicationId: "",   // ← add this
+    applicationId: "", // ← add this
     employeeCode: "",
     transactionId: "",
   });
@@ -26,8 +30,12 @@ const AddUserRequest: React.FC = () => {
   const [filterResults, setFilterResults] = useState<UserRequest[]>([]);
   const [resultModalOpen, setResultModalOpen] = useState(false);
   // extra state for the filter modal
-  const [filterApplications, setFilterApplications] = useState<{ id: string; name: string }[]>([]);
-  const [filterRoles, setFilterRoles] = useState<{ id: number; name: string }[]>([]);
+  const [filterApplications, setFilterApplications] = useState<
+    { id: string; name: string }[]
+  >([]);
+  const [filterRoles, setFilterRoles] = useState<
+    { id: number; name: string }[]
+  >([]);
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [selectedTasks, setSelectedTasks] = useState<TaskRequest[]>([]);
   console.log(user);
@@ -49,7 +57,7 @@ const AddUserRequest: React.FC = () => {
     approver1_email: "",
     approver2_email: [],
     approver1_status: "Pending",
-     approver2_status: "Pending",
+    approver2_status: "Pending",
     status: "Pending",
     vendorName: [],
     vendorFirm: [],
@@ -58,13 +66,20 @@ const AddUserRequest: React.FC = () => {
   });
 
   const [attachments, setAttachments] = useState<File[]>([]);
-  const [bulkRows, setBulkRows] = useState([{ location: "", department: "", applicationId: "", role: "" }]);
+  const [bulkRows, setBulkRows] = useState([
+    { location: "", department: "", applicationId: "", role: "" },
+  ]);
   const [modalTasks, setModalTasks] = useState<TaskRequest[] | null>(null);
-  const [plants, setPlants] = useState<{ id: number; plant_name: string }[]>([]);
-  const [departments, setDepartments] = useState<{ id: number; department_name: string }[]>([]);
+  const [plants, setPlants] = useState<{ id: number; plant_name: string }[]>(
+    []
+  );
+  const [departments, setDepartments] = useState<
+    { id: number; department_name: string }[]
+  >([]);
   const [roles, setRoles] = useState<{ id: number; name: string }[]>([]);
-  const [applications, setApplications] = useState<{ id: string; name: string }[]>([]);
-  
+  const [applications, setApplications] = useState<
+    { id: string; name: string }[]
+  >([]);
 
   // ===================== Form Handlers =====================
 
@@ -74,7 +89,9 @@ const AddUserRequest: React.FC = () => {
     if (!employeeCode) return;
 
     try {
-      const res = await fetch(`http://localhost:4000/api/users/${employeeCode}`);
+      const res = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/users/${employeeCode}`
+      );
       if (!res.ok) throw new Error("User not found");
 
       const data = await res.json();
@@ -129,15 +146,17 @@ const AddUserRequest: React.FC = () => {
     }
   };
 
-
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
+  ) => {
     const { name, value } = e.target;
 
     if (name === "request_for_by") {
       if (value === "Self") {
         // Autofill from logged-in user
-        setForm(prev => ({
+        setForm((prev) => ({
           ...prev,
           request_for_by: "Self",
           name: user?.name || "",
@@ -146,7 +165,7 @@ const AddUserRequest: React.FC = () => {
         }));
       } else {
         // Clear fields for Others/Vendor
-        setForm(prev => ({
+        setForm((prev) => ({
           ...prev,
           request_for_by: value as "Others" | "Vendor / OEM",
           name: "",
@@ -158,14 +177,12 @@ const AddUserRequest: React.FC = () => {
         }));
       }
     } else if (name === "employeeCode" && form.request_for_by !== "Self") {
-      setForm(prev => ({ ...prev, employeeCode: value }));
+      setForm((prev) => ({ ...prev, employeeCode: value }));
       if (value.length >= 3) fetchUserByEmployeeCode(value); // fetch when code entered
     } else {
-      setForm(prev => ({ ...prev, [name]: value }));
+      setForm((prev) => ({ ...prev, [name]: value }));
     }
   };
-
-
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -184,12 +201,15 @@ const AddUserRequest: React.FC = () => {
 
   const handleAddRow = () => {
     if (bulkRows.length < 7) {
-      setBulkRows([...bulkRows, {
-        location: form.plant_location,
-        department: form.department,
-        applicationId: "",
-        role: "",
-      }]);
+      setBulkRows([
+        ...bulkRows,
+        {
+          location: form.plant_location,
+          department: form.department,
+          applicationId: "",
+          role: "",
+        },
+      ]);
     } else {
       alert("You can only add up to 7 applications.");
     }
@@ -208,11 +228,12 @@ const AddUserRequest: React.FC = () => {
   };
 
   // ===================== Filter Handlers =====================
-  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleFilterChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
     setFilter((prev) => ({ ...prev, [name]: value }));
   };
-
 
   // inside your component
   const handleFilterSearch = async () => {
@@ -246,7 +267,7 @@ const AddUserRequest: React.FC = () => {
 
     try {
       const res = await fetch(
-        `http://localhost:4000/api/user-requests/search?${query}`
+        `${process.env.REACT_APP_API_URL}/api/user-requests/search?${query}`
       );
 
       if (!res.ok) {
@@ -278,7 +299,6 @@ const AddUserRequest: React.FC = () => {
         : [...prev, transactionId]
     );
   };
-
 
   const openTaskModal = (tasks?: TaskRequest[]) => {
     if (!tasks) return;
@@ -363,7 +383,11 @@ const AddUserRequest: React.FC = () => {
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
         doc.text("Unichem Laboratories", pageMargin, pageHeight - 6);
-        doc.text(`Page ${i} of ${pageCount}`, pageWidth - pageMargin - 30, pageHeight - 6);
+        doc.text(
+          `Page ${i} of ${pageCount}`,
+          pageWidth - pageMargin - 30,
+          pageHeight - 6
+        );
       }
     };
 
@@ -377,14 +401,24 @@ const AddUserRequest: React.FC = () => {
       const cardBgColor = index % 2 === 0 ? [245, 247, 250] : [230, 235, 245];
 
       // Card text
-      const textContent = `Transaction ID: ${req.transaction_id || "-"} | Name: ${req.name || "-"} | Employee Code: ${req.employeeCode || "-"} | Location: ${req.tasks?.[0]?.location || "-"} | Department: ${req.tasks?.[0]?.department || "-"} | Access Type: ${req.accessType || "-"}
+      const textContent = `Transaction ID: ${
+        req.transaction_id || "-"
+      } | Name: ${req.name || "-"} | Employee Code: ${
+        req.employeeCode || "-"
+      } | Location: ${req.tasks?.[0]?.location || "-"} | Department: ${
+        req.tasks?.[0]?.department || "-"
+      } | Access Type: ${req.accessType || "-"}
     | Approver 1: ${"Pending"} | Approver 2: ${"Pending"} | Status: ${"Pending"}`;
-      const textLines = doc.splitTextToSize(textContent, pageWidth - 2 * pageMargin - 4);
+      const textLines = doc.splitTextToSize(
+        textContent,
+        pageWidth - 2 * pageMargin - 4
+      );
       const lineHeight = 6;
       const cardHeight = textLines.length * lineHeight + 10;
 
       const tableEstimateHeight = req.tasks ? req.tasks.length * 12 + 20 : 0;
-      const neededSpace = cardHeight + 6 + tableEstimateHeight + 8 + footerHeight;
+      const neededSpace =
+        cardHeight + 6 + tableEstimateHeight + 8 + footerHeight;
 
       if (startY + neededSpace > pageHeight) {
         doc.addPage();
@@ -396,7 +430,15 @@ const AddUserRequest: React.FC = () => {
       doc.setFillColor(cardBgColor[0], cardBgColor[1], cardBgColor[2]);
       doc.setDrawColor(200);
       doc.setLineWidth(0.5);
-      doc.roundedRect(pageMargin, startY, pageWidth - 2 * pageMargin, cardHeight, 3, 3, "FD");
+      doc.roundedRect(
+        pageMargin,
+        startY,
+        pageWidth - 2 * pageMargin,
+        cardHeight,
+        3,
+        3,
+        "FD"
+      );
 
       doc.setFontSize(10);
       doc.setTextColor(0);
@@ -407,7 +449,17 @@ const AddUserRequest: React.FC = () => {
       // Task table
       if (req.tasks && req.tasks.length > 0) {
         autoTable(doc, {
-          head: [["Task ID", "Application / Equip", "Department", "Location", "Requestor Role", "Granted Role", "Status"]],
+          head: [
+            [
+              "Task ID",
+              "Application / Equip",
+              "Department",
+              "Location",
+              "Requestor Role",
+              "Granted Role",
+              "Status",
+            ],
+          ],
           body: req.tasks.map((t) => [
             t.transaction_id || "-",
             t.application_equip_id || "-",
@@ -418,13 +470,25 @@ const AddUserRequest: React.FC = () => {
             t.task_status || "-",
           ]),
           startY,
-          styles: { fontSize: 10, cellPadding: 4, overflow: "linebreak", valign: "middle" },
-          headStyles: { fillColor: [0, 118, 255], textColor: 255, fontStyle: "bold", halign: "center" },
+          styles: {
+            fontSize: 10,
+            cellPadding: 4,
+            overflow: "linebreak",
+            valign: "middle",
+          },
+          headStyles: {
+            fillColor: [0, 118, 255],
+            textColor: 255,
+            fontStyle: "bold",
+            halign: "center",
+          },
           alternateRowStyles: { fillColor: [245, 250, 255] },
           margin: { left: pageMargin, right: pageMargin },
           theme: "grid",
           showHead: "everyPage",
-          didDrawPage: (data) => { startY = (data.cursor?.y ?? startY) + 8; },
+          didDrawPage: (data) => {
+            startY = (data.cursor?.y ?? startY) + 8;
+          },
         });
       } else startY += 6;
     }
@@ -435,129 +499,151 @@ const AddUserRequest: React.FC = () => {
 
   // ===================== Form Submission =====================
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  // =================== Validations ===================
-  if (form.request_for_by === "Vendor / OEM" && form.accessType === "Modify Access") {
-    if (!form.vendorFirm || !form.allocatedId) {
-      alert("Vendor Firm and Allocated ID are required for Vendor/OEM Modify.");
+    // =================== Validations ===================
+    if (
+      form.request_for_by === "Vendor / OEM" &&
+      form.accessType === "Modify Access"
+    ) {
+      if (!form.vendorFirm || !form.allocatedId) {
+        alert(
+          "Vendor Firm and Allocated ID are required for Vendor/OEM Modify."
+        );
+        return;
+      }
+    }
+
+    if (form.accessType === "Bulk New User Creation" && bulkRows.length === 0) {
+      alert("Please add at least one bulk entry.");
       return;
     }
-  }
 
-  if (form.accessType === "Bulk New User Creation" && bulkRows.length === 0) {
-    alert("Please add at least one bulk entry.");
-    return;
-  }
+    if (
+      form.trainingStatus === "Yes" &&
+      (form.accessType === "New User Creation" ||
+        form.accessType === "Bulk New User Creation") &&
+      attachments.length === 0
+    ) {
+      alert("Attachment is mandatory for training records.");
+      return;
+    }
 
-  if (
-    form.trainingStatus === "Yes" &&
-    (form.accessType === "New User Creation" || form.accessType === "Bulk New User Creation") &&
-    attachments.length === 0
-  ) {
-    alert("Attachment is mandatory for training records.");
-    return;
-  }
+    // =================== Approver Info ===================
+    const approver1 = form.reportsToOptions[0]; // Manager
+    const approver2 = form.reportsToOptions[1]; // Managers Manager (second level)
 
-  // =================== Approver Info ===================
-  const approver1 = form.reportsToOptions[0]; // Manager
-  const approver2 = form.reportsToOptions[1]; // Managers Manager (second level)
+    // Convert to string to satisfy TypeScript
+    const approver1_id_str = String(approver1?.employeeCode || "");
+    const approver2_id_str = String(approver2?.employeeCode || "");
 
-  // Convert to string to satisfy TypeScript
-  const approver1_id_str = String(approver1?.employeeCode || "");
-  const approver2_id_str = String(approver2?.employeeCode || "");
+    const approver1_email = approver1?.email || "";
+    const approver2_email = approver2?.email ? [approver2.email] : [];
 
-  const approver1_email = approver1?.email || "";
-  const approver2_email = approver2?.email ? [approver2.email] : [];
+    // =================== Build Tasks ===================
+    const tasks: TaskRequest[] = [];
 
-  // =================== Build Tasks ===================
-  const tasks: TaskRequest[] = [];
-
-  if (form.accessType === "Bulk New User Creation") {
-    bulkRows.forEach((row) => {
+    if (form.accessType === "Bulk New User Creation") {
+      bulkRows.forEach((row) => {
+        tasks.push({
+          application_equip_id: row.applicationId,
+          department: form.department,
+          role: row.role,
+          location: form.plant_location,
+          reports_to: form.reportsTo,
+          task_status: "Pending",
+          approver1_id: approver1_id_str,
+          approver2_id: approver2_id_str,
+        });
+      });
+    } else {
       tasks.push({
-        application_equip_id: row.applicationId,
+        application_equip_id: form.applicationId,
         department: form.department,
-        role: row.role,
+        role: form.role,
         location: form.plant_location,
         reports_to: form.reportsTo,
         task_status: "Pending",
         approver1_id: approver1_id_str,
         approver2_id: approver2_id_str,
       });
-    });
-  } else {
-    tasks.push({
-      application_equip_id: form.applicationId,
-      department: form.department,
-      role: form.role,
-      location: form.plant_location,
-      reports_to: form.reportsTo,
-      task_status: "Pending",
-      approver1_id: approver1_id_str,
-      approver2_id: approver2_id_str,
-    });
-  }
+    }
 
-  // =================== Build FormData ===================
-  const formData = new FormData();
+    // =================== Build FormData ===================
+    const formData = new FormData();
 
-  formData.append("request_for_by", form.request_for_by || "");
-  formData.append("name", form.name || "");
-  formData.append("employee_code", form.employeeCode || "");
-  formData.append("employee_location", form.location || "");
-  formData.append("plant_location", form.plant_location || "");
-  formData.append("department", form.department || "");
-  formData.append("role", form.role || "");
-  formData.append("status", form.status || "Pending");
-  formData.append("reports_to", form.reportsTo || "");
-  formData.append("training_status", form.trainingStatus || "");
-  formData.append("access_request_type", form.accessType || "");
-  formData.append("vendor_name", form.vendorName?.toString() || "");
-  formData.append("vendor_firm", form.vendorFirm?.toString() || "");
-  formData.append("vendor_code", form.vendorCode?.toString() || "");
-  formData.append("vendor_allocated_id", form.allocatedId?.toString() || "");
+    formData.append("request_for_by", form.request_for_by || "");
+    formData.append("name", form.name || "");
+    formData.append("employee_code", form.employeeCode || "");
+    formData.append("employee_location", form.location || "");
+    formData.append("plant_location", form.plant_location || "");
+    formData.append("department", form.department || "");
+    formData.append("role", form.role || "");
+    formData.append("status", form.status || "Pending");
+    formData.append("reports_to", form.reportsTo || "");
+    formData.append("training_status", form.trainingStatus || "");
+    formData.append("access_request_type", form.accessType || "");
+    formData.append("vendor_name", form.vendorName?.toString() || "");
+    formData.append("vendor_firm", form.vendorFirm?.toString() || "");
+    formData.append("vendor_code", form.vendorCode?.toString() || "");
+    formData.append("vendor_allocated_id", form.allocatedId?.toString() || "");
 
-  // Approver info
-  formData.append("approver1_email", approver1_email);
-  formData.append("approver2_email", approver2_email?.toString() || "");
-  formData.append("approver1_status", "Pending");
-  formData.append("approver2_status", "Pending");
+    // Approver info
+    formData.append("approver1_email", approver1_email);
+    formData.append("approver2_email", approver2_email?.toString() || "");
+    formData.append("approver1_status", "Pending");
+    formData.append("approver2_status", "Pending");
 
-  // Attach file
-  if (attachments.length > 0) {
-    formData.append("training_attachment", attachments[0]);
-  }
+    // Attach file
+    if (attachments.length > 0) {
+      formData.append("training_attachment", attachments[0]);
+    }
 
-  // Attach tasks
-  formData.append("tasks", JSON.stringify(tasks));
+    // Attach tasks
+    formData.append("tasks", JSON.stringify(tasks));
 
-  console.log("Submitting FormData:", Object.fromEntries(formData.entries()));
+    console.log("Submitting FormData:", Object.fromEntries(formData.entries()));
 
-  try {
-    await addUserRequest(formData); // send FormData to backend
-    alert("Request submitted successfully!");
-    navigate("/user-requests");
-  } catch (err) {
-    console.error("Failed to save request:", err);
-    alert("Something went wrong while saving the request.");
-  }
-};
+    try {
+      await addUserRequest(formData); // send FormData to backend
+      alert("Request submitted successfully!");
+      navigate("/user-requests");
+    } catch (err) {
+      console.error("Failed to save request:", err);
+      alert("Something went wrong while saving the request.");
+    }
+  };
 
-
-
-
-  const isVendorModify = form.request_for_by === "Vendor / OEM" && form.accessType === "Modify Access";
+  const isVendorModify =
+    form.request_for_by === "Vendor / OEM" &&
+    form.accessType === "Modify Access";
   const isBulkDeactivation = form.accessType === "Bulk De-activation";
   const isBulkNew = form.accessType === "Bulk New User Creation";
 
   const accessOptions =
     form.request_for_by === "Vendor / OEM"
-      ? ["New User Creation", "Modify Access", "Active / Enable User Access", "Deactivation / Disable / Remove User Access", "Password Reset", "Account Unlock", "Account Unlock and Password Reset"]
-      : ["New User Creation", "Modify Access", "Password Reset", "Account Unlock", "Account Unlock and Password Reset", "Active / Enable User Access", "Deactivation / Disable / Remove User Access", "Bulk De-activation", "Bulk New User Creation"];
+      ? [
+          "New User Creation",
+          "Modify Access",
+          "Active / Enable User Access",
+          "Deactivation / Disable / Remove User Access",
+          "Password Reset",
+          "Account Unlock",
+          "Account Unlock and Password Reset",
+        ]
+      : [
+          "New User Creation",
+          "Modify Access",
+          "Password Reset",
+          "Account Unlock",
+          "Account Unlock and Password Reset",
+          "Active / Enable User Access",
+          "Deactivation / Disable / Remove User Access",
+          "Bulk De-activation",
+          "Bulk New User Creation",
+        ];
 
   // ===================== Data Fetch =====================
-
 
   useEffect(() => {
     if (form.request_for_by === "Self" && user) {
@@ -611,34 +697,73 @@ const AddUserRequest: React.FC = () => {
     }
   }, [form.request_for_by, user]);
 
-
-
-  useEffect(() => { fetchPlants().then(data => setPlants(data.map((p: any) => ({ id: p.id, plant_name: p.plant_name })))).catch(() => setPlants([])); }, []);
   useEffect(() => {
-    if (form.plant_location) fetch(`http://localhost:4000/api/applications/${form.plant_location}`).then(res => res.json()).then(data => setDepartments(Array.isArray(data) ? data : [])).catch(() => setDepartments([]));
+    fetchPlants()
+      .then((data) =>
+        setPlants(
+          data.map((p: any) => ({ id: p.id, plant_name: p.plant_name }))
+        )
+      )
+      .catch(() => setPlants([]));
+  }, []);
+  useEffect(() => {
+    if (form.plant_location)
+      fetch(
+        `${process.env.REACT_APP_API_URL}/api/applications/${form.plant_location}`
+      )
+        .then((res) => res.json())
+        .then((data) => setDepartments(Array.isArray(data) ? data : []))
+        .catch(() => setDepartments([]));
   }, [form.plant_location]);
   useEffect(() => {
     if (form.plant_location && form.department) {
-      fetch(`http://localhost:4000/api/applications/${form.plant_location}/${form.department}`)
-        .then(res => res.json()).then(data => { setRoles(Array.isArray(data.roles) ? data.roles : []); setApplications(Array.isArray(data.applications) ? data.applications : []); })
-        .catch(() => { setRoles([]); setApplications([]); });
+      fetch(
+        `${process.env.REACT_APP_API_URL}/api/applications/${form.plant_location}/${form.department}`
+      )
+        .then((res) => res.json())
+        .then((data) => {
+          setRoles(Array.isArray(data.roles) ? data.roles : []);
+          setApplications(
+            Array.isArray(data.applications) ? data.applications : []
+          );
+        })
+        .catch(() => {
+          setRoles([]);
+          setApplications([]);
+        });
     }
   }, [form.plant_location, form.department]);
-  useEffect(() => { if (form.vendorName.length > 0) { fetch(`/api/vendors/${form.vendorName}`).then(res => res.json()).then(data => setForm(prev => ({ ...prev, vendorFirm: data.firm, vendorCode: data.code }))); } }, [form.vendorName]);
+  useEffect(() => {
+    if (form.vendorName.length > 0) {
+      fetch(`/api/vendors/${form.vendorName}`)
+        .then((res) => res.json())
+        .then((data) =>
+          setForm((prev) => ({
+            ...prev,
+            vendorFirm: data.firm,
+            vendorCode: data.code,
+          }))
+        );
+    }
+  }, [form.vendorName]);
 
   // Fetch departments when plant changes
   useEffect(() => {
     if (filter.plant_location) {
-      fetch(`http://localhost:4000/api/applications/${filter.plant_location}`)
+      fetch(
+        `${process.env.REACT_APP_API_URL}/api/applications/${filter.plant_location}`
+      )
         .then((res) => res.json())
         .then((data) => setDepartments(Array.isArray(data) ? data : []))
         .catch(() => setDepartments([]));
     }
   }, [filter.plant_location]);
   useEffect(() => {
-    setFilter(prev => ({ ...prev, department: "" })); // reset department
+    setFilter((prev) => ({ ...prev, department: "" })); // reset department
     if (filter.plant_location) {
-      fetch(`http://localhost:4000/api/applications/${filter.plant_location}`)
+      fetch(
+        `${process.env.REACT_APP_API_URL}/api/applications/${filter.plant_location}`
+      )
         .then((res) => res.json())
         .then((data) => setDepartments(Array.isArray(data) ? data : []))
         .catch(() => setDepartments([]));
@@ -649,12 +774,16 @@ const AddUserRequest: React.FC = () => {
   // fetch applications when department changes in filter modal
   useEffect(() => {
     if (filter.plant_location && filter.department) {
-      fetch(`http://localhost:4000/api/applications/${filter.plant_location}/${filter.department}`)
-        .then(res => res.json())
-        .then(data => {
-          setFilterApplications(Array.isArray(data.applications) ? data.applications : []);
+      fetch(
+        `${process.env.REACT_APP_API_URL}/api/applications/${filter.plant_location}/${filter.department}`
+      )
+        .then((res) => res.json())
+        .then((data) => {
+          setFilterApplications(
+            Array.isArray(data.applications) ? data.applications : []
+          );
           setFilterRoles([]); // reset roles
-          setFilter(prev => ({ ...prev, applicationId: "", role: "" })); // reset values in filter object
+          setFilter((prev) => ({ ...prev, applicationId: "", role: "" })); // reset values in filter object
         })
         .catch(() => {
           setFilterApplications([]);
@@ -666,16 +795,18 @@ const AddUserRequest: React.FC = () => {
   // fetch roles when application changes in filter modal
   useEffect(() => {
     if (filter.applicationId) {
-      fetch(`http://localhost:4000/api/roles/${filter.applicationId}`)
-        .then(res => res.json())
-        .then(data => setFilterRoles(Array.isArray(data) ? data : []))
+      fetch(
+        `${process.env.REACT_APP_API_URL}/api/roles/${filter.applicationId}`
+      )
+        .then((res) => res.json())
+        .then((data) => setFilterRoles(Array.isArray(data) ? data : []))
         .catch(() => setFilterRoles([]));
     } else {
       setFilterRoles([]);
     }
   }, [filter.applicationId]);
 
-const handleLogout = () => {
+  const handleLogout = () => {
     logout();
     navigate("/");
   };
@@ -687,7 +818,9 @@ const handleLogout = () => {
       {filterModalOpen && (
         <div className={addUserRequestStyles.modalOverlay}>
           <div className={addUserRequestStyles.filterModalBox}>
-            <h2 className={addUserRequestStyles.advancedFilterHeader}>Filter User Requests</h2>
+            <h2 className={addUserRequestStyles.advancedFilterHeader}>
+              Filter User Requests
+            </h2>
 
             <div className={addUserRequestStyles.twoColForm}>
               {/* Column 1 */}
@@ -698,18 +831,24 @@ const handleLogout = () => {
                     value={filter.plant_location}
                     onChange={(e) => {
                       handleFilterChange(e);
-                      setFilter(prev => ({ ...prev, department: "" }));
+                      setFilter((prev) => ({ ...prev, department: "" }));
                     }}
                     required
                   >
                     <option value="">Select Plant</option>
                     {plants.map((plant) => (
-                      <option key={plant.id} value={plant.id} title={plant.plant_name}>
+                      <option
+                        key={plant.id}
+                        value={plant.id}
+                        title={plant.plant_name}
+                      >
                         {plant.plant_name}
                       </option>
                     ))}
                   </select>
-                  <label htmlFor="plant_location">Plant <span style={{ color: "red" }}>*</span></label>
+                  <label htmlFor="plant_location">
+                    Plant <span style={{ color: "red" }}>*</span>
+                  </label>
                 </div>
                 <div className={addUserRequestStyles.formGroup}>
                   <select
@@ -720,12 +859,18 @@ const handleLogout = () => {
                   >
                     <option value="">Select Department</option>
                     {departments.map((dept) => (
-                      <option key={dept.id} value={dept.id} title={dept.department_name}>
+                      <option
+                        key={dept.id}
+                        value={dept.id}
+                        title={dept.department_name}
+                      >
                         {dept.department_name}
                       </option>
                     ))}
                   </select>
-                  <label htmlFor="department">Department <span style={{ color: "red" }}>*</span></label>
+                  <label htmlFor="department">
+                    Department <span style={{ color: "red" }}>*</span>
+                  </label>
                 </div>
                 <div className={addUserRequestStyles.formGroup}>
                   <select
@@ -746,7 +891,6 @@ const handleLogout = () => {
 
               {/* Column 2 */}
               <div className={addUserRequestStyles.twoCol}>
-
                 <div className={addUserRequestStyles.formGroup}>
                   <input
                     type="text"
@@ -774,7 +918,11 @@ const handleLogout = () => {
             </div>
 
             <div className={addUserRequestStyles.advancedFilterActions}>
-              <button type="button" className={addUserRequestStyles.advancedApplyBtn} onClick={handleFilterSearch}>
+              <button
+                type="button"
+                className={addUserRequestStyles.advancedApplyBtn}
+                onClick={handleFilterSearch}
+              >
                 Search
               </button>
               <button
@@ -804,7 +952,6 @@ const handleLogout = () => {
         </div>
       )}
 
-
       {/* ===================== Result Modal ===================== */}
       {resultModalOpen && (
         <div className={addUserRequestStyles.modalOverlay}>
@@ -812,8 +959,20 @@ const handleLogout = () => {
             <div className={addUserRequestStyles.modalHeader}>
               <h2>Search Results</h2>
               <div className={addUserRequestStyles.modalActions}>
-                <button className={addUserRequestStyles.primaryBtn} onClick={() => handleExportPDF(user ? user.username : "admin")}>Export PDF</button>
-                <button className={addUserRequestStyles.secondaryBtn} onClick={() => setResultModalOpen(false)}>Close</button>
+                <button
+                  className={addUserRequestStyles.primaryBtn}
+                  onClick={() =>
+                    handleExportPDF(user ? user.username : "admin")
+                  }
+                >
+                  Export PDF
+                </button>
+                <button
+                  className={addUserRequestStyles.secondaryBtn}
+                  onClick={() => setResultModalOpen(false)}
+                >
+                  Close
+                </button>
               </div>
             </div>
 
@@ -835,69 +994,89 @@ const handleLogout = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filterResults.length > 0 ? filterResults.map((r, idx) => (
-                      <React.Fragment key={idx}>
-                        <tr>
-                          <td>{r.transaction_id}</td>
-                          <td>{r.name}</td>
-                          <td>{r.employeeCode}</td>
-                          <td>{r.tasks?.[0]?.location}</td>
-                          <td>{r.tasks?.[0]?.department || "—"}</td>
-                          <td>{r.accessType || "—"}</td>
-                          <td>{"Pending"}</td>
-                          <td>{"Pending"}</td>
-                          <td>{r.status}</td>
-                          <td>
-                            <button
-                              className={addUserRequestStyles.viewTaskBtn}
-                              onClick={() => toggleRowExpansion(r.transaction_id || idx.toString())}
-                            >
-                              {expandedRows.includes(r.transaction_id || idx.toString())
-                                ? "Hide Tasks"
-                                : `View Tasks (${r.tasks?.length || 0})`}
-                            </button>
-                          </td>
-                        </tr>
-
-                        {/* Collapsible task rows */}
-                        {expandedRows.includes(r.transaction_id || idx.toString()) && r.tasks && r.tasks.length > 0 && (
+                    {filterResults.length > 0 ? (
+                      filterResults.map((r, idx) => (
+                        <React.Fragment key={idx}>
                           <tr>
-                            <td colSpan={10} style={{ padding: 0 }}>
-                              <div style={{ overflowX: "auto" }}>
-                                <table className={addUserRequestStyles.subTable}>
-                                  <thead>
-                                    <tr>
-                                      <th>Task Transaction ID</th>
-                                      <th>Application / Equip ID</th>
-                                      <th>Department</th>
-                                      <th>Location</th>
-                                      <th>Requestor Role</th>
-                                      <th>Granted Role</th>
-                                      <th>Status</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {r.tasks.map((task, tIdx) => (
-                                      <tr key={tIdx}>
-                                        <td>{task.transaction_id || "-"}</td>
-                                        <td>{task.application_name || "-"}</td>
-                                        <td>{task.department || "-"}</td>
-                                        <td>{task.location || "-"}</td>
-                                        <td>{task.role || "-"}</td>
-                                        <td>{task.role || "-"}</td>
-                                        <td>{task.task_status || "-"}</td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
+                            <td>{r.transaction_id}</td>
+                            <td>{r.name}</td>
+                            <td>{r.employeeCode}</td>
+                            <td>{r.tasks?.[0]?.location}</td>
+                            <td>{r.tasks?.[0]?.department || "—"}</td>
+                            <td>{r.accessType || "—"}</td>
+                            <td>{"Pending"}</td>
+                            <td>{"Pending"}</td>
+                            <td>{r.status}</td>
+                            <td>
+                              <button
+                                className={addUserRequestStyles.viewTaskBtn}
+                                onClick={() =>
+                                  toggleRowExpansion(
+                                    r.transaction_id || idx.toString()
+                                  )
+                                }
+                              >
+                                {expandedRows.includes(
+                                  r.transaction_id || idx.toString()
+                                )
+                                  ? "Hide Tasks"
+                                  : `View Tasks (${r.tasks?.length || 0})`}
+                              </button>
                             </td>
                           </tr>
-                        )}
-                      </React.Fragment>
-                    )) : (
+
+                          {/* Collapsible task rows */}
+                          {expandedRows.includes(
+                            r.transaction_id || idx.toString()
+                          ) &&
+                            r.tasks &&
+                            r.tasks.length > 0 && (
+                              <tr>
+                                <td colSpan={10} style={{ padding: 0 }}>
+                                  <div style={{ overflowX: "auto" }}>
+                                    <table
+                                      className={addUserRequestStyles.subTable}
+                                    >
+                                      <thead>
+                                        <tr>
+                                          <th>Task Transaction ID</th>
+                                          <th>Application / Equip ID</th>
+                                          <th>Department</th>
+                                          <th>Location</th>
+                                          <th>Requestor Role</th>
+                                          <th>Granted Role</th>
+                                          <th>Status</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {r.tasks.map((task, tIdx) => (
+                                          <tr key={tIdx}>
+                                            <td>
+                                              {task.transaction_id || "-"}
+                                            </td>
+                                            <td>
+                                              {task.application_name || "-"}
+                                            </td>
+                                            <td>{task.department || "-"}</td>
+                                            <td>{task.location || "-"}</td>
+                                            <td>{task.role || "-"}</td>
+                                            <td>{task.role || "-"}</td>
+                                            <td>{task.task_status || "-"}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                        </React.Fragment>
+                      ))
+                    ) : (
                       <tr>
-                        <td colSpan={8} style={{ textAlign: "center" }}>No records found</td>
+                        <td colSpan={8} style={{ textAlign: "center" }}>
+                          No records found
+                        </td>
                       </tr>
                     )}
                   </tbody>
@@ -912,46 +1091,63 @@ const handleLogout = () => {
           <div className={addUserRequestStyles["header-left"]}>
             <div className={addUserRequestStyles["header-left"]}>
               <div className={addUserRequestStyles["logo-wrapper"]}>
-                <img src={login_headTitle2} alt="Logo" className={addUserRequestStyles.logo} />
+                <img
+                  src={login_headTitle2}
+                  alt="Logo"
+                  className={addUserRequestStyles.logo}
+                />
                 <span className={addUserRequestStyles.version}>v1.00</span>
               </div>
-              <h1 className={addUserRequestStyles["header-title"]}>User Access Management</h1>
+              <h1 className={addUserRequestStyles["header-title"]}>
+                User Access Management
+              </h1>
             </div>
           </div>
           <div className={addUserRequestStyles["header-right"]}>
-             <button className={addUserRequestStyles["addUserBtn"]} onClick={() => setFilterModalOpen(true)}>
+            <button
+              className={addUserRequestStyles["addUserBtn"]}
+              onClick={() => setFilterModalOpen(true)}
+            >
               Filter User Requests
             </button>
             {user?.role_id != 12 ? (
-            <button
+              <button
                 className={addUserRequestStyles["addUserBtn"]}
                 onClick={() => navigate("/superadmin")}
               >
                 View Admin Panel
               </button>
-            ):(
+            ) : (
               <button
                 className={addUserRequestStyles["addUserBtn"]}
-                style={{ backgroundColor: "#d32f2f", color: "white", marginLeft: "10px" }}
+                style={{
+                  backgroundColor: "#d32f2f",
+                  color: "white",
+                  marginLeft: "10px",
+                }}
                 onClick={handleLogout}
               >
                 Logout
               </button>
             )}
-           
           </div>
         </header>
         {/* ===================== Original Form JSX ===================== */}
         <div className={addUserRequestStyles.container}>
-          <form id="userRequestForm" className={addUserRequestStyles.form} onSubmit={handleSubmit} style={{ width: "100%" }}>
+          <form
+            id="userRequestForm"
+            className={addUserRequestStyles.form}
+            onSubmit={handleSubmit}
+            style={{ width: "100%" }}
+          >
             <div className={addUserRequestStyles.scrollFormContainer}>
-
               {/* Card 1 */}
               <div className={addUserRequestStyles.section}>
-                <span className={addUserRequestStyles.sectionHeaderTitle}>Requestor Details</span>
+                <span className={addUserRequestStyles.sectionHeaderTitle}>
+                  Requestor Details
+                </span>
                 <div className={addUserRequestStyles.fourCol}>
                   <div className={addUserRequestStyles.formGroup}>
-
                     <select
                       name="request_for_by"
                       value={form.request_for_by}
@@ -962,21 +1158,25 @@ const handleLogout = () => {
                       <option value="Others">Others</option>
                       <option value="Vendor / OEM">Vendor / OEM</option>
                     </select>
-                    <label htmlFor="request_for_by">Access For <span style={{ color: "red" }}>*</span></label>
-
+                    <label htmlFor="request_for_by">
+                      Access For <span style={{ color: "red" }}>*</span>
+                    </label>
                   </div>
                   <div className={addUserRequestStyles.formGroup}>
                     <input
                       name="employeeCode"
                       value={form.employeeCode}
                       onChange={handleChange}
-                      disabled={form.request_for_by === "Self" && !!form.employeeCode}
+                      disabled={
+                        form.request_for_by === "Self" && !!form.employeeCode
+                      }
                       required
                     />
-                    <label htmlFor="employeeCode">Employee Code <span style={{ color: "red" }}>*</span></label>
+                    <label htmlFor="employeeCode">
+                      Employee Code <span style={{ color: "red" }}>*</span>
+                    </label>
                   </div>
                   <div className={addUserRequestStyles.formGroup}>
-
                     <input
                       name="name"
                       value={form.name}
@@ -984,11 +1184,12 @@ const handleLogout = () => {
                       required
                       disabled={form.request_for_by === "Self" && !!form.name}
                     />
-                    <label htmlFor="name">Requestor For /By <span style={{ color: "red" }}>*</span></label>
+                    <label htmlFor="name">
+                      Requestor For /By <span style={{ color: "red" }}>*</span>
+                    </label>
                   </div>
 
                   <div className={addUserRequestStyles.formGroup}>
-
                     <input
                       name="location"
                       value={form.location}
@@ -996,11 +1197,12 @@ const handleLogout = () => {
                       required
                       disabled={!!form.location}
                     />
-                    <label htmlFor="location">Location <span style={{ color: "red" }}>*</span></label>
+                    <label htmlFor="location">
+                      Location <span style={{ color: "red" }}>*</span>
+                    </label>
                   </div>
                 </div>
                 <div className={addUserRequestStyles.fourCol}>
-
                   <div className={addUserRequestStyles.formGroup}>
                     <select
                       name="accessType"
@@ -1015,24 +1217,38 @@ const handleLogout = () => {
                         </option>
                       ))}
                     </select>
-                    <label htmlFor="accessType">Access Request Type <span style={{ color: "red" }}>*</span></label>
+                    <label htmlFor="accessType">
+                      Access Request Type{" "}
+                      <span style={{ color: "red" }}>*</span>
+                    </label>
                   </div>
                   {!isBulkDeactivation && (
                     <div className={addUserRequestStyles.formGroup}>
                       <select
                         name="reportsTo"
                         value={form.reportsTo}
-                        onChange={(e) => setForm(prev => ({ ...prev, reportsTo: e.target.value }))}
+                        onChange={(e) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            reportsTo: e.target.value,
+                          }))
+                        }
                         required
                       >
                         <option value="">Select Approver</option>
                         {form.reportsToOptions?.map((mgr) => (
-                          <option key={mgr.employeeCode} value={mgr.displayName}>
+                          <option
+                            key={mgr.employeeCode}
+                            value={mgr.displayName}
+                          >
                             {mgr.displayName}
                           </option>
                         ))}
                       </select>
-                      <label htmlFor="reportsTo">Approver 1(Manager/Manager's Manager) <span style={{ color: "red" }}>*</span></label>
+                      <label htmlFor="reportsTo">
+                        Approver 1(Manager/Manager's Manager){" "}
+                        <span style={{ color: "red" }}>*</span>
+                      </label>
                     </div>
                   )}
                   <div className={addUserRequestStyles.formGroup}>
@@ -1044,7 +1260,9 @@ const handleLogout = () => {
                       <option value="Yes">Yes</option>
                       <option value="No">No</option>
                     </select>
-                    <label htmlFor="trainingStatus">Training Completed <span style={{ color: "red" }}>*</span></label>
+                    <label htmlFor="trainingStatus">
+                      Training Completed <span style={{ color: "red" }}>*</span>
+                    </label>
                   </div>
                   {form.trainingStatus === "Yes" && (
                     <div className={addUserRequestStyles.formGroup}>
@@ -1055,19 +1273,20 @@ const handleLogout = () => {
                         multiple
                         onChange={handleFileChange}
                       />
-                      <label htmlFor="trainingAttachment">Attachment (PDF,Max 4MB)</label>
+                      <label htmlFor="trainingAttachment">
+                        Attachment (PDF,Max 4MB)
+                      </label>
                     </div>
                   )}
-
-
-
                 </div>
               </div>
 
               {/* Card 2 Vendor Details */}
-              {(form.request_for_by === "Vendor / OEM" && !isVendorModify) && (
+              {form.request_for_by === "Vendor / OEM" && !isVendorModify && (
                 <div className={addUserRequestStyles.section}>
-                  <span className={addUserRequestStyles.sectionHeaderTitle}>Vendor Details</span>
+                  <span className={addUserRequestStyles.sectionHeaderTitle}>
+                    Vendor Details
+                  </span>
                   <div className={addUserRequestStyles.threeCol}>
                     <div className={addUserRequestStyles.formGroup}>
                       <input
@@ -1076,7 +1295,9 @@ const handleLogout = () => {
                         onChange={handleChange}
                         required
                       />
-                      <label htmlFor="vendorName">Vendor Name <span style={{ color: "red" }}>*</span></label>
+                      <label htmlFor="vendorName">
+                        Vendor Name <span style={{ color: "red" }}>*</span>
+                      </label>
                     </div>
                     <div className={addUserRequestStyles.formGroup}>
                       <input
@@ -1085,7 +1306,9 @@ const handleLogout = () => {
                         onChange={handleChange}
                         required
                       />
-                      <label htmlFor="vendorFirm">Vendor Firm <span style={{ color: "red" }}>*</span></label>
+                      <label htmlFor="vendorFirm">
+                        Vendor Firm <span style={{ color: "red" }}>*</span>
+                      </label>
                     </div>
                     <div className={addUserRequestStyles.formGroup}>
                       <input
@@ -1102,7 +1325,9 @@ const handleLogout = () => {
               {/* Card 3 Vendor Modify */}
               {isVendorModify && (
                 <div className={addUserRequestStyles.section}>
-                  <span className={addUserRequestStyles.sectionHeaderTitle}>Vendor Modify</span>
+                  <span className={addUserRequestStyles.sectionHeaderTitle}>
+                    Vendor Modify
+                  </span>
                   <div className={addUserRequestStyles.fourCol}>
                     <div className={addUserRequestStyles.formGroup}>
                       <input
@@ -1111,7 +1336,9 @@ const handleLogout = () => {
                         onChange={handleChange}
                         required
                       />
-                      <label htmlFor="vendorFirm">Vendor Firm <span style={{ color: "red" }}>*</span></label>
+                      <label htmlFor="vendorFirm">
+                        Vendor Firm <span style={{ color: "red" }}>*</span>
+                      </label>
                     </div>
                     <div className={addUserRequestStyles.formGroup}>
                       <input
@@ -1120,104 +1347,199 @@ const handleLogout = () => {
                         onChange={handleChange}
                         required
                       />
-                      <label htmlFor="allocatedId">Allocated ID <span style={{ color: "red" }}>*</span></label>
+                      <label htmlFor="allocatedId">
+                        Allocated ID <span style={{ color: "red" }}>*</span>
+                      </label>
                     </div>
                     <div className={addUserRequestStyles.formGroup}>
-                      <input
-                        name="vendorName"
-                        value={form.vendorName}
-
-                      />
-                      <label htmlFor="vendorName">Vendor Name <span style={{ color: "red" }}>*</span></label>
+                      <input name="vendorName" value={form.vendorName} />
+                      <label htmlFor="vendorName">
+                        Vendor Name <span style={{ color: "red" }}>*</span>
+                      </label>
                     </div>
                     <div className={addUserRequestStyles.formGroup}>
-                      <select name="plant_location" value={form.plant_location} onChange={handleChange} required>
+                      <select
+                        name="plant_location"
+                        value={form.plant_location}
+                        onChange={handleChange}
+                        required
+                      >
                         <option value="">Select Plant</option>
-                        {plants.map(plant => (
-                          <option key={plant.id} value={plant.id} title={plant.plant_name}>{plant.plant_name}</option>
+                        {plants.map((plant) => (
+                          <option
+                            key={plant.id}
+                            value={plant.id}
+                            title={plant.plant_name}
+                          >
+                            {plant.plant_name}
+                          </option>
                         ))}
                       </select>
-                      <label htmlFor="plant_location">Plant Location <span style={{ color: "red" }}>*</span></label>
+                      <label htmlFor="plant_location">
+                        Plant Location <span style={{ color: "red" }}>*</span>
+                      </label>
                     </div>
                   </div>
                   <div className={addUserRequestStyles.fourCol}>
                     <div className={addUserRequestStyles.formGroup}>
-                      <select name="department" value={form.department} onChange={handleChange} required>
+                      <select
+                        name="department"
+                        value={form.department}
+                        onChange={handleChange}
+                        required
+                      >
                         <option value="">Select Department</option>
                         {departments.map((dept) => (
-                          <option key={dept.id} value={dept.id} title={dept.department_name}>{dept.department_name}</option>
+                          <option
+                            key={dept.id}
+                            value={dept.id}
+                            title={dept.department_name}
+                          >
+                            {dept.department_name}
+                          </option>
                         ))}
                       </select>
-                      <label htmlFor="department">Department <span style={{ color: "red" }}>*</span></label>
+                      <label htmlFor="department">
+                        Department <span style={{ color: "red" }}>*</span>
+                      </label>
                     </div>
                     <div className={addUserRequestStyles.formGroup}>
-                      <select name="role" value={form.role} onChange={handleChange} required>
+                      <select
+                        name="role"
+                        value={form.role}
+                        onChange={handleChange}
+                        required
+                      >
                         <option value="">Select Role</option>
                         {roles.map((role) => (
-                          <option key={role.id} value={role.id} title={role.name}>{role.name}</option>
+                          <option
+                            key={role.id}
+                            value={role.id}
+                            title={role.name}
+                          >
+                            {role.name}
+                          </option>
                         ))}
                       </select>
-                      <label htmlFor="role">Role <span style={{ color: "red" }}>*</span></label>
+                      <label htmlFor="role">
+                        Role <span style={{ color: "red" }}>*</span>
+                      </label>
                     </div>
 
                     <div className={addUserRequestStyles.formGroup}>
                       <textarea
                         name="remarks"
-                        style={{ minHeight: "40px", maxHeight: "42px", resize: "vertical" }}
+                        style={{
+                          minHeight: "40px",
+                          maxHeight: "42px",
+                          resize: "vertical",
+                        }}
                         maxLength={50}
                       />
                       <label htmlFor="remarks">Remarks </label>
                     </div>
                   </div>
-
                 </div>
               )}
 
               {/* Card 4 Access Information */}
-              {(isBulkDeactivation || (!isVendorModify && !isBulkDeactivation)) && (
+              {(isBulkDeactivation ||
+                (!isVendorModify && !isBulkDeactivation)) && (
                 <div className={addUserRequestStyles.section}>
-                  <span className={addUserRequestStyles.sectionHeaderTitle}>Access Information</span>
+                  <span className={addUserRequestStyles.sectionHeaderTitle}>
+                    Access Information
+                  </span>
                   <div className={addUserRequestStyles.fourCol}>
                     <div className={addUserRequestStyles.formGroup}>
-                      <select name="plant_location" value={form.plant_location} onChange={handleChange} required>
+                      <select
+                        name="plant_location"
+                        value={form.plant_location}
+                        onChange={handleChange}
+                        required
+                      >
                         <option value="">Select Plant</option>
-                        {plants.map(plant => (
-                          <option key={plant.id} value={plant.id} title={plant.plant_name}>{plant.plant_name}</option>
+                        {plants.map((plant) => (
+                          <option
+                            key={plant.id}
+                            value={plant.id}
+                            title={plant.plant_name}
+                          >
+                            {plant.plant_name}
+                          </option>
                         ))}
                       </select>
-                      <label htmlFor="plant_location">Plant Location <span style={{ color: "red" }}>*</span> </label>
+                      <label htmlFor="plant_location">
+                        Plant Location <span style={{ color: "red" }}>*</span>{" "}
+                      </label>
                     </div>
                     <div className={addUserRequestStyles.formGroup}>
-                      <select name="department" value={form.department} onChange={handleChange} required>
+                      <select
+                        name="department"
+                        value={form.department}
+                        onChange={handleChange}
+                        required
+                      >
                         <option value="">Select Department</option>
                         {departments.map((dept) => (
-                          <option key={dept.id} value={dept.id} title={dept.department_name}>{dept.department_name}</option>
+                          <option
+                            key={dept.id}
+                            value={dept.id}
+                            title={dept.department_name}
+                          >
+                            {dept.department_name}
+                          </option>
                         ))}
                       </select>
-                      <label htmlFor="department">Department Name <span style={{ color: "red" }}>*</span> </label>
+                      <label htmlFor="department">
+                        Department Name <span style={{ color: "red" }}>*</span>{" "}
+                      </label>
                     </div>
-                    {(!isBulkDeactivation && !isBulkNew) && (
+                    {!isBulkDeactivation && !isBulkNew && (
                       <div className={addUserRequestStyles.formGroup}>
-                        <select name="applicationId" value={form.applicationId} onChange={handleChange} required>
-                          <option value="">Select Application / Equipment ID</option>
+                        <select
+                          name="applicationId"
+                          value={form.applicationId}
+                          onChange={handleChange}
+                          required
+                        >
+                          <option value="">
+                            Select Application / Equipment ID
+                          </option>
                           {applications.map((app, index) => (
-                            <option key={index} value={app.id} title={app.name}>{app.name}</option>
+                            <option key={index} value={app.id} title={app.name}>
+                              {app.name}
+                            </option>
                           ))}
                         </select>
-                        <label htmlFor="applicationId">Application / Equipment ID <span style={{ color: "red" }}>*</span></label>
+                        <label htmlFor="applicationId">
+                          Application / Equipment ID{" "}
+                          <span style={{ color: "red" }}>*</span>
+                        </label>
                       </div>
                     )}
-                    {(!isBulkDeactivation && !isBulkNew) && (
+                    {!isBulkDeactivation && !isBulkNew && (
                       <div className={addUserRequestStyles.formGroup}>
-                        <select name="role" value={form.role} onChange={handleChange} required>
+                        <select
+                          name="role"
+                          value={form.role}
+                          onChange={handleChange}
+                          required
+                        >
                           <option value="">Select Role</option>
                           {roles.map((role) => (
-                            <option key={role.id} value={role.id} title={role.name}>{role.name}</option>
+                            <option
+                              key={role.id}
+                              value={role.id}
+                              title={role.name}
+                            >
+                              {role.name}
+                            </option>
                           ))}
                         </select>
-                        <label htmlFor="role">Role <span style={{ color: "red" }}>*</span></label>
+                        <label htmlFor="role">
+                          Role <span style={{ color: "red" }}>*</span>
+                        </label>
                       </div>
-
                     )}
                   </div>
                   <div className={addUserRequestStyles.formGroup}>
@@ -1234,9 +1556,11 @@ const handleLogout = () => {
               )}
 
               {/* Card 5 Bulk User Creation */}
-              {(form.request_for_by !== "Vendor / OEM" && isBulkNew) && (
+              {form.request_for_by !== "Vendor / OEM" && isBulkNew && (
                 <div className={addUserRequestStyles.section}>
-                  <span className={addUserRequestStyles.sectionHeaderTitle}>Bulk User Creation</span>
+                  <span className={addUserRequestStyles.sectionHeaderTitle}>
+                    Bulk User Creation
+                  </span>
                   <div>
                     {bulkRows.length < 7 && (
                       <div className={addUserRequestStyles.addRowWrapper}>
@@ -1296,13 +1620,21 @@ const handleLogout = () => {
                                 <select
                                   value={row.applicationId}
                                   onChange={(e) =>
-                                    handleBulkRowChange(index, "applicationId", e.target.value)
+                                    handleBulkRowChange(
+                                      index,
+                                      "applicationId",
+                                      e.target.value
+                                    )
                                   }
                                   required
                                 >
                                   <option value="">Select Application</option>
                                   {applications.map((app) => (
-                                    <option key={app.id} value={app.id} title={app.name}>
+                                    <option
+                                      key={app.id}
+                                      value={app.id}
+                                      title={app.name}
+                                    >
                                       {app.name}
                                     </option>
                                   ))}
@@ -1314,13 +1646,21 @@ const handleLogout = () => {
                                 <select
                                   value={row.role}
                                   onChange={(e) =>
-                                    handleBulkRowChange(index, "role", e.target.value)
+                                    handleBulkRowChange(
+                                      index,
+                                      "role",
+                                      e.target.value
+                                    )
                                   }
                                   required
                                 >
                                   <option value="">Select Role</option>
                                   {roles.map((role) => (
-                                    <option key={role.id} value={role.id} title={role.name}>
+                                    <option
+                                      key={role.id}
+                                      value={role.id}
+                                      title={role.name}
+                                    >
                                       {role.name}
                                     </option>
                                   ))}
@@ -1340,14 +1680,11 @@ const handleLogout = () => {
                             </tr>
                           ))}
                         </tbody>
-
                       </table>
                     </div>
                   </div>
                 </div>
               )}
-
-
             </div>
             {/* Move the footer buttons to the top */}
             <div className={addUserRequestStyles.formFooter}>

@@ -5,6 +5,7 @@ import React, {
   ReactNode,
   useEffect,
 } from "react";
+import { API_BASE } from "../utils/api";
 
 export interface AuthUser {
   id: number;
@@ -13,8 +14,8 @@ export interface AuthUser {
   location: string;
   department: string;
   designation: string;
-  reporting_manager: string,
-  managers_manager: string,
+  reporting_manager: string;
+  managers_manager: string;
   name: string;
   email: string;
   role_id: number;
@@ -51,7 +52,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("http://localhost:4000/api/auth/login", {
+      const res = await fetch(`${API_BASE}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
@@ -88,7 +89,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         (typeof data.user.id === "number" && data.user.id) ||
         null;
 
-      if (!userId || !data.user.username || !role_id || !status || !data.token) {
+      if (
+        !userId ||
+        !data.user.username ||
+        !role_id ||
+        !status ||
+        !data.token
+      ) {
         setError("Login failed: invalid user data returned from server");
         setUser(null);
         return;

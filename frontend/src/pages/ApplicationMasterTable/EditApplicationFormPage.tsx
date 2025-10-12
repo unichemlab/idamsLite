@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { API_BASE } from "../../utils/api";
 import Select from "react-select";
 import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
 import addStyles from "./AddApplicationMaster.module.css";
@@ -110,7 +111,7 @@ const EditApplicationFormPage: React.FC = () => {
   }, [applicationData?.id]);
 
   useEffect(() => {
-    fetch("http://localhost:4000/api/roles")
+    fetch(`${API_BASE}/api/roles`)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data))
@@ -189,16 +190,13 @@ const EditApplicationFormPage: React.FC = () => {
           role_lock: true, // Always lock after save
         };
         setShowModal(false);
-        const res = await fetch(
-          `http://localhost:4000/api/applications/${form.id}`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(payload),
-          }
-        );
+        const res = await fetch(`${API_BASE}/api/applications/${form.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
         if (!res.ok) {
           const errorText = await res.text();
           throw new Error(errorText);

@@ -16,29 +16,44 @@ const swaggerRoutes = require("./routes/swagger");
 const activityLogsRoutes = require("./routes/activityLog");
 const ActiveDirectory = require("activedirectory2");
 const adSyncRoutes = require("./routes/employeeSyncRoutes");
-const dashboardRoutes=require("./routes/dashboardRoutes");
-const approvalRoutes=require("./routes/approvalRoutes");
+const dashboardRoutes = require("./routes/dashboardRoutes");
+const approvalRoutes = require("./routes/approvalRoutes");
 const os = require("os");
 const serverRoutes = require("./routes/serverRoutes");
 const workflowRoutes = require("./routes/workflowRoutes");
 
 const app = express();
-app.use(cors({ origin: "http://localhost:3000", credentials: true }));
+
+// Configure CORS to allow both localhost and deployed frontend
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://pharmacorp-app-production.up.railway.app",
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // allow non-browser requests like curl/postman
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+  })
+);
 app.use(express.json());
 // -----------------------------
 // Hardcoded AD credentials (for testing)
 // -----------------------------
 const AD_SERVER = process.env.AD_SERVER;
 const AD_USER = process.env.AD_USER;
-const AD_PASSWORD = process.env.AD_PASSWORD;
+const AD_PASSWORD = process.env.AD_PASSWORD || process.env.AD_Password;
 
 console.log("Connecting to AD:", AD_SERVER);
 
 // Static file serving middleware (ensuring uploads folder is correctly handled)
-app.use(
-  "/uploads",
-  express.static(path.join(__dirname, "uploads"))
-);
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/plants", plantRoutes);
 app.use("/api/vendors", vendorRoutes);
 app.use("/api/roles", roleRoutes);
@@ -159,13 +174,11 @@ app.get("/api/ad-users-sync", async (req, res) => {
             [ou, 0, 0, 0, 0, syncStatus, errorMessage, lastSyncTime]
           );
 
-          return res
-            .status(500)
-            .json({
-              status: false,
-              message: "❌ LDAP query error: " + err,
-              users: [],
-            });
+          return res.status(500).json({
+            status: false,
+            message: "❌ LDAP query error: " + err,
+            users: [],
+          });
         }
 
         const users = results.users || [];
@@ -307,13 +320,11 @@ app.get("/api/ad-users-sync", async (req, res) => {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
       ["N/A", 0, 0, 0, 0, "Failed", err.message, null]
     );
-    res
-      .status(500)
-      .json({
-        status: false,
-        message: "❌ Sync failed: " + err.message,
-        users: [],
-      });
+    res.status(500).json({
+      status: false,
+      message: "❌ Sync failed: " + err.message,
+      users: [],
+    });
   }
 });
 
@@ -376,14 +387,12 @@ app.get("/api/ad-ous-tree", async (req, res) => {
       },
       async (ouErr, ouRes) => {
         if (ouErr)
-          return res
-            .status(500)
-            .json({
-              status: false,
-              message: "OU query error: " + ouErr,
-              ousTree: [],
-              ousFlat: [],
-            });
+          return res.status(500).json({
+            status: false,
+            message: "OU query error: " + ouErr,
+            ousTree: [],
+            ousFlat: [],
+          });
 
         const ous = [
           ...(ouRes?.ous || []),
@@ -625,14 +634,12 @@ app.get("/api/ad-ous-tree", async (req, res) => {
       }
     );
   } catch (err) {
-    res
-      .status(500)
-      .json({
-        status: false,
-        message: "Server error: " + err,
-        ousTree: [],
-        ousFlat: [],
-      });
+    res.status(500).json({
+      status: false,
+      message: "Server error: " + err,
+      ousTree: [],
+      ousFlat: [],
+    });
   }
 });
 

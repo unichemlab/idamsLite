@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { API_BASE } from "../../utils/api";
 import Select from "react-select";
 import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
 import addStyles from "./AddApplicationMaster.module.css";
@@ -69,7 +70,7 @@ const AddApplicationFormPage: React.FC = () => {
 
   const [roles, setRoles] = useState<{ id: string; name: string }[]>([]);
   React.useEffect(() => {
-    fetch("http://localhost:4000/api/roles")
+    fetch(`${API_BASE}/api/roles`)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
@@ -159,7 +160,7 @@ const AddApplicationFormPage: React.FC = () => {
             : null,
           role_lock: true, // Always set role_lock to true regardless of toggle
         };
-        const res = await fetch("http://localhost:4000/api/applications", {
+        const res = await fetch(`${API_BASE}/api/applications`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -432,7 +433,8 @@ const AddApplicationFormPage: React.FC = () => {
                   {/* System Name */}
                   <div className={addStyles.formGroup}>
                     <label>
-                      System Name(Hostname) <span style={{ color: "red" }}>*</span>
+                      System Name(Hostname){" "}
+                      <span style={{ color: "red" }}>*</span>
                     </label>
                     <input
                       className={addStyles.input}

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import styles from "../UserRequestTable/UserRequestTable.module.css";
 import ProfileIconWithLogout from "./ProfileIconWithLogout";
 import NotificationsIcon from "@mui/icons-material/Notifications";
-import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { fetchUserRequests } from "../../utils/api";
 import { useNavigate } from "react-router-dom";
@@ -93,9 +93,6 @@ const UserRequestTable: React.FC = () => {
     load();
   }, []);
 
-
-
-
   const openTaskModal = (tasks?: Task[]) => {
     if (!tasks) return;
     setModalTasks(tasks);
@@ -151,7 +148,11 @@ const UserRequestTable: React.FC = () => {
         ],
         startY,
         styles: { fontSize: 10, cellPadding: 3 },
-        headStyles: { fillColor: [11, 99, 206], textColor: 255, fontStyle: "bold" },
+        headStyles: {
+          fillColor: [11, 99, 206],
+          textColor: 255,
+          fontStyle: "bold",
+        },
         alternateRowStyles: { fillColor: [240, 245, 255] },
         margin: { left: 14, right: 14 },
       });
@@ -182,7 +183,11 @@ const UserRequestTable: React.FC = () => {
           ]),
           startY,
           styles: { fontSize: 10, cellPadding: 3 },
-          headStyles: { fillColor: [0, 118, 255], textColor: 255, fontStyle: "bold" },
+          headStyles: {
+            fillColor: [0, 118, 255],
+            textColor: 255,
+            fontStyle: "bold",
+          },
           alternateRowStyles: { fillColor: [245, 250, 255] },
           margin: { left: 14, right: 14 },
         });
@@ -203,8 +208,12 @@ const UserRequestTable: React.FC = () => {
       <header className={styles["main-header"]}>
         <h2 className={styles["header-title"]}>User Access Managemant</h2>
         <div className={styles["header-icons"]}>
-          <span className={styles["header-icon"]}><NotificationsIcon fontSize="small" /></span>
-          <span className={styles["header-icon"]}><SettingsIcon fontSize="small" /></span>
+          <span className={styles["header-icon"]}>
+            <NotificationsIcon fontSize="small" />
+          </span>
+          <span className={styles["header-icon"]}>
+            <SettingsIcon fontSize="small" />
+          </span>
           <ProfileIconWithLogout />
         </div>
       </header>
@@ -222,8 +231,11 @@ const UserRequestTable: React.FC = () => {
           >
             Filter
           </button>
-          <button onClick={handleExportPDF} className={`${styles.btn} ${styles.exportPdfBtn}`}
-            aria-label="Export table to PDF">
+          <button
+            onClick={handleExportPDF}
+            className={`${styles.btn} ${styles.exportPdfBtn}`}
+            aria-label="Export table to PDF"
+          >
             🗎 Export PDF
           </button>
         </div>
@@ -242,7 +254,9 @@ const UserRequestTable: React.FC = () => {
                     }
                   >
                     {Object.keys(userrequests[0] || {}).map((col) => (
-                      <option key={col} value={col}>{col}</option>
+                      <option key={col} value={col}>
+                        {col}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -286,15 +300,17 @@ const UserRequestTable: React.FC = () => {
         </div>
       </div>
       <div className={styles.container}>
-        <div style={{
-          maxHeight: 380,
-          overflowY: "auto",
-          borderRadius: 8,
-          boxShadow: "0 0 4px rgba(0, 0, 0, 0.05)",
-          border: "1px solid #e2e8f0",
-          marginTop: "11px",
-          height: "100",
-        }}>
+        <div
+          style={{
+            maxHeight: 380,
+            overflowY: "auto",
+            borderRadius: 8,
+            boxShadow: "0 0 4px rgba(0, 0, 0, 0.05)",
+            border: "1px solid #e2e8f0",
+            marginTop: "11px",
+            height: "100",
+          }}
+        >
           <table className={styles.table}>
             <thead>
               <tr>
@@ -327,19 +343,20 @@ const UserRequestTable: React.FC = () => {
                   <td>
                     {req.attachmentName ? (
                       <a
-                        href={`http://localhost:4000/api/user-requests/${req.id}/attachment`}
+                        href={`${process.env.REACT_APP_API_URL}/api/user-requests/${req.id}/attachment`}
                         download={req.attachmentName}
                         style={{ display: "inline-flex", alignItems: "center" }}
                         title={`Download ${req.attachmentName}`}
                       >
-                        <PictureAsPdfIcon fontSize="small" style={{ color: "#e53935" }} />
+                        <PictureAsPdfIcon
+                          fontSize="small"
+                          style={{ color: "#e53935" }}
+                        />
                       </a>
                     ) : (
                       "-"
                     )}
                   </td>
-
-
 
                   <td>{req.vendorFirm?.join(", ") || "-"}</td>
                   <td>{req.vendorCode?.join(", ") || "-"}</td>
@@ -347,12 +364,13 @@ const UserRequestTable: React.FC = () => {
                   <td>{req.allocatedId?.join(", ") || "-"}</td>
                   <td>
                     <span
-                      className={`${styles.statusBadge} ${req.status === "Pending"
-                        ? styles.pending
-                        : req.status === "Approved"
+                      className={`${styles.statusBadge} ${
+                        req.status === "Pending"
+                          ? styles.pending
+                          : req.status === "Approved"
                           ? styles.approved
                           : styles.rejected
-                        }`}
+                      }`}
                     >
                       {req.status || "-"}
                     </span>
@@ -402,12 +420,13 @@ const UserRequestTable: React.FC = () => {
                     <td>{task.reports_to}</td>
                     <td>
                       <span
-                        className={`${styles.statusBadge} ${task.task_status === "Pending"
-                          ? styles.pending
-                          : task.task_status === "Approved"
+                        className={`${styles.statusBadge} ${
+                          task.task_status === "Pending"
+                            ? styles.pending
+                            : task.task_status === "Approved"
                             ? styles.approved
                             : styles.rejected
-                          }`}
+                        }`}
                       >
                         {task.task_status}
                       </span>

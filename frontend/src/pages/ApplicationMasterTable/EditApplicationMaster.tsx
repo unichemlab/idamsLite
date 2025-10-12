@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { API_BASE } from "../../utils/api";
 import { useLocation, useNavigate } from "react-router-dom";
 import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
 import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
@@ -120,14 +121,11 @@ const EditApplicationMaster: React.FC = () => {
           onConfirm={(data) => {
             if (data.username === username && data.password) {
               const payload = { ...form };
-              fetch(
-                `http://localhost:4000/api/applications/${applicationData?.id}`,
-                {
-                  method: "PUT",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(payload),
-                }
-              )
+              fetch(`${API_BASE}/api/applications/${applicationData?.id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+              })
                 .then((res) => {
                   if (!res.ok) throw new Error("Failed to update application");
                   return res.json();
@@ -396,7 +394,6 @@ const EditApplicationMaster: React.FC = () => {
                   tabIndex={0}
                   aria-label="Role Lock Toggle"
                 >
-                
                   <span
                     style={{
                       color: "#fff",
