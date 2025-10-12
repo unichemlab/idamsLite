@@ -41,6 +41,7 @@ import EditSystemInventory from "../pages/SystemInventoryMaster/EditSystemInvent
 import ServerInventoryMasterTable from "../pages/ServerInventoryMasterTable/ServerInventoryMasterTable";
 import AddServerInventory from "../pages/ServerInventoryMaster/AddServerInventoryMaster";
 import EditServerInventory from "../pages/ServerInventoryMaster/EditServerInventoryMaster";
+import TaskTable from "pages/TaskClosureTracking/TaskClosureTracking";
 // Removed unused SystemInventoryMasterTable, AddSystemInventory, EditSystemInventory imports
 // List of allowed routes for matching
 const allowedRoutes = [
@@ -81,6 +82,8 @@ const allowedRoutes = [
    "/servers",
   "/servers/add",
   "/servers/edit/:id",
+  "/task",
+  "/task/:id"
 ];
 
 const NotFound = () => (
@@ -406,7 +409,8 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-<Route path="/task-closure/:id" element={<AddTaskClosureForm />} />
+      <Route path="/task" element={<TaskTable />} />
+<Route path="/task/:id" element={<AddTaskClosureForm />} />
 
       {/* Server Inventory Master */}
 

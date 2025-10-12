@@ -2,9 +2,10 @@ import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import ProfileIconWithLogout from "./ProfileIconWithLogout";
 import { useTaskContext } from "./TaskContext";
-import styles from "../ActivityMasterTable/ActivityMasterTable.module.css";
+import styles from "./TaskClosureTracking.module.css";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
+import { FaEdit } from "react-icons/fa";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { fetchTaskLog } from "../../utils/api";
@@ -24,6 +25,7 @@ interface TaskLog {
 const TaskTable: React.FC = () => {
   const { tasks, loading, error } = useTaskContext();
   const [taskLogs, setTaskLogs] = useState<TaskLog[]>([]);
+  const [selectedRow, setSelectedRow] = React.useState<number | null>(null);
    const [filterColumn, setFilterColumn] = useState<keyof TaskLog>("application_name");
     const [filterValue, setFilterValue] = useState("");
     const [tempFilterColumn, setTempFilterColumn] = useState<keyof TaskLog>(filterColumn);
@@ -203,7 +205,7 @@ const TaskTable: React.FC = () => {
   return (
     <div>
       <header className={styles["main-header"]}>
-        <h2 className={styles["header-title"]}>Activity Log</h2>
+        <h2 className={styles["header-title"]}>Task Request</h2>
         <div className={styles["header-icons"]}>
           <span className={styles["header-icon"]}><NotificationsIcon fontSize="small" /></span>
           <span className={styles["header-icon"]}><SettingsIcon fontSize="small" /></span>
@@ -213,11 +215,22 @@ const TaskTable: React.FC = () => {
 
       <div className={styles.headerTopRow}>
         <div className={styles.controls}>
-          <button
-            onClick={() => setShowFilterPopover(!showFilterPopover)}
-            style={{ marginRight: 12, padding: "6px 12px", borderRadius: 6 }}
+           <button
+            className={styles.filterBtn}
+            onClick={() => setShowFilterPopover((prev) => !prev)}
+            type="button"
+            aria-label="Filter plants"
           >
-            Filter
+            🔍 Filter
+          </button>
+          <button
+            className={`${styles.btn} ${styles.editBtn}`}
+            onClick={() => {
+              if (selectedRow !== null) navigate(`/task/${selectedRow}`);
+            }}
+            disabled={selectedRow === null}
+          >
+            <FaEdit size={14} /> Edit
           </button>
           <button onClick={handleExportCSV} className={styles.exportPdfBtn}>
             📄 Export CSV
@@ -298,41 +311,51 @@ const TaskTable: React.FC = () => {
     <table className={styles.taskTable}>
       <thead>
         <tr>
+          <th></th>
           <th>Request ID</th>
+          <th>Request For/By</th>
           <th>User</th>
+          <th>Employee Code</th>
           <th>Application</th>
+           <th>Plant Name</th>
           <th>Role</th>
           <th>Access Status</th>
           <th>Request Status</th>
-          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
         {tasks.map((task) => (
-          <tr key={task.task_id}>
+          <tr key={task.task_id}  
+          onClick={() => setSelectedRow(task.task_id)}
+                  style={{
+                    background: selectedRow === task.task_id ? "#f0f4ff" : undefined,
+                  }}>
+            <td>
+                                <input
+                                  type="radio"
+                                  className={styles.radioInput}
+                                  checked={selectedRow === task.task_id}
+                                  onChange={() => setSelectedRow(task.task_id)}
+                                />
+                              </td>
             <td>{task.user_request_transaction_id}</td>
+            <td>{task.request_for_by}</td>
             <td>
               <div className={styles.userName}>{task.name}</div>
-              <div className={styles.empId}>{task.employee_code}</div>
             </td>
+            <td><div className={styles.empId}>{task.employee_code}</div></td>
             <td>
               <div className={styles.application}>
-                {task.application_name?.split("|")[0]?.trim()}
-              </div>
-              <div className={styles.version}>
-                {task.application_name?.split("|")[1]?.trim()} — {task.plant_name}
+                {task.application_name}
               </div>
             </td>
+            <td>{task.plant_name}</td>
             <td className={styles.role}>{task.role_name}</td>
             <td>
               {task.task_status}
             </td>
             <td>
              {task.user_request_status}
-            </td>
-            <td>
-              <button className={styles.viewBtn}>👁 View</button>
-              <button className={styles.editBtn} onClick={() => navigate(`/task/${task.task_id}`)}>✏️ Edit</button>
             </td>
           </tr>
         ))}

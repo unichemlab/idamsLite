@@ -3,10 +3,12 @@ import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
 import ProfileIconWithLogout from "../PlantMasterTable/ProfileIconWithLogout";
 import styles from "./WorkflowBuilder.module.css";
+import { fetchPlants } from "../../utils/api";
 import Button from "../../components/Common/Button";
 import InputField from "../../components/Common/InputField";
 import { useUserContext } from "../../context/UserContext";
-
+export const API_BASE =
+  process.env.REACT_APP_API_URL || "http://localhost:4000";
 const EditIcon = () => (
   <span title="Edit" style={{ fontSize: 18, cursor: "pointer" }}>
     ✏️
@@ -25,9 +27,9 @@ const AddIcon = () => (
 
 const plantOptionsStatic: string[] = ["GOA-1", "GOA-2", "GOA-3", "Gaziabad"];
 const corporateOptions = [
-  { label: "Corporate - Administration", maxApprovers: 1 },
-  { label: "Corporate - Application (SAP)", maxApprovers: 5 },
-  { label: "Corporate - Application (ZingHR)", maxApprovers: 5 },
+  { label: "Corporate - Administration", maxApprovers: 1, value: "Administration"},
+  { label: "Corporate - Application (SAP)", maxApprovers: 5,value: "SAP" },
+  { label: "Corporate - Application (IT Support)", maxApprovers: 1 ,value: "IT Support"},
 ];
 
 // UI shows only approver_2 and approver_3
@@ -89,6 +91,7 @@ type ApproverRow = { users: Approver[] };
 const WorkflowBuilder: React.FC = () => {
   const [plant, setPlant] = useState<string>("");
   const [corporate, setCorporate] = useState<string>("");
+  const [corporate_type, setCorporateType] = useState<string>("");
   const [approverRows, setApproverRows] = useState<ApproverRow[]>([]);
   const [editRowIndex, setEditRowIndex] = useState<number | null>(null);
   const [editUserIndex, setEditUserIndex] = useState<number | null>(null);
@@ -120,20 +123,16 @@ const WorkflowBuilder: React.FC = () => {
     );
   }, [users]);
 
-  // Load plants for plant select
   useEffect(() => {
-    const fetchPlants = async () => {
-      try {
-        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/plants`);
-        if (!res.ok) throw new Error("Failed to fetch plants");
-        const data = await res.json();
-        setPlants(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.warn("Failed to fetch plants", err);
-      }
-    };
-    fetchPlants();
-  }, []);
+      fetchPlants()
+        .then((data) =>
+          setPlants(
+            data.map((p: any) => ({ id: p.id, plant_name: p.plant_name }))
+          )
+        )
+        .catch(() => setPlants([]));
+    }, []);
+
 
   // Helper to check if a user is empty
   const isEmptyUser = (user: Approver) =>
@@ -154,6 +153,7 @@ const WorkflowBuilder: React.FC = () => {
     const value = e.target.value;
     setPlant(value);
     setCorporate("");
+    setCorporateType("");
     setEditRowIndex(null);
     setEditUserIndex(null);
     setForm({ name: "", empCode: "", email: "", employee_id: "" });
@@ -162,9 +162,7 @@ const WorkflowBuilder: React.FC = () => {
     // Fetch workflow for the selected plant from backend
     try {
       const res = await fetch(
-        `${
-          process.env.REACT_APP_API_URL
-        }/api/workflows?plant=${encodeURIComponent(value)}`
+        `${API_BASE}/api/workflows?plant=${encodeURIComponent(value)}`
       );
       if (!res.ok) throw new Error("Failed to fetch workflows");
       const data = await res.json();
@@ -229,7 +227,9 @@ const WorkflowBuilder: React.FC = () => {
     e: React.ChangeEvent<HTMLSelectElement>
   ) => {
     const value = e.target.value;
+    console.log("corporateChange",e.target.value);
     setCorporate(value);
+    setCorporateType(value);
     setPlant("");
     setEditRowIndex(null);
     setEditUserIndex(null);
@@ -242,9 +242,7 @@ const WorkflowBuilder: React.FC = () => {
     // Try fetching workflow for corporate label (transaction_id or plant_id may differ)
     try {
       const res = await fetch(
-        `${
-          process.env.REACT_APP_API_URL
-        }/api/workflows?plant=${encodeURIComponent(value)}`
+        `${API_BASE }/api/workflows?plant=${encodeURIComponent(value)}`
       );
       if (!res.ok) throw new Error("Failed to fetch workflows");
       const data = await res.json();
@@ -330,7 +328,7 @@ const WorkflowBuilder: React.FC = () => {
       let res;
       if (currentWorkflowId) {
         res = await fetch(
-          `${process.env.REACT_APP_API_URL}/api/workflows/${currentWorkflowId}`,
+          `${API_BASE}/api/workflows/${currentWorkflowId}`,
           {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
@@ -338,7 +336,7 @@ const WorkflowBuilder: React.FC = () => {
           }
         );
       } else {
-        res = await fetch(`${process.env.REACT_APP_API_URL}/api/workflows`, {
+        res = await fetch(`${API_BASE}/api/workflows`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
@@ -407,7 +405,7 @@ const WorkflowBuilder: React.FC = () => {
         let res;
         if (currentWorkflowId) {
           res = await fetch(
-            `${process.env.REACT_APP_API_URL}/api/workflows/${currentWorkflowId}`,
+            `${API_BASE}/api/workflows/${currentWorkflowId}`,
             {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
@@ -415,7 +413,7 @@ const WorkflowBuilder: React.FC = () => {
             }
           );
         } else {
-          res = await fetch(`${process.env.REACT_APP_API_URL}/api/workflows`, {
+          res = await fetch(`${API_BASE}/api/workflows`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
@@ -501,7 +499,7 @@ const WorkflowBuilder: React.FC = () => {
         let res;
         if (currentWorkflowId) {
           res = await fetch(
-            `${process.env.REACT_APP_API_URL}/api/workflows/${currentWorkflowId}`,
+            `${API_BASE}/api/workflows/${currentWorkflowId}`,
             {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
@@ -509,7 +507,7 @@ const WorkflowBuilder: React.FC = () => {
             }
           );
         } else {
-          res = await fetch(`${process.env.REACT_APP_API_URL}/api/workflows`, {
+          res = await fetch(`${API_BASE}/api/workflows`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
@@ -597,7 +595,7 @@ const WorkflowBuilder: React.FC = () => {
             >
               <option value="">Select Corporate/Central</option>
               {corporateOptions.map((c) => (
-                <option key={c.label} value={c.label}>
+                <option key={c.label} value={c.label} >
                   {c.label}
                 </option>
               ))}

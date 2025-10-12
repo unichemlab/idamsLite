@@ -247,11 +247,11 @@ export async function deleteUserRequestAPI(id: number): Promise<void> {
 
 // Fetch all tasks
 export async function fetchTasks(): Promise<any[]> {
-  return request(`/api/tasks`);
+  return request(`/api/task`);
 }
 
 export async function fetchTaskById(id: string): Promise<any> {
-  const res = await fetch(`${API_BASE}/api/tasks/${id}`);
+  const res = await fetch(`${API_BASE}/api/task/${id}`);
   if (!res.ok) throw new Error("Failed to fetch task by ID");
   return await res.json();
 }

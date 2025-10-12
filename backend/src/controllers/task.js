@@ -174,6 +174,7 @@ exports.getUserTaskRequestById = async (req, res) => {
     const userRequest = {
       id: rows[0].user_request_id,
       request_for_by: rows[0].request_for_by,
+      ritmNumber: rows[0].user_request_transaction_id,
       name: rows[0].name,
       employee_code: rows[0].employee_code,
       employee_location: rows[0].employee_location,
@@ -190,6 +191,7 @@ exports.getUserTaskRequestById = async (req, res) => {
         .filter((r) => r.task_id)
         .map((row) => ({
           task_id: row.task_id,
+          taskNumber:row.task_request_transaction_id,
           application_equip_id: row.application_equip_id,
           application_name: row.application_name,
           department_id: row.department,
