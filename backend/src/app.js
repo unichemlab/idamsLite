@@ -18,6 +18,7 @@ const ActiveDirectory = require("activedirectory2");
 const adSyncRoutes = require("./routes/employeeSyncRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const approvalRoutes = require("./routes/approvalRoutes");
+const taskRoutes = require("./routes/task");
 const os = require("os");
 const serverRoutes = require("./routes/serverRoutes");
 const workflowRoutes = require("./routes/workflowRoutes");
