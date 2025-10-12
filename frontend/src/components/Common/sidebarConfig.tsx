@@ -70,6 +70,12 @@ export const sidebarConfig: SidebarConfigItem[] = [
     perm: "ActivityMaster:view",
   },
   {
+    key: "task",
+    label: "Task",
+    icon: <ListAltIcon fontSize="small" />,
+    perm: "Task:view",
+  },
+  {
     key: "workflow",
     label: "Approval Workflow",
     icon: <AssignmentIcon fontSize="small" />,
