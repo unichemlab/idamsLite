@@ -1,4 +1,5 @@
 // controllers/approvalController.js
+
 const pool = require("../config/db");
 const { sendEmail } = require("../utils/email");
 const { getApprovalEmail } = require("../utils/emailTemplate");

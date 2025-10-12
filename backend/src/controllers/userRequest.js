@@ -76,7 +76,6 @@
  *       200:
  *         description: File downloaded
  */
-
 const { sendEmail } = require("../utils/email");
 const { getApprovalEmail } = require("../utils/emailTemplate");
 const pool = require("../config/db");
@@ -319,6 +318,12 @@ exports.createUserRequest = async (req, res) => {
           approverName: "Approver 1"
         }),
         attachments: training_attachment ? [
+          // Inline logo
+        {
+          filename: "login_headTitle2.png",
+          path: path.join(__dirname, "../../../frontend/src/assets/login_headTitle2.png"),
+          cid: "logo", // <img src="cid:logo">
+        },
           {
             filename: training_attachment_name,
             path: path.join(__dirname, "../uploads", training_attachment),

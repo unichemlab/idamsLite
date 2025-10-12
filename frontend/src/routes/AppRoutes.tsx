@@ -32,6 +32,7 @@ import EditVendorMaster from "../pages/VendorMaster/EditVendorMaster";
 import ProtectedRoute from "../components/Common/ProtectedRoute";
 import DepartmentMasterTable from "pages/DepartmentMasterTable/DepartmentMasterTable";
 import DepartmentTable from "pages/DepartmentTable/DepartmentTable";
+import AddTaskClosureForm from "../pages/TaskClosureTracking/AddTaskClosureForm";
 import AddDeptFormPage from "pages/DepartmentMaster/AddDeptFormPage";
 import EditDeptFormPage from "pages/DepartmentMaster/EditDeptFormPage";
 import SystemInventoryMasterTable from "../pages/SystemInventoryMasterTable/SystemInventoryMasterTable";
@@ -405,7 +406,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-
+<Route path="/task-closure/:id" element={<AddTaskClosureForm />} />
 
       {/* Server Inventory Master */}
 

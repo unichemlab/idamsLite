@@ -14,6 +14,8 @@ import { VendorProvider } from "pages/VendorMaster/VendorContext";
 import { ActivityLogProvider } from "pages/ActivityMasterTable/ActivityLogContext";
 import { SystemProvider } from "pages/SystemInventoryMaster/SystemContext";
 import { ServerProvider } from "pages/ServerInventoryMaster/ServerContext";
+import { TaskProvider } from "pages/TaskClosureTracking/TaskContext";
+
 // Import the new contexts
 import { UserRequestProvider } from "pages/UserRequest/UserRequestContext";
 // import { TaskProvider } from "pages/TaskClosureTracking/TaskContext";
@@ -30,6 +32,7 @@ const App: React.FC = () => {
         <PlantProvider>
           <UserRequestProvider>
             <ActivityLogProvider>
+              <TaskProvider>
                 <FormProvider>
                   <RolesProvider>
                     <DepartmentProvider>
@@ -54,6 +57,7 @@ const App: React.FC = () => {
                     </DepartmentProvider>
                   </RolesProvider>
                 </FormProvider>
+                </TaskProvider>
                 </ActivityLogProvider>
           </UserRequestProvider>
         </PlantProvider>

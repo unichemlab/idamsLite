@@ -28,6 +28,7 @@ import PlantMasterTable from "pages/PlantMasterTable/PlantMasterTable";
 import DepartmentMasterTable from "pages/DepartmentMasterTable/DepartmentMasterTable";
 import VendorMasterTable from "pages/VendorMasterTable/VendorMasterTable";
 import ActivityMasterTable from "pages/ActivityMasterTable/ActivityMasterTable";
+import TaskTable from "pages/TaskClosureTracking/TaskClosureTracking";
 import UserRequestTable from "pages/UserRequestTable/UserRequestTable";
 import RoleMasterTable from "pages/RoleMasterTable/RoleMasterTable";
 import UserMasterTable from "pages/UserMasterTable/UserMasterTable";
@@ -90,72 +91,18 @@ const SuperAdmin: React.FC = () => {
 
   // ----- Sidebar config -----
   const sidebarConfig: SidebarItem[] = [
-    {
-      key: "dashboard",
-      label: "Dashboard",
-      icon: <DashboardIcon fontSize="small" />,
-      perm: "dashboard:view",
-    },
-    {
-      key: "plant",
-      label: "Plant Master",
-      icon: <FactoryIcon fontSize="small" />,
-      perm: "plantMaster:view",
-    },
-    {
-      key: "role",
-      label: "Role Master",
-      icon: <SecurityIcon fontSize="small" />,
-      perm: "roleMaster:view",
-    },
-    {
-      key: "vendor",
-      label: "Vendor Information",
-      icon: <ListAltIcon fontSize="small" />,
-      perm: "vendorMaster:view",
-    },
-    {
-      key: "department",
-      label: "Department Master",
-      icon: <SecurityIcon fontSize="small" />,
-      perm: "department:view",
-    },
-    {
-      key: "application",
-      label: "Application Master",
-      icon: <AppsIcon fontSize="small" />,
-      perm: "applicationMaster:view",
-    },
-    {
-      key: "user",
-      label: "User Master",
-      icon: <PersonIcon fontSize="small" />,
-      perm: "userMaster:view",
-    },
-    {
-      key: "request",
-      label: "User Request",
-      icon: <ListAltIcon fontSize="small" />,
-      perm: "userRequest:view",
-    },
-    {
-      key: "activity-logs",
-      label: "Activity Logs",
-      icon: <ListAltIcon fontSize="small" />,
-      perm: "activityMaster:view",
-    },
-    {
-      key: "workflow",
-      label: "Approval Workflow",
-      icon: <AssignmentIcon fontSize="small" />,
-      perm: "workflow:view",
-    },
-    {
-      key: "system",
-      label: "System Inventory",
-      icon: <AssignmentIcon fontSize="small" />,
-      perm: "system:view",
-    },
+    { key: "dashboard", label: "Dashboard", icon: <DashboardIcon fontSize="small" />, perm: "dashboard:view" },
+    { key: "plant", label: "Plant Master", icon: <FactoryIcon fontSize="small" />, perm: "plantMaster:view" },
+    { key: "role", label: "Role Master", icon: <SecurityIcon fontSize="small" />, perm: "roleMaster:view" },
+    { key: "vendor", label: "Vendor Information", icon: <ListAltIcon fontSize="small" />, perm: "vendorMaster:view" },
+    { key: "department", label: "Department Master", icon: <SecurityIcon fontSize="small" />, perm: "department:view" },
+    { key: "application", label: "Application Master", icon: <AppsIcon fontSize="small" />, perm: "applicationMaster:view" },
+    { key: "user", label: "User Master", icon: <PersonIcon fontSize="small" />, perm: "userMaster:view" },
+    { key: "request", label: "User Request", icon: <ListAltIcon fontSize="small" />, perm: "userRequest:view" },
+    { key: "task", label: "Task", icon: <ListAltIcon fontSize="small" />, perm: "Task:view" },
+    { key: "activity-logs", label: "Activity Logs", icon: <ListAltIcon fontSize="small" />, perm: "activityMaster:view" },
+    { key: "workflow", label: "Approval Workflow", icon: <AssignmentIcon fontSize="small" />, perm: "workflow:view" },
+    { key: "system", label: "System Inventory", icon: <AssignmentIcon fontSize="small" />, perm: "system:view" },
     {
       key: "server",
       label: "Server Inventory",
@@ -265,25 +212,16 @@ const SuperAdmin: React.FC = () => {
             />
           );
         }
-        return (
-          <RoleMasterTable onAdd={handleRoleAdd} onEdit={handleRoleEdit} />
-        );
-      case "vendor":
-        return <VendorMasterTable />;
-      case "department":
-        return <DepartmentMasterTable />;
-      case "application":
-        return <ApplicationMasterTable />;
-      case "user":
-        return <UserMasterTable />;
-      case "request":
-        return <UserRequestTable />;
-      case "workflow":
-        return <WorkflowBuilder />;
-      case "system":
-        return <SystemInventoryMasterTable />;
-      case "activity-logs":
-        return <ActivityMasterTable />;
+        return <RoleMasterTable onAdd={handleRoleAdd} onEdit={handleRoleEdit} />;
+      case "vendor": return <VendorMasterTable />;
+      case "department": return <DepartmentMasterTable />;
+      case "application": return <ApplicationMasterTable />;
+      case "user": return <UserMasterTable />;
+      case "request": return <UserRequestTable />;
+      case "workflow": return <WorkflowBuilder />;
+      case "system": return <SystemInventoryMasterTable />;
+      case "activity-logs": return <ActivityMasterTable />;
+      case "task": return <TaskTable />;
       case "server":
         return <ServerInventoryMasterTable />;
       default:

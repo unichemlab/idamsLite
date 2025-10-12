@@ -68,6 +68,7 @@ app.use("/api/docs", swaggerRoutes);
 app.use("/api/activity-logs", activityLogsRoutes);
 app.use("/api/servers", serverRoutes);
 app.use("/api/approval", approvalRoutes);
+app.use("/api/task", taskRoutes);
 // Use AD sync routes
 app.use(adSyncRoutes);
 app.use("/api/workflows", workflowRoutes);

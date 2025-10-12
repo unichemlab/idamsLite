@@ -37,6 +37,13 @@ export async function fetchActivityLog(): Promise<any[]> {
   return request("/api/activity-logs");
 }
 
+// Task API
+export async function fetchTaskLog(): Promise<any[]> {
+  const res = await fetch("http://localhost:4000/api/task");
+  if (!res.ok) throw new Error("Failed to fetch systems");
+  return await res.json();
+}
+
 export async function addSystemAPI(system: any): Promise<any> {
   return request("/api/systems", {
     method: "POST",
@@ -241,6 +248,12 @@ export async function deleteUserRequestAPI(id: number): Promise<void> {
 // Fetch all tasks
 export async function fetchTasks(): Promise<any[]> {
   return request(`/api/tasks`);
+}
+
+export async function fetchTaskById(id: string): Promise<any> {
+  const res = await fetch(`http://localhost:4000/api/tasks/${id}`);
+  if (!res.ok) throw new Error("Failed to fetch task by ID");
+  return await res.json();
 }
 
 // Add a new task
