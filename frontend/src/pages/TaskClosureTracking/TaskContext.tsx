@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-
+import { API_BASE } from "../../utils/api";
 interface TaskLog {
     task_id: number;
   user_request_id: number;
@@ -30,7 +30,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const fetchTasks = async () => {
     try {
       setLoading(true);
-      const response = await fetch("http://localhost:4000/api/task");
+      const response = await fetch(`${API_BASE}/api/task`);
       if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
       const data = await response.json();
       setTasks(data);

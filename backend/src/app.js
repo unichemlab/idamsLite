@@ -8,6 +8,7 @@ const vendorRoutes = require("./routes/vendorRoutes");
 const roleRoutes = require("./routes/roleRoutes");
 const departmentRoutes = require("./routes/departmentRoutes");
 const authRoutes = require("./routes/authRoutes");
+const taskRoutes = require("./routes/task");
 const userRoutes = require("./routes/userRoutes");
 const userRequest = require("./routes/userRequest");
 const applicationRoutes = require("./routes/applicationRoutes");
