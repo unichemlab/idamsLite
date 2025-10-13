@@ -28,7 +28,8 @@ const app = express();
 // Configure CORS to allow both localhost and deployed frontend
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://pharmacorp-app-production.up.railway.app",
+  "https://pharmacorp-app-production.up.railway.appE",
+  "https://idamlite.netlify.app/",
 ];
 
 app.use(
