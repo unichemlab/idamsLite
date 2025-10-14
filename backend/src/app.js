@@ -29,7 +29,7 @@ const app = express();
 const allowedOrigins = [
   "http://localhost:3000",
   "https://pharmacorp-app-production.up.railway.appE",
-  "https://idamlite.netlify.app/",
+  "https://idams-lite.vercel.app",
 ];
 
 app.use(
