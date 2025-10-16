@@ -69,66 +69,43 @@ exports.getWorkflows = async (req, res) => {
     // If no rows, return empty
     if (!rows || rows.length === 0) return res.json({ workflows: [] });
 
-    // Fetch user details for approver ids present in results
+    // Collect all approver IDs (split comma-separated values)
     const approverIds = new Set();
     rows.forEach((r) => {
-      // support both approver_1_id and approver_1 naming
-      const a1 = r.approver_1_id || r.approver_1;
-      const a2 = r.approver_2_id || r.approver_2;
-      const a3 = r.approver_3_id || r.approver_3;
-      const a4 = r.approver_4_id || r.approver_4;
-      const a5 = r.approver_5_id || r.approver_5;
-      [a1, a2, a3, a4, a5].forEach((id) => {
-        if (id) approverIds.add(id);
+      [
+        r.approver_1_id,
+        r.approver_2_id,
+        r.approver_3_id,
+        r.approver_4_id,
+        r.approver_5_id,
+      ].forEach((val) => {
+        if (val) {
+          String(val)
+            .split(",")
+            .forEach((id) => {
+              if (id && id.trim()) approverIds.add(id.trim());
+            });
+        }
       });
     });
 
     const idArray = Array.from(approverIds);
-    // Prepare maps for lookups by numeric id, employee_code, or employee_id
     let usersById = {};
-    let usersByCode = {};
-    let usersByEmpId = {};
-
     if (idArray.length) {
-      // split numeric ids and string identifiers
       const numericIds = idArray
         .filter((x) => Number.isInteger(Number(x)))
         .map((x) => Number(x));
-      const stringIds = idArray
-        .filter((x) => !Number.isInteger(Number(x)))
-        .map((x) => String(x));
-
-      // Query numeric ids
       if (numericIds.length) {
         const placeholders = numericIds.map((_, i) => `$${i + 1}`).join(",");
         const usersQ = `SELECT id, employee_name, employee_id, employee_code, email FROM user_master WHERE id IN (${placeholders})`;
         const { rows: users } = await db.query(usersQ, numericIds);
         users.forEach((u) => {
           usersById[u.id] = u;
-          if (u.employee_code) usersByCode[String(u.employee_code)] = u;
-          if (u.employee_id) usersByEmpId[String(u.employee_id)] = u;
-        });
-      }
-
-      // Query string identifiers by employee_code or employee_id
-      if (stringIds.length) {
-        // build placeholders starting after numericIds length
-        const startIndex = 1;
-        const placeholders = stringIds.map((_, i) => `$${i + 1}`).join(",");
-        const usersQ2 = `SELECT id, employee_name, employee_id, employee_code, email FROM user_master WHERE employee_code IN (${placeholders}) OR employee_id IN (${placeholders})`;
-        const { rows: users2 } = await db.query(
-          usersQ2,
-          stringIds.concat(stringIds)
-        );
-        users2.forEach((u) => {
-          usersById[u.id] = u;
-          if (u.employee_code) usersByCode[String(u.employee_code)] = u;
-          if (u.employee_id) usersByEmpId[String(u.employee_id)] = u;
         });
       }
     }
 
-    // Map workflows to include approver user objects
+    // Map workflows to include approver user objects (array per approver row)
     const workflows = rows.map((r) => ({
       id: r.id,
       transaction_id: r.transaction_id,
@@ -138,52 +115,36 @@ exports.getWorkflows = async (req, res) => {
       max_approvers: r.max_approvers,
       is_active: r.is_active,
       approvers: [
-        // lookup helper: try numeric id, then employee_code, then employee_id
-        (function () {
-          const key = r.approver_1_id || r.approver_1;
-          if (!key) return null;
-          if (Number.isInteger(Number(key)) && usersById[Number(key)])
-            return usersById[Number(key)];
-          if (usersByCode[String(key)]) return usersByCode[String(key)];
-          if (usersByEmpId[String(key)]) return usersByEmpId[String(key)];
-          return null;
-        })(),
-        (function () {
-          const key = r.approver_2_id || r.approver_2;
-          if (!key) return null;
-          if (Number.isInteger(Number(key)) && usersById[Number(key)])
-            return usersById[Number(key)];
-          if (usersByCode[String(key)]) return usersByCode[String(key)];
-          if (usersByEmpId[String(key)]) return usersByEmpId[String(key)];
-          return null;
-        })(),
-        (function () {
-          const key = r.approver_3_id || r.approver_3;
-          if (!key) return null;
-          if (Number.isInteger(Number(key)) && usersById[Number(key)])
-            return usersById[Number(key)];
-          if (usersByCode[String(key)]) return usersByCode[String(key)];
-          if (usersByEmpId[String(key)]) return usersByEmpId[String(key)];
-          return null;
-        })(),
-        (function () {
-          const key = r.approver_4_id || r.approver_4;
-          if (!key) return null;
-          if (Number.isInteger(Number(key)) && usersById[Number(key)])
-            return usersById[Number(key)];
-          if (usersByCode[String(key)]) return usersByCode[String(key)];
-          if (usersByEmpId[String(key)]) return usersByEmpId[String(key)];
-          return null;
-        })(),
-        (function () {
-          const key = r.approver_5_id || r.approver_5;
-          if (!key) return null;
-          if (Number.isInteger(Number(key)) && usersById[Number(key)])
-            return usersById[Number(key)];
-          if (usersByCode[String(key)]) return usersByCode[String(key)];
-          if (usersByEmpId[String(key)]) return usersByEmpId[String(key)];
-          return null;
-        })(),
+        r.approver_1_id
+          ? String(r.approver_1_id)
+              .split(",")
+              .map((id) => usersById[Number(id)])
+              .filter(Boolean)
+          : [],
+        r.approver_2_id
+          ? String(r.approver_2_id)
+              .split(",")
+              .map((id) => usersById[Number(id)])
+              .filter(Boolean)
+          : [],
+        r.approver_3_id
+          ? String(r.approver_3_id)
+              .split(",")
+              .map((id) => usersById[Number(id)])
+              .filter(Boolean)
+          : [],
+        r.approver_4_id
+          ? String(r.approver_4_id)
+              .split(",")
+              .map((id) => usersById[Number(id)])
+              .filter(Boolean)
+          : [],
+        r.approver_5_id
+          ? String(r.approver_5_id)
+              .split(",")
+              .map((id) => usersById[Number(id)])
+              .filter(Boolean)
+          : [],
       ],
     }));
 
@@ -213,20 +174,39 @@ exports.createWorkflow = async (req, res) => {
       is_active,
     } = req.body;
 
+    // Convert approver columns to comma-separated string if array
+    const approver_1_id_str = Array.isArray(approver_1_id)
+      ? approver_1_id.join(",")
+      : approver_1_id || null;
+    const approver_2_id_str = Array.isArray(approver_2_id)
+      ? approver_2_id.join(",")
+      : approver_2_id || null;
+    const approver_3_id_str = Array.isArray(approver_3_id)
+      ? approver_3_id.join(",")
+      : approver_3_id || null;
+    const approver_4_id_str = Array.isArray(approver_4_id)
+      ? approver_4_id.join(",")
+      : approver_4_id || null;
+    const approver_5_id_str = Array.isArray(approver_5_id)
+      ? approver_5_id.join(",")
+      : approver_5_id || null;
+
     const q = `INSERT INTO approval_workflow_master (transaction_id, workflow_type, plant_id, department_id, approver_1_id, approver_2_id, approver_3_id, approver_4_id, approver_5_id, max_approvers, is_active, created_on, updated_on) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW(),NOW()) RETURNING *`;
     const params = [
       transaction_id,
       workflow_type,
       plant_id,
       department_id,
-      approver_1_id || null,
-      approver_2_id || null,
-      approver_3_id || null,
-      approver_4_id || null,
-      approver_5_id || null,
+      approver_1_id_str,
+      approver_2_id_str,
+      approver_3_id_str,
+      approver_4_id_str,
+      approver_5_id_str,
       max_approvers || 0,
       is_active === undefined ? true : is_active,
     ];
+    console.log("[WORKFLOW CREATE] SQL:", q);
+    console.log("[WORKFLOW CREATE] PARAMS:", params);
     const { rows } = await db.query(q, params);
     res.status(201).json(rows[0]);
   } catch (err) {
@@ -255,21 +235,40 @@ exports.updateWorkflow = async (req, res) => {
       is_active,
     } = req.body;
 
+    // Convert approver columns to comma-separated string if array
+    const approver_1_id_str = Array.isArray(approver_1_id)
+      ? approver_1_id.join(",")
+      : approver_1_id || null;
+    const approver_2_id_str = Array.isArray(approver_2_id)
+      ? approver_2_id.join(",")
+      : approver_2_id || null;
+    const approver_3_id_str = Array.isArray(approver_3_id)
+      ? approver_3_id.join(",")
+      : approver_3_id || null;
+    const approver_4_id_str = Array.isArray(approver_4_id)
+      ? approver_4_id.join(",")
+      : approver_4_id || null;
+    const approver_5_id_str = Array.isArray(approver_5_id)
+      ? approver_5_id.join(",")
+      : approver_5_id || null;
+
     const q = `UPDATE approval_workflow_master SET transaction_id=$1, workflow_type=$2, plant_id=$3, department_id=$4, approver_1_id=$5, approver_2_id=$6, approver_3_id=$7, approver_4_id=$8, approver_5_id=$9, max_approvers=$10, is_active=$11, updated_on=NOW() WHERE id=$12 RETURNING *`;
     const params = [
       transaction_id,
       workflow_type,
       plant_id,
       department_id,
-      approver_1_id || null,
-      approver_2_id || null,
-      approver_3_id || null,
-      approver_4_id || null,
-      approver_5_id || null,
+      approver_1_id_str,
+      approver_2_id_str,
+      approver_3_id_str,
+      approver_4_id_str,
+      approver_5_id_str,
       max_approvers || 0,
       is_active === undefined ? true : is_active,
       id,
     ];
+    console.log("[WORKFLOW UPDATE] SQL:", q);
+    console.log("[WORKFLOW UPDATE] PARAMS:", params);
     const { rows } = await db.query(q, params);
     res.json(rows[0]);
   } catch (err) {

@@ -10,6 +10,7 @@ interface InputFieldProps {
   type?: string;
   placeholder?: string;
   required?: boolean;
+  disabled?: boolean;
 }
 
 const InputField: React.FC<InputFieldProps> = ({
@@ -20,6 +21,7 @@ const InputField: React.FC<InputFieldProps> = ({
   type = "text",
   placeholder,
   required,
+  disabled = false,
 }) => {
   return (
     <div className={styles.inputGroup}>
@@ -32,6 +34,7 @@ const InputField: React.FC<InputFieldProps> = ({
         onChange={onChange}
         placeholder={placeholder}
         required={required}
+        disabled={disabled}
       />
     </div>
   );
