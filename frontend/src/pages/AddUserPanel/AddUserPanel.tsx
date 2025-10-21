@@ -5,7 +5,6 @@ import { useDepartmentContext } from "../DepartmentMaster/DepartmentContext";
 import styles from "./AddUserPanel.module.css";
 import ConfirmLoginModal from "components/Common/ConfirmLoginModal";
 
-// Removed static plants array. Use dynamic plant list from context.
 const permissions = ["Add", "Edit", "View", "Delete"];
 const moduleList = [
   "Role Master",
@@ -66,7 +65,6 @@ const AddUserPanel = ({
       comment: "",
       corporateAccessEnabled: false,
     };
-    // If department is missing, empty, or '-', set to '' (we'll resolve ids later)
     const initialDept = base.department ?? (base as any).department_id ?? "";
     const deptString =
       !initialDept || initialDept === "-" ? "" : String(initialDept);
@@ -84,13 +82,11 @@ const AddUserPanel = ({
   const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  // Inline toast state to replace alert() calls
   const [toast, setToast] = useState<{
     message: string;
     type?: "info" | "error" | "success";
   } | null>(null);
   const toastTimerRef = React.useRef<number | null>(null);
-  // Track if department was initially present (from backend)
   const [departmentInitiallyPresent, setDepartmentInitiallyPresent] = useState(
     () => {
       const dept =
@@ -99,14 +95,13 @@ const AddUserPanel = ({
     }
   );
 
-  // If initialData contains a numeric department id, map it to its name once departments list is available
   useEffect(() => {
     if (!initialData) return;
     const deptVal =
       (initialData as any).department ?? (initialData as any).department_id;
     if (!deptVal) return;
     const deptId = Number(deptVal);
-    if (Number.isNaN(deptId)) return; // already a name
+    if (Number.isNaN(deptId)) return;
     if (departments && departments.length > 0) {
       const found = departments.find((d) => d.id === deptId);
       if (found) {
@@ -116,18 +111,15 @@ const AddUserPanel = ({
         }));
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [departments]);
+  }, [departments, initialData]);
 
-  // Checkbox for plant selection
+  // Plant selection logic
   const handleCheckboxChange = (plant: string) => {
+    let shouldShowError = false;
     setForm((prev) => {
       const isSelected = prev.plants.includes(plant);
 
-      // If attempting to select a plant, ensure all already-selected plants
-      // have at least one permission. If any selected plant has no permissions,
-      // disallow selecting a new plant until permissions are assigned or the
-      // existing plant is manually unchecked.
+      // If trying to select a new plant, check if any selected plant has no permissions
       if (!isSelected) {
         const anySelectedWithoutPerm = prev.plants.some((p) => {
           const pModules = moduleList.map((mod) => `${p}-${mod}`);
@@ -136,58 +128,58 @@ const AddUserPanel = ({
           );
         });
         if (anySelectedWithoutPerm) {
-          setToast({
-            message:
-              "Please assign at least one permission (Add/Edit/View/Delete) to the already selected plant before selecting another.",
-            type: "error",
-          });
-          // auto-dismiss
-          if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-          toastTimerRef.current = window.setTimeout(() => setToast(null), 4000);
+          shouldShowError = true;
+          // Do NOT update form state or activePlant at all, just return prev
           return prev;
         }
       }
 
       // proceed with toggling selection
-      const plantModules = moduleList.map((mod) => `${plant}-${mod}`);
-      const hasAnyPermission = plantModules.some(
+      const plantModulesLocal = moduleList.map((mod) => `${plant}-${mod}`);
+      const hasAnyPermissionLocal = plantModulesLocal.some(
         (modKey) => (prev.permissions[modKey] || []).length > 0
       );
 
-      let updatedPlants: string[] = [...prev.plants];
-      let newActive = activePlant;
+      let updatedPlantsLocal: string[] = [...prev.plants];
+      let newActiveLocal = activePlant;
 
       if (!isSelected) {
-        // add plant
-        updatedPlants = [...new Set([...prev.plants, plant])];
-        newActive = plant;
+        updatedPlantsLocal = [...new Set([...prev.plants, plant])];
+        newActiveLocal = plant;
       } else {
         // remove plant only if it has no permissions
-        if (hasAnyPermission) {
-          // don't allow unselecting a plant that currently has permissions
-          setToast({
-            message:
-              "This plant has assigned permissions. Remove permissions first to unselect the plant.",
-            type: "error",
-          });
-          if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-          toastTimerRef.current = window.setTimeout(() => setToast(null), 4000);
+        if (hasAnyPermissionLocal) {
+          shouldShowError = true;
+          // Do NOT update form state or activePlant at all, just return prev
           return prev;
         } else {
-          updatedPlants = prev.plants.filter((p) => p !== plant);
+          updatedPlantsLocal = prev.plants.filter((p) => p !== plant);
           if (plant === activePlant) {
-            newActive = updatedPlants.length > 0 ? updatedPlants[0] : null;
+            newActiveLocal =
+              updatedPlantsLocal.length > 0 ? updatedPlantsLocal[0] : null;
           }
         }
       }
 
-      setActivePlant(newActive);
+      // Only update activePlant if no error
+      if (!shouldShowError) {
+        setActivePlant(newActiveLocal);
+      }
 
       return {
         ...prev,
-        plants: updatedPlants,
+        plants: updatedPlantsLocal,
       };
     });
+    if (shouldShowError) {
+      setToast({
+        message:
+          "Please assign at least one permission (Add/Edit/View/Delete) to the already selected plant before selecting another.",
+        type: "error",
+      });
+      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = window.setTimeout(() => setToast(null), 4000);
+    }
   };
 
   // Permission toggle for modules
@@ -237,34 +229,38 @@ const AddUserPanel = ({
         updatedPermissions = [];
       }
 
-      const updatedForm = {
+      // Update permissions and plants for the plant
+      const plantPrefix = module.split("-")[0];
+      const plantModulesLocal = moduleList.map(
+        (mod) => `${plantPrefix}-${mod}`
+      );
+      // Check if any permission exists for this plant after update
+      const hasAnyPermissionLocal = plantModulesLocal.some((modKey) =>
+        modKey === module
+          ? updatedPermissions.length > 0
+          : (prev.permissions[modKey] || []).length > 0
+      );
+      let updatedPlantsLocal = [...prev.plants];
+      if (!hasAnyPermissionLocal) {
+        updatedPlantsLocal = prev.plants.filter((p) => p !== plantPrefix);
+        // If the activePlant is removed, set activePlant to another plant or null
+        if (plantPrefix === activePlant) {
+          setActivePlant(
+            updatedPlantsLocal.length > 0 ? updatedPlantsLocal[0] : null
+          );
+        }
+      }
+      return {
         ...prev,
         permissions: {
           ...prev.permissions,
           [module]: updatedPermissions,
         },
-      };
-
-      // Extract plant name from module key: e.g., "GOA-Role Master" → "GOA"
-      const plantPrefix = module.split("-")[0];
-      const plantModules = moduleList.map((mod) => `${plantPrefix}-${mod}`);
-      const hasAnyPermission = plantModules.some(
-        (modKey) => (updatedForm.permissions[modKey] || []).length > 0
-      );
-      let updatedPlants;
-      if (hasAnyPermission) {
-        updatedPlants = [...new Set([...updatedForm.plants, plantPrefix])];
-      } else {
-        updatedPlants = updatedForm.plants.filter((p) => p !== plantPrefix);
-      }
-      return {
-        ...updatedForm,
-        plants: updatedPlants,
+        plants: updatedPlantsLocal,
       };
     });
   };
 
-  // Form submit
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -286,12 +282,10 @@ const AddUserPanel = ({
     setShowModal(true);
   };
 
-  // Prefer the username from auth context. Fall back to localStorage, then to API.
   const [username, setUsername] = useState<string>(
     () => user?.username || localStorage.getItem("username") || ""
   );
 
-  // Sync from auth context when available
   useEffect(() => {
     if (user?.username && user.username !== username) {
       setUsername(user.username);
@@ -299,10 +293,8 @@ const AddUserPanel = ({
         localStorage.setItem("username", user.username);
       } catch {}
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.username]);
+  }, [user?.username, username]);
 
-  // If username still not available, try fetching from backend once
   useEffect(() => {
     let mounted = true;
     if (!username) {
@@ -326,26 +318,19 @@ const AddUserPanel = ({
             } catch {}
           }
         })
-        .catch(() => {
-          // ignore
-        });
+        .catch(() => {});
     }
     return () => {
       mounted = false;
+      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
     };
-    // run only when username is empty
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [username === ""]);
+  }, [username]);
+
   const handleConfirmLogin = async (data: Record<string, string>) => {
-    // NOTE: password validation is temporarily disabled because
-    // user passwords are not available in this environment yet.
-    // We'll accept the confirmation if the modal username matches the
-    // current logged-in username (if present). This allows Add/Edit to save.
     if (!username || data.username === username) {
       setSaving(true);
       try {
         await onSave(form);
-        // If department was not present and now selected, lock it after save
         if (
           mode === "edit" &&
           !departmentInitiallyPresent &&
@@ -363,7 +348,6 @@ const AddUserPanel = ({
         setSaving(false);
       }
     } else {
-      // Username mismatch — do not proceed
       setToast({
         message: `Username mismatch. Please confirm you are logged in as ${username} before confirming.`,
         type: "error",
@@ -372,13 +356,6 @@ const AddUserPanel = ({
       toastTimerRef.current = window.setTimeout(() => setToast(null), 4000);
     }
   };
-
-  // cleanup toast timer on unmount
-  useEffect(() => {
-    return () => {
-      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-    };
-  }, []);
 
   return (
     <div>
@@ -472,7 +449,6 @@ const AddUserPanel = ({
                   <option value="HR">HR</option>
                   <option value="Production">Production</option>
                   <option value="Finance">Finance</option>
-                  {/* If editing and department is not in the list, show it as an option */}
                   {mode === "edit" &&
                     !!form.department &&
                     !["IT", "QA", "HR", "Production", "Finance"].includes(
@@ -524,9 +500,16 @@ const AddUserPanel = ({
                         form.plants.includes(plantName) ? styles.chipActive : ""
                       }`}
                       key={plant.id || plantName}
-                      style={{ cursor: "pointer" }}
+                      style={{
+                        cursor: form.plants.includes(plantName)
+                          ? "pointer"
+                          : "not-allowed",
+                      }}
                       onClick={() => {
-                        setActivePlant(plantName);
+                        // Only allow clicking card to set activePlant if plant is checked
+                        if (form.plants.includes(plantName)) {
+                          setActivePlant(plantName);
+                        }
                       }}
                     >
                       <input
@@ -538,16 +521,6 @@ const AddUserPanel = ({
                         onChange={(e) => {
                           e.stopPropagation();
                           handleCheckboxChange(plantName);
-                          if (!form.plants.includes(plantName)) {
-                            setActivePlant(plantName);
-                          } else if (activePlant === plantName) {
-                            const remaining = form.plants.filter(
-                              (p) => p !== plantName
-                            );
-                            setActivePlant(
-                              remaining.length > 0 ? remaining[0] : null
-                            );
-                          }
                         }}
                       />
                       {plantName}
@@ -620,8 +593,6 @@ const AddUserPanel = ({
               </div>
             </div>
           )}
-
-          {/* Central Master Permission removed per requirements */}
 
           <div className={styles.sectionCard}>
             <div className={styles.commentBox}>

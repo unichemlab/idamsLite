@@ -1,3 +1,6 @@
+// This is a placeholder for existing code context
+// ...existing code...
+// This is a placeholder for existing code context
 import React, { useState, useEffect } from "react";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
@@ -27,13 +30,21 @@ const AddIcon = () => (
 
 const plantOptionsStatic: string[] = ["GOA-1", "GOA-2", "GOA-3", "Gaziabad"];
 const corporateOptions = [
-  { label: "Corporate - Administration", maxApprovers: 1, value: "Administration"},
-  { label: "Corporate - Application (SAP)", maxApprovers: 5,value: "SAP" },
-  { label: "Corporate - Application (IT Support)", maxApprovers: 1 ,value: "IT Support"},
+  {
+    label: "Corporate - Administration",
+    maxApprovers: 1,
+    value: "Administration",
+  },
+  { label: "Corporate - Application (SAP)", maxApprovers: 5, value: "SAP" },
+  {
+    label: "Corporate - Application (IT Support)",
+    maxApprovers: 1,
+    value: "IT Support",
+  },
 ];
 
-// UI shows only approver_2 and approver_3
-const MAX_APPROVER_UI_ROWS = 2;
+const MAX_APPROVER_UI_ROWS = 5;
+const MAX_USERS_PER_GROUP = 20;
 
 type Approver = {
   name: string;
@@ -91,7 +102,6 @@ type ApproverRow = { users: Approver[] };
 const WorkflowBuilder: React.FC = () => {
   const [plant, setPlant] = useState<string>("");
   const [corporate, setCorporate] = useState<string>("");
-  const [corporate_type, setCorporateType] = useState<string>("");
   const [approverRows, setApproverRows] = useState<ApproverRow[]>([]);
   const [editRowIndex, setEditRowIndex] = useState<number | null>(null);
   const [editUserIndex, setEditUserIndex] = useState<number | null>(null);
@@ -108,7 +118,6 @@ const WorkflowBuilder: React.FC = () => {
     null
   );
 
-  // Prepare options for select
   const [userOptions, setUserOptions] = useState<any[]>([]);
   useEffect(() => {
     setUserOptions(
@@ -116,7 +125,6 @@ const WorkflowBuilder: React.FC = () => {
         label: `${u.employee_name || u.fullName || u.full_name || ""} | ${
           u.employee_code || ""
         } | ${u.employee_id || ""}`,
-        // use numeric user id as the option value (stringified) so we can prefer numeric ids
         value: String(u.id),
         user: u,
       }))
@@ -124,42 +132,60 @@ const WorkflowBuilder: React.FC = () => {
   }, [users]);
 
   useEffect(() => {
-      fetchPlants()
-        .then((data) =>
-          setPlants(
-            data.map((p: any) => ({ id: p.id, plant_name: p.plant_name }))
-          )
+    if (!currentWorkflowId) return;
+    let plantOrCorporate = plant || corporate;
+    if (!plantOrCorporate) return;
+    const fetchWorkflow = async () => {
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/workflows?plant=${encodeURIComponent(plantOrCorporate)}`
+        );
+        if (!res.ok) throw new Error("Failed to fetch workflows");
+        const data = await res.json();
+        if (data.workflows && data.workflows.length) {
+          // Use backend's approvers array for each row
+          const wf = data.workflows[0];
+          const rows = (wf.approvers || []).map((usersArr: any[]) => ({
+            users: (usersArr || []).map((u: any) => ({
+              name: u.employee_name || u.fullName || u.full_name || "",
+              empCode: u.employee_code || "",
+              email: u.email || "",
+              employee_id: u.employee_id || "",
+              userId: u.id || null,
+            })),
+          }));
+          while (rows.length < MAX_APPROVER_UI_ROWS) rows.push({ users: [] });
+          setApproverRows(rows);
+        }
+      } catch (err) {
+        // fallback: do not update
+      }
+    };
+    fetchWorkflow();
+  }, [userOptions, users, plant, corporate, currentWorkflowId]);
+
+  useEffect(() => {
+    fetchPlants()
+      .then((data) =>
+        setPlants(
+          data.map((p: any) => ({ id: p.id, plant_name: p.plant_name }))
         )
-        .catch(() => setPlants([]));
-    }, []);
+      )
+      .catch(() => setPlants([]));
+  }, []);
 
-
-  // Helper to check if a user is empty
   const isEmptyUser = (user: Approver) =>
     !user.name && !user.empCode && !user.email;
 
-  // helper to pick a numeric id (prefer userId, else numeric empCode)
-  const pickNumericId = (u: any) => {
-    if (!u) return null;
-    if (u.userId !== undefined && u.userId !== null) return Number(u.userId);
-    if (u.empCode && /^\d+$/.test(String(u.empCode))) return Number(u.empCode);
-    // cannot produce numeric id; return null to avoid DB integer errors
-    console.warn("Approver id not numeric, skipping:", u);
-    return null;
-  };
-
-  // Handle selection change (plant)
   const handlePlantChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
     setPlant(value);
     setCorporate("");
-    setCorporateType("");
     setEditRowIndex(null);
     setEditUserIndex(null);
     setForm({ name: "", empCode: "", email: "", employee_id: "" });
     setCurrentWorkflowId(null);
 
-    // Fetch workflow for the selected plant from backend
     try {
       const res = await fetch(
         `${API_BASE}/api/workflows?plant=${encodeURIComponent(value)}`
@@ -167,25 +193,39 @@ const WorkflowBuilder: React.FC = () => {
       if (!res.ok) throw new Error("Failed to fetch workflows");
       const data = await res.json();
       if (data.workflows && data.workflows.length) {
-        // For simplicity pick first workflow
         const wf = data.workflows[0];
         setCurrentWorkflowId(wf.id || null);
-        // We want to start from approver 2 and ignore approver 1 per requirements
-        const approvers = wf.approvers || [];
-        // approvers array corresponds to approver_1..approver_5 -> remove index 0
-        const rows = approvers.slice(1).map((u: any) => ({
-          users: u
-            ? [
-                {
-                  name: u.employee_name || "",
-                  empCode: u.employee_code || "",
-                  email: u.email || "",
-                  employee_id: u.employee_id || "",
-                  userId: u.id || null,
-                },
-              ]
-            : [],
-        }));
+        const approverIdsArr = [
+          wf.approver_2_id,
+          wf.approver_3_id,
+          wf.approver_4_id,
+          wf.approver_5_id,
+        ];
+        const rows = approverIdsArr.map((ids) => {
+          if (!ids) return { users: [] };
+          const idArr = String(ids)
+            .split(",")
+            .filter((id) => id);
+          const usersMapped = idArr
+            .map((id) => {
+              const opt = userOptions.find(
+                (o) => String(o.value) === String(id)
+              );
+              return opt ? opt.user : null;
+            })
+            .filter(Boolean)
+            .slice(0, MAX_USERS_PER_GROUP);
+          return {
+            users: usersMapped.map((u: any) => ({
+              name: u.employee_name || u.fullName || u.full_name || "",
+              empCode: u.employee_code || "",
+              email: u.email || "",
+              employee_id: u.employee_id || "",
+              userId: u.id || null,
+            })),
+          };
+        });
+        while (rows.length < MAX_APPROVER_UI_ROWS) rows.push({ users: [] });
         setApproverRows(rows);
         return;
       }
@@ -193,33 +233,16 @@ const WorkflowBuilder: React.FC = () => {
       console.warn("Workflow fetch failed, falling back to defaults", err);
     }
 
-    // Fallback to defaults (existing behaviour)
-    setApproverRows([
-      {
+    setApproverRows(
+      Array.from({ length: MAX_APPROVER_UI_ROWS }, (_, i) => ({
         users:
           defaultApprovers[value] &&
-          defaultApprovers[value][0] &&
-          defaultApprovers[value][0].name
-            ? [defaultApprovers[value][0]]
+          defaultApprovers[value][i] &&
+          defaultApprovers[value][i].name
+            ? [defaultApprovers[value][i]]
             : [],
-      },
-      {
-        users:
-          defaultApprovers[value] &&
-          defaultApprovers[value][1] &&
-          defaultApprovers[value][1].name
-            ? [defaultApprovers[value][1]]
-            : [],
-      },
-      {
-        users:
-          defaultApprovers[value] &&
-          defaultApprovers[value][2] &&
-          defaultApprovers[value][2].name
-            ? [defaultApprovers[value][2]]
-            : [],
-      },
-    ]);
+      }))
+    );
     setCurrentWorkflowId(null);
   };
 
@@ -227,9 +250,7 @@ const WorkflowBuilder: React.FC = () => {
     e: React.ChangeEvent<HTMLSelectElement>
   ) => {
     const value = e.target.value;
-    console.log("corporateChange",e.target.value);
     setCorporate(value);
-    setCorporateType(value);
     setPlant("");
     setEditRowIndex(null);
     setEditUserIndex(null);
@@ -239,32 +260,47 @@ const WorkflowBuilder: React.FC = () => {
     const max =
       corporateOptions.find((c) => c.label === value)?.maxApprovers || 1;
 
-    // Try fetching workflow for corporate label (transaction_id or plant_id may differ)
     try {
       const res = await fetch(
-        `${API_BASE }/api/workflows?plant=${encodeURIComponent(value)}`
+        `${API_BASE}/api/workflows?plant=${encodeURIComponent(value)}`
       );
       if (!res.ok) throw new Error("Failed to fetch workflows");
       const data = await res.json();
       if (data.workflows && data.workflows.length) {
         const wf = data.workflows[0];
         setCurrentWorkflowId(wf.id || null);
-        const approvers = wf.approvers || [];
-        const rows = approvers.slice(1, 1 + max).map((u: any) => ({
-          users: u
-            ? [
-                {
-                  name: u.employee_name || "",
-                  empCode: u.employee_code || "",
-                  email: u.email || "",
-                  employee_id: u.employee_id || "",
-                  userId: u.id || null,
-                },
-              ]
-            : [],
-        }));
-        // If fewer rows than max, pad
-        while (rows.length < max) rows.push({ users: [] });
+        const approverIdsArr = [
+          wf.approver_2_id,
+          wf.approver_3_id,
+          wf.approver_4_id,
+          wf.approver_5_id,
+        ];
+        const rows = approverIdsArr.map((ids) => {
+          if (!ids) return { users: [] };
+          const idArr = String(ids)
+            .split(",")
+            .filter((id) => id);
+          const usersMapped = idArr
+            .map((id) => {
+              const opt = userOptions.find(
+                (o) => String(o.value) === String(id)
+              );
+              return opt ? opt.user : null;
+            })
+            .filter(Boolean)
+            .slice(0, MAX_USERS_PER_GROUP);
+          return {
+            users: usersMapped.map((u: any) => ({
+              name: u.employee_name || u.fullName || u.full_name || "",
+              empCode: u.employee_code || "",
+              email: u.email || "",
+              employee_id: u.employee_id || "",
+              userId: u.id || null,
+            })),
+          };
+        });
+        while (rows.length < Math.max(max, MAX_APPROVER_UI_ROWS))
+          rows.push({ users: [] });
         setApproverRows(rows);
         return;
       }
@@ -276,7 +312,7 @@ const WorkflowBuilder: React.FC = () => {
     }
 
     setApproverRows(
-      Array.from({ length: max }, (_, i) => ({
+      Array.from({ length: Math.max(max, MAX_APPROVER_UI_ROWS) }, (_, i) => ({
         users:
           defaultApprovers[value] &&
           defaultApprovers[value][i] &&
@@ -287,9 +323,7 @@ const WorkflowBuilder: React.FC = () => {
     );
   };
 
-  // Save workflow (create or update)
   const saveWorkflow = async () => {
-    // build payload
     const body: any = {
       transaction_id: `APPR${String(Date.now()).slice(-10)}`,
       workflow_type: plant ? "PLANT" : "CORPORATE",
@@ -303,38 +337,39 @@ const WorkflowBuilder: React.FC = () => {
       max_approvers: 3,
       is_active: true,
     };
-    // resolve plant id
     const selectedPlant = plants.find(
       (p) => String(p.id) === String(plant) || p.plant_name === plant
     );
     if (selectedPlant) body.plant_id = selectedPlant.id;
-    // helper to pick a numeric id (prefer userId, else numeric empCode)
     const pickNumericId = (u: any) => {
       if (!u) return null;
       if (u.userId !== undefined && u.userId !== null) return Number(u.userId);
       if (u.empCode && /^\d+$/.test(String(u.empCode)))
         return Number(u.empCode);
-      // cannot produce numeric id; return null to avoid DB integer errors
       console.warn("Approver id not numeric, skipping:", u);
       return null;
     };
 
-    if (approverRows[0] && approverRows[0].users[0])
-      body.approver_2_id = pickNumericId(approverRows[0].users[0]);
-    if (approverRows[1] && approverRows[1].users[0])
-      body.approver_3_id = pickNumericId(approverRows[1].users[0]);
+    for (let i = 0; i < MAX_APPROVER_UI_ROWS; i++) {
+      const dbCol = `approver_${i + 2}_id`;
+      if (approverRows[i] && approverRows[i].users.length) {
+        const ids = approverRows[i].users
+          .map((u) => pickNumericId(u))
+          .filter((id) => id != null);
+        body[dbCol] = ids.length ? ids.join(",") : null;
+      } else {
+        body[dbCol] = null;
+      }
+    }
 
     try {
       let res;
       if (currentWorkflowId) {
-        res = await fetch(
-          `${API_BASE}/api/workflows/${currentWorkflowId}`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          }
-        );
+        res = await fetch(`${API_BASE}/api/workflows/${currentWorkflowId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
       } else {
         res = await fetch(`${API_BASE}/api/workflows`, {
           method: "POST",
@@ -345,6 +380,30 @@ const WorkflowBuilder: React.FC = () => {
       if (!res.ok) throw new Error("Failed to save workflow");
       const saved = await res.json();
       setCurrentWorkflowId(saved.id || currentWorkflowId);
+      const plantOrCorporate = plant || corporate;
+      if (plantOrCorporate) {
+          const wfRes = await fetch(
+            `${API_BASE}/api/workflows?plant=${encodeURIComponent(plantOrCorporate)}`
+          );
+          if (wfRes.ok) {
+            const wfData = await wfRes.json();
+            if (wfData.workflows && wfData.workflows.length) {
+              const wf = wfData.workflows[0];
+              // Use backend's approvers array for each row
+              const rows = (wf.approvers || []).map((usersArr: any[]) => ({
+                users: (usersArr || []).map((u: any) => ({
+                  name: u.employee_name || u.fullName || u.full_name || "",
+                  empCode: u.employee_code || "",
+                  email: u.email || "",
+                  employee_id: u.employee_id || "",
+                  userId: u.id || null,
+                })),
+              }));
+              while (rows.length < MAX_APPROVER_UI_ROWS) rows.push({ users: [] });
+              setApproverRows(rows);
+            }
+        }
+      }
       alert("Workflow saved");
     } catch (err) {
       console.error("Save workflow failed", err);
@@ -352,22 +411,15 @@ const WorkflowBuilder: React.FC = () => {
     }
   };
 
-  // Add/Edit/Delete user within an approver row
-
   const handleAddUser = (rowIdx: number) => {
-    // Prevent adding empty user
-    if (isEmptyUser(form)) return;
-    // Build updated rows locally so we can save immediately
+    if (isEmptyUser(form) || !form.userId) {
+      alert("Please select a user from the dropdown.");
+      return;
+    }
     const updatedRows = approverRows.map((r, i) => {
       if (i !== rowIdx) return r;
-      // Prevent duplicate user (by empCode)
-      if (
-        r.users.some(
-          (u) =>
-            u.empCode.trim().toLowerCase() === form.empCode.trim().toLowerCase()
-        )
-      ) {
-        return r; // no change
+      if (r.users.some((u) => String(u.userId) === String(form.userId))) {
+        return r;
       }
       return { users: [...r.users, { ...form }] };
     });
@@ -375,58 +427,84 @@ const WorkflowBuilder: React.FC = () => {
     setForm({ name: "", empCode: "", email: "", employee_id: "" });
     setEditRowIndex(null);
     setEditUserIndex(null);
-
-    // Persist updated workflow to backend
-    (async () => {
-      // prepare payload similar to saveWorkflow
-      const body: any = {
-        transaction_id: `APPR${String(Date.now()).slice(-10)}`,
-        workflow_type: plant ? "PLANT" : "CORPORATE",
-        plant_id: null,
-        department_id: null,
-        approver_1_id: null,
-        approver_2_id: null,
-        approver_3_id: null,
-        approver_4_id: null,
-        approver_5_id: null,
-        max_approvers: 3,
-        is_active: true,
-      };
+    setTimeout(async () => {
+      const body: Record<string, any> = {};
+      body.transaction_id = `APPR${String(Date.now()).slice(-10)}`;
+      body.workflow_type = plant ? "PLANT" : "CORPORATE";
       const selectedPlant = plants.find(
-        (p) => String(p.id) === String(plant) || p.plant_name === plant
+        (p: any) => String(p.id) === String(plant) || p.plant_name === plant
       );
-      if (selectedPlant) body.plant_id = selectedPlant.id;
-      if (updatedRows[0] && updatedRows[0].users[0])
-        body.approver_2_id = pickNumericId(updatedRows[0].users[0]);
-      if (updatedRows[1] && updatedRows[1].users[0])
-        body.approver_3_id = pickNumericId(updatedRows[1].users[0]);
-
-      try {
-        let res;
-        if (currentWorkflowId) {
-          res = await fetch(
-            `${API_BASE}/api/workflows/${currentWorkflowId}`,
-            {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(body),
-            }
-          );
-        } else {
-          res = await fetch(`${API_BASE}/api/workflows`, {
+      body.plant_id = selectedPlant ? Number(selectedPlant.id) : null;
+      body.department_id = null;
+      body.max_approvers = 3;
+      body.is_active = true;
+      for (let i = 0; i < MAX_APPROVER_UI_ROWS; i++) {
+        const dbCol = `approver_${i + 2}_id`;
+        const ids = updatedRows[i].users
+          .map((u: Approver) => u.userId)
+          .filter((id: number | null | undefined) => id != null)
+          .map((id: number | null | undefined) => String(id));
+        body[dbCol] = ids.length ? ids.join(",") : null;
+      }
+      let workflowId = currentWorkflowId;
+      if (!workflowId || typeof workflowId !== "number" || isNaN(workflowId)) {
+        try {
+          const res = await fetch(`${API_BASE}/api/workflows`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
           });
+          if (res.ok) {
+            const result = await res.json();
+            workflowId = result.id;
+            setCurrentWorkflowId(workflowId);
+          } else {
+            alert("Failed to create workflow");
+            return;
+          }
+        } catch (err) {
+          alert("Error creating workflow");
+          return;
         }
-        if (!res.ok) throw new Error("Failed to save workflow");
-        const saved = await res.json();
-        setCurrentWorkflowId(saved.id || currentWorkflowId);
-      } catch (err) {
-        console.error("Auto-save after add failed", err);
-        // optionally notify user
       }
-    })();
+      try {
+        const res = await fetch(`${API_BASE}/api/workflows/${workflowId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (res.ok) {
+          const newRows = [...updatedRows];
+          for (let i = 0; i < MAX_APPROVER_UI_ROWS; i++) {
+            const dbCol = `approver_${i + 2}_id`;
+            const ids = (body[dbCol] || "")
+              .split(",")
+              .filter((id: string) => Boolean(id));
+            const usersMapped = ids
+              .map((id: string) => {
+                const opt = userOptions.find(
+                  (o: any) => String(o.value) === String(id)
+                );
+                return opt ? opt.user : null;
+              })
+              .filter((u: any) => Boolean(u))
+              .slice(0, MAX_USERS_PER_GROUP);
+            newRows[i].users = usersMapped.map((u: any) => ({
+              name: u.employee_name || u.fullName || u.full_name || "",
+              empCode: u.employee_code || "",
+              email: u.email || "",
+              employee_id: u.employee_id || "",
+              userId: u.id || null,
+            }));
+          }
+          setApproverRows(newRows);
+        } else {
+          alert("Failed to update workflow");
+        }
+      } catch (err) {
+        alert("Error updating workflow");
+      }
+    }, 0);
   };
 
   const handleEditUser = (rowIdx: number, userIdx: number) => {
@@ -437,11 +515,9 @@ const WorkflowBuilder: React.FC = () => {
 
   const handleSaveEdit = () => {
     if (editRowIndex !== null && editUserIndex !== null) {
-      // Prevent empty user and duplicate empCode
       if (isEmptyUser(form)) return;
       setApproverRows((prev) => {
         const updated = [...prev];
-        // Check for duplicate empCode except for the one being edited
         if (
           updated[editRowIndex].users.some(
             (u, idx) =>
@@ -470,61 +546,56 @@ const WorkflowBuilder: React.FC = () => {
     setEditRowIndex(null);
     setEditUserIndex(null);
     setForm({ name: "", empCode: "", email: "", employee_id: "" });
-
-    // Persist deletion
-    (async () => {
-      const body: any = {
-        transaction_id: `APPR${String(Date.now()).slice(-10)}`,
-        workflow_type: plant ? "PLANT" : "CORPORATE",
-        plant_id: null,
-        department_id: null,
-        approver_1_id: null,
-        approver_2_id: null,
-        approver_3_id: null,
-        approver_4_id: null,
-        approver_5_id: null,
-        max_approvers: 3,
-        is_active: true,
-      };
-      const selectedPlant = plants.find(
-        (p) => String(p.id) === String(plant) || p.plant_name === plant
-      );
-      if (selectedPlant) body.plant_id = selectedPlant.id;
-      if (updatedRows[0] && updatedRows[0].users[0])
-        body.approver_2_id = pickNumericId(updatedRows[0].users[0]);
-      if (updatedRows[1] && updatedRows[1].users[0])
-        body.approver_3_id = pickNumericId(updatedRows[1].users[0]);
-
-      try {
-        let res;
-        if (currentWorkflowId) {
-          res = await fetch(
-            `${API_BASE}/api/workflows/${currentWorkflowId}`,
-            {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(body),
-            }
-          );
-        } else {
-          res = await fetch(`${API_BASE}/api/workflows`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          });
-        }
-        if (!res.ok) throw new Error("Failed to save workflow");
-        const saved = await res.json();
-        setCurrentWorkflowId(saved.id || currentWorkflowId);
-      } catch (err) {
-        console.error("Auto-save after delete failed", err);
+    setTimeout(() => {
+      const body: { [key: string]: any } = {};
+      body.transaction_id = `APPR${String(Date.now()).slice(-10)}`;
+      body.workflow_type = plant ? "PLANT" : "CORPORATE";
+      body.plant_id = plant ? plant : null;
+      body.department_id = null;
+      body.max_approvers = 3;
+      body.is_active = true;
+      for (let i = 0; i < MAX_APPROVER_UI_ROWS; i++) {
+        const dbCol = `approver_${i + 2}_id`;
+        const ids = updatedRows[i].users
+          .map((u: Approver) => u.userId)
+          .filter((id: number | null | undefined) => id != null)
+          .map(String);
+        body[dbCol] = ids.length ? ids.join(",") : null;
       }
-    })();
+      fetch(`${API_BASE}/api/workflows/${currentWorkflowId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+        .then((res) => res.json())
+        .then((saved) => {
+          const newRows = [...updatedRows];
+          for (let i = 0; i < MAX_APPROVER_UI_ROWS; i++) {
+            const dbCol = `approver_${i + 2}_id`;
+            const ids = (body[dbCol] || "").split(",").filter(Boolean);
+            const usersMapped = ids
+              .map((id: string) => {
+                const opt = userOptions.find(
+                  (o: any) => String(o.value) === String(id)
+                );
+                return opt ? opt.user : null;
+              })
+              .filter((u: any) => Boolean(u))
+              .slice(0, MAX_USERS_PER_GROUP);
+            newRows[i].users = usersMapped.map((u: any) => ({
+              name: u.employee_name || u.fullName || u.full_name || "",
+              empCode: u.employee_code || "",
+              email: u.email || "",
+              employee_id: u.employee_id || "",
+              userId: u.id || null,
+            }));
+          }
+          setApproverRows(newRows);
+        });
+    }, 0);
   };
 
-  // Add/Delete Approver Row
   const handleAddApproverRow = () => {
-    // UI only supports approver 2 & 3 (max 2 rows)
     const maxRows = MAX_APPROVER_UI_ROWS;
     if (approverRows.length < maxRows) {
       setApproverRows((prev) => [...prev, { users: [] }]);
@@ -595,7 +666,7 @@ const WorkflowBuilder: React.FC = () => {
             >
               <option value="">Select Corporate/Central</option>
               {corporateOptions.map((c) => (
-                <option key={c.label} value={c.label} >
+                <option key={c.label} value={c.label}>
                   {c.label}
                 </option>
               ))}
@@ -633,19 +704,6 @@ const WorkflowBuilder: React.FC = () => {
                   }
                 >
                   <AddIcon />
-                </Button>
-                <Button
-                  style={{
-                    minWidth: 80,
-                    background: "#16a34a",
-                    color: "#fff",
-                    borderRadius: 8,
-                    fontSize: 14,
-                  }}
-                  onClick={saveWorkflow}
-                  type="button"
-                >
-                  Save
                 </Button>
               </div>
             </div>
@@ -731,16 +789,21 @@ const WorkflowBuilder: React.FC = () => {
                   </div>
                   {editRowIndex === rowIdx && (
                     <div className={styles.inlineFormGrid}>
-                      {/* Select user spans full width */}
                       <div className={styles.selectFull}>
-                        <label className={styles.label}>Select User</label>
+                        <label className={styles.label}>
+                          Select User <span style={{ color: "red" }}>*</span>
+                        </label>
                         <select
                           className={styles.select}
-                          value={form.empCode || ""}
+                          value={
+                            form.userId !== undefined && form.userId !== null
+                              ? String(form.userId)
+                              : ""
+                          }
                           onChange={(e) => {
                             const val = e.target.value;
                             const opt = userOptions.find(
-                              (o) => o.value === val
+                              (o) => String(o.value) === val
                             );
                             if (opt) {
                               const u = opt.user;
@@ -768,58 +831,49 @@ const WorkflowBuilder: React.FC = () => {
                         >
                           <option value="">-- Select user --</option>
                           {userOptions.map((o) => (
-                            <option key={o.value} value={o.value}>
+                            <option key={o.value} value={String(o.value)}>
                               {o.label}
                             </option>
                           ))}
                         </select>
                       </div>
-
-                      {/* First column */}
                       <div>
                         <InputField
                           label="Name"
                           name="name"
                           value={form.name}
-                          onChange={(e: any) =>
-                            setForm({ ...form, name: e.target.value })
-                          }
+                          onChange={(e) => {}}
                           placeholder="Enter name"
+                          disabled={true}
                         />
                         <InputField
                           label="Emp Code"
                           name="empCode"
                           value={form.empCode}
-                          onChange={(e: any) =>
-                            setForm({ ...form, empCode: e.target.value })
-                          }
+                          onChange={(e) => {}}
                           placeholder="Enter emp code"
+                          disabled={true}
                         />
                       </div>
-
-                      {/* Second column */}
                       <div>
                         <InputField
                           label="Email ID"
                           name="email"
                           value={form.email}
-                          onChange={(e: any) =>
-                            setForm({ ...form, email: e.target.value })
-                          }
+                          onChange={(e) => {}}
                           placeholder="Enter email"
                           type="email"
+                          disabled={true}
                         />
                         <InputField
                           label="Employee_id"
                           name="employee_id"
                           value={(form as any).employee_id || ""}
-                          onChange={(e: any) =>
-                            setForm({ ...form, employee_id: e.target.value })
-                          }
+                          onChange={(e) => {}}
                           placeholder="Enter employee id"
+                          disabled={true}
                         />
                       </div>
-
                       <div className={styles.formBtnWrap}>
                         {editUserIndex === null ? (
                           <Button
