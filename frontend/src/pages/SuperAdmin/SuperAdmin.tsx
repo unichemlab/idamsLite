@@ -29,6 +29,7 @@ import DepartmentMasterTable from "pages/DepartmentMasterTable/DepartmentMasterT
 import VendorMasterTable from "pages/VendorMasterTable/VendorMasterTable";
 import ActivityMasterTable from "pages/ActivityMasterTable/ActivityMasterTable";
 import TaskTable from "pages/TaskClosureTracking/TaskClosureTracking";
+import ITSupport from "pages/PlantITSupport/PlantITSupportMaster"
 import UserRequestTable from "pages/UserRequestTable/UserRequestTable";
 import RoleMasterTable from "pages/RoleMasterTable/RoleMasterTable";
 import UserMasterTable from "pages/UserMasterTable/UserMasterTable";
@@ -103,6 +104,7 @@ const SuperAdmin: React.FC = () => {
     { key: "activity-logs", label: "Activity Logs", icon: <ListAltIcon fontSize="small" />, perm: "activityMaster:view" },
     { key: "workflow", label: "Approval Workflow", icon: <AssignmentIcon fontSize="small" />, perm: "workflow:view" },
     { key: "system", label: "System Inventory", icon: <AssignmentIcon fontSize="small" />, perm: "system:view" },
+    { key: "it-support", label: "IT Support", icon: <ListAltIcon fontSize="small" />, perm: "TaskPlantITSupport:view" },
     {
       key: "server",
       label: "Server Inventory",
@@ -222,6 +224,7 @@ const SuperAdmin: React.FC = () => {
       case "system": return <SystemInventoryMasterTable />;
       case "activity-logs": return <ActivityMasterTable />;
       case "task": return <TaskTable />;
+      case "it-support": return <ITSupport />;
       case "server":
         return <ServerInventoryMasterTable />;
       default:

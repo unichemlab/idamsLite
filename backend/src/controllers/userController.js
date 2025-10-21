@@ -220,8 +220,8 @@ exports.editUser = async (req, res) => {
     const roleArray = Array.isArray(role_id)
       ? role_id
       : role_id !== undefined && role_id !== null
-      ? [role_id]
-      : null;
+        ? [role_id]
+        : null;
 
     const values = [
       full_name,
@@ -255,11 +255,12 @@ exports.getUserByEmployeeCode = async (req, res) => {
 
     const query = `
       SELECT 
-        name,
+      id,
+        employee_name,
         employee_code,
         location,
         department,
-        reports_to AS reporting_manager,
+        reporting_manager,
         managers_manager
       FROM user_master
       WHERE employee_code = $1
@@ -274,8 +275,9 @@ exports.getUserByEmployeeCode = async (req, res) => {
     const user = result.rows[0];
 
     res.json({
-      name: user.name,
-      employeeCode: user.employee_code,
+      id:user.id,
+      employee_name: user.employee_name,
+      employee_code: user.employee_code,
       location: user.location,
       department: user.department,
       reporting_manager: user.reporting_manager,
@@ -286,3 +288,43 @@ exports.getUserByEmployeeCode = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch user" });
   }
 };
+
+
+
+exports.getUserByDepartment = async (req, res) => {
+  try {
+    const departmentParam = req.params.department?.trim();
+    const department = departmentParam || "Information Technology";
+
+    const query = `
+      SELECT 
+      id,
+        employee_name,
+        employee_code,
+        location,
+        department,
+        reporting_manager,
+        managers_manager,
+        email
+      FROM public.user_master
+      WHERE LOWER(department) = LOWER($1)
+        AND employee_code IS NOT NULL
+        AND TRIM(employee_code) <> ''
+      ORDER BY employee_name ASC;
+    `;
+
+    const result = await db.query(query, [department]);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: "No users found in this department" });
+    }
+      // ✅ Return all users, not just one
+    res.json(result.rows);
+  } catch (err) {
+    console.error("[GET USER BY DEPARTMENT ERROR]", err);
+    res.status(500).json({ error: "Failed to fetch users" });
+  }
+};
+
+
+

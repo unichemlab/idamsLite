@@ -11,7 +11,11 @@ interface TaskLog {
   role_name: string;
   task_status: string;
   user_request_status: string;
+  task_created:string;
+  task_updated:string;
   plant_name?: string;
+  remarks?:string;
+  access_request_type: string;
 }
 
 interface TaskContextType {
@@ -34,7 +38,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       setLoading(true);
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL || "http://localhost:4000"}/api/task`
+        `${API_BASE}/api/task`
       );
       if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
       const data = await response.json();

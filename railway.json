@@ -10,10 +10,7 @@
             "rootDirectory": "frontend",
             "buildCommand": "npm install && npm run build",
             "startCommand": "npx serve -s dist -l $PORT",
-            "env": {
-              
-                "REACT_APP_API_URL": "https://idamslite.onrender.com/"
-            }
+            
         }
     }
 }

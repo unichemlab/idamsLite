@@ -23,6 +23,9 @@ import AddRoleFormPage from "../RoleMaster/AddRoleFormPage";
 import EditRoleFormPage from "../RoleMaster/EditRoleFormPage";
 import VendorMasterTable from "../pages/VendorMasterTable/VendorMasterTable";
 import ActivityMasterTable from "../pages/ActivityMasterTable/ActivityMasterTable";
+import PlantITSupportMaster from "../pages/PlantITSupport/PlantITSupportMaster";
+import EditPlantITSupportMaster from "../pages/PlantITSupport/EditAddPlantITSupportMaster";
+import AddPlantITSupportMaster from "../pages/PlantITSupport/AddPlantITSupportMaster";
 import SuperAdmin from "../pages/SuperAdmin/SuperAdmin";
 import PlantMasterTable from "../pages/PlantMasterTable/PlantMasterTable";
 import AddPlantMaster from "../pages/PlantMaster/AddPlantMaster";
@@ -83,7 +86,11 @@ const allowedRoutes = [
   "/servers/add",
   "/servers/edit/:id",
   "/task",
-  "/task/:id"
+  "/task/:id",
+  "/plant-itsupport",
+  "/plant-itsupport/add",
+  "/plant-itsupport/edit/:id"
+
 ];
 
 const NotFound = () => (
@@ -164,6 +171,31 @@ function AppRoutes() {
         </ProtectedRoute>
       } 
       />
+      {/* Transaction Master Routes */}
+        <Route
+          path="/plant-itsupport"
+          element={
+            <ProtectedRoute>
+              <PlantITSupportMaster />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/plant-itsupport/add"
+          element={
+            <ProtectedRoute>
+              <AddPlantITSupportMaster />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/plant-itsupport/edit/:id"
+          element={
+            <ProtectedRoute>
+              <EditPlantITSupportMaster />
+            </ProtectedRoute>
+          }
+        />
       <Route
         path="/access-details"
         element={

@@ -22,6 +22,7 @@ const approvalRoutes = require("./routes/approvalRoutes");
 const os = require("os");
 const serverRoutes = require("./routes/serverRoutes");
 const workflowRoutes = require("./routes/workflowRoutes");
+const plantITSupportRoutes = require("./routes/transaction");
 
 const app = express();
 
@@ -71,6 +72,7 @@ app.use("/api/activity-logs", activityLogsRoutes);
 app.use("/api/servers", serverRoutes);
 app.use("/api/approval", approvalRoutes);
 app.use("/api/task", taskRoutes);
+app.use("/api/plant-itsupport", plantITSupportRoutes);
 // Use AD sync routes
 app.use(adSyncRoutes);
 app.use("/api/workflows", workflowRoutes);
