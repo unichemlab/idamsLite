@@ -11,4 +11,7 @@ router.put("/:id", userController.editUser);
 
 router.get("/users/:employeeCode", userController.getUserByEmployeeCode);
 
+router.get('/department', userController.getUserByDepartment);
+router.get('/department/:department', userController.getUserByDepartment);
+
 module.exports = router;

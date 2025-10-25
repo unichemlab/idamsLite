@@ -111,6 +111,7 @@ const SuperAdmin: React.FC = () => {
       perm: "workflow:view",
     },
     { key: "system", label: "System Inventory", icon: <AssignmentIcon fontSize="small" />, perm: "system:view" },
+    { key: "it-support", label: "IT Support", icon: <ListAltIcon fontSize="small" />, perm: "TaskPlantITSupport:view" },
     {
       key: "server",
       label: "Server Inventory",
@@ -231,6 +232,7 @@ const SuperAdmin: React.FC = () => {
       case "system": return <SystemInventoryMasterTable />;
       case "activity-logs": return <ActivityMasterTable />;
       case "task": return <TaskTable />;
+      case "it-support": return <ITSupport />;
       case "server":
         return <ServerInventoryMasterTable />;
       default:

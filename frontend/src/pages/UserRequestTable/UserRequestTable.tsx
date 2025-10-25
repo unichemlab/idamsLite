@@ -4,7 +4,7 @@ import ProfileIconWithLogout from "./ProfileIconWithLogout";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import SettingsIcon from "@mui/icons-material/Settings";
-import { fetchUserRequests } from "../../utils/api";
+import { fetchUserRequests, API_BASE } from "../../utils/api";
 import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -343,7 +343,7 @@ const UserRequestTable: React.FC = () => {
                   <td>
                     {req.attachmentName ? (
                       <a
-                        href={`${process.env.REACT_APP_API_URL}/api/user-requests/${req.id}/attachment`}
+                        href={`${API_BASE}/api/user-requests/${req.id}/attachment`}
                         download={req.attachmentName}
                         style={{ display: "inline-flex", alignItems: "center" }}
                         title={`Download ${req.attachmentName}`}

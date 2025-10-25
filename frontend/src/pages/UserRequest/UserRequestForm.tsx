@@ -12,7 +12,8 @@ import login_headTitle2 from "../../assets/login_headTitle2.png";
 import addUserRequestStyles from "./AddUserRequest.module.css";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-
+export const API_BASE =
+  process.env.REACT_APP_API_URL || "http://localhost:4000";
 const AddUserRequest: React.FC = () => {
   const { addUserRequest } = useUserRequestContext();
   const navigate = useNavigate();
@@ -90,7 +91,7 @@ const AddUserRequest: React.FC = () => {
 
     try {
       const res = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/users/${employeeCode}`
+        `${API_BASE}/api/users/${employeeCode}`
       );
       if (!res.ok) throw new Error("User not found");
 
@@ -267,7 +268,7 @@ const AddUserRequest: React.FC = () => {
 
     try {
       const res = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/user-requests/search?${query}`
+        `${API_BASE}/api/user-requests/search?${query}`
       );
 
       if (!res.ok) {
@@ -709,7 +710,7 @@ const AddUserRequest: React.FC = () => {
   useEffect(() => {
     if (form.plant_location)
       fetch(
-        `${process.env.REACT_APP_API_URL}/api/applications/${form.plant_location}`
+        `${API_BASE}/api/applications/${form.plant_location}`
       )
         .then((res) => res.json())
         .then((data) => setDepartments(Array.isArray(data) ? data : []))
@@ -718,7 +719,7 @@ const AddUserRequest: React.FC = () => {
   useEffect(() => {
     if (form.plant_location && form.department) {
       fetch(
-        `${process.env.REACT_APP_API_URL}/api/applications/${form.plant_location}/${form.department}`
+        `${API_BASE}/api/applications/${form.plant_location}/${form.department}`
       )
         .then((res) => res.json())
         .then((data) => {
@@ -751,7 +752,7 @@ const AddUserRequest: React.FC = () => {
   useEffect(() => {
     if (filter.plant_location) {
       fetch(
-        `${process.env.REACT_APP_API_URL}/api/applications/${filter.plant_location}`
+        `${API_BASE}/api/applications/${filter.plant_location}`
       )
         .then((res) => res.json())
         .then((data) => setDepartments(Array.isArray(data) ? data : []))
@@ -762,7 +763,7 @@ const AddUserRequest: React.FC = () => {
     setFilter((prev) => ({ ...prev, department: "" })); // reset department
     if (filter.plant_location) {
       fetch(
-        `${process.env.REACT_APP_API_URL}/api/applications/${filter.plant_location}`
+        `${API_BASE}/api/applications/${filter.plant_location}`
       )
         .then((res) => res.json())
         .then((data) => setDepartments(Array.isArray(data) ? data : []))
@@ -775,7 +776,7 @@ const AddUserRequest: React.FC = () => {
   useEffect(() => {
     if (filter.plant_location && filter.department) {
       fetch(
-        `${process.env.REACT_APP_API_URL}/api/applications/${filter.plant_location}/${filter.department}`
+        `${API_BASE}/api/applications/${filter.plant_location}/${filter.department}`
       )
         .then((res) => res.json())
         .then((data) => {
@@ -796,7 +797,7 @@ const AddUserRequest: React.FC = () => {
   useEffect(() => {
     if (filter.applicationId) {
       fetch(
-        `${process.env.REACT_APP_API_URL}/api/roles/${filter.applicationId}`
+        `${API_BASE}/api/roles/${filter.applicationId}`
       )
         .then((res) => res.json())
         .then((data) => setFilterRoles(Array.isArray(data) ? data : []))
@@ -1491,7 +1492,7 @@ const AddUserRequest: React.FC = () => {
                         ))}
                       </select>
                       <label htmlFor="department">
-                        Department Name <span style={{ color: "red" }}>*</span>{" "}
+                        Req. App. Department <span style={{ color: "red" }}>*</span>{" "}
                       </label>
                     </div>
                     {!isBulkDeactivation && !isBulkNew && (

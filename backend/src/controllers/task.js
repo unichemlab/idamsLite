@@ -146,6 +146,8 @@ exports.getUserTaskRequestById = async (req, res) => {
               tr.id AS task_id,
               tr.transaction_id AS task_request_transaction_id,
               tr.application_equip_id,
+              tr.created_on As task_created,
+              tr.updated_on As task_updated,
               app.display_name AS application_name,
               tr.department,
               d.department_name,
@@ -177,6 +179,7 @@ exports.getUserTaskRequestById = async (req, res) => {
       ritmNumber: rows[0].user_request_transaction_id,
       name: rows[0].name,
       employee_code: rows[0].employee_code,
+      request_created_on: rows[0].created_on,
       employee_location: rows[0].employee_location,
       access_request_type: rows[0].access_request_type,
       training_status: rows[0].training_status,
@@ -196,11 +199,14 @@ exports.getUserTaskRequestById = async (req, res) => {
           application_name: row.application_name,
           department_id: row.department,
           department_name: row.department_name,
+          plant_name:row.plant_name,
           role_id: row.role,
           role_name: row.role_name,
           location: row.location,
           reports_to: row.reports_to,
           task_status: row.task_status,
+          task_created: row.task_created,
+          task_updated: row.task_updated
         })),
     };
 
