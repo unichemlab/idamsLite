@@ -26,6 +26,11 @@ import ActivityMasterTable from "../pages/ActivityMasterTable/ActivityMasterTabl
 import PlantITSupportMaster from "../pages/PlantITSupport/PlantITSupportMaster";
 import EditPlantITSupportMaster from "../pages/PlantITSupport/EditAddPlantITSupportMaster";
 import AddPlantITSupportMaster from "../pages/PlantITSupport/AddPlantITSupportMaster";
+import WorkflowBuilder from "../pages/Approvalworkflow/WorkflowBuilder";
+import PlantWorkflowList from "../pages/Approvalworkflow/PlantWorkflowList";
+import PlantWorkflowBuilder from "../pages/Approvalworkflow/PlantWorkflowBuilder";
+import CorporateWorkflowList from "../pages/Approvalworkflow/CorporateWorkflowList";
+import CorporateWorkflowBuilder from "../pages/Approvalworkflow/CorporateWorkflowBuilder";
 import SuperAdmin from "../pages/SuperAdmin/SuperAdmin";
 import PlantMasterTable from "../pages/PlantMasterTable/PlantMasterTable";
 import AddPlantMaster from "../pages/PlantMaster/AddPlantMaster";
@@ -78,6 +83,7 @@ const allowedRoutes = [
   "/vendors/add",
   "/vendors/edit/:id",
   "/activity-logs",
+  "/appliction-workflow",
   "/user-information",
   "/systems",
   "/systems/add",
@@ -89,7 +95,14 @@ const allowedRoutes = [
   "/task/:id",
   "/plant-itsupport",
   "/plant-itsupport/add",
-  "/plant-itsupport/edit/:id"
+  "/plant-itsupport/edit/:id",
+  // ✅ New workflow routes
+ "/approval-workflow",
+  "/approval-workflow/plant-list",
+  "/approval-workflow/plant-builder",
+  "/approval-workflow/corporate-list",
+  "/approval-workflow/corporate-builder",
+
 
 ];
 
@@ -117,7 +130,7 @@ function AppRoutes() {
     }
     return location.pathname === route;
   });
-
+console.log(isAllowed);
   if (!isAllowed) {
     return <NotFound />;
   }
@@ -171,6 +184,12 @@ function AppRoutes() {
         </ProtectedRoute>
       } 
       />
+      <Route path="/approval-workflow" element={<WorkflowBuilder />} />
+<Route path="/approval-workflow/plant-list" element={<PlantWorkflowList />} />
+<Route path="/approval-workflow/plant-builder" element={<PlantWorkflowBuilder />} />
+<Route path="/approval-workflow/corporate-list" element={<CorporateWorkflowList />} />
+<Route path="/approval-workflow/corporate-builder" element={<CorporateWorkflowBuilder />} />
+
       {/* Transaction Master Routes */}
         <Route
           path="/plant-itsupport"

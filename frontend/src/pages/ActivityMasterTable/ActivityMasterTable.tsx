@@ -338,22 +338,180 @@ const ActivityMasterTable: React.FC = () => {
           </table>
         </div>
 
-        {/* Pagination Controls */}
-        <div style={{ marginTop: 10, display: "flex", justifyContent: "center", gap: 8 }}>
-          <button
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+        <div
+            style={{
+              marginTop: 20,
+              paddingBottom: 24, // 👈 Add this line
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: 6,
+              flexWrap: "wrap",
+              fontFamily: "Segoe UI, Roboto, sans-serif",
+              fontSize: 14,
+            }}
           >
-            Prev
-          </button>
-          <span>Page {currentPage} of {totalPages || 1}</span>
-          <button
-            disabled={currentPage === totalPages || totalPages === 0}
-            onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-          >
-            Next
-          </button>
-        </div>
+            {/* First */}
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 6,
+                border: "1px solid #d0d5dd",
+                backgroundColor: currentPage === 1 ? "#f9fafb" : "#ffffff",
+                color: currentPage === 1 ? "#cbd5e1" : "#344054",
+                cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                minWidth: 40,
+              }}
+            >
+              {"<<"}
+            </button>
+
+            {/* Prev */}
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+              disabled={currentPage === 1}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 6,
+                border: "1px solid #d0d5dd",
+                backgroundColor: currentPage === 1 ? "#f9fafb" : "#ffffff",
+                color: currentPage === 1 ? "#cbd5e1" : "#344054",
+                cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                minWidth: 40,
+              }}
+            >
+              Prev
+            </button>
+
+            {/* Page Numbers (Dynamic max 5 pages) */}
+            {(() => {
+              const pageButtons = [];
+              const maxPagesToShow = 5;
+              let start = Math.max(1, currentPage - 2);
+              let end = Math.min(totalPages, start + maxPagesToShow - 1);
+              if (end - start < maxPagesToShow - 1) {
+                start = Math.max(1, end - maxPagesToShow + 1);
+              }
+
+              if (start > 1) {
+                pageButtons.push(
+                  <button
+                    key={1}
+                    onClick={() => setCurrentPage(1)}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 6,
+                      border: "1px solid #d0d5dd",
+                      backgroundColor: currentPage === 1 ? "#007bff" : "#ffffff",
+                      color: currentPage === 1 ? "#fff" : "#344054",
+                      cursor: "pointer",
+                      minWidth: 40,
+                    }}
+                  >
+                    1
+                  </button>
+                );
+                if (start > 2) {
+                  pageButtons.push(
+                    <span key="ellipsis-left" style={{ padding: "6px 10px", color: "#999" }}>
+                      ...
+                    </span>
+                  );
+                }
+              }
+
+              for (let i = start; i <= end; i++) {
+                pageButtons.push(
+                  <button
+                    key={i}
+                    onClick={() => setCurrentPage(i)}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 6,
+                      border: i === currentPage ? "1px solid #007bff" : "1px solid #d0d5dd",
+                      backgroundColor: i === currentPage ? "#007bff" : "#ffffff",
+                      color: i === currentPage ? "#fff" : "#344054",
+                      cursor: "pointer",
+                      minWidth: 40,
+                    }}
+                  >
+                    {i}
+                  </button>
+                );
+              }
+
+              if (end < totalPages) {
+                if (end < totalPages - 1) {
+                  pageButtons.push(
+                    <span key="ellipsis-right" style={{ padding: "6px 10px", color: "#999" }}>
+                      ...
+                    </span>
+                  );
+                }
+                pageButtons.push(
+                  <button
+                    key={totalPages}
+                    onClick={() => setCurrentPage(totalPages)}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 6,
+                      border: currentPage === totalPages ? "1px solid #007bff" : "1px solid #d0d5dd",
+                      backgroundColor: currentPage === totalPages ? "#007bff" : "#ffffff",
+                      color: currentPage === totalPages ? "#fff" : "#344054",
+                      cursor: "pointer",
+                      minWidth: 40,
+                    }}
+                  >
+                    {totalPages}
+                  </button>
+                );
+              }
+
+              return pageButtons;
+            })()}
+
+            {/* Next */}
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+              disabled={currentPage === totalPages || totalPages === 0}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 6,
+                border: "1px solid #d0d5dd",
+                backgroundColor:
+                  currentPage === totalPages || totalPages === 0 ? "#f9fafb" : "#ffffff",
+                color:
+                  currentPage === totalPages || totalPages === 0 ? "#cbd5e1" : "#344054",
+                cursor:
+                  currentPage === totalPages || totalPages === 0 ? "not-allowed" : "pointer",
+                minWidth: 40,
+              }}
+            >
+              Next
+            </button>
+
+            {/* Last */}
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages || totalPages === 0}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 6,
+                border: "1px solid #d0d5dd",
+                backgroundColor:
+                  currentPage === totalPages || totalPages === 0 ? "#f9fafb" : "#ffffff",
+                color:
+                  currentPage === totalPages || totalPages === 0 ? "#cbd5e1" : "#344054",
+                cursor:
+                  currentPage === totalPages || totalPages === 0 ? "not-allowed" : "pointer",
+                minWidth: 40,
+              }}
+            >
+              {">>"}
+            </button>
+          </div>
       </div>
     </div>
   );
