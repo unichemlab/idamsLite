@@ -29,6 +29,8 @@ import DepartmentMasterTable from "pages/DepartmentMasterTable/DepartmentMasterT
 import VendorMasterTable from "pages/VendorMasterTable/VendorMasterTable";
 import ActivityMasterTable from "pages/ActivityMasterTable/ActivityMasterTable";
 import TaskTable from "pages/TaskClosureTracking/TaskClosureTracking";
+import ITSupport from "pages/PlantITSupport/PlantITSupportMaster";
+import ApprovalWorkflow from "pages/Approvalworkflow/WorkflowBuilder";
 import UserRequestTable from "pages/UserRequestTable/UserRequestTable";
 import RoleMasterTable from "pages/RoleMasterTable/RoleMasterTable";
 import UserMasterTable from "pages/UserMasterTable/UserMasterTable";
@@ -102,6 +104,12 @@ const SuperAdmin: React.FC = () => {
     { key: "task", label: "Task", icon: <ListAltIcon fontSize="small" />, perm: "Task:view" },
     { key: "activity-logs", label: "Activity Logs", icon: <ListAltIcon fontSize="small" />, perm: "activityMaster:view" },
     { key: "workflow", label: "Approval Workflow", icon: <AssignmentIcon fontSize="small" />, perm: "workflow:view" },
+    {
+      key: "approval-workflow",
+      label: "Application Workflow",
+      icon: <AssignmentIcon fontSize="small" />,
+      perm: "workflow:view",
+    },
     { key: "system", label: "System Inventory", icon: <AssignmentIcon fontSize="small" />, perm: "system:view" },
     {
       key: "server",
@@ -219,6 +227,7 @@ const SuperAdmin: React.FC = () => {
       case "user": return <UserMasterTable />;
       case "request": return <UserRequestTable />;
       case "workflow": return <WorkflowBuilder />;
+      case "approval-workflow": return <ApprovalWorkflow />;
       case "system": return <SystemInventoryMasterTable />;
       case "activity-logs": return <ActivityMasterTable />;
       case "task": return <TaskTable />;

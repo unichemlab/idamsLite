@@ -308,77 +308,277 @@ const TaskTable: React.FC = () => {
             height: "100",
           }}
         >
-    <table className={styles.taskTable}>
-      <thead>
-        <tr>
-          <th></th>
-          <th>Request ID</th>
-          <th>Request For/By</th>
-          <th>User</th>
-          <th>Employee Code</th>
-          <th>Application</th>
-           <th>Plant Name</th>
-          <th>Role</th>
-          <th>Access Status</th>
-          <th>Request Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {tasks.map((task) => (
-          <tr key={task.task_id}  
-          onClick={() => setSelectedRow(task.task_id)}
-                  style={{
-                    background: selectedRow === task.task_id ? "#f0f4ff" : undefined,
-                  }}>
-            <td>
-                                <input
-                                  type="radio"
-                                  className={styles.radioInput}
-                                  checked={selectedRow === task.task_id}
-                                  onChange={() => setSelectedRow(task.task_id)}
-                                />
-                              </td>
-            <td>{task.user_request_transaction_id}</td>
-            <td>{task.request_for_by}</td>
-            <td>
-              <div className={styles.userName}>{task.name}</div>
-            </td>
-            <td><div className={styles.empId}>{task.employee_code}</div></td>
-            <td>
-              <div className={styles.application}>
-                {task.application_name}
-              </div>
-            </td>
-            <td>{task.plant_name}</td>
-            <td className={styles.role}>{task.role_name}</td>
-            <td>
-              {task.task_status}
-            </td>
-            <td>
-             {task.user_request_status}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-    </div>
+          <table className={styles.taskTable}>
+            <thead>
+              <tr>
+                <th></th>
+                <th>Request ID</th>
+                <th>Plant</th>
+                <th>Department</th>
+                <th>Requested For/By</th>
+                <th>Access Request Type</th>
+                <th>Request Date</th>
+                <th>Assignment IT group</th>
+                <th>Status</th>
+                <th>Tasks</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedRequests.map((requestId) => {
+                const tasks = groupedLogs[requestId];
+                return (
+                  <React.Fragment key={requestId}>
+                    <tr
+                      onClick={() => toggleExpand(requestId)}
+                      style={{ backgroundColor: "#f9fafb", cursor: "pointer" }}
+                    >
+                      <td style={{ width: 30, textAlign: "center" }}>
+                        {expandedRequests.includes(requestId) ? (
+                          <FaChevronDown />
+                        ) : (
+                          <FaChevronRight />
+                        )}
+                      </td>
+                      <td style={{ fontWeight: "bold" }}>{requestId}</td>
+                      <td>{tasks[0]?.plant_name}</td>
+                      <td>{tasks[0]?.department_name}</td>
+                      <td>{tasks[0]?.name} ({tasks[0]?.employee_code})</td>
+                      <td>{tasks[0]?.access_request_type}</td>
+                      <td>{new Date(tasks[0]?.created_on).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", })}</td>
+                      <td>{"----"}</td>
+                      <td>{tasks[0]?.user_request_status}</td>
+                      <td>{tasks.length} task(s)</td>
+                    </tr>
 
-        {/* Pagination Controls */}
-        <div style={{ marginTop: 10, display: "flex", justifyContent: "center", gap: 8 }}>
-          <button
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-          >
-            Prev
-          </button>
-          <span>Page {currentPage} of {totalPages || 1}</span>
-          <button
-            disabled={currentPage === totalPages || totalPages === 0}
-            onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-          >
-            Next
-          </button>
+                    {expandedRequests.includes(requestId) && tasks &&
+                      tasks.length > 0 && (
+                        <tr>
+                          <td colSpan={12} style={{ padding: 0 }}>
+                            <div style={{ overflowX: "auto" }}>
+                              <table
+                                className={styles.subTable}
+                              >
+                                <thead>
+                                  <tr>
+                                    <th>Task Transaction ID</th>
+                                    <th>Application / Equip ID</th>
+                                    <th>Department</th>
+                                    <th>Location</th>
+                                    <th>Requestor Role</th>
+                                    <th>Granted Role</th>
+                                    <th>Access</th>
+                                    <th>Assigned To</th>
+                                    <th>Status</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {tasks.map((task, tIdx) => (
+                                    <tr key={tIdx}>
+                                      <td>
+                                        <a target="_blank" href={`/task/${task.task_id}`} style={{ color: "#2563eb", textDecoration: "none", fontWeight: 600, }}>{task.task_request_transaction_id || "-"}</a>
+                                      </td>
+                                      <td>
+                                        {task.application_name || "-"}
+                                      </td>
+                                      <td>{task.department_name || "-"}</td>
+                                      <td>{task.plant_name || "-"}</td>
+                                      <td>{task.role_name || "-"}</td>
+                                      <td>{task.role_name || "-"}</td>
+                                      <td>{"-"}</td>
+                                      <td>{"-"}</td>
+                                      <td>{task.task_status || "-"}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    }
+
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
+
+        {/* Pagination */}
+        <div
+            style={{
+              marginTop: 20,
+              paddingBottom: 24, // 👈 Add this line
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: 6,
+              flexWrap: "wrap",
+              fontFamily: "Segoe UI, Roboto, sans-serif",
+              fontSize: 14,
+            }}
+          >
+            {/* First */}
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 6,
+                border: "1px solid #d0d5dd",
+                backgroundColor: currentPage === 1 ? "#f9fafb" : "#ffffff",
+                color: currentPage === 1 ? "#cbd5e1" : "#344054",
+                cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                minWidth: 40,
+              }}
+            >
+              {"<<"}
+            </button>
+
+            {/* Prev */}
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+              disabled={currentPage === 1}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 6,
+                border: "1px solid #d0d5dd",
+                backgroundColor: currentPage === 1 ? "#f9fafb" : "#ffffff",
+                color: currentPage === 1 ? "#cbd5e1" : "#344054",
+                cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                minWidth: 40,
+              }}
+            >
+              Prev
+            </button>
+
+            {/* Page Numbers (Dynamic max 5 pages) */}
+            {(() => {
+              const pageButtons = [];
+              const maxPagesToShow = 5;
+              let start = Math.max(1, currentPage - 2);
+              let end = Math.min(totalPages, start + maxPagesToShow - 1);
+              if (end - start < maxPagesToShow - 1) {
+                start = Math.max(1, end - maxPagesToShow + 1);
+              }
+
+              if (start > 1) {
+                pageButtons.push(
+                  <button
+                    key={1}
+                    onClick={() => setCurrentPage(1)}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 6,
+                      border: "1px solid #d0d5dd",
+                      backgroundColor: currentPage === 1 ? "#007bff" : "#ffffff",
+                      color: currentPage === 1 ? "#fff" : "#344054",
+                      cursor: "pointer",
+                      minWidth: 40,
+                    }}
+                  >
+                    1
+                  </button>
+                );
+                if (start > 2) {
+                  pageButtons.push(
+                    <span key="ellipsis-left" style={{ padding: "6px 10px", color: "#999" }}>
+                      ...
+                    </span>
+                  );
+                }
+              }
+
+              for (let i = start; i <= end; i++) {
+                pageButtons.push(
+                  <button
+                    key={i}
+                    onClick={() => setCurrentPage(i)}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 6,
+                      border: i === currentPage ? "1px solid #007bff" : "1px solid #d0d5dd",
+                      backgroundColor: i === currentPage ? "#007bff" : "#ffffff",
+                      color: i === currentPage ? "#fff" : "#344054",
+                      cursor: "pointer",
+                      minWidth: 40,
+                    }}
+                  >
+                    {i}
+                  </button>
+                );
+              }
+
+              if (end < totalPages) {
+                if (end < totalPages - 1) {
+                  pageButtons.push(
+                    <span key="ellipsis-right" style={{ padding: "6px 10px", color: "#999" }}>
+                      ...
+                    </span>
+                  );
+                }
+                pageButtons.push(
+                  <button
+                    key={totalPages}
+                    onClick={() => setCurrentPage(totalPages)}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 6,
+                      border: currentPage === totalPages ? "1px solid #007bff" : "1px solid #d0d5dd",
+                      backgroundColor: currentPage === totalPages ? "#007bff" : "#ffffff",
+                      color: currentPage === totalPages ? "#fff" : "#344054",
+                      cursor: "pointer",
+                      minWidth: 40,
+                    }}
+                  >
+                    {totalPages}
+                  </button>
+                );
+              }
+
+              return pageButtons;
+            })()}
+
+            {/* Next */}
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+              disabled={currentPage === totalPages || totalPages === 0}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 6,
+                border: "1px solid #d0d5dd",
+                backgroundColor:
+                  currentPage === totalPages || totalPages === 0 ? "#f9fafb" : "#ffffff",
+                color:
+                  currentPage === totalPages || totalPages === 0 ? "#cbd5e1" : "#344054",
+                cursor:
+                  currentPage === totalPages || totalPages === 0 ? "not-allowed" : "pointer",
+                minWidth: 40,
+              }}
+            >
+              Next
+            </button>
+
+            {/* Last */}
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages || totalPages === 0}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 6,
+                border: "1px solid #d0d5dd",
+                backgroundColor:
+                  currentPage === totalPages || totalPages === 0 ? "#f9fafb" : "#ffffff",
+                color:
+                  currentPage === totalPages || totalPages === 0 ? "#cbd5e1" : "#344054",
+                cursor:
+                  currentPage === totalPages || totalPages === 0 ? "not-allowed" : "pointer",
+                minWidth: 40,
+              }}
+            >
+              {">>"}
+            </button>
+          </div>
       </div>
     </div>
   );

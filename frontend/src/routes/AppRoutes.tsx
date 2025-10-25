@@ -23,6 +23,14 @@ import AddRoleFormPage from "../RoleMaster/AddRoleFormPage";
 import EditRoleFormPage from "../RoleMaster/EditRoleFormPage";
 import VendorMasterTable from "../pages/VendorMasterTable/VendorMasterTable";
 import ActivityMasterTable from "../pages/ActivityMasterTable/ActivityMasterTable";
+import PlantITSupportMaster from "../pages/PlantITSupport/PlantITSupportMaster";
+import EditPlantITSupportMaster from "../pages/PlantITSupport/EditAddPlantITSupportMaster";
+import AddPlantITSupportMaster from "../pages/PlantITSupport/AddPlantITSupportMaster";
+import WorkflowBuilder from "../pages/Approvalworkflow/WorkflowBuilder";
+import PlantWorkflowList from "../pages/Approvalworkflow/PlantWorkflowList";
+import PlantWorkflowBuilder from "../pages/Approvalworkflow/PlantWorkflowBuilder";
+import CorporateWorkflowList from "../pages/Approvalworkflow/CorporateWorkflowList";
+import CorporateWorkflowBuilder from "../pages/Approvalworkflow/CorporateWorkflowBuilder";
 import SuperAdmin from "../pages/SuperAdmin/SuperAdmin";
 import PlantMasterTable from "../pages/PlantMasterTable/PlantMasterTable";
 import AddPlantMaster from "../pages/PlantMaster/AddPlantMaster";
@@ -75,6 +83,7 @@ const allowedRoutes = [
   "/vendors/add",
   "/vendors/edit/:id",
   "/activity-logs",
+  "/appliction-workflow",
   "/user-information",
   "/systems",
   "/systems/add",
@@ -83,7 +92,18 @@ const allowedRoutes = [
   "/servers/add",
   "/servers/edit/:id",
   "/task",
-  "/task/:id"
+  "/task/:id",
+  "/plant-itsupport",
+  "/plant-itsupport/add",
+  "/plant-itsupport/edit/:id",
+  // ✅ New workflow routes
+ "/approval-workflow",
+  "/approval-workflow/plant-list",
+  "/approval-workflow/plant-builder",
+  "/approval-workflow/corporate-list",
+  "/approval-workflow/corporate-builder",
+
+
 ];
 
 const NotFound = () => (
@@ -110,7 +130,7 @@ function AppRoutes() {
     }
     return location.pathname === route;
   });
-
+console.log(isAllowed);
   if (!isAllowed) {
     return <NotFound />;
   }
@@ -164,6 +184,37 @@ function AppRoutes() {
         </ProtectedRoute>
       } 
       />
+      <Route path="/approval-workflow" element={<WorkflowBuilder />} />
+<Route path="/approval-workflow/plant-list" element={<PlantWorkflowList />} />
+<Route path="/approval-workflow/plant-builder" element={<PlantWorkflowBuilder />} />
+<Route path="/approval-workflow/corporate-list" element={<CorporateWorkflowList />} />
+<Route path="/approval-workflow/corporate-builder" element={<CorporateWorkflowBuilder />} />
+
+      {/* Transaction Master Routes */}
+        <Route
+          path="/plant-itsupport"
+          element={
+            <ProtectedRoute>
+              <PlantITSupportMaster />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/plant-itsupport/add"
+          element={
+            <ProtectedRoute>
+              <AddPlantITSupportMaster />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/plant-itsupport/edit/:id"
+          element={
+            <ProtectedRoute>
+              <EditPlantITSupportMaster />
+            </ProtectedRoute>
+          }
+        />
       <Route
         path="/access-details"
         element={
