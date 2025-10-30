@@ -2,34 +2,24 @@
   background: linear-gradient(120deg, #f6faff 0%, #eef4ff 100%);
   border-radius: 18px;
   box-shadow: 0 8px 32px rgba(37, 99, 235, 0.14);
-  padding: 32px 20px;
+  /* padding: 32px 20px; */
   max-width: 1200px;
-  margin: 32px auto;
+  /* margin: 32px auto; */
   font-family: "Inter", "Segoe UI", Arial, sans-serif;
   min-height: 60vh;
   display: flex;
   flex-direction: column;
-  height: 82vh;
+  height: 100vh;
+  /* prevent page horizontal scroll */
+  overflow: hidden;
 }
 
-.approverCard {
-  background: #fff;
-  border-radius: 14px;
-  border: 1.5px solid #e3eaf5;
-  padding: 22px 20px;
-  box-shadow: 0 4px 18px rgba(37, 99, 235, 0.08),
-    0 1px 2px rgba(60, 80, 120, 0.03);
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  border-left: 6px solid #2563eb;
-  transition: box-shadow 0.2s, border 0.2s, transform 0.2s;
-}
-
-.approverCard:hover {
-  box-shadow: 0 6px 24px rgba(37, 99, 235, 0.16);
-  border-left: 7px solid #174ea6;
-  transform: translateY(-2px);
+.content {
+  /* main scrollable area inside the page container */
+  flex: 1 1 auto;
+  padding: 20px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .headerBox {
@@ -46,42 +36,83 @@
   text-shadow: 0 2px 6px rgba(37, 99, 235, 0.08);
 }
 
+.cardRow,
 .selectionRow {
   display: flex;
   gap: 24px;
-  margin-bottom: 28px;
+  margin-bottom: 20px;
   justify-content: center;
   flex-wrap: wrap;
+  margin-top: 20px;
 }
 
-.selectGroup {
+.workflowTypeCard {
   flex: 1;
-  min-width: 220px;
-}
-
-.label {
-  font-size: 0.95rem;
-  font-weight: 600;
-  margin-bottom: 6px;
-  color: #2563eb;
-}
-
-.select {
-  padding: 12px 14px;
-  border-radius: 10px;
-  border: 1px solid #dbe2ef;
-  font-size: 1rem;
+  cursor: pointer;
+  border-radius: 14px !important;
+  box-shadow: 0 2px 12px #e0e7ef;
+  transition: box-shadow 0.2s, border 0.2s;
+  border: 2px solid transparent;
   background: #fff;
-  transition: all 0.2s ease;
-  outline: none;
+  position: relative;
+  min-width: 260px;
+  max-width: 400px;
 }
-.select:focus {
+.workflowTypeCard.selected {
   border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  box-shadow: 0 4px 18px #b3c6e6;
+  background: #e3f2fd;
 }
-.select:disabled {
-  background: #f5f5f5;
-  color: #999;
+.workflowTypeCard:hover {
+  box-shadow: 0 6px 24px #b3c6e6;
+  border-color: #90caf9;
+}
+
+.detailsCard {
+  margin-bottom: 24px;
+}
+
+.selectPlant {
+  margin-bottom: 12px;
+}
+
+.plantDetails {
+  background: #f6f8fa;
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 8px;
+}
+
+.approverLevelsRow {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap; /* allow cards to wrap to next row after available space */
+  margin-bottom: 24px;
+  padding-bottom: 8px;
+}
+
+.approverCard {
+  background: #fff;
+  border-radius: 14px;
+  border: 1.5px solid #e3eaf5;
+  padding: 22px 20px;
+  box-shadow: 0 4px 18px rgba(37, 99, 235, 0.08),
+    0 1px 2px rgba(60, 80, 120, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border-left: 6px solid #2563eb;
+  transition: box-shadow 0.2s, border 0.2s, transform 0.2s;
+  min-width: 240px;
+  /* Allow cards to resize and fit up to 3-per-row on wide screens */
+  flex: 0 1 calc(33.333% - 18px);
+  max-width: 360px;
+  margin-bottom: 12px;
+}
+.approverCard:hover {
+  box-shadow: 0 6px 24px rgba(37, 99, 235, 0.16);
+  border-left: 7px solid #174ea6;
+  transform: translateY(-2px);
 }
 
 .approverSection {
@@ -90,16 +121,16 @@
   padding: 24px 16px;
   box-shadow: 0 3px 12px rgba(0, 0, 0, 0.06);
   flex: 1;
-  /* keep the section height fixed and enable vertical scroll */
   min-height: 220px;
-  max-height: 400px; /* adjust as you want for your layout */
+  max-height: 400px;
   overflow-y: auto;
   padding-right: 8px;
   scrollbar-color: #2563eb #eef4ff;
   scrollbar-width: thin;
 }
 
-.approverHeader {
+.approverHeader,
+.approverCardHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -124,18 +155,9 @@
 .approverListWrap {
   display: flex;
   flex-direction: column;
-  gap: 28px; /* more breathing room between rows */
+  gap: 28px;
   padding-top: 8px;
   padding-bottom: 8px;
-}
-
-.approverCardHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid #edf2fa;
-  padding-bottom: 6px;
-  margin-bottom: 6px;
 }
 
 .approverCardTitle {
@@ -231,7 +253,6 @@
 
 .inlineFormGrid {
   display: grid;
-  /* two equal columns: Name/EmpCode and Email/Employee_id */
   grid-template-columns: 1fr 1fr;
   gap: 12px;
   margin-top: 12px;
@@ -242,11 +263,11 @@
 }
 
 .inlineFormGrid .selectFull {
-  grid-column: 1 / -1; /* span both columns */
+  grid-column: 1 / -1;
 }
 
 .inlineFormGrid .formBtnWrap {
-  grid-column: 1 / -1; /* buttons row full width */
+  grid-column: 1 / -1;
   justify-content: flex-end;
 }
 
@@ -259,6 +280,15 @@
 @media (max-width: 768px) {
   .inlineFormGrid {
     grid-template-columns: 1fr;
+  }
+  .cardRow,
+  .approverLevelsRow {
+    flex-direction: column;
+    gap: 16px;
+  }
+  .cardRow {
+    flex-direction: column;
+    gap: 16px;
   }
 }
 
@@ -306,7 +336,6 @@
   color: #fff;
   padding: 12px 24px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-
   height: 75px;
 }
 
@@ -315,3 +344,6 @@
   font-weight: 600;
   color: #fff;
 }
+
+/* Card scrollbars for horizontal overflow */
+/* removed horizontal scrollbar styling to avoid X overflow; container scrolls vertically */

@@ -110,7 +110,9 @@ exports.login = async (req, res) => {
 
     // ---------------- Fallback: default DB password ----------------
     if (!authenticated && password === DEFAULT_PASSWORD) {
-      logDebug(`AD failed or unavailable, default password used for ${username}`);
+      logDebug(
+        `AD failed or unavailable, default password used for ${username}`
+      );
       authenticated = true;
     }
 
@@ -150,7 +152,7 @@ exports.login = async (req, res) => {
         employee_code: user.employee_code,
         location: user.location,
         department: user.department,
-        designation:user.designation,
+        designation: user.designation,
         reporting_manager: user.reporting_manager ?? "",
         managers_manager: user.managers_manager ?? "",
         role_id: user.role_id,
@@ -165,3 +167,77 @@ exports.login = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/auth/permissions
+ * Returns permission rows for the authenticated user.
+ * Looks for admin_plant_permission first then falls back to user_plant_permission.
+ */
+exports.getPermissions = async (req, res) => {
+  try {
+    // Extract token from Authorization header or cookie
+    const authHeader = req.headers.authorization || req.headers.Authorization;
+    let token = null;
+    if (
+      authHeader &&
+      typeof authHeader === "string" &&
+      authHeader.startsWith("Bearer ")
+    ) {
+      token = authHeader.split(" ")[1];
+    } else if (req.cookies && req.cookies.token) {
+      token = req.cookies.token;
+    }
+
+    if (!token)
+      return res.status(401).json({ message: "Missing authentication token" });
+
+    let payload;
+    try {
+      payload = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ message: "Invalid token" });
+    }
+
+    // Determine user id from token payload or username
+    let userId = payload.user_id || payload.id || null;
+    if (!userId && payload.username) {
+      // try to map username (employee_id) to internal id
+      const userRes = await db.query(
+        "SELECT id FROM user_master WHERE employee_id = $1 LIMIT 1",
+        [payload.username]
+      );
+      if (userRes && userRes.rows && userRes.rows.length)
+        userId = userRes.rows[0].id;
+    }
+
+    if (!userId)
+      return res
+        .status(400)
+        .json({ message: "Unable to determine user id from token" });
+
+    // Try to fetch from admin_plant_permission, fallback to user_plant_permission
+    let permissions = [];
+    try {
+      const q = `SELECT id, transaction_id, user_id, plant_id, module_id, can_add, can_edit, can_view, can_delete, created_on, updated_on
+                 FROM admin_plant_permission WHERE user_id = $1 ORDER BY id`;
+      const { rows } = await db.query(q, [userId]);
+      permissions = rows || [];
+    } catch (err) {
+      // Table might not exist or query failed; try alternative table
+      try {
+        const q2 = `SELECT id, transaction_id, user_id, plant_id, module_id, can_add, can_edit, can_view, can_delete, created_on, updated_on
+                    FROM user_plant_permission WHERE user_id = $1 ORDER BY id`;
+        const { rows } = await db.query(q2, [userId]);
+        permissions = rows || [];
+      } catch (err2) {
+        // No permissions table found or other DB error - return empty list
+        console.error("[PERMISSIONS FETCH ERROR]", err, err2);
+        return res.json({ permissions: [] });
+      }
+    }
+
+    return res.json({ permissions });
+  } catch (err) {
+    console.error("[GET PERMISSIONS ERROR]", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};

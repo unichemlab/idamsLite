@@ -29,6 +29,7 @@ interface UserContextType {
   addUser: (user: UserForm) => Promise<void>;
   editUser: (userId: string, user: UserForm) => Promise<void>;
   deleteUser: (idx: number) => void;
+  currentUser?: any;
 }
 
 // No initialUsers: always fetch from backend
@@ -39,6 +40,14 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [users, setUsers] = useState<UserWithLogs[]>([]);
+  // Get current user from localStorage (set by AuthContext)
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  useEffect(() => {
+    const stored = localStorage.getItem("authUser");
+    if (stored) {
+      setCurrentUser(JSON.parse(stored));
+    }
+  }, []);
 
   // Fetch users from backend
   const fetchUsers = async () => {
@@ -140,7 +149,9 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   return (
-    <UserContext.Provider value={{ users, addUser, editUser, deleteUser }}>
+    <UserContext.Provider
+      value={{ users, addUser, editUser, deleteUser, currentUser }}
+    >
       {children}
     </UserContext.Provider>
   );
