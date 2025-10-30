@@ -10,6 +10,7 @@ import AddApplicationFormPage from "../pages/ApplicationMasterTable/AddApplicati
 import EditApplicationFormPage from "../pages/ApplicationMasterTable/EditApplicationFormPage";
 import GenerateCredentials from "../pages/GenerateCredentials/GenerateCredentials";
 import AddUserRequest from "pages/UserRequest/UserRequestForm";
+import AddServiceRequest from "pages/ServiceRequest/ServiceRequestForm";
 import TrackRequest from "../pages/TaskRequest/TrackRequest";
 import Login from "../pages/Login";
 import ApproverDashboard from "../pages/ApproverDashboard";
@@ -17,6 +18,7 @@ import AccessRequestDetails from "../pages/AccessRequestDetails";
 import RoleMasterTable from "../pages/RoleMasterTable/RoleMasterTable";
 import UserMasterTable from "../pages/UserMasterTable/UserMasterTable";
 import UserRequestTable from "../pages/UserRequestTable/UserRequestTable";
+import ServiceRequestTable from "../pages/ServiceRequestTable/ServiceRequestTable";
 import AddUserFormPage from "../pages/AddUserPanel/AddUserFormPage";
 import EditUserFormPage from "../pages/AddUserPanel/EditUserFormPage";
 import AddRoleFormPage from "../RoleMaster/AddRoleFormPage";
@@ -50,6 +52,7 @@ import ServerInventoryMasterTable from "../pages/ServerInventoryMasterTable/Serv
 import AddServerInventory from "../pages/ServerInventoryMaster/AddServerInventoryMaster";
 import EditServerInventory from "../pages/ServerInventoryMaster/EditServerInventoryMaster";
 import TaskTable from "pages/TaskClosureTracking/TaskClosureTracking";
+import TaskDetailView from "pages/TaskClosureTracking/TaskDetailView";
 // Removed unused SystemInventoryMasterTable, AddSystemInventory, EditSystemInventory imports
 // List of allowed routes for matching
 const allowedRoutes = [
@@ -58,7 +61,9 @@ const allowedRoutes = [
   "/add-user",
   "/edit-user/:idx",
   "/user-requests",
+  "/service-requests",
   "/user-access-management",
+  "/service-access-management",
   "/access-details",
   "/approver-step/:step/:id",
   "/review-submit",
@@ -93,6 +98,7 @@ const allowedRoutes = [
   "/servers/edit/:id",
   "/task",
   "/task/:id",
+  "/task-detail/:id",
   "/plant-itsupport",
   "/plant-itsupport/add",
   "/plant-itsupport/edit/:id",
@@ -177,10 +183,23 @@ console.log(isAllowed);
           </ProtectedRoute>
         }
       />
-      
+      <Route
+        path="/service-requests"
+        element={
+          <ProtectedRoute>
+            <ServiceRequestTable />
+          </ProtectedRoute>
+        }
+      />
       <Route path="/user-access-management" element={
          <ProtectedRoute>
         <AddUserRequest />
+        </ProtectedRoute>
+      } 
+      />
+      <Route path="/service-access-management" element={
+         <ProtectedRoute>
+        <AddServiceRequest />
         </ProtectedRoute>
       } 
       />
@@ -462,6 +481,7 @@ console.log(isAllowed);
       />
       <Route path="/task" element={<TaskTable />} />
 <Route path="/task/:id" element={<AddTaskClosureForm />} />
+<Route path="/task-detail/:id" element={<TaskDetailView />} />
 
       {/* Server Inventory Master */}
 

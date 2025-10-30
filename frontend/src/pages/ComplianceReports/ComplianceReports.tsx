@@ -22,8 +22,9 @@ const ComplianceReports: React.FC<ComplianceReportsProps> = ({
   setReports,
 }) => {
   const { user } = useAuth();
-  function getRoleName(role_id?: number): Role {
-    switch (role_id) {
+  function getRoleName(role_id?: number | number[] | null | undefined): Role {
+    const roleId = Array.isArray(role_id) ? role_id[0] : role_id;
+    switch (roleId) {
       case 1:
         return "superAdmin";
       case 2:
@@ -34,7 +35,7 @@ const ComplianceReports: React.FC<ComplianceReportsProps> = ({
         return "user";
     }
   }
-  const role = getRoleName(user?.role_id);
+  const role = getRoleName(user?.role_id as number | number[] | undefined);
 
   // Example handler for future API integration
   // const handleExport = (id: string) => { ... }

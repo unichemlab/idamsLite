@@ -262,8 +262,8 @@ export async function addTaskAPI(task: any): Promise<any> {
 }
 
 // Update a task
-export async function updateTaskAPI(id: number, task: any): Promise<any> {
-  return request(`/api/tasks/${id}`, {
+export async function updateTaskAPI(id: string, task: any): Promise<any> {
+  return request(`/api/task/tasks/${id}`, {
     method: "PUT",
     body: JSON.stringify(task),
   });
@@ -371,4 +371,34 @@ export async function loginAPI(credentials: {
     method: "POST",
     body: JSON.stringify(credentials),
   });
+}
+
+
+/************************** API for Service Request *****************************************/
+
+// Fetch all user requests
+export async function fetchServiceRequests(): Promise<any[]> {
+  return request("/api/service-requests");
+}
+
+// Add a new user request
+export async function addServiceRequestAPI(userRequest: FormData): Promise<any> {
+  // when sending FormData the request wrapper preserves FormData content-type
+  return request(`/api/service-requests`, { method: "POST", body: userRequest });
+}
+
+// Update a user request
+export async function updateServiceRequestAPI(
+  id: number,
+  userRequest: any
+): Promise<any> {
+  return request(`/api/service-requests/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(userRequest),
+  });
+}
+
+// Delete a user request
+export async function deleteServiceRequestAPI(id: number): Promise<void> {
+  return request(`/api/service-requests/${id}`, { method: "DELETE" });
 }

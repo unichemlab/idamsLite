@@ -1,943 +1,809 @@
-// This is a placeholder for existing code context
-// ...existing code...
-// This is a placeholder for existing code context
-import React, { useState, useEffect } from "react";
-import NotificationsIcon from "@mui/icons-material/Notifications";
-import SettingsIcon from "@mui/icons-material/Settings";
-import ProfileIconWithLogout from "../PlantMasterTable/ProfileIconWithLogout";
+import React, { useEffect, useState } from "react";
 import styles from "./WorkflowBuilder.module.css";
-import { fetchPlants } from "../../utils/api";
-import Button from "../../components/Common/Button";
-import InputField from "../../components/Common/InputField";
 import { useUserContext } from "../../context/UserContext";
-export const API_BASE =
-  process.env.REACT_APP_API_URL || "http://localhost:4000";
-const EditIcon = () => (
-  <span title="Edit" style={{ fontSize: 18, cursor: "pointer" }}>
-    ✏️
-  </span>
-);
-const DeleteIcon = () => (
-  <span title="Delete" style={{ fontSize: 18, cursor: "pointer" }}>
-    🗑️
-  </span>
-);
-const AddIcon = () => (
-  <span title="Add" style={{ fontSize: 18, cursor: "pointer" }}>
-    ➕
-  </span>
-);
+import { fetchPlants } from "../../utils/api";
+import Select, { components, MultiValue } from "react-select";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
+import Paper from "@mui/material/Paper";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import CircularProgress from "@mui/material/CircularProgress";
+import Tooltip from "@mui/material/Tooltip";
+import Chip from "@mui/material/Chip";
+import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
+import CloseIcon from "@mui/icons-material/Close";
 
-const plantOptionsStatic: string[] = ["GOA-1", "GOA-2", "GOA-3", "Gaziabad"];
-const corporateOptions = [
-  {
-    label: "Corporate - Administration",
-    maxApprovers: 1,
-    value: "Administration",
-  },
-  { label: "Corporate - Application (SAP)", maxApprovers: 5, value: "SAP" },
-  {
-    label: "Corporate - Application (IT Support)",
-    maxApprovers: 1,
-    value: "IT Support",
-  },
-];
+const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:4000";
 
-const MAX_APPROVER_UI_ROWS = 5;
+type UserOption = {
+  value: string;
+  label: string;
+  user: any;
+  isDisabled?: boolean;
+};
+
+type ApproverRow = {
+  users: UserOption[];
+  isVisible: boolean;
+};
+
+// UI will represent approver levels starting from approver_2 (skip approver_1)
+// Backend has approver_1..approver_5; so UI supports approver_2..approver_5 (4 levels)
+const MAX_APPROVERS = 4;
 const MAX_USERS_PER_GROUP = 20;
+const MAX_VISIBLE_BADGES = 2;
 
-type Approver = {
-  name: string;
-  empCode: string;
-  email: string;
-  employee_id?: string;
-  userId?: number | null;
-};
-type ApproverMap = {
-  [key: string]: Approver[];
-};
+const getInitialApproverRows = (): ApproverRow[] =>
+  Array.from({ length: MAX_APPROVERS }).map((_, i) => ({
+    users: [],
+    isVisible: i === 0,
+  }));
 
-const defaultApprovers: ApproverMap = {
-  "GOA-1": [
-    { name: "Krishna", empCode: "10001", email: "krishna@unichemin.com" },
-    { name: "", empCode: "", email: "" },
-    { name: "", empCode: "", email: "" },
-  ],
-  "GOA-2": [
-    { name: "Namrata", empCode: "10002", email: "namrata@unichemin.com" },
-    { name: "", empCode: "", email: "" },
-    { name: "", empCode: "", email: "" },
-  ],
-  "GOA-3": [
-    { name: "Nehal", empCode: "10003", email: "nehal@unichemin.com" },
-    { name: "", empCode: "", email: "" },
-    { name: "", empCode: "", email: "" },
-  ],
-  Gaziabad: [
-    { name: "", empCode: "", email: "" },
-    { name: "", empCode: "", email: "" },
-    { name: "", empCode: "", email: "" },
-  ],
-  "Corporate - Administration": [
-    { name: "Bhaumik", empCode: "90754", email: "Bhaumik.joshi@unichemin.com" },
-  ],
-  "Corporate - Application (SAP)": [
-    { name: "Nehal", empCode: "10003", email: "nehal@unichemin.com" },
-    { name: "", empCode: "", email: "" },
-    { name: "", empCode: "", email: "" },
-    { name: "", empCode: "", email: "" },
-    { name: "", empCode: "", email: "" },
-  ],
-  "Corporate - Application (ZingHR)": [
-    { name: "", empCode: "", email: "" },
-    { name: "", empCode: "", email: "" },
-    { name: "", empCode: "", email: "" },
-    { name: "", empCode: "", email: "" },
-    { name: "", empCode: "", email: "" },
-  ],
+const getAbbreviation = (name = "") => {
+  if (!name) return "--";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  }
+  return name.substring(0, 2).toUpperCase();
 };
-
-type ApproverRow = { users: Approver[] };
 
 const WorkflowBuilder: React.FC = () => {
-  const [plant, setPlant] = useState<string>("");
-  const [corporate, setCorporate] = useState<string>("");
-  const [approverRows, setApproverRows] = useState<ApproverRow[]>([]);
-  const [editRowIndex, setEditRowIndex] = useState<number | null>(null);
-  const [editUserIndex, setEditUserIndex] = useState<number | null>(null);
-  const [form, setForm] = useState<{
-    name: string;
-    empCode: string;
-    email: string;
-    employee_id?: string;
-    userId?: number | null;
-  }>({ name: "", empCode: "", email: "", employee_id: "" });
   const { users } = useUserContext();
   const [plants, setPlants] = useState<any[]>([]);
+  const [userOptions, setUserOptions] = useState<UserOption[]>([]);
+  const [approverRows, setApproverRows] = useState<ApproverRow[]>(
+    getInitialApproverRows()
+  );
+  const [workflowType, setWorkflowType] = useState<"PLANT" | "CORPORATE">(
+    "PLANT"
+  );
+  const [selectedPlantId, setSelectedPlantId] = useState<string>("");
+  const [selectedCorporate, setSelectedCorporate] = useState<string>("");
+  const [userModal, setUserModal] = useState<{
+    rowIndex: number;
+    users: UserOption[];
+  } | null>(null);
   const [currentWorkflowId, setCurrentWorkflowId] = useState<number | null>(
     null
   );
+  const [plantDetails, setPlantDetails] = useState<any>(null);
+  const [loadingWorkflow, setLoadingWorkflow] = useState(false);
+  const [currentWorkflowData, setCurrentWorkflowData] = useState<any>(null);
 
-  const [userOptions, setUserOptions] = useState<any[]>([]);
+  // Build userOptions from the user context (normalize various id fields)
   useEffect(() => {
     setUserOptions(
-      users.map((u: any) => ({
-        label: `${u.employee_name || u.fullName || u.full_name || ""} | ${
-          u.employee_code || ""
-        } | ${u.employee_id || ""}`,
-        value: String(u.id),
-        user: u,
-      }))
+      Array.isArray(users)
+        ? users.map((u: any) => ({
+            value: String(
+              u.id ?? u.user_id ?? u.employee_id ?? u.employee_code ?? ""
+            ),
+            label: `${u.employee_name || u.fullName || u.name || ""} ${
+              u.employee_code ? `| ${u.employee_code}` : ""
+            }`.trim(),
+            user: u,
+          }))
+        : []
     );
   }, [users]);
 
-  useEffect(() => {
-    if (!currentWorkflowId) return;
-    let plantOrCorporate = plant || corporate;
-    if (!plantOrCorporate) return;
-    const fetchWorkflow = async () => {
-      try {
-        const res = await fetch(
-          `${API_BASE}/api/workflows?plant=${encodeURIComponent(plantOrCorporate)}`
-        );
-        if (!res.ok) throw new Error("Failed to fetch workflows");
-        const data = await res.json();
-        if (data.workflows && data.workflows.length) {
-          // Use backend's approvers array for each row
-          const wf = data.workflows[0];
-          const rows = (wf.approvers || []).map((usersArr: any[]) => ({
-            users: (usersArr || []).map((u: any) => ({
-              name: u.employee_name || u.fullName || u.full_name || "",
-              empCode: u.employee_code || "",
-              email: u.email || "",
-              employee_id: u.employee_id || "",
-              userId: u.id || null,
-            })),
-          }));
-          while (rows.length < MAX_APPROVER_UI_ROWS) rows.push({ users: [] });
-          setApproverRows(rows);
-        }
-      } catch (err) {
-        // fallback: do not update
-      }
-    };
-    fetchWorkflow();
-  }, [userOptions, users, plant, corporate, currentWorkflowId]);
-
+  // Load plants
   useEffect(() => {
     fetchPlants()
       .then((data) =>
         setPlants(
-          data.map((p: any) => ({ id: p.id, plant_name: p.plant_name }))
+          Array.isArray(data)
+            ? data.map((p: any) => ({
+                id: p.id,
+                plant_name: p.plant_name || p.name || String(p.id),
+                details: p,
+              }))
+            : []
         )
       )
       .catch(() => setPlants([]));
   }, []);
 
-  const isEmptyUser = (user: Approver) =>
-    !user.name && !user.empCode && !user.email;
+  // Keep plantDetails in sync with selectedPlantId
+  useEffect(() => {
+    if (selectedPlantId) {
+      const found = plants.find((p) => String(p.id) === selectedPlantId);
+      setPlantDetails(found?.details || null);
+    } else {
+      setPlantDetails(null);
+    }
+  }, [selectedPlantId, plants]);
 
-  const handlePlantChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    setPlant(value);
-    setCorporate("");
-    setEditRowIndex(null);
-    setEditUserIndex(null);
-    setForm({ name: "", empCode: "", email: "", employee_id: "" });
-    setCurrentWorkflowId(null);
-
-    try {
-      const res = await fetch(
-        `${API_BASE}/api/workflows?plant=${encodeURIComponent(value)}`
-      );
-      if (!res.ok) throw new Error("Failed to fetch workflows");
-      const data = await res.json();
-      if (data.workflows && data.workflows.length) {
-        const wf = data.workflows[0];
-        setCurrentWorkflowId(wf.id || null);
-        const approverIdsArr = [
-          wf.approver_2_id,
-          wf.approver_3_id,
-          wf.approver_4_id,
-          wf.approver_5_id,
-        ];
-        const rows = approverIdsArr.map((ids) => {
-          if (!ids) return { users: [] };
-          const idArr = String(ids)
-            .split(",")
-            .filter((id) => id);
-          const usersMapped = idArr
-            .map((id) => {
-              const opt = userOptions.find(
-                (o) => String(o.value) === String(id)
-              );
-              return opt ? opt.user : null;
-            })
-            .filter(Boolean)
-            .slice(0, MAX_USERS_PER_GROUP);
-          return {
-            users: usersMapped.map((u: any) => ({
-              name: u.employee_name || u.fullName || u.full_name || "",
-              empCode: u.employee_code || "",
-              email: u.email || "",
-              employee_id: u.employee_id || "",
-              userId: u.id || null,
-            })),
-          };
-        });
-        while (rows.length < MAX_APPROVER_UI_ROWS) rows.push({ users: [] });
-        setApproverRows(rows);
+  // When a plant is selected, fetch existing workflow for that plant and populate UI rows.
+  useEffect(() => {
+    const loadWorkflowForPlant = async () => {
+      if (!selectedPlantId) {
+        setApproverRows(getInitialApproverRows());
+        setCurrentWorkflowId(null);
+        setCurrentWorkflowData(null);
         return;
       }
-    } catch (err) {
-      console.warn("Workflow fetch failed, falling back to defaults", err);
-    }
 
-    setApproverRows(
-      Array.from({ length: MAX_APPROVER_UI_ROWS }, (_, i) => ({
-        users:
-          defaultApprovers[value] &&
-          defaultApprovers[value][i] &&
-          defaultApprovers[value][i].name
-            ? [defaultApprovers[value][i]]
-            : [],
-      }))
-    );
+      try {
+        setLoadingWorkflow(true);
+        const res = await fetch(
+          `${API_BASE}/api/workflows?plant_id=${selectedPlantId}`
+        );
+        if (!res.ok) {
+          setApproverRows(getInitialApproverRows());
+          setCurrentWorkflowId(null);
+          setCurrentWorkflowData(null);
+          setLoadingWorkflow(false);
+          return;
+        }
+
+        const data = await res.json().catch(() => ({}));
+        // backend may return { workflows: [...] } or { workflow: {...} }
+        let wf: any = null;
+        if (Array.isArray(data.workflows) && data.workflows.length) {
+          wf = data.workflows[0];
+        } else if (data.workflow) {
+          wf = data.workflow;
+        }
+
+        if (!wf) {
+          setApproverRows(getInitialApproverRows());
+          setCurrentWorkflowId(null);
+          setCurrentWorkflowData(null);
+          setLoadingWorkflow(false);
+          return;
+        }
+
+        // Build rows mapping approver_2..approver_5
+        const rows: ApproverRow[] = getInitialApproverRows();
+
+        // helper: try to match a CSV id string to userOptions using multiple possible user id fields
+        const matchUserById = (idStr: string) => {
+          const norm = String(idStr).trim();
+          if (!norm) return null;
+          // direct match on option.value
+          const direct = userOptions.find((u) => String(u.value) === norm);
+          if (direct) return direct;
+          // try matching common fields inside original user object
+          return (
+            userOptions.find((u) => {
+              const uu = u.user || {};
+              const candidates = [
+                uu.id,
+                uu.user_id,
+                uu.employee_id,
+                uu.employee_code,
+                uu.employee_number,
+                uu.emp_id,
+              ]
+                .filter(Boolean)
+                .map((v: any) => String(v));
+              return candidates.includes(norm);
+            }) || null
+          );
+        };
+
+        let hasAnyApprover = false;
+
+        // Prefer backend-provided `approvers` array (it includes user objects when available).
+        // workflows.approvers is an array of arrays: [approver_1_arr, approver_2_arr, ...]
+        if (wf.approvers && Array.isArray(wf.approvers)) {
+          for (let i = 0; i < MAX_APPROVERS; i++) {
+            // UI row i corresponds to approver_(i+2)
+            const backendIndex = i + 1; // approvers[1] -> approver_2
+            const list = wf.approvers[backendIndex] || [];
+            const opts: UserOption[] = list.map((u: any) => {
+              const val = String(
+                u.id ?? u.employee_code ?? u.employee_id ?? u.id ?? ""
+              );
+              return {
+                value: val,
+                label: `${u.employee_name || u.fullName || ""} ${
+                  u.employee_code ? `| ${u.employee_code}` : ""
+                }`.trim(),
+                user: u,
+              } as UserOption;
+            });
+            if (opts.length) hasAnyApprover = true;
+            rows[i] = {
+              isVisible: opts.length > 0 ? true : rows[i].isVisible,
+              users: opts,
+            };
+          }
+        } else {
+          // Fallback to CSV fields (older backend shape)
+          for (let i = 0; i < MAX_APPROVERS; i++) {
+            const fieldIndex = i + 2; // 2..5
+            const key = `approver_${fieldIndex}_id`;
+            const csv = wf[key];
+            if (csv && typeof csv === "string") {
+              const ids = csv
+                .split(",")
+                .map((s: string) => s.trim())
+                .filter(Boolean);
+              const opts: UserOption[] = ids
+                .map(
+                  (id) =>
+                    matchUserById(id) || {
+                      value: id,
+                      label: `Unknown user (${id})`,
+                      user: { employee_name: `Unknown (${id})`, id },
+                    }
+                )
+                .filter(Boolean) as UserOption[];
+              if (opts.length) hasAnyApprover = true;
+              rows[i] = {
+                isVisible: opts.length > 0 ? true : rows[i].isVisible,
+                users: opts,
+              };
+            } else {
+              rows[i] = { isVisible: rows[i].isVisible, users: [] };
+            }
+          }
+        }
+
+        setApproverRows(rows);
+        // include a helper flag so the UI can show a hint when workflow exists but no approvers configured
+        setCurrentWorkflowData({ ...(wf || {}), hasAnyApprover });
+        // set id for update operations (try several fields)
+        if (wf && (wf.id || wf.workflow_id || wf._id)) {
+          setCurrentWorkflowId(wf.id ?? wf.workflow_id ?? wf._id ?? null);
+        } else {
+          setCurrentWorkflowId(null);
+        }
+        setLoadingWorkflow(false);
+      } catch (err) {
+        setLoadingWorkflow(false);
+        console.warn("loadWorkflowForPlant", err);
+      }
+    };
+
+    loadWorkflowForPlant();
+    // note: depends on selectedPlantId, userOptions, plants
+  }, [selectedPlantId, userOptions, plants]);
+
+  const selectWorkflowType = (type: "PLANT" | "CORPORATE") => {
+    setWorkflowType(type);
+    setSelectedPlantId("");
+    setSelectedCorporate("");
+    setApproverRows(getInitialApproverRows());
     setCurrentWorkflowId(null);
+    setPlantDetails(null);
+    setCurrentWorkflowData(null);
   };
 
-  const handleCorporateChange = async (
-    e: React.ChangeEvent<HTMLSelectElement>
+  const handleApproverChange = (
+    rowIndex: number,
+    selected: MultiValue<UserOption>
   ) => {
-    const value = e.target.value;
-    setCorporate(value);
-    setPlant("");
-    setEditRowIndex(null);
-    setEditUserIndex(null);
-    setForm({ name: "", empCode: "", email: "", employee_id: "" });
-    setCurrentWorkflowId(null);
-
-    const max =
-      corporateOptions.find((c) => c.label === value)?.maxApprovers || 1;
-
-    try {
-      const res = await fetch(
-        `${API_BASE}/api/workflows?plant=${encodeURIComponent(value)}`
-      );
-      if (!res.ok) throw new Error("Failed to fetch workflows");
-      const data = await res.json();
-      if (data.workflows && data.workflows.length) {
-        const wf = data.workflows[0];
-        setCurrentWorkflowId(wf.id || null);
-        const approverIdsArr = [
-          wf.approver_2_id,
-          wf.approver_3_id,
-          wf.approver_4_id,
-          wf.approver_5_id,
-        ];
-        const rows = approverIdsArr.map((ids) => {
-          if (!ids) return { users: [] };
-          const idArr = String(ids)
-            .split(",")
-            .filter((id) => id);
-          const usersMapped = idArr
-            .map((id) => {
-              const opt = userOptions.find(
-                (o) => String(o.value) === String(id)
-              );
-              return opt ? opt.user : null;
-            })
-            .filter(Boolean)
-            .slice(0, MAX_USERS_PER_GROUP);
-          return {
-            users: usersMapped.map((u: any) => ({
-              name: u.employee_name || u.fullName || u.full_name || "",
-              empCode: u.employee_code || "",
-              email: u.email || "",
-              employee_id: u.employee_id || "",
-              userId: u.id || null,
-            })),
-          };
-        });
-        while (rows.length < Math.max(max, MAX_APPROVER_UI_ROWS))
-          rows.push({ users: [] });
-        setApproverRows(rows);
-        return;
-      }
-    } catch (err) {
-      console.warn(
-        "Workflow fetch failed for corporate, falling back to defaults",
-        err
-      );
-    }
-
-    setApproverRows(
-      Array.from({ length: Math.max(max, MAX_APPROVER_UI_ROWS) }, (_, i) => ({
-        users:
-          defaultApprovers[value] &&
-          defaultApprovers[value][i] &&
-          defaultApprovers[value][i].name
-            ? [defaultApprovers[value][i]]
-            : [],
-      }))
+    const arr = Array.isArray(selected) ? (selected as UserOption[]) : [];
+    if (arr.length > MAX_USERS_PER_GROUP) return;
+    setApproverRows((prev) =>
+      prev.map((r, i) => (i === rowIndex ? { ...r, users: arr } : r))
     );
   };
+
+  const handleAddLevel = () => {
+    const next = approverRows.findIndex((r) => !r.isVisible);
+    if (next === -1) return;
+    setApproverRows((prev) =>
+      prev.map((r, i) => (i === next ? { ...r, isVisible: true } : r))
+    );
+  };
+
+  const handleRemoveLevel = (index: number) => {
+    setApproverRows((prev) =>
+      prev.map((r, i) => (i === index ? { users: [], isVisible: false } : r))
+    );
+  };
+
+  const openUserModal = (rowIndex: number) => {
+    setUserModal({ rowIndex, users: approverRows[rowIndex].users });
+  };
+
+  const closeUserModal = () => setUserModal(null);
 
   const saveWorkflow = async () => {
-    const body: any = {
+    const payload: any = {
       transaction_id: `APPR${String(Date.now()).slice(-10)}`,
-      workflow_type: plant ? "PLANT" : "CORPORATE",
-      plant_id: null,
+      workflow_type: workflowType,
+      plant_id:
+        workflowType === "PLANT" && selectedPlantId
+          ? Number(selectedPlantId)
+          : null,
       department_id: null,
       approver_1_id: null,
       approver_2_id: null,
       approver_3_id: null,
       approver_4_id: null,
       approver_5_id: null,
-      max_approvers: 3,
+      max_approvers: approverRows.filter((r) => r.isVisible).length,
       is_active: true,
     };
-    const selectedPlant = plants.find(
-      (p) => String(p.id) === String(plant) || p.plant_name === plant
-    );
-    if (selectedPlant) body.plant_id = selectedPlant.id;
-    const pickNumericId = (u: any) => {
-      if (!u) return null;
-      if (u.userId !== undefined && u.userId !== null) return Number(u.userId);
-      if (u.empCode && /^\d+$/.test(String(u.empCode)))
-        return Number(u.empCode);
-      console.warn("Approver id not numeric, skipping:", u);
-      return null;
-    };
 
-    for (let i = 0; i < MAX_APPROVER_UI_ROWS; i++) {
-      const dbCol = `approver_${i + 2}_id`;
-      if (approverRows[i] && approverRows[i].users.length) {
-        const ids = approverRows[i].users
-          .map((u) => pickNumericId(u))
-          .filter((id) => id != null);
-        body[dbCol] = ids.length ? ids.join(",") : null;
+    // Map UI rows (UI idx 0 -> approver_2) back to backend CSV fields
+    approverRows.forEach((r, idx) => {
+      const backendIndex = idx + 2;
+      const key = `approver_${backendIndex}_id`;
+      if (r.isVisible && r.users.length) {
+        payload[key] = r.users.map((u) => u.value).join(",");
       } else {
-        body[dbCol] = null;
+        payload[key] = null;
       }
-    }
+    });
 
     try {
-      let res;
-      if (currentWorkflowId) {
-        res = await fetch(`${API_BASE}/api/workflows/${currentWorkflowId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-      } else {
-        res = await fetch(`${API_BASE}/api/workflows`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-      }
-      if (!res.ok) throw new Error("Failed to save workflow");
-      const saved = await res.json();
-      setCurrentWorkflowId(saved.id || currentWorkflowId);
-      const plantOrCorporate = plant || corporate;
-      if (plantOrCorporate) {
-          const wfRes = await fetch(
-            `${API_BASE}/api/workflows?plant=${encodeURIComponent(plantOrCorporate)}`
-          );
-          if (wfRes.ok) {
-            const wfData = await wfRes.json();
-            if (wfData.workflows && wfData.workflows.length) {
-              const wf = wfData.workflows[0];
-              // Use backend's approvers array for each row
-              const rows = (wf.approvers || []).map((usersArr: any[]) => ({
-                users: (usersArr || []).map((u: any) => ({
-                  name: u.employee_name || u.fullName || u.full_name || "",
-                  empCode: u.employee_code || "",
-                  email: u.email || "",
-                  employee_id: u.employee_id || "",
-                  userId: u.id || null,
-                })),
-              }));
-              while (rows.length < MAX_APPROVER_UI_ROWS) rows.push({ users: [] });
-              setApproverRows(rows);
-            }
-        }
-      }
-      alert("Workflow saved");
-    } catch (err) {
-      console.error("Save workflow failed", err);
-      alert("Save failed: " + (err as any).message);
-    }
-  };
-
-  const handleAddUser = (rowIdx: number) => {
-    if (isEmptyUser(form) || !form.userId) {
-      alert("Please select a user from the dropdown.");
-      return;
-    }
-    const updatedRows = approverRows.map((r, i) => {
-      if (i !== rowIdx) return r;
-      if (r.users.some((u) => String(u.userId) === String(form.userId))) {
-        return r;
-      }
-      return { users: [...r.users, { ...form }] };
-    });
-    setApproverRows(updatedRows);
-    setForm({ name: "", empCode: "", email: "", employee_id: "" });
-    setEditRowIndex(null);
-    setEditUserIndex(null);
-    setTimeout(async () => {
-      const body: Record<string, any> = {};
-      body.transaction_id = `APPR${String(Date.now()).slice(-10)}`;
-      body.workflow_type = plant ? "PLANT" : "CORPORATE";
-      const selectedPlant = plants.find(
-        (p: any) => String(p.id) === String(plant) || p.plant_name === plant
-      );
-      body.plant_id = selectedPlant ? Number(selectedPlant.id) : null;
-      body.department_id = null;
-      body.max_approvers = 3;
-      body.is_active = true;
-      for (let i = 0; i < MAX_APPROVER_UI_ROWS; i++) {
-        const dbCol = `approver_${i + 2}_id`;
-        const ids = updatedRows[i].users
-          .map((u: Approver) => u.userId)
-          .filter((id: number | null | undefined) => id != null)
-          .map((id: number | null | undefined) => String(id));
-        body[dbCol] = ids.length ? ids.join(",") : null;
-      }
-      let workflowId = currentWorkflowId;
-      if (!workflowId || typeof workflowId !== "number" || isNaN(workflowId)) {
-        try {
-          const res = await fetch(`${API_BASE}/api/workflows`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          });
-          if (res.ok) {
-            const result = await res.json();
-            workflowId = result.id;
-            setCurrentWorkflowId(workflowId);
-          } else {
-            alert("Failed to create workflow");
-            return;
-          }
-        } catch (err) {
-          alert("Error creating workflow");
-          return;
-        }
-      }
-      try {
-        const res = await fetch(`${API_BASE}/api/workflows/${workflowId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        if (res.ok) {
-          const newRows = [...updatedRows];
-          for (let i = 0; i < MAX_APPROVER_UI_ROWS; i++) {
-            const dbCol = `approver_${i + 2}_id`;
-            const ids = (body[dbCol] || "")
-              .split(",")
-              .filter((id: string) => Boolean(id));
-            const usersMapped = ids
-              .map((id: string) => {
-                const opt = userOptions.find(
-                  (o: any) => String(o.value) === String(id)
-                );
-                return opt ? opt.user : null;
-              })
-              .filter((u: any) => Boolean(u))
-              .slice(0, MAX_USERS_PER_GROUP);
-            newRows[i].users = usersMapped.map((u: any) => ({
-              name: u.employee_name || u.fullName || u.full_name || "",
-              empCode: u.employee_code || "",
-              email: u.email || "",
-              employee_id: u.employee_id || "",
-              userId: u.id || null,
-            }));
-          }
-          setApproverRows(newRows);
-        } else {
-          alert("Failed to update workflow");
-        }
-      } catch (err) {
-        alert("Error updating workflow");
-      }
-    }, 0);
-  };
-
-  const handleEditUser = (rowIdx: number, userIdx: number) => {
-    setEditRowIndex(rowIdx);
-    setEditUserIndex(userIdx);
-    setForm(approverRows[rowIdx].users[userIdx]);
-  };
-
-  const handleSaveEdit = () => {
-    if (editRowIndex !== null && editUserIndex !== null) {
-      if (isEmptyUser(form)) return;
-      setApproverRows((prev) => {
-        const updated = [...prev];
-        if (
-          updated[editRowIndex].users.some(
-            (u, idx) =>
-              idx !== editUserIndex &&
-              u.empCode.trim().toLowerCase() ===
-                form.empCode.trim().toLowerCase()
-          )
-        ) {
-          return prev;
-        }
-        updated[editRowIndex].users[editUserIndex] = form;
-        return updated;
-      });
-      setEditRowIndex(null);
-      setEditUserIndex(null);
-      setForm({ name: "", empCode: "", email: "", employee_id: "" });
-    }
-  };
-
-  const handleDeleteUser = (rowIdx: number, userIdx: number) => {
-    const updatedRows = approverRows.map((r, i) => {
-      if (i !== rowIdx) return r;
-      return { users: r.users.filter((_, idx) => idx !== userIdx) };
-    });
-    setApproverRows(updatedRows);
-    setEditRowIndex(null);
-    setEditUserIndex(null);
-    setForm({ name: "", empCode: "", email: "", employee_id: "" });
-    setTimeout(() => {
-      const body: { [key: string]: any } = {};
-      body.transaction_id = `APPR${String(Date.now()).slice(-10)}`;
-      body.workflow_type = plant ? "PLANT" : "CORPORATE";
-      body.plant_id = plant ? plant : null;
-      body.department_id = null;
-      body.max_approvers = 3;
-      body.is_active = true;
-      for (let i = 0; i < MAX_APPROVER_UI_ROWS; i++) {
-        const dbCol = `approver_${i + 2}_id`;
-        const ids = updatedRows[i].users
-          .map((u: Approver) => u.userId)
-          .filter((id: number | null | undefined) => id != null)
-          .map(String);
-        body[dbCol] = ids.length ? ids.join(",") : null;
-      }
-      fetch(`${API_BASE}/api/workflows/${currentWorkflowId}`, {
-        method: "PUT",
+      const url = currentWorkflowId
+        ? `${API_BASE}/api/workflows/${currentWorkflowId}`
+        : `${API_BASE}/api/workflows`;
+      const res = await fetch(url, {
+        method: currentWorkflowId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-        .then((res) => res.json())
-        .then((saved) => {
-          const newRows = [...updatedRows];
-          for (let i = 0; i < MAX_APPROVER_UI_ROWS; i++) {
-            const dbCol = `approver_${i + 2}_id`;
-            const ids = (body[dbCol] || "").split(",").filter(Boolean);
-            const usersMapped = ids
-              .map((id: string) => {
-                const opt = userOptions.find(
-                  (o: any) => String(o.value) === String(id)
-                );
-                return opt ? opt.user : null;
-              })
-              .filter((u: any) => Boolean(u))
-              .slice(0, MAX_USERS_PER_GROUP);
-            newRows[i].users = usersMapped.map((u: any) => ({
-              name: u.employee_name || u.fullName || u.full_name || "",
-              empCode: u.employee_code || "",
-              email: u.email || "",
-              employee_id: u.employee_id || "",
-              userId: u.id || null,
-            }));
-          }
-          setApproverRows(newRows);
-        });
-    }, 0);
-  };
-
-  const handleAddApproverRow = () => {
-    const maxRows = MAX_APPROVER_UI_ROWS;
-    if (approverRows.length < maxRows) {
-      setApproverRows((prev) => [...prev, { users: [] }]);
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(text || "Save failed");
+      }
+      const saved = await res.json().catch(() => null);
+      if (saved && saved.id) setCurrentWorkflowId(saved.id);
+      alert("Workflow saved successfully");
+    } catch (err) {
+      alert("Failed to save workflow: " + (err as Error).message);
     }
   };
 
-  const handleDeleteApproverRow = (rowIdx: number) => {
-    setApproverRows((prev) => prev.filter((_: any, i: number) => i !== rowIdx));
-    setEditRowIndex(null);
-    setEditUserIndex(null);
-    setForm({ name: "", empCode: "", email: "", employee_id: "" });
+  const visibleCount = approverRows.filter((r) => r.isVisible).length;
+  const canAddMoreLevels = approverRows.some((r) => !r.isVisible);
+
+  // react-select portal target to avoid clipping inside scroll containers
+  const portalTarget =
+    typeof document !== "undefined"
+      ? (document.body as HTMLElement)
+      : undefined;
+
+  // Build a map of assigned userId -> approver level (2..5) so we can annotate and disable options
+  const assignedMap: Map<string, number> = new Map();
+  approverRows.forEach((r, idx) => {
+    if (r.users && r.users.length) {
+      const level = idx + 2;
+      r.users.forEach((u) => assignedMap.set(String(u.value), level));
+    }
+  });
+
+  const getOptionsForRow = (rowIdx: number) =>
+    userOptions.map((u) => {
+      const assignedLevel = assignedMap.get(String(u.value));
+      const isAssignedElsewhere =
+        !!assignedLevel && assignedLevel !== rowIdx + 2;
+      return {
+        ...u,
+        label: assignedLevel
+          ? `${u.label} (Assigned L${assignedLevel})`
+          : u.label,
+        isDisabled: isAssignedElsewhere,
+      } as UserOption;
+    });
+
+  // Custom multi-value label to show initials instead of full name in the selected chips
+  const MultiValueLabel = (props: any) => {
+    const data: UserOption = props.data;
+    const name =
+      data.user?.employee_name || data.user?.fullName || data.label || "";
+    const abbrev = getAbbreviation(name);
+    return (
+      <components.MultiValueLabel {...props}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 14,
+              background: "#e3f2fd",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 12,
+              color: "#174ea6",
+              fontWeight: 700,
+            }}
+            title={name}
+          >
+            {abbrev}
+          </div>
+        </div>
+      </components.MultiValueLabel>
+    );
   };
+
+  const noApproversHint =
+    currentWorkflowData && !currentWorkflowData.hasAnyApprover ? (
+      <Typography
+        variant="body2"
+        color="textSecondary"
+        style={{ marginTop: 8 }}
+      >
+        This plant has a saved workflow but no approvers configured yet.
+      </Typography>
+    ) : null;
 
   return (
-    <div>
+    <div className={styles.container}>
+      {/* Header */}
       <header className={styles["main-header"]}>
-        <h2 className={styles["header-title"]}>Approver WorkFlow</h2>
-        <div
-          style={{ display: "flex", gap: "20px" }}
-          className={styles["header-icons"]}
-        >
-          <span className={styles["header-icon"]}>
-            <NotificationsIcon fontSize="small" />
-          </span>
-          <span className={styles["header-icon"]}>
-            <SettingsIcon fontSize="small" />
-          </span>
-          <ProfileIconWithLogout />
-        </div>
+        <h2 className={styles["header-title"]}>Workflow Builder</h2>
       </header>
-      <div className={styles.container} aria-label="Workflow Approver Master">
-        <div className={styles.selectionRow}>
-          <div className={styles.selectGroup}>
-            <label className={styles.label} htmlFor="plant-select">
-              Plant
-            </label>
-            <select
-              id="plant-select"
-              className={styles.select}
-              value={plant}
-              onChange={handlePlantChange}
-              disabled={!!corporate}
+
+      {/* Scrollable content area */}
+      <div className={styles.content}>
+        {/* Workflow type cards */}
+        <div className={styles.cardRow}>
+          <Card
+            className={`${styles.workflowTypeCard} ${
+              workflowType === "PLANT" ? styles.selected : ""
+            }`}
+            onClick={() => selectWorkflowType("PLANT")}
+          >
+            <CardContent>
+              <Typography variant="h6">Plant Workflow</Typography>
+              <Typography variant="body2" color="textSecondary">
+                Configure approvals for plant-level requests
+              </Typography>
+            </CardContent>
+          </Card>
+
+          <Card
+            className={`${styles.workflowTypeCard} ${
+              workflowType === "CORPORATE" ? styles.selected : ""
+            }`}
+            onClick={() => selectWorkflowType("CORPORATE")}
+          >
+            <CardContent>
+              <Typography variant="h6">Corporate Workflow</Typography>
+              <Typography variant="body2" color="textSecondary">
+                Configure approvals for corporate-level requests
+              </Typography>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Details / plant selector */}
+        <div className={styles.detailsCard}>
+          <Card>
+            <CardContent>
+              {workflowType === "PLANT" && (
+                <>
+                  <Typography variant="subtitle1" gutterBottom>
+                    Select Plant
+                  </Typography>
+
+                  <Select
+                    options={plants.map((p) => ({
+                      value: String(p.id),
+                      label: p.plant_name,
+                    }))}
+                    value={
+                      selectedPlantId
+                        ? {
+                            value: selectedPlantId,
+                            label:
+                              plants.find(
+                                (p) => String(p.id) === selectedPlantId
+                              )?.plant_name || "",
+                          }
+                        : null
+                    }
+                    onChange={(opt) =>
+                      setSelectedPlantId(opt ? String(opt.value) : "")
+                    }
+                    placeholder="Select plant"
+                    className={styles.selectPlant}
+                    isClearable
+                    isSearchable
+                    menuPortalTarget={portalTarget}
+                    menuPosition="fixed"
+                  />
+
+                  {plantDetails && (
+                    <div className={styles.plantDetails}>
+                      <Typography variant="body2">
+                        <strong>Plant ID:</strong> {plantDetails.id}
+                      </Typography>
+                      <Typography variant="body2">
+                        <strong>Name:</strong> {plantDetails.plant_name}
+                      </Typography>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 8,
+                          marginTop: 8,
+                          alignItems: "center",
+                        }}
+                      >
+                        <Typography variant="body2">
+                          <strong>Configured approver levels:</strong>
+                        </Typography>
+                        <Chip
+                          size="small"
+                          label={`${visibleCount} configured`}
+                          color="primary"
+                        />
+                        {loadingWorkflow && (
+                          <div
+                            style={{ display: "flex", alignItems: "center" }}
+                          >
+                            <CircularProgress
+                              size={18}
+                              style={{ marginLeft: 6 }}
+                            />
+                            <Typography
+                              variant="caption"
+                              color="textSecondary"
+                              style={{ marginLeft: 6 }}
+                            >
+                              loading workflow...
+                            </Typography>
+                          </div>
+                        )}
+                      </div>
+
+                      {noApproversHint}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {workflowType === "CORPORATE" && (
+                <>
+                  <Typography variant="subtitle1" gutterBottom>
+                    Select Corporate
+                  </Typography>
+
+                  <Select
+                    options={[
+                      {
+                        value: "Administration",
+                        label: "Corporate - Administration",
+                      },
+                      { value: "SAP", label: "Corporate - Application (SAP)" },
+                      {
+                        value: "IT Support",
+                        label: "Corporate - Application (IT Support)",
+                      },
+                    ]}
+                    value={
+                      selectedCorporate
+                        ? { value: selectedCorporate, label: selectedCorporate }
+                        : null
+                    }
+                    onChange={(opt) =>
+                      setSelectedCorporate(opt ? String(opt.value) : "")
+                    }
+                    placeholder="Select corporate"
+                    className={styles.selectPlant}
+                    isClearable
+                    isSearchable
+                    menuPortalTarget={portalTarget}
+                    menuPosition="fixed"
+                  />
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Approver levels */}
+        <div className={styles.approverLevelsRow}>
+          {approverRows.map((row, idx) =>
+            row.isVisible ? (
+              <Card key={idx} className={styles.approverCard}>
+                <CardContent>
+                  <div className={styles.approverCardHeader}>
+                    <div
+                      style={{ display: "flex", alignItems: "center", gap: 10 }}
+                    >
+                      <Chip label={`Step ${idx + 1}`} size="small" />
+                      <Typography variant="subtitle2">
+                        Approver Level {idx + 2}
+                      </Typography>
+                    </div>
+
+                    <Tooltip title="Remove this approver level">
+                      <Button
+                        size="small"
+                        onClick={() => handleRemoveLevel(idx)}
+                        variant="outlined"
+                        color="inherit"
+                      >
+                        Remove
+                      </Button>
+                    </Tooltip>
+                  </div>
+
+                  <Select
+                    isMulti
+                    options={getOptionsForRow(idx)}
+                    value={row.users}
+                    onChange={(sel) => handleApproverChange(idx, sel)}
+                    placeholder={`Search and add approvers for Level ${
+                      idx + 2
+                    } (max ${MAX_USERS_PER_GROUP})`}
+                    classNamePrefix="react-select"
+                    closeMenuOnSelect={false}
+                    hideSelectedOptions={false}
+                    isSearchable={true}
+                    menuPortalTarget={portalTarget}
+                    menuPosition="fixed"
+                    noOptionsMessage={() => "No users found"}
+                    components={{ MultiValueLabel }}
+                    isOptionDisabled={(opt: any) => !!opt.isDisabled}
+                  />
+
+                  {userOptions.length === 0 && (
+                    <Typography
+                      variant="caption"
+                      color="textSecondary"
+                      style={{ marginTop: 8, display: "block" }}
+                    >
+                      No users available. Please add users in User Management or
+                      refresh after users are added.
+                    </Typography>
+                  )}
+
+                  <div className={styles.badgesWrap}>
+                    {row.users.slice(0, MAX_VISIBLE_BADGES).map((opt, i) => {
+                      const name =
+                        opt.user?.employee_name ||
+                        opt.user?.fullName ||
+                        opt.label ||
+                        "";
+                      return (
+                        <Tooltip key={i} title={name}>
+                          <div className={styles.userBadge}>
+                            <div className={styles.badgeAbbrev}>
+                              {getAbbreviation(name)}
+                            </div>
+                          </div>
+                        </Tooltip>
+                      );
+                    })}
+
+                    {row.users.length > MAX_VISIBLE_BADGES && (
+                      <button
+                        className={styles.moreBtn}
+                        onClick={() => openUserModal(idx)}
+                        type="button"
+                      >
+                        +{row.users.length - MAX_VISIBLE_BADGES} more
+                      </button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ) : null
+          )}
+
+          <div className={styles.addApproverBtnWrap}>
+            <IconButton
+              size="medium"
+              title="Add Approver Level"
+              onClick={handleAddLevel}
+              disabled={!canAddMoreLevels || userOptions.length === 0}
+              color="primary"
             >
-              <option value="">Select Plant</option>
-              {plants && plants.length
-                ? plants.map((p: any) => (
-                    <option key={p.id} value={p.id}>
-                      {p.plant_name}
-                    </option>
-                  ))
-                : plantOptionsStatic.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-            </select>
-          </div>
-          <div className={styles.selectGroup}>
-            <label className={styles.label} htmlFor="corporate-select">
-              Corporate/Central
-            </label>
-            <select
-              id="corporate-select"
-              className={styles.select}
-              value={corporate}
-              onChange={handleCorporateChange}
-              disabled={!!plant}
-            >
-              <option value="">Select Corporate/Central</option>
-              {corporateOptions.map((c) => (
-                <option key={c.label} value={c.label}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
+              <AddCircleOutlineIcon />
+            </IconButton>
           </div>
         </div>
 
-        {(plant || corporate) && (
-          <div className={styles.approverSection}>
-            <div className={styles.approverHeader}>
-              <h3 className={styles.subTitle}>Approver Rows</h3>
-              <span className={styles.approverCount}>
-                Rows: {approverRows.length}
-              </span>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <Button
-                  style={{
-                    minWidth: 40,
-                    background: "#222",
-                    color: "#fff",
-                    borderRadius: 8,
-                    fontSize: 18,
-                    padding: "6px 10px",
-                  }}
-                  onClick={handleAddApproverRow}
-                  type="button"
-                  disabled={
-                    plant
-                      ? approverRows.length >= 5
-                      : corporate
-                      ? approverRows.length >=
-                        (corporateOptions.find((c) => c.label === corporate)
-                          ?.maxApprovers || 5)
-                      : false
-                  }
-                >
-                  <AddIcon />
-                </Button>
-              </div>
-            </div>
-            <div className={styles.approverListWrap}>
-              {approverRows.map((row, rowIdx) => (
-                <div key={rowIdx} className={styles.approverCard}>
-                  <div className={styles.approverCardHeader}>
-                    <span className={styles.approverCardTitle}>{`Approver ${
-                      rowIdx + 2
-                    }`}</span>
-                    <button
-                      className={styles.addApproverBtn}
-                      onClick={() => handleDeleteApproverRow(rowIdx)}
-                      type="button"
-                    >
-                      Remove Row
-                    </button>
-                  </div>
-                  <div
-                    className={styles.usersListWrap}
-                    style={{ flexDirection: "row", flexWrap: "wrap", gap: 16 }}
-                  >
-                    {row.users.length === 0 && (
-                      <span className={styles.noUsersText}>No users added</span>
-                    )}
-                    {row.users.map((u, userIdx) => (
+        {/* Actions */}
+        <div className={styles.actionsRow}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={saveWorkflow}
+            disabled={
+              loadingWorkflow ||
+              !approverRows.some((r) => r.isVisible && r.users.length > 0)
+            }
+          >
+            Save Workflow
+          </Button>
+        </div>
+      </div>
+
+      {/* Approvers modal */}
+      <Dialog
+        open={!!userModal}
+        onClose={closeUserModal}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>
+          Approvers
+          <IconButton
+            aria-label="close"
+            onClick={closeUserModal}
+            style={{ position: "absolute", right: 8, top: 8 }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent dividers>
+          <TableContainer component={Paper} elevation={0}>
+            <Table size="small" aria-label="approvers-table">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Name</TableCell>
+                  <TableCell>Employee Code</TableCell>
+                  <TableCell>Email</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {userModal?.users.map((u, i) => (
+                  <TableRow key={i}>
+                    <TableCell component="th" scope="row">
                       <div
-                        key={userIdx}
-                        className={styles.userItem}
-                        style={{ minWidth: 220, marginRight: 12 }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
                       >
-                        <span className={styles.userText}>
-                          {u.name} ({u.empCode}) - {u.email}{" "}
-                          {u.employee_id
-                            ? `| Employee_id: ${u.employee_id}`
-                            : ""}
-                        </span>
-                        <div className={styles.userActions}>
-                          <button
-                            className={styles.iconBtn}
-                            onClick={() => handleEditUser(rowIdx, userIdx)}
-                            type="button"
-                            title="Edit user"
-                          >
-                            <EditIcon />
-                          </button>
-                          <button
-                            className={styles.iconBtn}
-                            onClick={() => handleDeleteUser(rowIdx, userIdx)}
-                            type="button"
-                            title="Delete user"
-                          >
-                            <DeleteIcon />
-                          </button>
+                        <div
+                          style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: 18,
+                            background: "#1976d2",
+                            color: "white",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {getAbbreviation(
+                            u.user.employee_name || u.user.fullName
+                          )}
+                        </div>
+                        <div>
+                          <Typography variant="subtitle2">
+                            {u.user.employee_name || u.user.fullName}
+                          </Typography>
                         </div>
                       </div>
-                    ))}
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        minWidth: 220,
-                      }}
-                    >
-                      <button
-                        className={`${styles.iconBtn} ${styles.addUser}`}
-                        onClick={() => {
-                          setEditRowIndex(rowIdx);
-                          setEditUserIndex(null);
-                          setForm({
-                            name: "",
-                            empCode: "",
-                            email: "",
-                            employee_id: "",
-                          });
-                        }}
-                        type="button"
-                        title="Add user"
-                      >
-                        <AddIcon />
-                      </button>
-                    </div>
-                  </div>
-                  {editRowIndex === rowIdx && (
-                    <div className={styles.inlineFormGrid}>
-                      <div className={styles.selectFull}>
-                        <label className={styles.label}>
-                          Select User <span style={{ color: "red" }}>*</span>
-                        </label>
-                        <select
-                          className={styles.select}
-                          value={
-                            form.userId !== undefined && form.userId !== null
-                              ? String(form.userId)
-                              : ""
-                          }
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            const opt = userOptions.find(
-                              (o) => String(o.value) === val
-                            );
-                            if (opt) {
-                              const u = opt.user;
-                              setForm({
-                                name:
-                                  u.employee_name ||
-                                  u.fullName ||
-                                  u.full_name ||
-                                  "",
-                                empCode: u.employee_code || "",
-                                email: u.email || "",
-                                employee_id: u.employee_id || "",
-                                userId: u.id,
-                              } as any);
-                            } else {
-                              setForm({
-                                name: "",
-                                empCode: "",
-                                email: "",
-                                employee_id: "",
-                                userId: null,
-                              });
-                            }
-                          }}
-                        >
-                          <option value="">-- Select user --</option>
-                          {userOptions.map((o) => (
-                            <option key={o.value} value={String(o.value)}>
-                              {o.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <InputField
-                          label="Name"
-                          name="name"
-                          value={form.name}
-                          onChange={(e) => {}}
-                          placeholder="Enter name"
-                          disabled={true}
-                        />
-                        <InputField
-                          label="Emp Code"
-                          name="empCode"
-                          value={form.empCode}
-                          onChange={(e) => {}}
-                          placeholder="Enter emp code"
-                          disabled={true}
-                        />
-                      </div>
-                      <div>
-                        <InputField
-                          label="Email ID"
-                          name="email"
-                          value={form.email}
-                          onChange={(e) => {}}
-                          placeholder="Enter email"
-                          type="email"
-                          disabled={true}
-                        />
-                        <InputField
-                          label="Employee_id"
-                          name="employee_id"
-                          value={(form as any).employee_id || ""}
-                          onChange={(e) => {}}
-                          placeholder="Enter employee id"
-                          disabled={true}
-                        />
-                      </div>
-                      <div className={styles.formBtnWrap}>
-                        {editUserIndex === null ? (
-                          <Button
-                            style={{
-                              minWidth: 90,
-                              background: "#2563eb",
-                              color: "#fff",
-                              borderRadius: 8,
-                              boxShadow: "0 2px 8px rgba(37,99,235,0.08)",
-                              fontSize: 15,
-                            }}
-                            onClick={() => handleAddUser(rowIdx)}
-                            type="button"
-                          >
-                            Add
-                          </Button>
-                        ) : (
-                          <Button
-                            style={{
-                              minWidth: 90,
-                              background: "#27ae60",
-                              color: "#fff",
-                              borderRadius: 8,
-                              boxShadow: "0 2px 8px rgba(39,174,96,0.08)",
-                              fontSize: 15,
-                            }}
-                            onClick={handleSaveEdit}
-                            type="button"
-                          >
-                            Save
-                          </Button>
-                        )}
-                        <Button
-                          style={{
-                            minWidth: 70,
-                            background: "#e74c3c",
-                            color: "#fff",
-                            borderRadius: 8,
-                            marginLeft: 8,
-                            fontSize: 15,
-                          }}
-                          onClick={() => {
-                            setEditRowIndex(null);
-                            setEditUserIndex(null);
-                            setForm({
-                              name: "",
-                              empCode: "",
-                              email: "",
-                              employee_id: "",
-                            });
-                          }}
-                          type="button"
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+                    </TableCell>
+                    <TableCell>
+                      {u.user.employee_code || u.user.employee_id || "-"}
+                    </TableCell>
+                    <TableCell>{u.user.email || "-"}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={closeUserModal}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };

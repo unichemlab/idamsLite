@@ -1,13 +1,19 @@
 import React, { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { useAbility } from "../../context/AbilityContext";
 
 interface ProtectedRouteProps {
   children: ReactNode;
+  requires?: { action: string; subject: string };
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
+  children,
+  requires,
+}) => {
   const { user } = useAuth();
+  const ability = useAbility();
   const location = useLocation();
 
   // Not logged in or inactive → redirect to login
@@ -15,17 +21,13 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     return <Navigate to="/" replace />;
   }
 
-  // Allow all users to access user-access-management
-  if (location.pathname.startsWith("/user-access-management")) {
-    return <>{children}</>;
+  // Check CASL permission if specified
+  if (requires && !ability.can(requires.action, requires.subject)) {
+    // No permission → redirect to home or access denied
+    return <Navigate to="/" replace />;
   }
 
-  // Restrict all other routes (considered admin panel) for user role_id = 12
-  if (user.role_id == 12) {
-    return <Navigate to="/user-access-management" replace />;
-  }
-
-  // Allow access for other roles
+  // Allow access
   return <>{children}</>;
 };
 

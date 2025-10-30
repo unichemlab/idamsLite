@@ -10,6 +10,7 @@ import login_headTitle2 from "../assets/login_headTitle2.png";
 import AccessRequestsTable from "./AccessRequestsTable";
 import ApprovalHistoryTable from "./ApprovalHistoryTable";
 import { useApprover } from "../context/ApproverContext";
+import { useAuth } from "../context/AuthContext";
 
 // --- Demo/mock data for all admin sections ---
 const initialRequests = [
@@ -85,10 +86,18 @@ const ApproverDashboard: React.FC = () => {
 
   const navigate = useNavigate();
   const user = { username: "approver", role: "Approver" };
+  const { logout } = useAuth();
 
   const handleLogout = () => {
-    localStorage.removeItem("role");
-    localStorage.removeItem("username");
+    // Use AuthContext logout to fully clear auth state (authUser, token, permissions)
+    try {
+      logout();
+    } catch (e) {
+      // fallback: clear minimal localStorage keys
+      localStorage.removeItem("authUser");
+      localStorage.removeItem("token");
+    }
+    // navigate to login/root
     navigate("/");
   };
 

@@ -35,36 +35,35 @@ const Login: React.FC = () => {
     await login(username, password);
   };
 
- // Type definition
-type User = {
-  status: string;
-  role_id: number | number[] | null; // single number OR array
-};
+  React.useEffect(() => {
+    if (!user) return;
 
-React.useEffect(() => {
-  if (!user) return;
+    if (user.status.toUpperCase() !== "ACTIVE") return;
 
-  if (user.status.toUpperCase() !== "ACTIVE") return;
+    // Normalize role_id to a number array
+    const roleIds: number[] = Array.isArray(user.role_id)
+      ? user.role_id
+      : typeof user.role_id === "number"
+      ? [user.role_id]
+      : [];
 
-  // Normalize role_id to a number array
-  const roleIds: number[] = Array.isArray(user.role_id)
-    ? user.role_id
-    : typeof user.role_id === "number"
-    ? [user.role_id]
-    : [];
+    // Prefer routing by explicit approver flag if present (set from AuthContext workflow check)
+    let target = "/user-access-management";
+    if (user.isApprover) {
+      target = "/approver";
+    } else if (roleIds.includes(1)) {
+      target = "/superadmin";
+    } else if (roleIds.includes(2)) {
+      target = "/plantadmin";
+    } else if (roleIds.includes(3)) {
+      // legacy role-based approver mapping (role 3)
+      target = "/approver";
+    }
 
-  let target = "/user-access-management";
-
-  if (roleIds.includes(1)) target = "/superadmin";
-  else if (roleIds.includes(2)) target = "/plantadmin";
-  else if (roleIds.includes(3)) target = "/qamanager";
-
-  if (location.pathname !== target) {
-    navigate(target, { replace: true });
-  }
-}, [user, navigate, location.pathname]);
-
-
+    if (location.pathname !== target) {
+      navigate(target, { replace: true });
+    }
+  }, [user, navigate, location.pathname]);
   return (
     <div className={styles.loginBackground}>
       <div className={styles.container}>

@@ -98,7 +98,7 @@ const handleCloseModal = () => {
   return (
     <div>
       <header className={styles["main-header"]}>
-        <h2 className={styles["header-title"]}>Plant Master</h2>
+        <h2 className={styles["header-title"]}>IT Support</h2>
         <div className={styles["header-icons"]}>
           <span className={styles["header-icon"]}>
             <NotificationsIcon fontSize="small" />
