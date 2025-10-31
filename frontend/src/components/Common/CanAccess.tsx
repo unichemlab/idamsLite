@@ -1,5 +1,5 @@
 import React, { ReactNode } from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate} from "react-router-dom";
 import { useAbility } from "../../context/AbilityContext";
 import { useAuth } from "../../context/AuthContext";
 
@@ -28,7 +28,7 @@ const CanAccess: React.FC<CanAccessProps> = ({
 }) => {
   const ability = useAbility();
   const { user } = useAuth();
-  const location = useLocation();
+
 
   if (!user?.id) {
     // Not logged in → login page

@@ -19,7 +19,7 @@ import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
-import CircularProgress from "@mui/material/CircularProgress";
+// CircularProgress removed from UI when plant details are hidden
 import Tooltip from "@mui/material/Tooltip";
 import Chip from "@mui/material/Chip";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
@@ -79,9 +79,9 @@ const WorkflowBuilder: React.FC = () => {
   const [currentWorkflowId, setCurrentWorkflowId] = useState<number | null>(
     null
   );
-  const [plantDetails, setPlantDetails] = useState<any>(null);
   const [loadingWorkflow, setLoadingWorkflow] = useState(false);
-  const [currentWorkflowData, setCurrentWorkflowData] = useState<any>(null);
+  // we only set workflow helper data (not read directly) so keep setter to avoid removing logic
+  const [, setCurrentWorkflowData] = useState<any>(null);
 
   // Build userOptions from the user context (normalize various id fields)
   useEffect(() => {
@@ -116,16 +116,6 @@ const WorkflowBuilder: React.FC = () => {
       )
       .catch(() => setPlants([]));
   }, []);
-
-  // Keep plantDetails in sync with selectedPlantId
-  useEffect(() => {
-    if (selectedPlantId) {
-      const found = plants.find((p) => String(p.id) === selectedPlantId);
-      setPlantDetails(found?.details || null);
-    } else {
-      setPlantDetails(null);
-    }
-  }, [selectedPlantId, plants]);
 
   // When a plant is selected, fetch existing workflow for that plant and populate UI rows.
   useEffect(() => {
@@ -281,7 +271,6 @@ const WorkflowBuilder: React.FC = () => {
     setSelectedCorporate("");
     setApproverRows(getInitialApproverRows());
     setCurrentWorkflowId(null);
-    setPlantDetails(null);
     setCurrentWorkflowData(null);
   };
 
@@ -366,7 +355,6 @@ const WorkflowBuilder: React.FC = () => {
     }
   };
 
-  const visibleCount = approverRows.filter((r) => r.isVisible).length;
   const canAddMoreLevels = approverRows.some((r) => !r.isVisible);
 
   // react-select portal target to avoid clipping inside scroll containers
@@ -429,16 +417,8 @@ const WorkflowBuilder: React.FC = () => {
     );
   };
 
-  const noApproversHint =
-    currentWorkflowData && !currentWorkflowData.hasAnyApprover ? (
-      <Typography
-        variant="body2"
-        color="textSecondary"
-        style={{ marginTop: 8 }}
-      >
-        This plant has a saved workflow but no approvers configured yet.
-      </Typography>
-    ) : null;
+  // Previously we showed a hint when a saved workflow existed but had no approvers.
+  // That UI was removed per design request; keep currentWorkflowData for logic but do not render a hint here.
 
   return (
     <div className={styles.container}>
@@ -517,53 +497,7 @@ const WorkflowBuilder: React.FC = () => {
                     menuPosition="fixed"
                   />
 
-                  {plantDetails && (
-                    <div className={styles.plantDetails}>
-                      <Typography variant="body2">
-                        <strong>Plant ID:</strong> {plantDetails.id}
-                      </Typography>
-                      <Typography variant="body2">
-                        <strong>Name:</strong> {plantDetails.plant_name}
-                      </Typography>
-
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: 8,
-                          marginTop: 8,
-                          alignItems: "center",
-                        }}
-                      >
-                        <Typography variant="body2">
-                          <strong>Configured approver levels:</strong>
-                        </Typography>
-                        <Chip
-                          size="small"
-                          label={`${visibleCount} configured`}
-                          color="primary"
-                        />
-                        {loadingWorkflow && (
-                          <div
-                            style={{ display: "flex", alignItems: "center" }}
-                          >
-                            <CircularProgress
-                              size={18}
-                              style={{ marginLeft: 6 }}
-                            />
-                            <Typography
-                              variant="caption"
-                              color="textSecondary"
-                              style={{ marginLeft: 6 }}
-                            >
-                              loading workflow...
-                            </Typography>
-                          </div>
-                        )}
-                      </div>
-
-                      {noApproversHint}
-                    </div>
-                  )}
+                  {/* plant details intentionally hidden (cleaner UI) */}
                 </>
               )}
 
