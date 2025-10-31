@@ -46,12 +46,15 @@ const Login: React.FC = () => {
       : typeof user.role_id === "number"
       ? [user.role_id]
       : [];
-
+console.log("user login",user);
     // Prefer routing by explicit approver flag if present (set from AuthContext workflow check)
     let target = "/user-access-management";
     if (user.isApprover) {
       target = "/approver";
-    } else if (roleIds.includes(1)) {
+    } else if (user.isITBin) {
+      target = "/task";
+    }
+    else if (roleIds.includes(1)) {
       target = "/superadmin";
     } else if (roleIds.includes(2)) {
       target = "/plantadmin";
@@ -59,7 +62,8 @@ const Login: React.FC = () => {
       // legacy role-based approver mapping (role 3)
       target = "/approver";
     }
-
+console.log("pathname",location.pathname);
+console.log("target",target);
     if (location.pathname !== target) {
       navigate(target, { replace: true });
     }

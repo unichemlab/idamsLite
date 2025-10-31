@@ -1,3 +1,4 @@
+
 import React, {
   createContext,
   useContext,
@@ -26,6 +27,7 @@ export interface AuthUser {
   token: string;
   // true when this user appears as an approver in any workflow
   isApprover?: boolean;
+  isITBin?: boolean;
 }
 
 interface AuthContextType {
@@ -37,7 +39,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true); // true until localStorage check is done
@@ -47,6 +48,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // fetch permissions from backend
   async function fetchPermissions(token: string) {
     try {
+      if (!token) {
+        console.warn("fetchPermissions called without token");
+        setPermissions([]);
+        return;
+      }
       const res = await fetch(`${API_BASE}/api/auth/permissions`, {
         method: "GET",
         headers: { Authorization: `Bearer ${token}` },
@@ -107,9 +113,102 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           });
         }
 
-        return found;
+        // Step 3: If NOT found in workflow, check user_requests table
+        const userEmail = JSON.parse(localStorage.getItem("authUser") || "{}")?.email;
+        if (!userEmail) return false;
+        console.log("userEmail",userEmail);
+        const res2 = await fetch(
+          `${API_BASE}/api/user-requests/approvers?email=${encodeURIComponent(userEmail)}`,
+          {
+            method: "GET",
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          }
+        );
+
+        if (!res2.ok) return false;
+        const data2 = await res2.json();
+
+        const foundInUserRequests = Array.isArray(data2) && data2.length > 0;
+
+        if (foundInUserRequests) {
+          setUser((prev) => {
+            if (!prev) return prev;
+            if (prev.isApprover) return prev;
+            const updated = { ...prev, isApprover: true };
+            try {
+              localStorage.setItem("authUser", JSON.stringify(updated));
+            } catch { }
+            return updated;
+          });
+          return true;
+        }
+
+        return false;
       } catch (err) {
         console.error("fetchWorkflowsForUser error", err);
+        return false;
+      }
+    },
+    [setUser]
+  );
+
+
+  // Check whether a given user id appears in any workflow approver lists.
+  // Uses setUser updater safely to avoid stale closures / unnecessary deps.
+  const fetchITBinForUser = useCallback(
+    async (userId: number, token?: string) => {
+      try {
+        const res = await fetch(`${API_BASE}/api/plant-itsupport`, {
+          method: "GET",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) return false;
+
+        const data = await res.json().catch(() => ({}));
+        const workflows = Array.isArray(data) ? data : [];
+
+        const found = workflows.some((wf: any) => {
+          if (!wf) {
+            console.log(`🚫 wf is null or undefined`);
+            return false;
+          }
+
+          if (!Array.isArray(wf.users)) {
+            console.log(`⚠ wf.users is not an array:`, wf.users);
+            return false;
+          }
+          // console.log("users_array",!Array.isArray(wf.users));
+          if (!wf || !Array.isArray(wf.users)) return false;
+          // wf.approvers is an array of arrays (one array per approver level)
+          // return wf.users.some((arr: any) =>
+          //   Array.isArray(arr)
+          //     ? arr.some((u) => u && Number(u.user_id) === Number(userId))
+          //     : false
+          // );
+
+          return wf.users.some(
+            (u: any) => u && Number(u.user_id) === Number(userId)
+          );
+        });
+
+        if (found) {
+          // update user state safely
+          setUser((prev) => {
+            if (!prev) return prev;
+            if (prev.isITBin) return prev;
+            const updated = { ...prev, isITBin: true };
+            try {
+              localStorage.setItem("authUser", JSON.stringify(updated));
+            } catch (e) {
+              /* ignore localStorage write errors */
+            }
+            return updated;
+          });
+        }
+        console.log("hghgh", found);
+        return found;
+      } catch (err) {
+        console.error("fetchITBinForUser error", err);
         return false;
       }
     },
@@ -138,6 +237,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               } catch (e) {
                 console.warn("restore workflows", e);
               }
+
+              try {
+                await fetchITBinForUser(parsed.id, token);
+              } catch (e) {
+                console.warn("restore ITBIN", e);
+              }
             }
           }
         }
@@ -146,7 +251,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     })();
     // fetchWorkflowsForUser is stable via useCallback
-  }, [fetchWorkflowsForUser]);
+  }, [fetchWorkflowsForUser, fetchITBinForUser]);
 
   const login = async (username: string, password: string) => {
     setLoading(true);
@@ -179,6 +284,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         approver: 3,
         user: 4,
         vendor: 5,
+        ITBin: 6,
       };
 
       let role_id: number | number[] = data.user.role_id;
@@ -236,6 +342,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.warn("permissions fetch", e)
       );
 
+      console.log("fetchuserlogin", authUser);
       // check if user is approver in any workflow and set flag (best-effort)
       // Await this so callers (e.g. Login component) see user.isApprover set
       // before they perform a redirect based on the flag.
@@ -243,6 +350,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         await fetchWorkflowsForUser(authUser.id, authUser.token);
       } catch (e) {
         console.warn("fetchWorkflowsForUser", e);
+      }
+
+      try {
+        await fetchITBinForUser(authUser.id, authUser.token);
+      } catch (e) {
+        console.warn("fetchITBinForUser", e);
       }
 
       console.log("[AuthContext] User set after login:", authUser);

@@ -70,6 +70,7 @@ const allowedRoutes = [
   "/generate-credentials",
   "/track-request",
   "/approver",
+  "/approvers",
   "/superadmin",
   "/plants",
   "/plants/add",

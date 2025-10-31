@@ -44,8 +44,51 @@ const pool = require("../config/db");
 const bcrypt = require("bcryptjs");
 exports.getAllTasks = async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      `SELECT 
+    const { plant, plant_id, transaction_id, task_status, access_request_type } = req.query;
+     const user = req.user;
+    // 🧩 Dynamic WHERE clause
+    const whereClauses = [];
+    const params = [];
+
+    if (plant) {
+      params.push(plant);
+      whereClauses.push(`p.plant_name = $${params.length}`);
+    }
+
+    if (plant_id) {
+      params.push(plant_id);
+      whereClauses.push(`p.id = $${params.length}`);
+    }
+
+    if (transaction_id) {
+      params.push(transaction_id);
+      whereClauses.push(`ur.transaction_id = $${params.length}`);
+    }
+
+    if (task_status) {
+      params.push(task_status);
+      whereClauses.push(`tr.task_status = $${params.length}`);
+    }
+
+    if (access_request_type) {
+      params.push(access_request_type);
+      whereClauses.push(`ur.access_request_type = $${params.length}`);
+    }
+
+    // 🔹 Apply restriction based on ITBIN flag
+    if (user?.isITBin) {
+      // ITBIN → only tasks from assigned plants
+      if (user.plant_ids && user.plant_ids.length > 0) {
+        params.push(user.plant_ids);
+        whereClauses.push(`p.id = ANY($${params.length})`);
+      }
+    }
+
+    const whereSQL = whereClauses.length ? `WHERE ${whereClauses.join(" AND ")}` : "";
+
+    // 🧩 Main query
+    const query = `
+      SELECT 
           -- 🧩 User Request info
           ur.id AS user_request_id,
           ur.transaction_id AS user_request_transaction_id,
@@ -82,7 +125,7 @@ exports.getAllTasks = async (req, res) => {
           tr.remarks,
           tr.created_on AS task_created_on,
 
-          -- 🧩 Task Closure info (if exists)
+          -- 🧩 Task Closure info
           tc.assignment_group,
           tc.role_granted,
           tc.access,
@@ -115,8 +158,11 @@ exports.getAllTasks = async (req, res) => {
       LEFT JOIN user_master um 
         ON tc.assigned_to = um.id
 
-      ORDER BY tr.created_on DESC, ur.id;`
-    );
+      ${whereSQL}
+      ORDER BY tr.created_on DESC, ur.id;
+    `;
+
+    const { rows } = await pool.query(query, params);
 
     res.json(rows);
   } catch (err) {
@@ -124,6 +170,7 @@ exports.getAllTasks = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
 
 
 
@@ -468,6 +515,7 @@ exports.getUserTaskRequestById = async (req, res) => {
         .filter((r) => r.task_id)
         .map((row) => ({
           task_id: row.task_id,
+          taskNumber: row.task_request_transaction_id,
           taskNumber: row.task_request_transaction_id,
           application_equip_id: row.application_equip_id,
           application_name: row.application_name,
