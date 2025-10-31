@@ -45,36 +45,34 @@ exports.getAllTasks = async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT ur.id AS user_request_id,
-              ur.transaction_id AS user_request_transaction_id,
-              ur.request_for_by,
-              ur.name,
-              ur.employee_code,
-              ur.employee_location,
-              ur.access_request_type,
-              ur.training_status,
-              ur.training_attachment,
-              ur.training_attachment_name,
-              ur.vendor_name,
-              ur.vendor_firm,
-              ur.vendor_code,
-              ur.vendor_allocated_id,
-              ur.status AS user_request_status,
-              ur.approver1_status,
-              ur.approver2_status,
-              ur.created_on,
-              tr.id AS task_id,
-              tr.transaction_id AS task_request_transaction_id,
-              tr.application_equip_id,
-              app.display_name AS application_name,
-              tr.department,
-              d.department_name,
-              tr.role,
-              r.role_name AS role_name,
-              p.plant_name AS plant_name,
-              tr.location,
-              tr.reports_to,
-              tr.task_status,
-              tr.remarks
+        ur.transaction_id AS user_request_transaction_id,
+        ur.request_for_by,
+        ur.name,
+        ur.employee_code,
+        ur.employee_location,
+        ur.access_request_type,
+        ur.training_status,
+        ur.training_attachment,
+        ur.training_attachment_name,
+        ur.vendor_name,
+        ur.vendor_firm,
+        ur.vendor_code,
+        ur.vendor_allocated_id,
+        ur.status AS user_request_status,
+        ur.created_on,
+        tr.id AS task_id,
+        tr.transaction_id AS task_request_transaction_id,
+        tr.application_equip_id,
+        app.display_name AS application_name,
+        tr.department,
+        d.department_name,
+        tr.role,
+        r.role_name AS role_name,
+        p.plant_name AS plant_name,
+        tr.location,
+        tr.reports_to,
+        tr.task_status,
+        tr.remarks
        FROM task_requests tr
        LEFT JOIN user_requests ur ON tr.user_request_id = ur.id
        LEFT JOIN department_master d ON tr.department = d.id
@@ -89,17 +87,31 @@ exports.getAllTasks = async (req, res) => {
   }
 };
 
-
 exports.updateTask = async (req, res) => {
   const { id } = req.params;
-  const { user_request_id, task_name, assigned_to, due_date, status, priority } = req.body;
+  const {
+    user_request_id,
+    task_name,
+    assigned_to,
+    due_date,
+    status,
+    priority,
+  } = req.body;
 
   try {
     const { rows } = await pool.query(
       `UPDATE task SET
       user_request_id=$1, task_name=$2, assigned_to=$3, due_date=$4, status=$5, priority=$6, updated_at=NOW()
       WHERE id=$7 RETURNING *`,
-      [user_request_id, task_name, assigned_to, due_date || null, status || "Pending", priority || "Medium", id]
+      [
+        user_request_id,
+        task_name,
+        assigned_to,
+        due_date || null,
+        status || "Pending",
+        priority || "Medium",
+        id,
+      ]
     );
     res.json(rows[0]);
   } catch (err) {
@@ -117,7 +129,6 @@ exports.deleteTask = async (req, res) => {
   }
 };
 
-
 /**
  * Get a single user request with its tasks
  */
@@ -125,7 +136,7 @@ exports.getUserTaskRequestById = async (req, res) => {
   const { id } = req.params;
   try {
     const { rows } = await pool.query(
-     `SELECT ur.id AS user_request_id,
+      `SELECT ur.id AS user_request_id,
               ur.transaction_id AS user_request_transaction_id,
               ur.request_for_by,
               ur.name,
@@ -191,7 +202,7 @@ exports.getUserTaskRequestById = async (req, res) => {
         .filter((r) => r.task_id)
         .map((row) => ({
           task_id: row.task_id,
-          taskNumber:row.task_request_transaction_id,
+          taskNumber: row.task_request_transaction_id,
           application_equip_id: row.application_equip_id,
           application_name: row.application_name,
           department_id: row.department,

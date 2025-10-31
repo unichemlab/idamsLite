@@ -137,11 +137,17 @@ exports.login = async (req, res) => {
     logDebug("User login successful:", { username, roleIds });
 
     // ---------------- Generate JWT ----------------
-    const token = jwt.sign(
-      { user_id: user.user_id, username: user.username, role_id: user.role_id },
-      process.env.JWT_SECRET,
-      { expiresIn: "8h" }
-    );
+    // Ensure we include a reliable user id and username in the token payload.
+    // DB rows may have id, user_id or employee_id fields; prefer internal id and employee_id as username.
+    const payload = {
+      user_id: user.id || user.user_id || null,
+      username: user.employee_id || user.username || null,
+      role_id: user.role_id,
+    };
+
+    const token = jwt.sign(payload, process.env.JWT_SECRET, {
+      expiresIn: "8h",
+    });
 
     return res.json({
       token,
@@ -174,6 +180,10 @@ exports.login = async (req, res) => {
  */
 exports.getPermissions = async (req, res) => {
   try {
+    logDebug("getPermissions called", {
+      headers: req.headers && { authorization: req.headers.authorization },
+      cookies: req.cookies ? Object.keys(req.cookies) : undefined,
+    });
     // Extract token from Authorization header or cookie
     const authHeader = req.headers.authorization || req.headers.Authorization;
     let token = null;
@@ -187,13 +197,17 @@ exports.getPermissions = async (req, res) => {
       token = req.cookies.token;
     }
 
-    if (!token)
+    if (!token) {
+      logDebug("getPermissions: no token found on request");
       return res.status(401).json({ message: "Missing authentication token" });
+    }
 
     let payload;
     try {
       payload = jwt.verify(token, process.env.JWT_SECRET);
+      logDebug("getPermissions: token payload", payload);
     } catch (err) {
+      logDebug("getPermissions: token verify failed", err && err.message);
       return res.status(401).json({ message: "Invalid token" });
     }
 
@@ -209,10 +223,14 @@ exports.getPermissions = async (req, res) => {
         userId = userRes.rows[0].id;
     }
 
-    if (!userId)
+    if (!userId) {
+      logDebug("getPermissions: unable to determine user id from token", {
+        payload,
+      });
       return res
         .status(400)
         .json({ message: "Unable to determine user id from token" });
+    }
 
     // Try to fetch from admin_plant_permission, fallback to user_plant_permission
     let permissions = [];

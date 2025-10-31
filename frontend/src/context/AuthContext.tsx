@@ -47,6 +47,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // fetch permissions from backend
   async function fetchPermissions(token: string) {
     try {
+      if (!token) {
+        console.warn("fetchPermissions called without token");
+        setPermissions([]);
+        return;
+      }
       const res = await fetch(`${API_BASE}/api/auth/permissions`, {
         method: "GET",
         headers: { Authorization: `Bearer ${token}` },
