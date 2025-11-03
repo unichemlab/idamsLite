@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const auditLog = require("../utils/audit");
 // Get all applications (GET)
 exports.getAllApplications = async (req, res) => {
   try {
@@ -20,13 +21,14 @@ exports.deleteApplication = async (req, res) => {
     if (isNaN(id)) {
       return res.status(400).json({ error: "Invalid application ID" });
     }
-    const result = await db.query(
-      `DELETE FROM application_master WHERE id = $1 RETURNING *`,
-      [id]
+    const oldRow = await db.query("SELECT * FROM application_master WHERE id=$1", [id]);
+    const result = await db.query(`DELETE FROM application_master WHERE id = $1 RETURNING *`,    [id]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Application not found" });
     }
+     auditLog(req, "application_master", id, "DELETE", oldRow.rows[0], {}, "application deleted");
+
     res.status(200).json({ message: "Application deleted successfully" });
   } catch (err) {
     console.error("Error deleting application:", err);
@@ -83,6 +85,7 @@ exports.addApplication = async (req, res) => {
         status,
       ]
     );
+    auditLog(req, "application_master", result.rows[0].id, "INSERT", {}, result.rows[0], "new application");
     console.log("[addApplication] Inserted row:", result.rows[0]);
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -123,6 +126,8 @@ exports.editApplication = async (req, res) => {
     let roleIdStr = Array.isArray(role_id)
       ? role_id.join(",")
       : String(role_id);
+
+    const oldData = await db.query("SELECT * FROM application_master WHERE id=$1", [id]);
     const result = await db.query(
       `UPDATE application_master SET
           transaction_id = $1,
@@ -162,6 +167,7 @@ exports.editApplication = async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Application not found" });
     }
+    auditLog(req, "application_master", id, "UPDATE", oldData.rows[0], result.rows[0], "updated application");
     res.status(200).json(result.rows[0]);
   } catch (err) {
     console.error("Error editing application:", err);

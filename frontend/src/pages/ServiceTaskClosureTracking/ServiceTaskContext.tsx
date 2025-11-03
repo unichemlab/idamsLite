@@ -44,6 +44,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({
       );
       if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
       const data = await response.json();
+      console.log("task data",data);
       setTasks(data);
     } catch (err: any) {
       console.error("Error fetching task data:", err);

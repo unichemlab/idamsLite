@@ -79,7 +79,6 @@ const getUserRequestWithTasks = async (id) => {
   return { request, tasks };
 };
 
-// --------------------- HANDLE APPROVAL ---------------------
 
 // --------------------- HANDLE APPROVAL ---------------------
 exports.handleApproval = async (req, res) => {
@@ -197,6 +196,11 @@ exports.handleApproval = async (req, res) => {
            WHERE request_id=$1 AND approver_type='approver2'`,
           [id, action]
         );
+           
+  // INSERT ACCESS LOG FOR EACH TASK
+  for (const task of tasks) {
+    await insertAccessLog(request, task, action);
+  }
 
         return res.send("✅ Request approved and completed.");
       } else if (action === "reject") {
@@ -211,7 +215,10 @@ exports.handleApproval = async (req, res) => {
            WHERE request_id=$1 AND approver_type='approver2'`,
           [id, action]
         );
-
+          // INSERT ACCESS LOG FOR EACH TASK
+  for (const task of tasks) {
+    await insertAccessLog(request, task, action);
+  }
         return res.send("❌ Request rejected by Approver 2.");
       }
     }
@@ -223,6 +230,46 @@ exports.handleApproval = async (req, res) => {
     res.status(500).send("Server error");
   }
 };
+
+// --------------------- HANDLE APPROVAL ---------------------
+async function insertAccessLog(request, task, action) {
+  await pool.query(
+    `INSERT INTO access_log(
+      user_request_id,
+      task_id,
+      ritm_transaction_id,
+      task_transaction_id,
+      request_for_by, name, employee_code, employee_location,
+      access_request_type, training_status,
+      vendor_firm, vendor_code, vendor_name, vendor_allocated_id,
+      user_request_status, task_status,
+      application_equip_id, department, role, location, reports_to,
+      approver1_status, approver2_status, approver1_email, approver2_email,
+      created_on, updated_on, completed_at, remarks
+    ) VALUES(
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
+      $11,$12,$13,$14,$15,$16,
+      $17,$18,$19,$20,$21,
+      $22,$23,$24,$25,
+      $26,$27,$28,$29
+    )`,
+    [
+      request.id,
+      task.id,
+      request.transaction_id,
+      task.transaction_id,
+      request.request_for_by, request.name, request.employee_code, request.employee_location,
+      request.access_request_type, request.training_status,
+      request.vendor_firm, request.vendor_code, request.vendor_name, request.vendor_allocated_id,
+      request.status, task.task_status,
+      task.application_equip_id, task.department, task.role, task.location, task.reports_to,
+      request.approver1_status, request.approver2_status, request.approver1_email, request.approver2_emails,
+      request.created_on, request.updated_on, request.completed_at, task.remarks
+    ]
+  );
+}
+
+
 
 
 // exports.handleApproval = async (req, res) => {

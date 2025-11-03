@@ -76,13 +76,15 @@ exports.getAllTasks = async (req, res) => {
     }
 
     // 🔹 Apply restriction based on ITBIN flag
-    if (user?.isITBin) {
-      // ITBIN → only tasks from assigned plants
-      if (user.plant_ids && user.plant_ids.length > 0) {
-        params.push(user.plant_ids);
-        whereClauses.push(`p.id = ANY($${params.length})`);
-      }
-    }
+    // 🔹 Apply restriction based on ITBIN flag
+if (user?.isITBin) {
+  const plantIds = user?.itPlants?.map(p => p.plant_id) || []; 
+  if (plantIds.length > 0) {
+    params.push(plantIds);
+    whereClauses.push(`p.id = ANY($${params.length})`);
+  }
+}
+
 
     const whereSQL = whereClauses.length ? `WHERE ${whereClauses.join(" AND ")}` : "";
 
@@ -170,9 +172,6 @@ exports.getAllTasks = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-
-
-
 
 
 

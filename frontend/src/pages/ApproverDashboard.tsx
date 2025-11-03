@@ -58,6 +58,7 @@ interface ApprovalAction {
 const ApproverDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:4000";
 
   const [activeTab, setActiveTab] = useState<
     "access-requests" | "approved-rejected"
@@ -91,100 +92,114 @@ const ApproverDashboard: React.FC = () => {
   async function fetchRequests() {
     setLoading(true);
     try {
-      // Request all user requests (backend returns nested tasks per request)
+      // Approach:
+      // 1) If user is authenticated, fetch workflows where this user is an approver
+      //    -> that returns workflow rows including plant_id
+      // 2) Use the plant_id list to fetch tasks and filter tasks that belong to those plants
       const token = (user as any)?.token || localStorage.getItem("token");
       const headers: Record<string, string> = {};
       if (token) headers.Authorization = `Bearer ${token}`;
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/user-requests`, {
+
+      // API base URL fallback to local backend when env not set (avoids dev server returning index.html)
+      const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:4000";
+
+      let plantIds: number[] = [];
+      if ((user as any)?.id) {
+        const wRes = await fetch(
+          `${API_BASE}/api/workflows?approver_id=${encodeURIComponent(
+            (user as any).id
+          )}`,
+          { method: "GET", headers }
+        );
+        if (wRes.ok) {
+          const wdata = await wRes.json();
+          // workflowController returns { workflows }
+          const workflows = wdata.workflows || wdata || [];
+          plantIds = Array.from(
+            new Set(
+              workflows
+                .map((w: any) => Number(w.plant_id))
+                .filter((n: number) => !isNaN(n))
+            )
+          );
+        }
+      }
+
+      // Fetch all tasks and filter client-side by plant ids. If there are no plantIds
+      // for the approver, fall back to matching tasks by approver name/id so approver
+      // still sees their items.
+      const tRes = await fetch(`${API_BASE}/api/task`, {
         method: "GET",
         headers,
       });
-      console.log("[DEBUG] fetchRequests: response status", res.status);
-      if (!res.ok) throw new Error("Failed to fetch requests");
-      const data = await res.json();
-      console.log("[DEBUG] fetchRequests: backend data", data);
+      if (!tRes.ok) throw new Error("Failed to fetch tasks");
+      const tasks = await tRes.json();
 
-      const mapped: AccessRequest[] = [];
+      // Map tasks rows to AccessRequest and filter by plantIds or approver match
+      const mapped: AccessRequest[] = Array.isArray(tasks)
+        ? tasks
+            .filter((tr: any) => {
+              const loc = tr.location ?? tr.plant_id ?? tr.plantId ?? null;
+              const locNum = loc !== null ? Number(loc) : null;
 
-      if (Array.isArray(data)) {
-        // Backend returns an array of user_request objects, each may include a `tasks` array
-        for (const req of data) {
-          const baseUser =
-            req.name || req.requestor_name || req.username || "-";
-          const userRequestTransaction =
-            req.transaction_id || req.ritmNumber || req.id;
+              // If we have plantIds for this approver, filter by them
+              if (plantIds && plantIds.length > 0) {
+                return locNum !== null && plantIds.includes(locNum);
+              }
 
-          // If the row already represents task-level rows (flat), map directly
-          if (req.task_id || req.task_request_transaction_id) {
-            mapped.push({
+              // Otherwise, try to match by approver identity (reports_to, assigned_to, assigned_to_name)
+              const username = (user as any)?.username || "";
+              if (
+                tr.assigned_to &&
+                Number(tr.assigned_to) === Number((user as any)?.id)
+              )
+                return true;
+              if (
+                tr.assigned_to_name &&
+                typeof tr.assigned_to_name === "string"
+              ) {
+                if (
+                  tr.assigned_to_name
+                    .toLowerCase()
+                    .includes(username.toLowerCase())
+                )
+                  return true;
+              }
+              if (tr.reports_to && typeof tr.reports_to === "string") {
+                if (
+                  tr.reports_to.toLowerCase().includes(username.toLowerCase())
+                )
+                  return true;
+              }
+
+              // fallback: include tasks where task_request_transaction_id or requestor matches
+              return false;
+            })
+            .map((tr: any) => ({
               id:
-                req.task_request_transaction_id ||
-                req.task_id ||
-                userRequestTransaction,
-              user: baseUser,
-              approver: req.reports_to || req.reportsTo || undefined,
+                tr.task_request_transaction_id ||
+                tr.transaction_id ||
+                tr.task_id ||
+                String(tr.task_id || tr.transaction_id),
+              user: tr.request_name || tr.requestor_name || tr.name || "-",
+              approver: tr.reports_to || tr.reportsTo || undefined,
               application:
-                req.application_name ||
-                req.application ||
-                req.access_request_type,
-              role: req.role_name || req.role,
+                tr.application_name || tr.application || tr.access_request_type,
+              role: tr.role_name || tr.role,
               requestStatus:
-                req.task_status ||
-                req.user_request_status ||
-                req.status ||
+                tr.task_status ||
+                tr.user_request_status ||
+                tr.status ||
                 "Pending",
-              employeeCode: req.employee_code,
-              plant: req.plant_name || req.location || req.plant,
-              department: req.department_name || req.department,
-              equipmentId: req.application_equip_id || req.equipment_id,
-              accessStatus: req.task_status || req.access_status,
-            });
-          }
+              employeeCode: tr.employee_code,
+              plant: tr.plant_name || tr.plant || tr.location,
+              department: tr.department_name || tr.department,
+              equipmentId: tr.application_equip_id || tr.equipment_id,
+              accessStatus: tr.task_status || tr.access_status,
+            }))
+        : [];
 
-          // If request has nested tasks, flatten them to per-task rows
-          if (Array.isArray(req.tasks) && req.tasks.length) {
-            for (const t of req.tasks) {
-              mapped.push({
-                id: t.transaction_id || t.task_id || userRequestTransaction,
-                user: baseUser,
-                approver: t.reports_to || t.reportsTo || req.reports_to || undefined,
-                application:
-                  t.application_name ||
-                  t.application ||
-                  req.access_request_type,
-                role: t.role_name || t.role,
-                requestStatus: t.task_status || req.status || "Pending",
-                employeeCode: req.employee_code,
-                plant: t.location || t.location_name || req.plant_name,
-                department: t.department_name || t.department,
-                equipmentId: t.application_equip_id || t.equipment_id,
-                accessStatus: t.task_status || req.access_status,
-              });
-            }
-          }
-        }
-      }
-
-      // If a user is logged in, and they appear to be an approver, show only tasks
-      // assigned to them (match by reports_to / approver name). Otherwise show all.
-      let visible = mapped;
-      try {
-        const username = (user as any)?.username || (user as any)?.name || "";
-        if (username) {
-          const uname = String(username).toLowerCase();
-          visible = mapped.filter((m) => {
-            const ap = (m as any).approver || "";
-            return String(ap).toLowerCase() === uname;
-          });
-        }
-      } catch (e) {
-        // fallback to showing all if any error
-        visible = mapped;
-      }
-
-      console.log("[DEBUG] fetchRequests: mapped requests", mapped);
-      console.log("[DEBUG] fetchRequests: visible for current user", visible);
-      setRequests(visible);
+      setRequests(mapped);
     } catch (err) {
       console.error("[DEBUG] fetchRequests error:", err);
       setRequests([]);
@@ -202,10 +217,9 @@ const ApproverDashboard: React.FC = () => {
       const token = (user as any)?.token || localStorage.getItem("token");
       const headers: Record<string, string> = {};
       if (token) headers.Authorization = `Bearer ${token}`;
+      const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:4000";
       const res = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/task?approver_id=${encodeURIComponent(
-          user.id
-        )}`,
+        `${API_BASE}/api/task?approver_id=${encodeURIComponent(user.id)}`,
         {
           method: "GET",
           headers,
@@ -251,10 +265,12 @@ const ApproverDashboard: React.FC = () => {
     try {
       // Adjust endpoint if your backend differs
       const token = (user as any)?.token || localStorage.getItem("token");
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
       if (token) headers.Authorization = `Bearer ${token}`;
       const res = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/user-requests/${encodeURIComponent(
+        `${API_BASE}/api/approvals/${encodeURIComponent(
           selectedRequest.id
         )}/approve`,
         {
@@ -291,10 +307,12 @@ const ApproverDashboard: React.FC = () => {
     try {
       // Adjust endpoint if your backend differs
       const token = (user as any)?.token || localStorage.getItem("token");
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
       if (token) headers.Authorization = `Bearer ${token}`;
       const res = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/user-requests/${encodeURIComponent(
+        `${API_BASE}/api/approvals/${encodeURIComponent(
           selectedRequest.id
         )}/reject`,
         {

@@ -156,64 +156,65 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Check whether a given user id appears in any workflow approver lists.
   // Uses setUser updater safely to avoid stale closures / unnecessary deps.
   const fetchITBinForUser = useCallback(
-    async (userId: number, token?: string) => {
-      try {
-        const res = await fetch(`${API_BASE}/api/plant-itsupport`, {
-          method: "GET",
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
+  async (userId: number, token?: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/plant-itsupport`, {
+        method: "GET",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) return false;
+
+      const data = await res.json().catch(() => []);
+      const workflows = Array.isArray(data) ? data : [];
+
+      console.log("workflow", workflows);
+
+      // find all workflows where this user exists
+      const matched = workflows.filter(
+        (wf: any) =>
+          wf &&
+          Array.isArray(wf.users) &&
+          wf.users.some((u: any) => u && Number(u.user_id) === Number(userId))
+      );
+
+      const found = matched.length > 0;
+
+      if (found) {
+        // extract plant list
+        const plantList = matched.map((wf) => ({
+          plant_id: wf.plant_id,
+          plant_name: wf.plant_name,
+        }));
+
+        setUser((prev) => {
+          if (!prev) return prev;
+
+          // only update if not already stored
+          const updated = {
+            ...prev,
+            isITBin: true,
+            itPlants: plantList,
+          };
+
+          try {
+            localStorage.setItem("authUser", JSON.stringify(updated));
+          } catch {}
+
+          return updated;
         });
-        if (!res.ok) return false;
-
-        const data = await res.json().catch(() => ({}));
-        const workflows = Array.isArray(data) ? data : [];
-
-        const found = workflows.some((wf: any) => {
-          if (!wf) {
-            console.log(`🚫 wf is null or undefined`);
-            return false;
-          }
-
-          if (!Array.isArray(wf.users)) {
-            console.log(`⚠ wf.users is not an array:`, wf.users);
-            return false;
-          }
-          // console.log("users_array",!Array.isArray(wf.users));
-          if (!wf || !Array.isArray(wf.users)) return false;
-          // wf.approvers is an array of arrays (one array per approver level)
-          // return wf.users.some((arr: any) =>
-          //   Array.isArray(arr)
-          //     ? arr.some((u) => u && Number(u.user_id) === Number(userId))
-          //     : false
-          // );
-
-          return wf.users.some(
-            (u: any) => u && Number(u.user_id) === Number(userId)
-          );
-        });
-
-        if (found) {
-          // update user state safely
-          setUser((prev) => {
-            if (!prev) return prev;
-            if (prev.isITBin) return prev;
-            const updated = { ...prev, isITBin: true };
-            try {
-              localStorage.setItem("authUser", JSON.stringify(updated));
-            } catch (e) {
-              /* ignore localStorage write errors */
-            }
-            return updated;
-          });
-        }
-        console.log("hghgh", found);
-        return found;
-      } catch (err) {
-        console.error("fetchITBinForUser error", err);
-        return false;
       }
-    },
-    [setUser]
-  );
+
+      console.log("ITBin result:", found);
+      console.log("ITBin plant result:", matched);
+      return { found, plants: matched };
+    } catch (err) {
+      console.error("fetchITBinForUser error", err);
+      return false;
+    }
+  },
+  [setUser]
+);
+
 
   // Restore user from localStorage on app load for persistent login
   useEffect(() => {
