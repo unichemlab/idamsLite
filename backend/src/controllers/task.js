@@ -41,48 +41,224 @@
  */
 
 const pool = require("../config/db");
+
+const bcrypt = require("bcryptjs");
+
 exports.getAllTasks = async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      `SELECT ur.id AS user_request_id,
-        ur.transaction_id AS user_request_transaction_id,
-        ur.request_for_by,
-        ur.name,
-        ur.employee_code,
-        ur.employee_location,
-        ur.access_request_type,
-        ur.training_status,
-        ur.training_attachment,
-        ur.training_attachment_name,
-        ur.vendor_name,
-        ur.vendor_firm,
-        ur.vendor_code,
-        ur.vendor_allocated_id,
-        ur.status AS user_request_status,
-        ur.created_on,
-        tr.id AS task_id,
-        tr.transaction_id AS task_request_transaction_id,
-        tr.application_equip_id,
-        app.display_name AS application_name,
-        tr.department,
-        d.department_name,
-        tr.role,
-        r.role_name AS role_name,
-        p.plant_name AS plant_name,
-        tr.location,
-        tr.reports_to,
-        tr.task_status,
-        tr.remarks
-       FROM task_requests tr
-       LEFT JOIN user_requests ur ON tr.user_request_id = ur.id
-       LEFT JOIN department_master d ON tr.department = d.id
-       LEFT JOIN role_master r ON tr.role = r.id
-       LEFT JOIN plant_master p ON tr.location = p.id
-       LEFT JOIN application_master app ON tr.application_equip_id = app.id
-       ORDER BY tr.created_on DESC, ur.id`
-    );
+    const {
+      plant,
+      plant_id,
+      transaction_id,
+      task_status,
+      access_request_type,
+    } = req.query;
+
+    const user = req.user;
+
+    // 🧩 Dynamic WHERE clause
+
+    const whereClauses = [];
+
+    const params = [];
+
+    if (plant) {
+      params.push(plant);
+
+      whereClauses.push(`p.plant_name = $${params.length}`);
+    }
+
+    if (plant_id) {
+      params.push(plant_id);
+
+      whereClauses.push(`p.id = $${params.length}`);
+    }
+
+    if (transaction_id) {
+      params.push(transaction_id);
+
+      whereClauses.push(`ur.transaction_id = $${params.length}`);
+    }
+
+    if (task_status) {
+      params.push(task_status);
+
+      whereClauses.push(`tr.task_status = $${params.length}`);
+    }
+
+    if (access_request_type) {
+      params.push(access_request_type);
+
+      whereClauses.push(`ur.access_request_type = $${params.length}`);
+    }
+
+    // 🔹 Apply restriction based on ITBIN flag
+
+    if (user?.isITBin) {
+      // ITBIN → only tasks from assigned plants only for ITBIN
+
+      if (user.plant_ids && user.plant_ids.length > 0) {
+        params.push(user.plant_ids);
+
+        whereClauses.push(`p.id = ANY($${params.length})`);
+      }
+    }
+
+    const whereSQL = whereClauses.length
+      ? `WHERE ${whereClauses.join(" AND ")}`
+      : "";
+
+    // 🧩 Main query
+    const query = `
+      SELECT
+
+          -- 🧩 User Request info
+
+          ur.id AS user_request_id,
+
+          ur.transaction_id AS user_request_transaction_id,
+
+          ur.request_for_by,
+
+          ur.name AS request_name,
+
+          ur.employee_code,
+
+          ur.employee_location,
+
+          ur.access_request_type,
+
+          ur.training_status,
+
+          ur.training_attachment,
+
+          ur.training_attachment_name,
+
+          ur.vendor_name,
+
+          ur.vendor_firm,
+
+          ur.vendor_code,
+
+          ur.vendor_allocated_id,
+
+          ur.status AS user_request_status,
+
+          ur.approver1_status,
+
+          ur.approver2_status,
+
+          ur.created_on AS user_request_created_on,
+
+ 
+
+          -- 🧩 Task Request info
+
+          tr.id AS task_id,
+
+          tr.transaction_id AS task_request_transaction_id,
+
+          tr.application_equip_id,
+
+          app.display_name AS application_name,
+
+          tr.department,
+
+          d.department_name,
+
+          tr.role,
+
+          r.role_name AS role_name,
+
+          p.plant_name AS plant_name,
+
+          tr.location,
+
+          tr.reports_to,
+
+          tr.task_status,
+
+          tr.remarks,
+
+          tr.created_on AS task_created_on,
+
+ 
+
+          -- 🧩 Task Closure info
+
+          tc.assignment_group,
+
+          tc.role_granted,
+
+          tc.access,
+
+          tc.assigned_to,
+
+          tc.status,
+
+          tc.from_date,
+
+          tc.to_date,
+
+          tc.updated_on,
+
+ 
+
+          -- 🧩 Assigned User info (from user_master)
+
+          um.employee_name AS assigned_to_name,
+
+          um.email AS closure_assigned_to_email,
+
+          um.department AS closure_assigned_to_department,
+
+          um.location AS closure_assigned_to_location
+      FROM task_requests tr
+
+      LEFT JOIN user_requests ur
+
+        ON tr.user_request_id = ur.id
+
+      LEFT JOIN department_master d
+
+        ON tr.department = d.id
+
+      LEFT JOIN role_master r
+
+        ON tr.role = r.id
+
+      LEFT JOIN plant_master p
+
+        ON tr.location = p.id
+
+      LEFT JOIN application_master app
+
+        ON tr.application_equip_id = app.id
+
+      LEFT JOIN task_closure tc
+
+        ON tc.ritm_number = ur.transaction_id
+
+        AND tc.task_number = tr.transaction_id
+
+      LEFT JOIN user_master um
+
+        ON tc.assigned_to = um.id
+
+ 
+
+      ${whereSQL}
+
+      ORDER BY tr.created_on DESC, ur.id;
+
+    `;
+
+    const { rows } = await pool.query(query, params);
+
     res.json(rows);
   } catch (err) {
+    console.error("❌ Error fetching all tasks:", err);
+
     res.status(500).json({ error: err.message });
   }
 };

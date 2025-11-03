@@ -19,6 +19,7 @@ const ActiveDirectory = require("activedirectory2");
 const adSyncRoutes = require("./routes/employeeSyncRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const approvalRoutes = require("./routes/approvalRoutes");
+const approvalsRoutes = require("./routes/approvals");
 const os = require("os");
 const serverRoutes = require("./routes/serverRoutes");
 const workflowRoutes = require("./routes/workflowRoutes");
@@ -70,6 +71,7 @@ app.use("/api/activity-logs", activityLogsRoutes);
 app.use("/api/servers", serverRoutes);
 app.use("/api/approval", approvalRoutes);
 app.use("/api/task", taskRoutes);
+app.use("/api/approvals", approvalsRoutes);
 // Use AD sync routes
 app.use(adSyncRoutes);
 app.use("/api/workflows", workflowRoutes);

@@ -3,7 +3,7 @@ const db = require("../config/db");
 // GET /api/workflows?plant=GOA-1 OR ?transaction_id=APPR0000001
 exports.getWorkflows = async (req, res) => {
   try {
-    const { plant, plant_id, transaction_id } = req.query;
+    const { plant, plant_id, transaction_id, approver_id } = req.query;
 
     // Build base query
     let where = [];
@@ -42,6 +42,16 @@ exports.getWorkflows = async (req, res) => {
     if (resolvedPlantId !== null) {
       params.push(resolvedPlantId);
       where.push(`plant_id = $${params.length}`);
+    }
+
+    // If approver_id provided, filter workflows where any approver_N_id contains the id
+    if (approver_id) {
+      // Use a LIKE match against the comma-separated approver columns
+      params.push(`%${approver_id}%`);
+      const placeholder = `$${params.length}`;
+      where.push(
+        `(approver_1_id LIKE ${placeholder} OR approver_2_id LIKE ${placeholder} OR approver_3_id LIKE ${placeholder} OR approver_4_id LIKE ${placeholder} OR approver_5_id LIKE ${placeholder})`
+      );
     }
 
     const q = `
