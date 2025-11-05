@@ -1,3 +1,5 @@
+const pool = require("../config/db");
+
 /**
  * @swagger
  * /api/tasks:
@@ -40,245 +42,230 @@
  *         description: Task updated
  */
 
-const pool = require("../config/db");
-
-const bcrypt = require("bcryptjs");
-
 exports.getAllTasks = async (req, res) => {
+  let client;
   try {
+    client = await pool.connect();
+    
     const {
       plant,
       plant_id,
       transaction_id,
       task_status,
       access_request_type,
+      approver_id,
     } = req.query;
 
+    // User should be available from authorize middleware
     const user = req.user;
+    if (!user) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    // Handle approver-specific query
+    if (approver_id && Number(approver_id) !== user.id) {
+      return res.status(403).json({ message: "Cannot view tasks for other approvers" });
+    }
+
+    const roleIds = Array.isArray(user.role_id) ? user.role_id : [user.role_id];
+    const isApprover = roleIds.includes(4);
+    const isSuperAdmin = roleIds.includes(1);
+
+    // Get approver's assigned plants from workflow
+    let approverPlantIds = [];
+    if (isApprover && !isSuperAdmin) {
+      try {
+        const workflowQuery = `
+          SELECT DISTINCT plant_id 
+          FROM approval_workflow_master 
+          WHERE 
+            (approver_1_id LIKE $1 OR
+             approver_2_id LIKE $1 OR
+             approver_3_id LIKE $1 OR
+             approver_4_id LIKE $1 OR
+             approver_5_id LIKE $1)
+            AND is_active = true
+        `;
+        const workflowResult = await client.query(workflowQuery, [`%${user.id}%`]);
+        approverPlantIds = workflowResult.rows.map(r => r.plant_id);
+      } catch (err) {
+        console.error('Error fetching approver plants:', err);
+      }
+    }
 
     // 🧩 Dynamic WHERE clause
-
     const whereClauses = [];
-
     const params = [];
 
+    // Filter for approvers - show tasks from their assigned plants based on approval_workflow_master
+    if (isApprover && !isSuperAdmin) {
+      // Get plants where this user is an approver from approval workflow
+      const approverResult = await client.query(`
+        SELECT DISTINCT plant_id 
+        FROM approval_workflow_master 
+        WHERE (
+          approver1_list LIKE '%' || $1 || '%' OR
+          approver2_list LIKE '%' || $1 || '%' OR
+          approver3_list LIKE '%' || $1 || '%'
+        ) AND status = true
+      `, [user.id.toString()]);
+      
+      console.log('User ID:', user.id, 'Approver query results:', approverResult.rows);
+
+      if (approverResult.rows.length > 0) {
+        const approverPlants = approverResult.rows.map(row => row.plant_id);
+        params.push(approverPlants);
+        whereClauses.push(`tr.location = ANY($${params.length})`);
+        console.log('Approver plants:', approverPlants);
+      } else {
+        // If no plants found but user is an approver, return no results rather than all tasks
+        whereClauses.push('false');
+      }
+    }
+
+    // For regular users, only show tasks for user's plant
+    if (!isSuperAdmin && !isApprover && user.plant_id) {
+      params.push(user.plant_id);
+      whereClauses.push(`tr.location = $${params.length}`);
+    }
+
+    // Additional filters
     if (plant) {
       params.push(plant);
-
       whereClauses.push(`p.plant_name = $${params.length}`);
     }
 
     if (plant_id) {
       params.push(plant_id);
+      whereClauses.push(`tr.location = $${params.length}`);
+    }
 
-      whereClauses.push(`p.id = $${params.length}`);
+    // For approvers, show tasks from their assigned plants and pending status
+    if (isApprover && !isSuperAdmin) {
+      if (approverPlantIds.length > 0) {
+        params.push(`{${approverPlantIds.join(',')}}`);
+        whereClauses.push(`tr.location = ANY($${params.length}::int[])`);
+      }
+      whereClauses.push("tr.task_status = 'Pending'");
     }
 
     if (transaction_id) {
       params.push(transaction_id);
-
       whereClauses.push(`ur.transaction_id = $${params.length}`);
     }
 
     if (task_status) {
       params.push(task_status);
-
       whereClauses.push(`tr.task_status = $${params.length}`);
     }
 
     if (access_request_type) {
       params.push(access_request_type);
-
       whereClauses.push(`ur.access_request_type = $${params.length}`);
     }
 
-    // 🔹 Apply restriction based on ITBIN flag
-
-    if (user?.isITBin) {
-      // ITBIN → only tasks from assigned plants only for ITBIN
-
-      if (user.plant_ids && user.plant_ids.length > 0) {
-        params.push(user.plant_ids);
-
-        whereClauses.push(`p.id = ANY($${params.length})`);
-      }
+    // Apply restriction based on ITBIN flag
+    if (user?.isITBin && user.plant_ids?.length > 0) {
+      params.push(user.plant_ids);
+      whereClauses.push(`p.id = ANY($${params.length})`);
     }
 
-    const whereSQL = whereClauses.length
-      ? `WHERE ${whereClauses.join(" AND ")}`
-      : "";
+    const whereSQL = whereClauses.length ? `WHERE ${whereClauses.join(" AND ")}` : "";
 
-    // 🧩 Main query
+    console.log('WHERE clauses:', whereClauses);
+    
     const query = `
-      SELECT
-
-          -- 🧩 User Request info
-
-          ur.id AS user_request_id,
-
-          ur.transaction_id AS user_request_transaction_id,
-
-          ur.request_for_by,
-
-          ur.name AS request_name,
-
-          ur.employee_code,
-
-          ur.employee_location,
-
-          ur.access_request_type,
-
-          ur.training_status,
-
-          ur.training_attachment,
-
-          ur.training_attachment_name,
-
-          ur.vendor_name,
-
-          ur.vendor_firm,
-
-          ur.vendor_code,
-
-          ur.vendor_allocated_id,
-
-          ur.status AS user_request_status,
-
-          ur.approver1_status,
-
-          ur.approver2_status,
-
-          ur.created_on AS user_request_created_on,
-
- 
-
-          -- 🧩 Task Request info
-
-          tr.id AS task_id,
-
-          tr.transaction_id AS task_request_transaction_id,
-
-          tr.application_equip_id,
-
-          app.display_name AS application_name,
-
-          tr.department,
-
-          d.department_name,
-
-          tr.role,
-
-          r.role_name AS role_name,
-
-          p.plant_name AS plant_name,
-
-          tr.location,
-
-          tr.reports_to,
-
-          tr.task_status,
-
-          tr.remarks,
-
-          tr.created_on AS task_created_on,
-
- 
-
-          -- 🧩 Task Closure info
-
-          tc.assignment_group,
-
-          tc.role_granted,
-
-          tc.access,
-
-          tc.assigned_to,
-
-          tc.status,
-
-          tc.from_date,
-
-          tc.to_date,
-
-          tc.updated_on,
-
- 
-
-          -- 🧩 Assigned User info (from user_master)
-
-          um.employee_name AS assigned_to_name,
-
-          um.email AS closure_assigned_to_email,
-
-          um.department AS closure_assigned_to_department,
-
-          um.location AS closure_assigned_to_location
+      SELECT DISTINCT
+        ur.id AS user_request_id,
+        ur.transaction_id AS user_request_transaction_id,
+        ur.request_for_by,
+        ur.name AS request_name,
+        ur.employee_code,
+        ur.employee_location,
+        ur.access_request_type,
+        ur.training_status,
+        ur.training_attachment,
+        ur.training_attachment_name,
+        ur.vendor_name,
+        ur.vendor_firm,
+        ur.vendor_code,
+        ur.vendor_allocated_id,
+        ur.status AS user_request_status,
+        ur.approver1_status,
+        ur.approver2_status,
+        ur.created_on AS user_request_created_on,
+        tr.id AS task_id,
+        tr.transaction_id AS task_request_transaction_id,
+        tr.application_equip_id,
+        app.display_name AS application_name,
+        tr.department,
+        d.department_name,
+        tr.role,
+        r.role_name AS role_name,
+        p.plant_name AS plant_name,
+        tr.location,
+        tr.reports_to,
+        tr.task_status,
+        tr.remarks,
+        tr.created_on AS task_created_on,
+        tc.assignment_group,
+        tc.role_granted,
+        tc.access,
+        tc.assigned_to,
+        tc.status,
+        tc.from_date,
+        tc.to_date,
+        tc.updated_on,
+        um.employee_name AS assigned_to_name,
+        um.email AS closure_assigned_to_email,
+        um.department AS closure_assigned_to_department,
+        um.location AS closure_assigned_to_location
       FROM task_requests tr
-
-      LEFT JOIN user_requests ur
-
-        ON tr.user_request_id = ur.id
-
-      LEFT JOIN department_master d
-
-        ON tr.department = d.id
-
-      LEFT JOIN role_master r
-
-        ON tr.role = r.id
-
-      LEFT JOIN plant_master p
-
-        ON tr.location = p.id
-
-      LEFT JOIN application_master app
-
-        ON tr.application_equip_id = app.id
-
-      LEFT JOIN task_closure tc
-
-        ON tc.ritm_number = ur.transaction_id
-
-        AND tc.task_number = tr.transaction_id
-
-      LEFT JOIN user_master um
-
-        ON tc.assigned_to = um.id
-
- 
-
+      LEFT JOIN user_requests ur ON tr.user_request_id = ur.id
+      LEFT JOIN department_master d ON tr.department = d.id
+      LEFT JOIN role_master r ON tr.role = r.id
+      LEFT JOIN plant_master p ON tr.location = p.id
+      LEFT JOIN application_master app ON tr.application_equip_id = app.id
+      LEFT JOIN task_closure tc ON tc.transaction_id = ur.transaction_id
+      LEFT JOIN user_master um ON tc.assigned_to = um.id
       ${whereSQL}
-
       ORDER BY tr.created_on DESC, ur.id;
-
     `;
 
-    const { rows } = await pool.query(query, params);
-
+    console.log('Executing query with params:', params);
+    const { rows } = await client.query(query, params);
     res.json(rows);
   } catch (err) {
     console.error("❌ Error fetching all tasks:", err);
-
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
+  } finally {
+    if (client) {
+      try {
+        await client.release();
+      } catch (releaseErr) {
+        console.error("Error releasing client:", releaseErr);
+      }
+    }
   }
 };
 
 exports.updateTask = async (req, res) => {
-  const { id } = req.params;
-  const {
-    user_request_id,
-    task_name,
-    assigned_to,
-    due_date,
-    status,
-    priority,
-  } = req.body;
-
+  const client = await pool.connect();
   try {
-    const { rows } = await pool.query(
+    const { id } = req.params;
+    const {
+      user_request_id,
+      task_name,
+      assigned_to,
+      due_date,
+      status,
+      priority,
+    } = req.body;
+
+    const { rows } = await client.query(
       `UPDATE task SET
-      user_request_id=$1, task_name=$2, assigned_to=$3, due_date=$4, status=$5, priority=$6, updated_at=NOW()
-      WHERE id=$7 RETURNING *`,
+        user_request_id=$1, task_name=$2, assigned_to=$3, due_date=$4, status=$5, priority=$6, updated_at=NOW()
+        WHERE id=$7 RETURNING *`,
       [
         user_request_id,
         task_name,
@@ -291,27 +278,32 @@ exports.updateTask = async (req, res) => {
     );
     res.json(rows[0]);
   } catch (err) {
+    console.error("❌ Error updating task:", err);
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 };
 
 exports.deleteTask = async (req, res) => {
-  const { id } = req.params;
+  const client = await pool.connect();
   try {
-    await pool.query("DELETE FROM task WHERE id=$1", [id]);
+    const { id } = req.params;
+    await client.query("DELETE FROM task WHERE id=$1", [id]);
     res.status(204).end();
   } catch (err) {
+    console.error("❌ Error deleting task:", err);
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 };
 
-/**
- * Get a single user request with its tasks
- */
 exports.getUserTaskRequestById = async (req, res) => {
-  const { id } = req.params;
+  const client = await pool.connect();
   try {
-    const { rows } = await pool.query(
+    const { id } = req.params;
+    const { rows } = await client.query(
       `SELECT ur.id AS user_request_id,
               ur.transaction_id AS user_request_transaction_id,
               ur.request_for_by,
@@ -393,6 +385,9 @@ exports.getUserTaskRequestById = async (req, res) => {
 
     res.json(userRequest);
   } catch (err) {
+    console.error("❌ Error fetching user task request:", err);
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 };

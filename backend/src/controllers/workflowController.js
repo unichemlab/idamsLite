@@ -4,10 +4,24 @@ const db = require("../config/db");
 exports.getWorkflows = async (req, res) => {
   try {
     const { plant, plant_id, transaction_id, approver_id } = req.query;
+    const { user_id, isApprover } = req.user;
 
     // Build base query
     let where = [];
     let params = [];
+
+    // If user is an approver, only show workflows they're part of
+    if (isApprover) {
+      where.push(`(
+        approver_1_id = $${params.length + 1} OR 
+        approver_2_id = $${params.length + 1} OR 
+        approver_3_id = $${params.length + 1} OR 
+        approver_4_id = $${params.length + 1} OR 
+        approver_5_id = $${params.length + 1}
+      )`);
+      params.push(user_id.toString());
+    }
+
     if (transaction_id) {
       params.push(transaction_id);
       where.push(`transaction_id = $${params.length}`);

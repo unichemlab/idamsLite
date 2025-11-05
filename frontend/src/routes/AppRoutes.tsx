@@ -14,6 +14,7 @@ import TrackRequest from "../pages/TaskRequest/TrackRequest";
 import Login from "../pages/Login";
 import ApproverDashboard from "../pages/ApproverDashboard";
 import AccessRequestDetails from "../pages/AccessRequestDetails";
+import AccessDenied from "../pages/AccessDenied";
 import RoleMasterTable from "../pages/RoleMasterTable/RoleMasterTable";
 import UserMasterTable from "../pages/UserMasterTable/UserMasterTable";
 import UserRequestTable from "../pages/UserRequestTable/UserRequestTable";
@@ -216,6 +217,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route path="/access-denied" element={<AccessDenied />} />
       <Route
         path="/access-request/:id"
         element={

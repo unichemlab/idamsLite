@@ -4,9 +4,30 @@
 export const API_BASE =
   process.env.REACT_APP_API_URL || "http://localhost:4000";
 
-async function request(path: string, options: RequestInit = {}) {
+export async function request(path: string, options: RequestInit = {}) {
   const url = `${API_BASE}${path}`;
   const headers = options.headers || {};
+
+  // Attach Authorization header automatically if a token is present in localStorage.
+  try {
+    const token =
+      localStorage.getItem("token") ||
+      (() => {
+        const au = localStorage.getItem("authUser");
+        if (!au) return null;
+        try {
+          const parsed = JSON.parse(au);
+          return parsed?.token || null;
+        } catch (e) {
+          return null;
+        }
+      })();
+    if (token && !(headers as any)["Authorization"]) {
+      (headers as any)["Authorization"] = `Bearer ${token}`;
+    }
+  } catch (e) {
+    // ignore localStorage errors in non-browser environments
+  }
 
   // don't overwrite content-type when sending FormData
   if (!(options.body instanceof FormData)) {
@@ -39,9 +60,7 @@ export async function fetchActivityLog(): Promise<any[]> {
 
 // Task API
 export async function fetchTaskLog(): Promise<any[]> {
-  const res = await fetch(`${API_BASE}/api/task`);
-  if (!res.ok) throw new Error("Failed to fetch systems");
-  return await res.json();
+  return request(`/api/task`);
 }
 
 export async function addSystemAPI(system: any): Promise<any> {
@@ -250,10 +269,16 @@ export async function fetchTasks(): Promise<any[]> {
   return request(`/api/task`);
 }
 
+// Fetch tasks optionally for a specific approver
+export async function fetchTasksForApprover(
+  approverId?: number
+): Promise<any[]> {
+  const q = approverId ? `?approver_id=${encodeURIComponent(approverId)}` : "";
+  return request(`/api/task${q}`);
+}
+
 export async function fetchTaskById(id: string): Promise<any> {
-  const res = await fetch(`${API_BASE}/api/task/${id}`);
-  if (!res.ok) throw new Error("Failed to fetch task by ID");
-  return await res.json();
+  return request(`/api/task/${id}`);
 }
 
 // Add a new task
@@ -272,6 +297,24 @@ export async function updateTaskAPI(id: number, task: any): Promise<any> {
 // Delete a task
 export async function deleteTaskAPI(id: number): Promise<void> {
   return request(`/api/tasks/${id}`, { method: "DELETE" });
+}
+
+// Fetch workflows (used to derive approver plant assignments)
+export async function fetchWorkflows(approverId?: number): Promise<any[]> {
+  const q = approverId ? `?approver_id=${encodeURIComponent(approverId)}` : "";
+  return request(`/api/workflows${q}`);
+}
+
+// Post approval action (approve/reject)
+export async function postApprovalAction(
+  id: string,
+  action: "approve" | "reject",
+  payload: any
+): Promise<any> {
+  return request(`/api/approvals/${encodeURIComponent(id)}/${action}`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 /************************** API for Access Log *****************************************/
@@ -363,8 +406,12 @@ export async function fetchUserByEmployeeCode(employeeCode: number): Promise<{
 }
 
 // Authentication
+export async function fetchPermissionsAPI(): Promise<any> {
+  return request(`/api/auth/permissions`);
+}
+
 export async function loginAPI(credentials: {
-  email: string;
+  username: string;
   password: string;
 }) {
   return request(`/api/auth/login`, {

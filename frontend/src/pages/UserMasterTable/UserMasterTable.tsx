@@ -250,7 +250,7 @@ const UserMasterTable = () => {
                 className={styles.actionHeaderRow}
                 style={{ marginLeft: "auto" }}
               >
-                {(isSuperAdmin || ability.can("create", "USER_MASTER")) && (
+                {(isSuperAdmin || ability.can("create:users")) && (
                   <button
                     className={styles.addUserBtn}
                     onClick={() => navigate("/add-user")}
@@ -267,7 +267,7 @@ const UserMasterTable = () => {
                 >
                   🔍 Filter
                 </button>
-                {(isSuperAdmin || ability.can("update", "USER_MASTER")) && (
+                {(isSuperAdmin || ability.can("update:users")) && (
                   <button
                     className={`${styles.btn} ${styles.editBtn}`}
                     disabled={selectedRow === null}
@@ -286,7 +286,7 @@ const UserMasterTable = () => {
                     <FaEdit size={14} /> Edit
                   </button>
                 )}
-                {(isSuperAdmin || ability.can("delete", "USER_MASTER")) && (
+                {(isSuperAdmin || ability.can("delete:users")) && (
                   <button
                     className={`${styles.btn} ${styles.deleteBtn}`}
                     disabled={selectedRow === null}
