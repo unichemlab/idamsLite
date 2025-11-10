@@ -137,12 +137,77 @@ exports.login = async (req, res) => {
     logDebug("User login successful:", { username, roleIds });
 
     // ---------------- Generate JWT ----------------
+    // Fetch user permissions
+    let permissions = [];
+    try {
+      const userPermsQuery = `
+        SELECT module_id, can_add, can_edit, can_view, can_delete 
+        FROM user_plant_permission 
+        WHERE user_id = $1
+      `;
+      const userPerms = await db.query(userPermsQuery, [user.id]);
+
+      permissions = userPerms.rows.flatMap((p) => {
+        const perms = [];
+        if (p.can_add) perms.push(`create:${p.module_id}`);
+        if (p.can_edit) perms.push(`update:${p.module_id}`);
+        if (p.can_view) perms.push(`read:${p.module_id}`);
+        if (p.can_delete) perms.push(`delete:${p.module_id}`);
+        return perms;
+      });
+    } catch (err) {
+      console.error("[PERMISSIONS ERROR]", err);
+      // Continue without permissions - they'll be fetched later if needed
+    }
+
+    // Add role-based permissions
+    if (user.role_id.includes(1)) {
+      // SuperAdmin
+      permissions.push("manage:all");
+    }
+
+    // Check if user is an approver in any workflows
+    try {
+      const approverQuery = `
+        SELECT DISTINCT workflow_id 
+        FROM approval_workflow 
+        WHERE (
+          approver_level1 LIKE $1 OR 
+          approver_level2 LIKE $1 OR 
+          approver_level3 LIKE $1
+        ) AND is_active = true
+      `;
+      const approverResult = await db.query(approverQuery, [`%${user.id}%`]);
+
+      if (approverResult.rows.length > 0) {
+        permissions.push("approve:requests");
+        permissions.push("view:approvals");
+        permissions.push("read:workflows");
+        permissions.push("update:workflows");
+        // Add approver role if user is an approver but doesn't have role 4 (Manager)
+        if (!user.role_id.includes(4)) {
+          user.role_id.push(4);
+        }
+      }
+      
+      // Add workflow permissions for superadmins and plant admins
+      if (user.role_id.includes(1) || user.role_id.includes(2)) {
+        permissions.push("read:workflows");
+        permissions.push("create:workflows");
+        permissions.push("update:workflows");
+      }
+    } catch (err) {
+      console.error("[APPROVER CHECK ERROR]", err);
+    }
+
     // Ensure we include a reliable user id and username in the token payload.
     // DB rows may have id, user_id or employee_id fields; prefer internal id and employee_id as username.
     const payload = {
       user_id: user.id || user.user_id || null,
       username: user.employee_id || user.username || null,
       role_id: user.role_id,
+      permissions,
+      permissions_version: 1, // Increment when permission structure changes
     };
 
     const token = jwt.sign(payload, process.env.JWT_SECRET, {

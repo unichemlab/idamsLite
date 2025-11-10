@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import loginHeadTitle from "../assets/login_headTitle.png";
 import styles from "./Login.module.css";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/AuthContext"
 
 // Logo heading with centered image and improved design
 const LogoHeading = () => (
@@ -27,6 +27,8 @@ const Login: React.FC = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
+  // useLocation in this project may not accept a generic type argument depending on
+  // the installed react-router types, so read the state and cast when used.
   const location = useLocation();
   const { login, error, loading, user } = useAuth();
 
@@ -40,34 +42,64 @@ const Login: React.FC = () => {
 
     if (user.status.toUpperCase() !== "ACTIVE") return;
 
-    // Normalize role_id to a number array
+    // Get return path if one was saved during auth redirect
+    const returnPath = location.state?.from;
+    
+    // Role names used across the app
+    type RoleName =
+      | "SuperAdmin"
+      | "PlantITAdmin"
+      | "Approver"
+      | "AuditReviewer"
+      | "PlantUser";
+
+    // Role-based landing pages
+    const RoleLandingPages: Record<RoleName, string> = {
+      SuperAdmin: "/superadmin",
+      PlantITAdmin: "/plantadmin",
+      Approver: "/approver",
+      AuditReviewer: "/reports",
+      PlantUser: "/user-access-management",
+    };
+
+    // Get highest role priority map
+    const RoleHierarchy: Record<RoleName, number> = {
+      SuperAdmin: 5,
+      PlantITAdmin: 4,
+      Approver: 3,
+      AuditReviewer: 2,
+      PlantUser: 1,
+    };
+
+    // Map role IDs to names (align with AbilityContext role mapping)
+    const roleMap: Record<number, RoleName | undefined> = {
+      1: "SuperAdmin",
+      2: "PlantITAdmin",
+      3: "AuditReviewer",
+      4: "Approver",
+      5: "PlantUser",
+    };
+
+    // Get role names and find highest priority
     const roleIds: number[] = Array.isArray(user.role_id)
       ? user.role_id
       : typeof user.role_id === "number"
       ? [user.role_id]
       : [];
-console.log("user login",user);
-    // Prefer routing by explicit approver flag if present (set from AuthContext workflow check)
-    let target = "/user-access-management";
-    if (user.isApprover) {
-      target = "/approver";
-    } else if (user.isITBin) {
-      target = "/task";
-    }
-    else if (roleIds.includes(1)) {
-      target = "/superadmin";
-    } else if (roleIds.includes(2)) {
-      target = "/plantadmin";
-    } else if (roleIds.includes(3)) {
-      // legacy role-based approver mapping (role 3)
-      target = "/approver";
-    }
-console.log("pathname",location.pathname);
-console.log("target",target);
+
+    const roleNames = roleIds.map((id) => roleMap[id]).filter(Boolean) as RoleName[];
+    const highestRole = roleNames.reduce((highest: RoleName, current: RoleName) => {
+      return (RoleHierarchy[current] || 0) > (RoleHierarchy[highest] || 0) ? current : highest;
+    }, "PlantUser");
+
+    // Determine target - prefer return path if exists and user has permission
+  const defaultTarget = RoleLandingPages[highestRole] || "/user-access-management";
+    const target = returnPath || defaultTarget;
+
     if (location.pathname !== target) {
       navigate(target, { replace: true });
     }
-  }, [user, navigate, location.pathname]);
+  }, [user, navigate, location.pathname, location.state?.from]);
   return (
     <div className={styles.loginBackground}>
       <div className={styles.container}>

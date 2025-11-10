@@ -125,6 +125,7 @@ exports.getAllUsers = async (req, res) => {
 };
 const db = require("../config/db");
 const bcrypt = require("bcrypt");
+const { logActivity } = require("../utils/activityLogger");
 
 // Add new user
 exports.addUser = async (req, res) => {
@@ -172,6 +173,36 @@ exports.addUser = async (req, res) => {
       corporate_access_enabled,
     ];
     const { rows } = await db.query(insertQuery, values);
+
+    // Log creation activity (non-blocking)
+    try {
+      const created = rows[0];
+      const logId = await logActivity({
+        userId: req.user?.id || req.user?.user_id || null,
+        module: "user",
+        tableName: "user_master",
+        recordId: created.id,
+        action: "create",
+        oldValue: null,
+        newValue: created,
+        comments: `Created user: ${
+          created.employee_name ||
+          created.full_name ||
+          created.username ||
+          created.email
+        }`,
+        reqMeta: req._meta || {},
+      });
+      if (!logId)
+        console.warn(
+          "Activity log (addUser) did not insert a row for record:",
+          created.id
+        );
+      else console.log("Activity log (addUser) inserted id:", logId);
+    } catch (logErr) {
+      console.warn("Activity log (addUser) failed:", logErr.message || logErr);
+    }
+
     res.status(201).json({ user: rows[0] });
   } catch (err) {
     console.error("[USER ADD ERROR]", err);
@@ -233,9 +264,43 @@ exports.editUser = async (req, res) => {
       roleArray,
       user_id,
     ];
+    // fetch old value for diffing
+    let oldValue = null;
+    try {
+      const oldRes = await db.query("SELECT * FROM user_master WHERE id=$1", [
+        user_id,
+      ]);
+      oldValue = oldRes.rows[0] || null;
+    } catch (e) {
+      // ignore
+    }
+
     const { rows } = await db.query(updateQuery, values);
     if (!rows || rows.length === 0) {
       return res.status(404).json({ error: "User not found" });
+    }
+    // Log update activity (non-blocking)
+    try {
+      const updated = rows[0];
+      const logId = await logActivity({
+        userId: req.user?.id || req.user?.user_id || null,
+        module: "user",
+        tableName: "user_master",
+        recordId: user_id,
+        action: "update",
+        oldValue: oldValue,
+        newValue: updated,
+        comments: `Updated user id: ${user_id}`,
+        reqMeta: req._meta || {},
+      });
+      if (!logId)
+        console.warn(
+          "Activity log (editUser) did not insert a row for record:",
+          user_id
+        );
+      else console.log("Activity log (editUser) inserted id:", logId);
+    } catch (logErr) {
+      console.warn("Activity log (editUser) failed:", logErr.message || logErr);
     }
     res.json({ user: rows[0] });
   } catch (err) {

@@ -24,12 +24,20 @@ if (!connectionString) {
 
 const pool = new Pool({
   connectionString,
-  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+  ssl:
+    process.env.NODE_ENV === "production"
+      ? { rejectUnauthorized: false }
+      : false,
 });
 
-pool
-  .connect()
+// Wrap query to ensure consistent interface
+const db = {
+  query: (...args) => pool.query(...args),
+  connect: () => pool.connect()
+};
+
+db.connect()
   .then(() => console.log("✅ Database connected successfully"))
   .catch((err) => console.error("❌ Database connection error:", err.message));
 
-module.exports = pool;
+module.exports = db;

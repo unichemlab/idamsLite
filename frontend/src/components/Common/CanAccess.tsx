@@ -5,38 +5,56 @@ import { useAuth } from "../../context/AuthContext";
 
 interface CanAccessProps {
   children: ReactNode;
-  action: string;
-  subject: string;
+  permission: string;
   redirectTo?: string;
+  fallback?: ReactNode;
 }
 
 /**
- * CASL-powered access control component. Use this to protect routes and components
+ * Permission-based access control component. Use this to protect routes and components
  * based on user permissions.
  *
  * @example
  * // Protect an approver route
- * <CanAccess action="read" subject="ROLE_MASTER">
- *   <ApproverDashboard />
+ * <CanAccess permission="read:roles">
+ *   <RoleMasterTable />
+ * </CanAccess>
+ *
+ * // With custom fallback
+ * <CanAccess 
+ *   permission="create:user-requests" 
+ *   fallback={<DisabledButton>Not Authorized</DisabledButton>}
+ * >
+ *   <CreateRequestButton />
  * </CanAccess>
  */
 const CanAccess: React.FC<CanAccessProps> = ({
   children,
-  action,
-  subject,
-  redirectTo = "/",
+  permission,
+  redirectTo = "/access-denied",
+  fallback = null,
 }) => {
-  const ability = useAbility();
+  const { can } = useAbility();
   const { user } = useAuth();
 
-
+  // Not logged in → login page
   if (!user?.id) {
-    // Not logged in → login page
     return <Navigate to="/" replace />;
   }
 
-  if (!ability.can(action, subject)) {
-    // No permission → redirect (default: home)
+  // Check permission string format
+  if (!permission.includes(':')) {
+    console.error('Invalid permission format. Expected "action:subject", got:', permission);
+    return null;
+  }
+
+  // Check permission
+  if (!can(permission)) {
+    // If fallback is provided, show that instead of redirecting
+    if (fallback !== null) {
+      return <>{fallback}</>;
+    }
+    // Otherwise redirect to Access Denied
     return <Navigate to={redirectTo} replace />;
   }
 

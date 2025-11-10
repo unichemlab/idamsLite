@@ -1,9 +1,12 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const systemController = require('../controllers/systemController');
+const systemController = require("../controllers/systemController");
 
-router.get('/', systemController.getAllSystems);
-router.get('/:id', systemController.getSystemById);
-router.put('/:id', systemController.updateSystem);
+// Create, Read, Update, Delete for systems
+router.get("/", systemController.getAllSystems);
+router.post("/", systemController.createSystem);
+router.get("/:id", systemController.getSystemById);
+router.put("/:id", systemController.updateSystem);
+router.delete("/:id", systemController.deleteSystem);
 
 module.exports = router;

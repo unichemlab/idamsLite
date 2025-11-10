@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { API_BASE } from "../../utils/api";
+import { fetchTasks as apiFetchTasks } from "../../utils/api";
 interface TaskLog {
   task_id: number;
   user_request_id: number;
@@ -39,12 +39,9 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({
   const fetchTasks = async () => {
     try {
       setLoading(true);
-      const response = await fetch(
-        `${API_BASE}/api/task`
-      );
-      if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
-      const data = await response.json();
-      setTasks(data);
+      // Use the centralized api helper which automatically attaches Authorization
+      const data = await apiFetchTasks();
+      setTasks(Array.isArray(data) ? data : []);
     } catch (err: any) {
       console.error("Error fetching task data:", err);
       setError("Failed to fetch tasks. Please try again.");

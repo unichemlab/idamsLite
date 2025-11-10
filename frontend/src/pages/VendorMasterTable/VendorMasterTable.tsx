@@ -19,7 +19,7 @@ const VendorMasterTable: React.FC = () => {
   const [selectedRow, setSelectedRow] = React.useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   const [showActivityModal, setShowActivityModal] = React.useState(false);
-  const [activityLogs, setActivityLogs] = React.useState<any[]>([]);
+  // activity logs fetched per-click; we don't keep a global cache here
   const [approverFilter, setApproverFilter] = React.useState("");
   const [activityVendor, setActivityVendor] = React.useState<any>(null);
   // Filter state
@@ -168,30 +168,20 @@ const VendorMasterTable: React.FC = () => {
     doc.save(fileName);
   };
 
-  // Get activity logs for a specific Vendor (by vendor name)
-  const getVendorActivityLogs = (vendorName: string) => {
-    // Filter logs by vendor name (from new/old value JSON)
-    return activityLogs.filter((log) => {
+  // Helper to filter logs by vendor name
+  const filterLogsForVendor = (logs: any[], vendorName: string) => {
+    return logs.filter((log) => {
       try {
         const oldVal = log.old_value ? JSON.parse(log.old_value) : {};
         const newVal = log.new_value ? JSON.parse(log.new_value) : {};
         return (
-          oldVal.vendor_name === vendorName || newVal.vrndor_name === vendorName
+          oldVal.vendor_name === vendorName || newVal.vendor_name === vendorName
         );
       } catch {
         return false;
       }
     });
   };
-
-  // Fetch logs from backend on modal open
-  useEffect(() => {
-    if (showActivityModal) {
-      fetchVendorActivityLogs()
-        .then(setActivityLogs)
-        .catch(() => setActivityLogs([]));
-    }
-  }, [showActivityModal]);
 
   const confirmDelete = async () => {
     if (selectedRow === null) return;
@@ -233,7 +223,8 @@ const VendorMasterTable: React.FC = () => {
           <button
             className={`${styles.btn} ${styles.editBtn}`}
             onClick={() => {
-              if (selectedRow !== null) navigate(`/vendors/edit/${selectedRow}`);
+              if (selectedRow !== null)
+                navigate(`/vendors/edit/${selectedRow}`);
             }}
             disabled={selectedRow === null}
           >
@@ -376,11 +367,23 @@ const VendorMasterTable: React.FC = () => {
                       title="View Activity Log"
                       onClick={async (e) => {
                         e.stopPropagation();
-                        setActivityVendor({
-                          name: vendor.name ?? "",
-                          logs: getVendorActivityLogs(vendor.name ?? ""),
-                        });
                         setApproverFilter("");
+                        try {
+                          const logs = await fetchVendorActivityLogs();
+                          const filtered = filterLogsForVendor(
+                            logs,
+                            vendor.name ?? ""
+                          );
+                          setActivityVendor({
+                            name: vendor.name ?? "",
+                            logs: filtered,
+                          });
+                        } catch (err) {
+                          setActivityVendor({
+                            name: vendor.name ?? "",
+                            logs: [],
+                          });
+                        }
                         setShowActivityModal(true);
                       }}
                     >

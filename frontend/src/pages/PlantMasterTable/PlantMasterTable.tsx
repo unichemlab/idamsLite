@@ -19,7 +19,7 @@ const PlantMasterTable: React.FC = () => {
   const [selectedRow, setSelectedRow] = React.useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   const [showActivityModal, setShowActivityModal] = React.useState(false);
-  const [activityLogs, setActivityLogs] = React.useState<any[]>([]);
+  // activity logs are fetched on-demand and stored in activityPlant.logs
   const [approverFilter, setApproverFilter] = React.useState("");
   const [activityPlant, setActivityPlant] = React.useState<any>(null);
   // Filter state
@@ -171,30 +171,10 @@ const PlantMasterTable: React.FC = () => {
     doc.save(fileName);
   };
 
-  // Get activity logs for a specific plant (by plant name)
-  const getPlantActivityLogs = (plantName: string) => {
-    // Filter logs by plant name (from new/old value JSON)
-    return activityLogs.filter((log) => {
-      try {
-        const oldVal = log.old_value ? JSON.parse(log.old_value) : {};
-        const newVal = log.new_value ? JSON.parse(log.new_value) : {};
-        return (
-          oldVal.plant_name === plantName || newVal.plant_name === plantName
-        );
-      } catch {
-        return false;
-      }
-    });
-  };
+  // (Previously had a helper to filter activityLogs by plant name. We fetch
+  // logs on-demand when opening the modal to avoid stale/empty data.)
 
-  // Fetch logs from backend on modal open
-  useEffect(() => {
-    if (showActivityModal) {
-      fetchPlantActivityLogs()
-        .then(setActivityLogs)
-        .catch(() => setActivityLogs([]));
-    }
-  }, [showActivityModal]);
+  // Logs are fetched on-demand when opening the modal (see click handler)
 
   const confirmDelete = async () => {
     if (selectedRow === null) return;
@@ -382,12 +362,38 @@ const PlantMasterTable: React.FC = () => {
                       title="View Activity Log"
                       onClick={async (e) => {
                         e.stopPropagation();
-                        setActivityPlant({
-                          name: plant.name ?? "",
-                          logs: getPlantActivityLogs(plant.name ?? ""),
-                        });
+                        const plantName = plant.name ?? "";
+                        // Open modal immediately (keeps UI responsive)
                         setApproverFilter("");
+                        setActivityPlant({ name: plantName, logs: [] });
                         setShowActivityModal(true);
+
+                        // Fetch latest logs and populate modal once available
+                        try {
+                          const allLogs = await fetchPlantActivityLogs();
+                          // filter by plant name (same logic as getPlantActivityLogs)
+                          const filtered = (allLogs || []).filter(
+                            (log: any) => {
+                              try {
+                                const oldVal = log.old_value
+                                  ? JSON.parse(log.old_value)
+                                  : {};
+                                const newVal = log.new_value
+                                  ? JSON.parse(log.new_value)
+                                  : {};
+                                return (
+                                  oldVal.plant_name === plantName ||
+                                  newVal.plant_name === plantName
+                                );
+                              } catch {
+                                return false;
+                              }
+                            }
+                          );
+                          setActivityPlant({ name: plantName, logs: filtered });
+                        } catch (err) {
+                          setActivityPlant({ name: plantName, logs: [] });
+                        }
                       }}
                     >
                       <FaRegClock size={18} />

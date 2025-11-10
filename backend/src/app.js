@@ -48,6 +48,11 @@ app.use(
   })
 );
 app.use(express.json());
+
+// Request metadata middleware
+const requestMetadata = require("./middleware/requestMeta");
+app.use(requestMetadata);
+
 // -----------------------------
 // Hardcoded AD credentials (for testing)
 // -----------------------------

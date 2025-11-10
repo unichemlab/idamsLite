@@ -1,3 +1,5 @@
+const { logActivity } = require("../utils/activityLogger");
+
 // Dummy in-memory data for demonstration. Replace with DB logic as needed.
 let systems = [
   {
@@ -236,15 +238,137 @@ exports.getAllSystems = (req, res) => {
 
 exports.getSystemById = (req, res) => {
   const id = parseInt(req.params.id, 10);
-  const system = systems.find(s => s.id === id);
+  const system = systems.find((s) => s.id === id);
   if (!system) return res.status(404).json({ error: "System not found" });
   res.json(system);
 };
 
 exports.updateSystem = (req, res) => {
   const id = parseInt(req.params.id, 10);
-  const idx = systems.findIndex(s => s.id === id);
+  const idx = systems.findIndex((s) => s.id === id);
   if (idx === -1) return res.status(404).json({ error: "System not found" });
-  systems[idx] = { ...systems[idx], ...req.body };
+  const oldRec = { ...systems[idx] };
+  systems[idx] = {
+    ...systems[idx],
+    ...req.body,
+    updated_on: new Date().toISOString(),
+  };
+
+  // non-blocking activity log
+  try {
+    const userId = req.user && req.user.id ? req.user.id : null;
+    const reqMeta = {
+      ip:
+        req.ip ||
+        req.headers["x-forwarded-for"] ||
+        req.connection?.remoteAddress ||
+        null,
+      userAgent: req.headers["user-agent"] || null,
+    };
+    logActivity({
+      userId,
+      module: "system",
+      tableName: "system_master",
+      recordId: id,
+      action: "update",
+      oldValue: oldRec,
+      newValue: systems[idx],
+      comments: `Updated system id ${id}`,
+      reqMeta,
+    })
+      .then((insertedId) => {
+        if (insertedId)
+          console.log(`Activity log (updateSystem) inserted id: ${insertedId}`);
+      })
+      .catch((e) => console.warn("Activity log failed (updateSystem)", e));
+  } catch (e) {
+    console.warn("Activity log exception (updateSystem)", e);
+  }
+
   res.json(systems[idx]);
+};
+
+// Create system
+exports.createSystem = (req, res) => {
+  const payload = { ...req.body };
+  const maxId = systems.reduce((m, s) => Math.max(m, s.id || 0), 0);
+  const newId = maxId + 1;
+  const now = new Date().toISOString();
+  const newSystem = { id: newId, ...payload, created_on: now, updated_on: now };
+  systems.push(newSystem);
+
+  // non-blocking activity log
+  try {
+    const userId = req.user && req.user.id ? req.user.id : null;
+    const reqMeta = {
+      ip:
+        req.ip ||
+        req.headers["x-forwarded-for"] ||
+        req.connection?.remoteAddress ||
+        null,
+      userAgent: req.headers["user-agent"] || null,
+    };
+    logActivity({
+      userId,
+      module: "system",
+      tableName: "system_master",
+      recordId: newId,
+      action: "create",
+      oldValue: null,
+      newValue: newSystem,
+      comments: `Created system id ${newId}`,
+      reqMeta,
+    })
+      .then((insertedId) => {
+        if (insertedId)
+          console.log(`Activity log (createSystem) inserted id: ${insertedId}`);
+      })
+      .catch((e) => console.warn("Activity log failed (createSystem)", e));
+  } catch (e) {
+    console.warn("Activity log exception (createSystem)", e);
+  }
+
+  res.status(201).json(newSystem);
+};
+
+// Delete system
+exports.deleteSystem = (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const idx = systems.findIndex((s) => s.id === id);
+  if (idx === -1) return res.status(404).json({ error: "System not found" });
+  const oldRec = { ...systems[idx] };
+  systems.splice(idx, 1);
+
+  // non-blocking activity log
+  try {
+    const userId = req.user && req.user.id ? req.user.id : null;
+    const reqMeta = {
+      ip:
+        req.ip ||
+        req.headers["x-forwarded-for"] ||
+        req.connection?.remoteAddress ||
+        null,
+      userAgent: req.headers["user-agent"] || null,
+    };
+    logActivity({
+      userId,
+      module: "system",
+      tableName: "system_master",
+      recordId: id,
+      action: "delete",
+      oldValue: oldRec,
+      newValue: null,
+      comments: `Deleted system id ${id}`,
+      reqMeta,
+    })
+      .then((insertedId) => {
+        if (insertedId)
+          console.log(`Activity log (deleteSystem) inserted id: ${insertedId}`);
+      })
+      .catch((e) => console.warn("Activity log failed (deleteSystem)", e));
+  } catch (e) {
+    console.warn("Activity log exception (deleteSystem)", e);
+  }
+
+  res.json({ success: true });
 };

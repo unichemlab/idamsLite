@@ -17,7 +17,7 @@ const DepartmentMasterTable: React.FC = () => {
   const [selectedRow, setSelectedRow] = React.useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   const [showActivityModal, setShowActivityModal] = React.useState(false);
-  const [activityLogs, setActivityLogs] = React.useState<any[]>([]);
+  // activity logs are fetched on demand when user clicks the activity icon
   const [activityDepartment, setActivityDepartment] = React.useState<any>(null);
   const [approverFilter, setApproverFilter] = React.useState("");
   const [showFilterPopover, setShowFilterPopover] = React.useState(false);
@@ -165,9 +165,9 @@ const DepartmentMasterTable: React.FC = () => {
     doc.save(fileName);
   };
 
-  // Get activity logs for a specific department (by department name)
-  const getDepartmentActivityLogs = (departmentName: string) => {
-    return activityLogs.filter((log) => {
+  // Helper to filter logs by department name
+  const filterLogsForDepartment = (logs: any[], departmentName: string) => {
+    return logs.filter((log) => {
       try {
         const oldVal = log.old_value ? JSON.parse(log.old_value) : {};
         const newVal = log.new_value ? JSON.parse(log.new_value) : {};
@@ -180,15 +180,6 @@ const DepartmentMasterTable: React.FC = () => {
       }
     });
   };
-
-  // Fetch logs from backend on modal open
-  useEffect(() => {
-    if (showActivityModal) {
-      fetchDepartmentActivityLogs()
-        .then(setActivityLogs)
-        .catch(() => setActivityLogs([]));
-    }
-  }, [showActivityModal]);
 
   const confirmDelete = async () => {
     if (selectedRow === null) return;
@@ -374,13 +365,23 @@ const DepartmentMasterTable: React.FC = () => {
                       title="View Activity Log"
                       onClick={async (e) => {
                         e.stopPropagation();
-                        setActivityDepartment({
-                          name: department.name ?? "",
-                          logs: getDepartmentActivityLogs(
-                            department.name ?? ""
-                          ),
-                        });
                         setApproverFilter("");
+                        try {
+                          const logs = await fetchDepartmentActivityLogs();
+                          const filtered = filterLogsForDepartment(
+                            logs,
+                            department.name ?? ""
+                          );
+                          setActivityDepartment({
+                            name: department.name ?? "",
+                            logs: filtered,
+                          });
+                        } catch (err) {
+                          setActivityDepartment({
+                            name: department.name ?? "",
+                            logs: [],
+                          });
+                        }
                         setShowActivityModal(true);
                       }}
                     >

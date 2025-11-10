@@ -8,6 +8,7 @@ import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { useNavigate } from "react-router-dom";
 import { useRoles } from "../../RoleMaster/RolesContext";
+import { fetchRoleActivityLogs } from "../../utils/api";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
 
 interface RoleMasterTableProps {
@@ -15,13 +16,17 @@ interface RoleMasterTableProps {
   onEdit?: (id: number) => void;
 }
 
-export default function RoleMasterTable({ onAdd, onEdit }: RoleMasterTableProps) {
+export default function RoleMasterTable({
+  onAdd,
+  onEdit,
+}: RoleMasterTableProps) {
   const { roles, deleteRole } = useRoles();
   const [selectedRow, setSelectedRow] = React.useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   const [showActivityModal, setShowActivityModal] = React.useState(false);
-  // Removed unused activityLogs and setActivityLogs
+  // activityRole stores { name, logs: [] }
   const [activityRole, setActivityRole] = React.useState<any>(null);
+  // (no approver filter in this table currently)
   const [showFilterPopover, setShowFilterPopover] = React.useState(false);
   const [filterColumn, setFilterColumn] = React.useState("name");
   const [filterValue, setFilterValue] = React.useState("");
@@ -109,9 +114,7 @@ export default function RoleMasterTable({ onAdd, onEdit }: RoleMasterTableProps)
     }
   };
 
-  function setApproverFilter(arg0: string) {
-    throw new Error("Function not implemented.");
-  }
+  // approverFilter/state implemented above
 
   return (
     <div>
@@ -154,9 +157,9 @@ export default function RoleMasterTable({ onAdd, onEdit }: RoleMasterTableProps)
             onClick={() => {
               if (selectedRow !== null && filteredData[selectedRow]) {
                 const id = filteredData[selectedRow].id;
-                if (onEdit && typeof id === 'number') {
+                if (onEdit && typeof id === "number") {
                   onEdit(id);
-                } else if (typeof id === 'number') {
+                } else if (typeof id === "number") {
                   navigate(`/roles/edit/${id}`);
                 }
               }
@@ -301,12 +304,69 @@ export default function RoleMasterTable({ onAdd, onEdit }: RoleMasterTableProps)
                       title="View Activity Log"
                       onClick={async (e) => {
                         e.stopPropagation();
-                        setActivityRole({
-                          name: role.name ?? "",
-                          logs: role.activityLogs ?? [],
-                        });
-                        setApproverFilter("");
+                        const roleName = role.name ?? "";
+                        // Open modal immediately
+                        setActivityRole({ name: roleName, logs: [] });
                         setShowActivityModal(true);
+
+                        // Fetch logs and filter for this role
+                        try {
+                          const allLogs = await fetchRoleActivityLogs();
+                          const filtered = (allLogs || []).filter(
+                            (log: any) => {
+                              try {
+                                const oldVal = log.old_value
+                                  ? JSON.parse(log.old_value)
+                                  : {};
+                                const newVal = log.new_value
+                                  ? JSON.parse(log.new_value)
+                                  : {};
+                                return (
+                                  oldVal.name === roleName ||
+                                  newVal.name === roleName ||
+                                  oldVal.role_name === roleName ||
+                                  newVal.role_name === roleName
+                                );
+                              } catch {
+                                return false;
+                              }
+                            }
+                          );
+
+                          // Normalize rows for display: keep fields expected by modal
+                          const normalized = filtered.map((r: any) => {
+                            let oldVal = r.old_value;
+                            let newVal = r.new_value;
+                            try {
+                              oldVal = r.old_value
+                                ? JSON.parse(r.old_value)
+                                : r.old_value;
+                            } catch {}
+                            try {
+                              newVal = r.new_value
+                                ? JSON.parse(r.new_value)
+                                : r.new_value;
+                            } catch {}
+                            return {
+                              action: r.action || r.action_performed_by || "",
+                              oldValue:
+                                typeof oldVal === "object"
+                                  ? JSON.stringify(oldVal)
+                                  : oldVal,
+                              newValue:
+                                typeof newVal === "object"
+                                  ? JSON.stringify(newVal)
+                                  : newVal,
+                              approver:
+                                r.action_performed_by || r.user_id || "",
+                              dateTime: r.date_time_ist || r.created_on || null,
+                            };
+                          });
+
+                          setActivityRole({ name: roleName, logs: normalized });
+                        } catch (err) {
+                          setActivityRole({ name: roleName, logs: [] });
+                        }
                       }}
                     >
                       <FaRegClock size={18} />
@@ -353,7 +413,9 @@ export default function RoleMasterTable({ onAdd, onEdit }: RoleMasterTableProps)
             }}
           >
             {/* Activity log content here */}
-            <h3 style={{ marginBottom: 12 }}>Activity Logs for {activityRole.name}</h3>
+            <h3 style={{ marginBottom: 12 }}>
+              Activity Logs for {activityRole.name}
+            </h3>
             <div style={{ maxHeight: 320, overflowY: "auto" }}>
               <table style={{ width: "100%", fontSize: 14 }}>
                 <thead>
@@ -373,12 +435,19 @@ export default function RoleMasterTable({ onAdd, onEdit }: RoleMasterTableProps)
                         <td>{log.oldValue}</td>
                         <td>{log.newValue}</td>
                         <td>{log.approver}</td>
-                        <td>{log.dateTime ? new Date(log.dateTime).toLocaleString() : ""}</td>
+                        <td>
+                          {log.dateTime
+                            ? new Date(log.dateTime).toLocaleString()
+                            : ""}
+                        </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={5} style={{ textAlign: "center", color: "#888" }}>
+                      <td
+                        colSpan={5}
+                        style={{ textAlign: "center", color: "#888" }}
+                      >
                         No activity logs found.
                       </td>
                     </tr>

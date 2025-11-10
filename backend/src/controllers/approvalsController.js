@@ -1,4 +1,12 @@
 const db = require("../config/db");
+const { logActivity } = require("../utils/activityLogger");
+
+// Helper to get task details by transaction
+async function getTasksByTransaction(transaction) {
+  const q = `SELECT * FROM task_requests WHERE transaction_id = $1`;
+  const { rows } = await db.query(q, [transaction]);
+  return rows;
+}
 
 // Approve task(s) by task_requests.transaction_id
 exports.approveByTransaction = async (req, res) => {
@@ -8,11 +16,28 @@ exports.approveByTransaction = async (req, res) => {
 
     if (!transaction) return res.status(400).json({ error: "Transaction id required" });
 
+    // Get old state
+    const oldTasks = await getTasksByTransaction(transaction);
+
     const q = `UPDATE task_requests SET task_status = 'Approved', remarks = $1, updated_on = NOW() WHERE transaction_id = $2 RETURNING *`;
     const params = [comments || null, transaction];
     const { rows } = await db.query(q, params);
 
-    // Optionally, update user_requests approver status if needed (omitted for now)
+    // Log the approval action for each task
+    for (const task of rows) {
+      const oldTask = oldTasks.find(t => t.id === task.id);
+      await logActivity({
+        userId: req.user.id,
+        module: 'approvals',
+        tableName: 'task_requests',
+        recordId: task.id,
+        action: 'approve',
+        oldValue: oldTask,
+        newValue: task,
+        comments: `Task approved with comment: ${comments || 'No comment provided'}`,
+        reqMeta: req._meta
+      });
+    }
 
     res.json({ success: true, updated: rows.length, rows });
   } catch (err) {
@@ -29,9 +54,28 @@ exports.rejectByTransaction = async (req, res) => {
 
     if (!transaction) return res.status(400).json({ error: "Transaction id required" });
 
+    // Get old state
+    const oldTasks = await getTasksByTransaction(transaction);
+
     const q = `UPDATE task_requests SET task_status = 'Rejected', remarks = $1, updated_on = NOW() WHERE transaction_id = $2 RETURNING *`;
     const params = [comments || null, transaction];
     const { rows } = await db.query(q, params);
+
+    // Log the reject action for each task
+    for (const task of rows) {
+      const oldTask = oldTasks.find(t => t.id === task.id);
+      await logActivity({
+        userId: req.user.id,
+        module: 'approvals',
+        tableName: 'task_requests',
+        recordId: task.id,
+        action: 'reject',
+        oldValue: oldTask,
+        newValue: task,
+        comments: `Task rejected with comment: ${comments || 'No comment provided'}`,
+        reqMeta: req._meta
+      });
+    }
 
     res.json({ success: true, updated: rows.length, rows });
   } catch (err) {

@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const auditLog = require("../utils/audit");
+const { logActivity } = require("../utils/activityLogger");
 // Get all applications (GET)
 exports.getAllApplications = async (req, res) => {
   try {
@@ -12,7 +13,6 @@ exports.getAllApplications = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
-
 
 // Delete Application (DELETE)
 exports.deleteApplication = async (req, res) => {
@@ -27,7 +27,36 @@ exports.deleteApplication = async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Application not found" });
     }
+    
      auditLog(req, "application_master", id, "DELETE", oldRow.rows[0], {}, "application deleted");
+
+
+    // Log deletion activity (non-blocking)
+    try {
+      const deletedRow = result.rows[0];
+      const logId = await logActivity({
+        userId: req.user?.id || req.user?.user_id || null,
+        module: "application",
+        tableName: "application_master",
+        recordId: deletedRow.id,
+        action: "delete",
+        oldValue: deletedRow,
+        newValue: null,
+        comments: `Deleted application id: ${deletedRow.id}`,
+        reqMeta: req._meta || {},
+      });
+      if (!logId)
+        console.warn(
+          "Activity log (deleteApplication) did not insert a row for record:",
+          deletedRow.id
+        );
+      else console.log("Activity log (deleteApplication) inserted id:", logId);
+    } catch (logErr) {
+      console.warn(
+        "Activity log (deleteApplication) failed:",
+        logErr.message || logErr
+      );
+    }
 
     res.status(200).json({ message: "Application deleted successfully" });
   } catch (err) {
@@ -87,6 +116,35 @@ exports.addApplication = async (req, res) => {
     );
     auditLog(req, "application_master", result.rows[0].id, "INSERT", {}, result.rows[0], "new application");
     console.log("[addApplication] Inserted row:", result.rows[0]);
+
+    // Log creation (non-blocking)
+    try {
+      const logId = await logActivity({
+        userId: req.user?.id || req.user?.user_id || null,
+        module: "application",
+        tableName: "application_master",
+        recordId: result.rows[0].id,
+        action: "create",
+        oldValue: null,
+        newValue: result.rows[0],
+        comments: `Created application: ${
+          result.rows[0].display_name || result.rows[0].application_hmi_name
+        }`,
+        reqMeta: req._meta || {},
+      });
+      if (!logId)
+        console.warn(
+          "Activity log (addApplication) did not insert a row for record:",
+          result.rows[0].id
+        );
+      else console.log("Activity log (addApplication) inserted id:", logId);
+    } catch (logErr) {
+      console.warn(
+        "Activity log (addApplication) failed:",
+        logErr.message || logErr
+      );
+    }
+
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error("[addApplication] Error:", err);
@@ -102,6 +160,7 @@ exports.addApplication = async (req, res) => {
 // Edit Application (PUT)
 exports.editApplication = async (req, res) => {
   try {
+    console.log("request",req);
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
       return res.status(400).json({ error: "Invalid application ID" });
@@ -128,6 +187,13 @@ exports.editApplication = async (req, res) => {
       : String(role_id);
 
     const oldData = await db.query("SELECT * FROM application_master WHERE id=$1", [id]);
+    // fetch old value
+    const oldRes = await db.query(
+      "SELECT * FROM application_master WHERE id=$1",
+      [id]
+    );
+    const oldValue = oldRes.rows[0] || null;
+
     const result = await db.query(
       `UPDATE application_master SET
           transaction_id = $1,
@@ -167,7 +233,35 @@ exports.editApplication = async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Application not found" });
     }
+    console.log("req",req);
     auditLog(req, "application_master", id, "UPDATE", oldData.rows[0], result.rows[0], "updated application");
+
+    // Log update activity (non-blocking)
+    try {
+      const logId = await logActivity({
+        userId: req.user?.id || req.user?.user_id || null,
+        module: "application",
+        tableName: "application_master",
+        recordId: id,
+        action: "update",
+        oldValue,
+        newValue: result.rows[0],
+        comments: `Updated application id: ${id}`,
+        reqMeta: req._meta || {},
+      });
+      if (!logId)
+        console.warn(
+          "Activity log (editApplication) did not insert a row for record:",
+          id
+        );
+      else console.log("Activity log (editApplication) inserted id:", logId);
+    } catch (logErr) {
+      console.warn(
+        "Activity log (editApplication) failed:",
+        logErr.message || logErr
+      );
+    }
+
     res.status(200).json(result.rows[0]);
   } catch (err) {
     console.error("Error editing application:", err);
@@ -193,7 +287,9 @@ exports.getDepartmentByPlantId = async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: "No departments found for this plant" });
+      return res
+        .status(404)
+        .json({ error: "No departments found for this plant" });
     }
 
     res.status(200).json(result.rows);
@@ -203,8 +299,42 @@ exports.getDepartmentByPlantId = async (req, res) => {
   }
 };
 
+// Get activity logs related to applications (normalizes legacy `details` rows)
+exports.getApplicationActivityLogs = async (req, res) => {
+  try {
+    const { rows: rawRows } = await db.query(
+      `SELECT * FROM activity_log
+       WHERE table_name = 'application_master'
+          OR (details IS NOT NULL AND details LIKE '%"tableName":"application_master"%')
+       ORDER BY COALESCE(date_time_ist, NOW()) DESC`
+    );
 
+    const rows = rawRows.map((r) => {
+      if (r.details) {
+        try {
+          const parsed = JSON.parse(r.details);
+          r.table_name = r.table_name || parsed.tableName || r.table_name;
+          r.old_value =
+            r.old_value ||
+            (parsed.old_value ? JSON.stringify(parsed.old_value) : null);
+          r.new_value =
+            r.new_value ||
+            (parsed.new_value ? JSON.stringify(parsed.new_value) : null);
+          r.action = r.action || parsed.action || r.action;
+          r.action_performed_by =
+            r.action_performed_by || r.user_id || parsed.userId || null;
+        } catch (e) {
+          // ignore parse errors
+        }
+      }
+      return r;
+    });
 
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
 
 exports.getRoleApplicationIDByPlantIdandDepartment = async (req, res) => {
   try {
@@ -225,19 +355,31 @@ exports.getRoleApplicationIDByPlantIdandDepartment = async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: "No roles or applications found for this plant and department" });
+      return res.status(404).json({
+        error: "No roles or applications found for this plant and department",
+      });
     }
 
     // Unique roles
     const roles = Array.from(
-      new Set(result.rows.map(row => JSON.stringify({ id: row.role_id, name: row.role_name })))
-    ).map(item => JSON.parse(item));
+      new Set(
+        result.rows.map((row) =>
+          JSON.stringify({ id: row.role_id, name: row.role_name })
+        )
+      )
+    ).map((item) => JSON.parse(item));
 
     // Applications
-    const applications = Array.from(new Set (result.rows.map(row => JSON.stringify({
-      id: row.application_id,
-      name: row.display_name
-    })))).map(item => JSON.parse(item));
+    const applications = Array.from(
+      new Set(
+        result.rows.map((row) =>
+          JSON.stringify({
+            id: row.application_id,
+            name: row.display_name,
+          })
+        )
+      )
+    ).map((item) => JSON.parse(item));
 
     res.status(200).json({ roles, applications });
   } catch (err) {
@@ -245,5 +387,3 @@ exports.getRoleApplicationIDByPlantIdandDepartment = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-
-
