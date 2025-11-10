@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const db = require("../config/db");
+const { logActivity } = require("../utils/activityLogger");
 const { JWT_SECRET } = process.env;
 
 /**
@@ -31,10 +32,12 @@ const authorize = (requiredPermissions) => {
       const isApprover = Array.isArray(role_id) && role_id.includes(4); // Role ID 4 is for approvers
 
       // If user is an approver, they should have access to workflows
-      if (isApprover && 
-          (requiredPermissions === "read:workflows" || 
-           requiredPermissions === "read:tasks" ||
-           requiredPermissions === "read:roles")) {
+      if (
+        isApprover &&
+        (requiredPermissions === "read:workflows" ||
+          requiredPermissions === "read:tasks" ||
+          requiredPermissions === "read:roles")
+      ) {
         req.user = { user_id, role_id, permissions, isApprover };
         return next();
       }
@@ -68,14 +71,23 @@ const authorize = (requiredPermissions) => {
       if (!hasPermission) {
         // Try to log the access denial but do NOT let logging failures block authorization flow.
         try {
-          const logQuery = `INSERT INTO activity_log (user_id, action, details) VALUES ($1, $2, $3)`;
-          await db.query(logQuery, [
-            user_id,
-            "access_denied",
-            `Unauthorized access attempt to ${
+          // Use centralized logActivity helper for consistent schema and safe handling
+          await logActivity({
+            userId: user_id || null,
+            module: "authorization",
+            tableName: req.originalUrl || "authorization",
+            recordId: null,
+            action: "access_denied",
+            oldValue: null,
+            newValue: null,
+            comments: `Unauthorized access attempt to ${
               req.originalUrl
             }. Required permissions: ${required.join(", ")}`,
-          ]);
+            reqMeta: req._meta || {
+              ip: req.ip || null,
+              userAgent: req.headers["user-agent"] || null,
+            },
+          });
         } catch (logErr) {
           // log a warning and continue to respond with 403
           console.warn(

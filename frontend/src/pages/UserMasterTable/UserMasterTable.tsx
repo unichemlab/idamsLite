@@ -12,6 +12,7 @@ import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { fetchActivityLog } from "../../utils/api";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
 
 const UserMasterTable = () => {
@@ -57,6 +58,17 @@ const UserMasterTable = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [activityLogsUser, setActivityLogsUser] = useState<any>(null);
+
+  // Helper to render values safely (avoid passing objects directly to JSX)
+  const renderLogValue = (val: any) => {
+    try {
+      if (val === null || val === undefined) return "-";
+      if (typeof val === "object") return JSON.stringify(val);
+      return String(val);
+    } catch (e) {
+      return String(val);
+    }
+  };
 
   // Filtering logic state/hooks
   const [filterColumn, setFilterColumn] = useState("employee_name");
@@ -519,10 +531,140 @@ const UserMasterTable = () => {
                             <button
                               className={styles.actionBtn}
                               title="View Activity Logs"
-                              onClick={(e) => {
+                              onClick={async (e) => {
                                 e.stopPropagation();
-                                setActivityLogsUser(user);
+                                // Open modal immediately for responsiveness
+                                setActivityLogsUser({
+                                  ...user,
+                                  activityLogs: [],
+                                });
                                 setShowActivityModal(true);
+
+                                try {
+                                  const allLogs = await fetchActivityLog();
+                                  const filtered = (allLogs || [])
+                                    .filter((log: any) => {
+                                      // match canonical table_name/record_id
+                                      if (
+                                        log.table_name === "user_master" &&
+                                        String(log.record_id) ===
+                                          String(user.id)
+                                      )
+                                        return true;
+                                      // legacy details-based rows: check tableName or employee_code/employeeId
+                                      if (
+                                        log.details &&
+                                        typeof log.details === "string"
+                                      ) {
+                                        try {
+                                          const parsed = JSON.parse(
+                                            log.details
+                                          );
+                                          if (
+                                            parsed.tableName ===
+                                              "user_master" &&
+                                            (String(parsed.recordId) ===
+                                              String(user.id) ||
+                                              String(parsed.employee_code) ===
+                                                String(user.employee_code) ||
+                                              String(parsed.employeeId) ===
+                                                String(user.employee_id))
+                                          )
+                                            return true;
+                                        } catch (e) {
+                                          // ignore parse errors
+                                        }
+                                      }
+                                      return false;
+                                    })
+                                    .map((r: any) => {
+                                      // normalize row to UI-friendly fields
+                                      let parsedDetails = null;
+                                      if (
+                                        r.details &&
+                                        typeof r.details === "string"
+                                      ) {
+                                        try {
+                                          parsedDetails = JSON.parse(r.details);
+                                        } catch {
+                                          parsedDetails = null;
+                                        }
+                                      }
+                                      const parseMaybeJson = (v: any) => {
+                                        if (!v && v !== "" && v !== 0)
+                                          return null;
+                                        if (typeof v === "string") {
+                                          try {
+                                            return JSON.parse(v);
+                                          } catch {
+                                            return v;
+                                          }
+                                        }
+                                        return v;
+                                      };
+                                      const oldVal = parseMaybeJson(
+                                        r.old_value ||
+                                          (parsedDetails &&
+                                            parsedDetails.old_value)
+                                      );
+                                      const newVal = parseMaybeJson(
+                                        r.new_value ||
+                                          (parsedDetails &&
+                                            parsedDetails.new_value)
+                                      );
+                                      const action =
+                                        r.action ||
+                                        (parsedDetails &&
+                                          parsedDetails.action) ||
+                                        "";
+                                      const approver =
+                                        r.action_performed_by ||
+                                        r.user_id ||
+                                        (parsedDetails &&
+                                          (parsedDetails.userId ||
+                                            parsedDetails.approver)) ||
+                                        null;
+                                      const dateTime =
+                                        r.date_time_ist ||
+                                        r.timestamp ||
+                                        r.created_at ||
+                                        (parsedDetails &&
+                                          parsedDetails.dateTime) ||
+                                        null;
+                                      const comments =
+                                        r.comments ||
+                                        (parsedDetails &&
+                                          (parsedDetails.comments ||
+                                            parsedDetails.reason)) ||
+                                        null;
+                                      return {
+                                        action,
+                                        oldValue: oldVal,
+                                        newValue: newVal,
+                                        approver,
+                                        approvedOrRejectedBy:
+                                          r.approved_by || null,
+                                        approvalStatus:
+                                          r.approve_status ||
+                                          r.approval_status ||
+                                          null,
+                                        dateTime,
+                                        reason: comments,
+                                        _raw: r,
+                                      };
+                                    });
+
+                                  setActivityLogsUser({
+                                    ...user,
+                                    activityLogs: filtered,
+                                  });
+                                } catch (err) {
+                                  // fallback to empty logs
+                                  setActivityLogsUser({
+                                    ...user,
+                                    activityLogs: [],
+                                  });
+                                }
                               }}
                             >
                               <FaRegClock size={17} />
@@ -620,7 +762,13 @@ const UserMasterTable = () => {
                             "Comments",
                           ],
                         ];
-                        const allowed = ["edit", "delete", "add"];
+                        const allowed = [
+                          "edit",
+                          "update",
+                          "delete",
+                          "add",
+                          "create",
+                        ];
                         const logs = (
                           Array.isArray(activityLogsUser.activityLogs)
                             ? activityLogsUser.activityLogs
@@ -656,8 +804,8 @@ const UserMasterTable = () => {
                           });
                           return [
                             log.action || "-",
-                            log.oldValue !== undefined ? log.oldValue : "-",
-                            log.newValue !== undefined ? log.newValue : "-",
+                            renderLogValue(log.oldValue),
+                            renderLogValue(log.newValue),
                             log.approver || "-",
                             log.approvedOrRejectedBy || "-",
                             log.approvalStatus || "-",
@@ -805,7 +953,13 @@ const UserMasterTable = () => {
                         : [activityLogsUser.activityLogs]
                       )
                         .filter((log: any) => {
-                          const allowed = ["edit", "delete", "add"];
+                          const allowed = [
+                            "edit",
+                            "update",
+                            "delete",
+                            "add",
+                            "create",
+                          ];
                           const actionType = (log.action || "").toLowerCase();
                           return allowed.some((type) =>
                             actionType.includes(type)
@@ -837,16 +991,8 @@ const UserMasterTable = () => {
                           return (
                             <tr key={i}>
                               <td>{log.action || "-"}</td>
-                              <td>
-                                {log.oldValue !== undefined
-                                  ? log.oldValue
-                                  : "-"}
-                              </td>
-                              <td>
-                                {log.newValue !== undefined
-                                  ? log.newValue
-                                  : "-"}
-                              </td>
+                              <td>{renderLogValue(log.oldValue)}</td>
+                              <td>{renderLogValue(log.newValue)}</td>
                               <td>{log.approver || "-"}</td>
                               <td>{log.approvedOrRejectedBy || "-"}</td>
                               <td>{log.approvalStatus || "-"}</td>

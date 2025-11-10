@@ -84,6 +84,11 @@ export async function deleteSystemAPI(id: number): Promise<void> {
 export async function fetchApplications(): Promise<any[]> {
   return request("/api/applications");
 }
+
+// Fetch application activity logs
+export async function fetchApplicationActivityLogs(): Promise<any[]> {
+  return request("/api/applications/activity-logs");
+}
 // Fetch role master data from backend API
 export async function fetchRoles(): Promise<any[]> {
   return request("/api/roles");
@@ -140,6 +145,10 @@ export async function deletePlantAPI(id: number): Promise<void> {
 // Fetch vendor activity logs
 export async function fetchVendorActivityLogs(): Promise<any[]> {
   return request("/api/vendors/activity-logs");
+}
+// Fetch role activity logs
+export async function fetchRoleActivityLogs(): Promise<any[]> {
+  return request("/api/roles/activity-logs");
 }
 // Fetch vendor master data from backend API
 export async function fetchVendors(): Promise<any[]> {
