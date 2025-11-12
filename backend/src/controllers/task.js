@@ -176,6 +176,8 @@ exports.getAllTasks = async (req, res) => {
     }
 console.log("user ITBin",user?.isITBin);
 console.log("user itPlantIds",user.itPlantIds);
+console.log("user ITBin",user?.isITBin);
+console.log("user itPlantIds",user.itPlantIds);
     // Apply restriction based on ITBIN flag
     if (user?.isITBin && user.itPlantIds?.length > 0) {
       params.push(user.itPlantIds);

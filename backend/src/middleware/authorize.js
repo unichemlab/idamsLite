@@ -21,6 +21,7 @@ const authorize = (requiredPermissions) => {
       // Verify token
       const decoded = jwt.verify(token, JWT_SECRET);
       console.log("token_decode",decoded);
+      console.log("token_decode",decoded);
       // Extract user info from token
       const { user_id, role_id, permissions ,itPlants,isITBin,itPlantIds,} = decoded;
 
@@ -52,8 +53,15 @@ const authorize = (requiredPermissions) => {
         return next();
       }
 
-      // Attach normalized user by default
-      req.user = normalizedUser;
+      // Attach user info to request
+      req.user = {
+        id: user_id,
+        roles: role_id,
+        permissions: permissions || [], // May be empty if using role-based checks
+        isITBin:isITBin,
+        itPlants:itPlants,
+        itPlantIds:itPlantIds
+      };
 
       // If no permissions required, just validate token
       if (!requiredPermissions) {
