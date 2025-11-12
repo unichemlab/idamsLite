@@ -92,7 +92,8 @@ const ApproverDashboard: React.FC = () => {
 
       const [tasks, workflowsResponse]: [any, any] = await Promise.all([
         fetchTasksForApprover(user.id),
-        fetchWorkflows(),
+        // ask backend to return only workflows relevant to this approver when possible
+        fetchWorkflows(Number(user.id)),
       ]);
 
       // workflowsResponse can be an object with a 'workflows' property, or an array directly
@@ -109,33 +110,67 @@ const ApproverDashboard: React.FC = () => {
         workflows = wfResp.workflows;
       }
 
+      // workflows may store approver ids as numbers; compare numerically/string-safe
+      // Workflows may come in two shapes:
+      // - legacy: { approver_1_id, approver_2_id, ... }
+      // - modern: { approvers: [ [userObj...], [userObj...], ... ] }
       const approverPlantIds = workflows
-        .filter((wf: any) =>
-          [
+        .filter((wf: any) => {
+          // modern shape: check approvers arrays for a matching user id
+          if (Array.isArray(wf.approvers) && wf.approvers.length) {
+            return wf.approvers.some((group: any[]) =>
+              group.some(
+                (u: any) =>
+                  String(u?.id || u?.user_id || u?.employee_id) ===
+                  String(user.id)
+              )
+            );
+          }
+
+          // fallback to legacy comma-separated fields
+          return [
             wf.approver_1_id,
             wf.approver_2_id,
             wf.approver_3_id,
             wf.approver_4_id,
             wf.approver_5_id,
-          ].some((approvers) => approvers?.includes(String(user.id)))
-        )
-        .map((wf: any) => wf.plant_id);
+          ].some((approver) =>
+            String(approver || "")
+              .split(",")
+              .map((s) => s.trim())
+              .includes(String(user.id))
+          );
+        })
+        .map((wf: any) => Number(wf.plant_id));
+
+      console.log("ApproverDashboard approverPlantIds:", approverPlantIds);
 
       const mapped = Array.isArray(tasks)
         ? tasks
             .filter((tr) => {
-              const isInApproverPlant = approverPlantIds.includes(
-                Number(tr.location)
-              );
+              const locNum = Number(tr.location);
+              const isInApproverPlant = approverPlantIds.includes(locNum);
               const isDirectlyAssigned = tr.reports_to === user.username;
-              return isInApproverPlant || isDirectlyAssigned;
+              // Only show PENDING requests in Access Requests tab
+              const isPending = (tr.task_status || "Pending") === "Pending";
+              return isPending && (isInApproverPlant || isDirectlyAssigned);
             })
             .map((tr) => ({
+              // Ensure a stable, unique id for React list keys. Combine user_request_id and task id/transaction
               id:
+                (tr.user_request_id ? String(tr.user_request_id) + "-" : "") +
+                (tr.task_request_transaction_id ||
+                  tr.transaction_id ||
+                  tr.task_id ||
+                  String(tr.task_id || tr.transaction_id)),
+              // Raw transaction id required by approvals API
+              transaction:
                 tr.task_request_transaction_id ||
                 tr.transaction_id ||
                 tr.task_id ||
                 String(tr.task_id || tr.transaction_id),
+              // Include user_request_id so backend can scope the update to this request
+              user_request_id: tr.user_request_id,
               user: tr.request_name || tr.requestor_name || tr.name || "-",
               approver: tr.reports_to || tr.reportsTo || undefined,
               application:
@@ -154,8 +189,11 @@ const ApproverDashboard: React.FC = () => {
             }))
         : [];
 
+      console.log("ApproverDashboard mapped requests (PENDING only):", mapped);
+
       setRequests(mapped);
     } catch (err) {
+      console.error("Error fetching requests:", err);
       setRequests([]);
     } finally {
       setLoading(false);
@@ -170,28 +208,67 @@ const ApproverDashboard: React.FC = () => {
     try {
       const data: any = await fetchTasksForApprover(Number(user.id));
       const mapped: ApprovalAction[] = Array.isArray(data)
-        ? data.map((tr: any) => ({
-            approverName:
-              tr.reports_to ||
-              tr.approver_name ||
-              tr.approver ||
-              tr.username ||
-              "-",
-            approverRole: tr.role_name || tr.approver_role || tr.role || "-",
-            plant: tr.plant_name || tr.plant || "-",
-            corporate: tr.corporate_name || "Unichem Corp",
-            action:
-              tr.task_status === "Approved"
-                ? "Approved"
-                : tr.task_status === "Rejected"
-                ? "Rejected"
-                : tr.task_status || "Pending",
-            timestamp: tr.updated_on || tr.created_on || tr.timestamp || "",
-            comments: tr.remarks || tr.comments || "",
-          }))
+        ? data
+            // Filter to show only APPROVED or REJECTED (not Pending)
+            .filter((tr: any) => {
+              const status = tr.task_status || "Pending";
+              return status === "Approved" || status === "Rejected";
+            })
+            .map((tr: any) => {
+              // Determine which approver actually approved/rejected
+              let approverName = "-";
+              let approverAction = tr.task_status || "Pending";
+
+              // Check if Approver2 took the action
+              if (tr.approver2_action && tr.approver2_action !== "Pending") {
+                approverName =
+                  tr.approver2_name || tr.approver2_email || "Approver 2";
+                approverAction = tr.approver2_action;
+              }
+              // Otherwise check Approver1
+              else if (
+                tr.approver1_action &&
+                tr.approver1_action !== "Pending"
+              ) {
+                approverName =
+                  tr.approver1_name || tr.approver1_email || "Approver 1";
+                approverAction = tr.approver1_action;
+              }
+              // Fallback to legacy field
+              else {
+                approverName =
+                  tr.reports_to ||
+                  tr.approver_name ||
+                  tr.approver ||
+                  tr.username ||
+                  "-";
+              }
+
+              return {
+                approverName,
+                approverRole:
+                  tr.role_name || tr.approver_role || tr.role || "-",
+                plant: tr.plant_name || tr.plant || "-",
+                corporate: tr.corporate_name || "Unichem Corp",
+                action: approverAction,
+                timestamp:
+                  tr.approver2_action_timestamp ||
+                  tr.approver1_action_timestamp ||
+                  tr.updated_on ||
+                  tr.created_on ||
+                  tr.timestamp ||
+                  "",
+                comments: tr.remarks || tr.comments || "",
+              };
+            })
         : [];
+      console.log(
+        "ApproverDashboard approval history (APPROVED/REJECTED only):",
+        mapped
+      );
       setApprovalHistory(mapped);
     } catch (err) {
+      console.error("Error fetching approval history:", err);
       setApprovalHistory([]);
     }
   }
@@ -200,10 +277,14 @@ const ApproverDashboard: React.FC = () => {
     if (!selectedRequest || !user?.id) return;
     setActionInProgress(true);
     try {
-      await postApprovalAction(String(selectedRequest.id), "approve", {
-        approver_id: user.id,
-        comments: actionComments,
-      });
+      await postApprovalAction(
+        String((selectedRequest as any).transaction),
+        "approve",
+        {
+          approver_id: user.id,
+          comments: actionComments,
+        }
+      );
       await fetchRequests();
       await fetchApprovalHistory();
       setOpenApproveDialog(false);
@@ -220,10 +301,14 @@ const ApproverDashboard: React.FC = () => {
     if (!selectedRequest || !user?.id) return;
     setActionInProgress(true);
     try {
-      await postApprovalAction(String(selectedRequest.id), "reject", {
-        approver_id: user.id,
-        comments: actionComments,
-      });
+      await postApprovalAction(
+        String((selectedRequest as any).transaction),
+        "reject",
+        {
+          approver_id: user.id,
+          comments: actionComments,
+        }
+      );
       await fetchRequests();
       await fetchApprovalHistory();
       setOpenRejectDialog(false);

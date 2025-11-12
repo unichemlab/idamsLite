@@ -1,6 +1,7 @@
 import React from "react";
 import ProfileIconWithLogout from "../PlantMasterTable/ProfileIconWithLogout";
 import styles from "./ApplicationMasterTable.module.css";
+import paginationStyles from "../../styles/Pagination.module.css";
 import { FaRegClock } from "react-icons/fa6";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
@@ -19,6 +20,9 @@ export default function ApplicationMasterTable() {
   const [activityLogsApp, setActivityLogsApp] = React.useState<any>(null);
   const [selectedRow, setSelectedRow] = React.useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
+  // Pagination state
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const rowsPerPage = 10;
   const [showFilterPopover, setShowFilterPopover] = React.useState(false);
   const [filterColumn, setFilterColumn] = React.useState(
     "application_hmi_name"
@@ -95,11 +99,27 @@ export default function ApplicationMasterTable() {
     }
   });
 
+  // Reset to first page when filter changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [filterValue]);
+
+  const totalPages = Math.ceil(filteredData.length / rowsPerPage) || 1;
+  const paginatedData = filteredData.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  );
+
   const handleDelete = () => setShowDeleteModal(true);
   const confirmDelete = () => {
     if (selectedRow === null) return;
+    const sel = filteredData[selectedRow];
+    if (!sel) return;
+    // find index in applications array
+    const idx = applications.findIndex((a: any) => a.id === sel.id);
+    if (idx === -1) return;
     const updated = [...applications];
-    const app = updated[selectedRow];
+    const app = updated[idx];
     // Add activity log for delete
     if (app) {
       app.activityLogs = app.activityLogs || [];
@@ -111,7 +131,7 @@ export default function ApplicationMasterTable() {
         dateTime: new Date().toISOString(),
       });
     }
-    updated.splice(selectedRow, 1);
+    updated.splice(idx, 1);
     setApplications(updated);
     setSelectedRow(null);
     setShowDeleteModal(false);
@@ -121,12 +141,60 @@ export default function ApplicationMasterTable() {
   const handleExportPDF = async () => {
     const jsPDF = (await import("jspdf")).default;
     const autoTable = (await import("jspdf-autotable")).default;
+    const unichemLogoBase64 = require("../../assets/unichemLogoBase64").default;
+
     const doc = new jsPDF({ orientation: "landscape" });
     const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
-    const fileName = `ApplicationMasterTable_${yyyy}-${mm}-${dd}.pdf`;
+    const fileName = `ApplicationMaster_${
+      today.toISOString().split("T")[0]
+    }.pdf`;
+
+    // --- HEADER BAR ---
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageMargin = 14;
+    const headerHeight = 20;
+    doc.setFillColor(0, 82, 155);
+    doc.rect(0, 0, pageWidth, headerHeight, "F");
+
+    // Logo (if available)
+    let logoWidth = 0;
+    let logoHeight = 0;
+    try {
+      if (unichemLogoBase64 && unichemLogoBase64.startsWith("data:image")) {
+        logoWidth = 50;
+        logoHeight = 18;
+        const logoY = headerHeight / 2 - logoHeight / 2;
+        doc.addImage(
+          unichemLogoBase64,
+          "PNG",
+          pageMargin,
+          logoY,
+          logoWidth,
+          logoHeight
+        );
+      }
+    } catch (e) {
+      // ignore logo error
+    }
+
+    // Title + Exported by/date
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    const titleX = pageMargin + logoWidth + 10;
+    const titleY = headerHeight / 2 + 5;
+    doc.text("Application Master", titleX, titleY);
+
+    doc.setFontSize(9);
+    doc.setTextColor(220, 230, 245);
+    const exportedText = `Exported on: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
+    const textWidth = doc.getTextWidth(exportedText);
+    doc.text(exportedText, pageWidth - pageMargin - textWidth, titleY);
+
+    doc.setDrawColor(0, 82, 155);
+    doc.setLineWidth(0.5);
+    doc.line(0, headerHeight, pageWidth, headerHeight);
+
+    // --- TABLE ---
     const headers = [
       [
         "Plant Location ",
@@ -159,12 +227,11 @@ export default function ApplicationMasterTable() {
         ? "View"
         : "-",
     ]);
-    doc.setFontSize(18);
-    doc.text("Application Master Table", 14, 18);
+
     autoTable(doc, {
       head: headers,
       body: rows,
-      startY: 28,
+      startY: headerHeight + 8,
       styles: {
         fontSize: 11,
         cellPadding: 3,
@@ -179,9 +246,28 @@ export default function ApplicationMasterTable() {
       alternateRowStyles: {
         fillColor: [240, 245, 255],
       },
-      margin: { left: 14, right: 14 },
+      margin: { left: pageMargin, right: pageMargin },
       tableWidth: "auto",
     });
+
+    // --- FOOTER ---
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const pageCount =
+      (doc as any).getNumberOfPages?.() ||
+      (doc as any).internal?.getNumberOfPages?.() ||
+      1;
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.text("Unichem Laboratories", pageMargin, pageHeight - 6);
+      doc.text(
+        `Page ${i} of ${pageCount}`,
+        pageWidth - pageMargin - 30,
+        pageHeight - 6
+      );
+    }
+
     doc.save(fileName);
   };
 
@@ -278,7 +364,7 @@ export default function ApplicationMasterTable() {
 
           <div
             style={{
-              maxHeight: 380,
+              maxHeight: 340,
               overflowY: "auto",
               borderRadius: 8,
               boxShadow: "0 0 4px rgba(0, 0, 0, 0.05)",
@@ -306,162 +392,197 @@ export default function ApplicationMasterTable() {
                 </tr>
               </thead>
               <tbody>
-                {filteredData.map((app: any, idx: number) => (
-                  <tr
-                    key={app.id || idx}
-                    style={{
-                      background: selectedRow === idx ? "#e6f0fa" : undefined,
-                    }}
-                  >
-                    <td>
-                      <input
-                        className={styles.radioInput}
-                        type="radio"
-                        checked={selectedRow === idx}
-                        onChange={() => setSelectedRow(idx)}
-                        aria-label={`Select ${app.application_hmi_name}`}
-                      />
-                    </td>
-                    <td>{getPlantName(app.plant_location_id)}</td>
-                    <td>{getDepartmentName(app.department_id)}</td>
-                    <td>{app.application_hmi_name}</td>
-                    <td>{app.application_hmi_version}</td>
-                    <td>{app.equipment_instrument_id}</td>
-                    <td>{app.application_hmi_type}</td>
-                    <td>{app.display_name}</td>
-                    <td>
-                      {Array.isArray(app.role_names) &&
-                      app.role_names.length > 0
-                        ? app.role_names.join(", ")
-                        : app.role_id}
-                    </td>
-                    <td>{app.system_name}</td>
-                    <td>{app.multiple_role_access ? "Yes" : "No"}</td>
-                    <td>
-                      <span className={styles.status}>{app.status}</span>
-                    </td>
-                    <td>
-                      <button
-                        className={styles.actionBtn}
-                        title="View Activity Logs"
-                        onClick={async () => {
-                          // Fetch activity logs from backend and filter for this application id
-                          try {
-                            const logs = await fetchApplicationActivityLogs();
-                            const filtered = (logs || [])
-                              .filter((log: any) => {
-                                if (
-                                  log.table_name === "application_master" &&
-                                  String(log.record_id) === String(app.id)
-                                )
-                                  return true;
-                                if (
-                                  log.details &&
-                                  typeof log.details === "string"
-                                ) {
-                                  return (
-                                    log.details.includes(
-                                      `"tableName":"application_master"`
-                                    ) &&
-                                    log.details.includes(
-                                      `"recordId":"${app.id}"`
-                                    )
-                                  );
-                                }
-                                return false;
-                              })
-                              // Normalize shape to what the UI expects
-                              .map((r: any) => {
-                                // parse legacy details if present
-                                let parsedDetails = null;
-                                if (
-                                  r.details &&
-                                  typeof r.details === "string"
-                                ) {
-                                  try {
-                                    parsedDetails = JSON.parse(r.details);
-                                  } catch (e) {
-                                    parsedDetails = null;
+                {paginatedData.map((app: any, idx: number) => {
+                  const globalIdx = (currentPage - 1) * rowsPerPage + idx;
+                  return (
+                    <tr
+                      key={app.id || globalIdx}
+                      style={{
+                        background:
+                          selectedRow === globalIdx ? "#e6f0fa" : undefined,
+                      }}
+                    >
+                      <td>
+                        <input
+                          className={styles.radioInput}
+                          type="radio"
+                          checked={selectedRow === globalIdx}
+                          onChange={() => setSelectedRow(globalIdx)}
+                          aria-label={`Select ${app.application_hmi_name}`}
+                        />
+                      </td>
+                      <td>{getPlantName(app.plant_location_id)}</td>
+                      <td>{getDepartmentName(app.department_id)}</td>
+                      <td>{app.application_hmi_name}</td>
+                      <td>{app.application_hmi_version}</td>
+                      <td>{app.equipment_instrument_id}</td>
+                      <td>{app.application_hmi_type}</td>
+                      <td>{app.display_name}</td>
+                      <td>
+                        {Array.isArray(app.role_names) &&
+                        app.role_names.length > 0
+                          ? app.role_names.join(", ")
+                          : app.role_id}
+                      </td>
+                      <td>{app.system_name}</td>
+                      <td>{app.multiple_role_access ? "Yes" : "No"}</td>
+                      <td>
+                        <span className={styles.status}>{app.status}</span>
+                      </td>
+                      <td>
+                        <button
+                          className={styles.actionBtn}
+                          title="View Activity Logs"
+                          onClick={async () => {
+                            // Fetch activity logs from backend and filter for this application id
+                            try {
+                              const logs = await fetchApplicationActivityLogs();
+                              const filtered = (logs || [])
+                                .filter((log: any) => {
+                                  if (
+                                    log.table_name === "application_master" &&
+                                    String(log.record_id) === String(app.id)
+                                  )
+                                    return true;
+                                  if (
+                                    log.details &&
+                                    typeof log.details === "string"
+                                  ) {
+                                    return (
+                                      log.details.includes(
+                                        `"tableName":"application_master"`
+                                      ) &&
+                                      log.details.includes(
+                                        `"recordId":"${app.id}"`
+                                      )
+                                    );
                                   }
-                                }
-
-                                const parseMaybeJson = (v: any) => {
-                                  if (!v && v !== "" && v !== 0) return null;
-                                  if (typeof v === "string") {
+                                  return false;
+                                })
+                                // Normalize shape to what the UI expects
+                                .map((r: any) => {
+                                  // parse legacy details if present
+                                  let parsedDetails = null;
+                                  if (
+                                    r.details &&
+                                    typeof r.details === "string"
+                                  ) {
                                     try {
-                                      return JSON.parse(v);
-                                    } catch {
-                                      return v;
+                                      parsedDetails = JSON.parse(r.details);
+                                    } catch (e) {
+                                      parsedDetails = null;
                                     }
                                   }
-                                  return v;
-                                };
 
-                                const oldVal = parseMaybeJson(
-                                  r.old_value ||
-                                    (parsedDetails && parsedDetails.old_value)
-                                );
-                                const newVal = parseMaybeJson(
-                                  r.new_value ||
-                                    (parsedDetails && parsedDetails.new_value)
-                                );
-                                const action =
-                                  r.action ||
-                                  (parsedDetails && parsedDetails.action) ||
-                                  "";
-                                const approver =
-                                  r.action_performed_by ||
-                                  r.user_id ||
-                                  (parsedDetails && parsedDetails.userId) ||
-                                  (parsedDetails && parsedDetails.approver) ||
-                                  null;
-                                const dateTime =
-                                  r.date_time_ist ||
-                                  r.timestamp ||
-                                  r.created_at ||
-                                  (parsedDetails && parsedDetails.dateTime) ||
-                                  null;
-                                const comments =
-                                  r.comments ||
-                                  (parsedDetails && parsedDetails.comments) ||
-                                  (parsedDetails && parsedDetails.reason) ||
-                                  null;
+                                  const parseMaybeJson = (v: any) => {
+                                    if (!v && v !== "" && v !== 0) return null;
+                                    if (typeof v === "string") {
+                                      try {
+                                        return JSON.parse(v);
+                                      } catch {
+                                        return v;
+                                      }
+                                    }
+                                    return v;
+                                  };
 
-                                return {
-                                  // UI-friendly fields
-                                  action,
-                                  oldValue: oldVal,
-                                  newValue: newVal,
-                                  approver,
-                                  approvedOrRejectedBy: r.approved_by || null,
-                                  approvalStatus:
-                                    r.approve_status ||
-                                    r.approval_status ||
-                                    null,
-                                  dateTime,
-                                  reason: comments,
-                                  // keep raw row for reference
-                                  _raw: r,
-                                };
+                                  const oldVal = parseMaybeJson(
+                                    r.old_value ||
+                                      (parsedDetails && parsedDetails.old_value)
+                                  );
+                                  const newVal = parseMaybeJson(
+                                    r.new_value ||
+                                      (parsedDetails && parsedDetails.new_value)
+                                  );
+                                  const action =
+                                    r.action ||
+                                    (parsedDetails && parsedDetails.action) ||
+                                    "";
+                                  const approver =
+                                    r.action_performed_by ||
+                                    r.user_id ||
+                                    (parsedDetails && parsedDetails.userId) ||
+                                    (parsedDetails && parsedDetails.approver) ||
+                                    null;
+                                  const dateTime =
+                                    r.date_time_ist ||
+                                    r.timestamp ||
+                                    r.created_at ||
+                                    (parsedDetails && parsedDetails.dateTime) ||
+                                    null;
+                                  const comments =
+                                    r.comments ||
+                                    (parsedDetails && parsedDetails.comments) ||
+                                    (parsedDetails && parsedDetails.reason) ||
+                                    null;
+
+                                  return {
+                                    // UI-friendly fields
+                                    action,
+                                    oldValue: oldVal,
+                                    newValue: newVal,
+                                    approver,
+                                    approvedOrRejectedBy: r.approved_by || null,
+                                    approvalStatus:
+                                      r.approve_status ||
+                                      r.approval_status ||
+                                      null,
+                                    dateTime,
+                                    reason: comments,
+                                    // keep raw row for reference
+                                    _raw: r,
+                                  };
+                                });
+
+                              setActivityLogsApp({
+                                ...app,
+                                activityLogs: filtered,
                               });
-
-                            setActivityLogsApp({
-                              ...app,
-                              activityLogs: filtered,
-                            });
-                          } catch (err) {
-                            setActivityLogsApp({ ...app, activityLogs: [] });
-                          }
-                          setShowActivityModal(true);
-                        }}
-                      >
-                        <FaRegClock size={17} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                            } catch (err) {
+                              setActivityLogsApp({ ...app, activityLogs: [] });
+                            }
+                            setShowActivityModal(true);
+                          }}
+                        >
+                          <FaRegClock size={17} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
+          </div>
+          {/* Pagination controls */}
+          <div className={paginationStyles.pagination} style={{ marginTop: 8 }}>
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className={
+                currentPage === 1
+                  ? paginationStyles.disabledPageBtn
+                  : paginationStyles.pageBtn
+              }
+            >
+              Previous
+            </button>
+            <span
+              className={paginationStyles.pageInfo}
+              style={{ margin: "0 12px" }}
+            >
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className={
+                currentPage === totalPages
+                  ? paginationStyles.disabledPageBtn
+                  : paginationStyles.pageBtn
+              }
+            >
+              Next
+            </button>
           </div>
           {/* Activity Logs Modal */}
           {showActivityModal && activityLogsApp && (

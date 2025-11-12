@@ -46,7 +46,7 @@ exports.getAllTasks = async (req, res) => {
   let client;
   try {
     client = await pool.connect();
-    
+
     const {
       plant,
       plant_id,
@@ -64,7 +64,9 @@ exports.getAllTasks = async (req, res) => {
 
     // Handle approver-specific query
     if (approver_id && Number(approver_id) !== user.id) {
-      return res.status(403).json({ message: "Cannot view tasks for other approvers" });
+      return res
+        .status(403)
+        .json({ message: "Cannot view tasks for other approvers" });
     }
 
     const roleIds = Array.isArray(user.role_id) ? user.role_id : [user.role_id];
@@ -86,10 +88,12 @@ exports.getAllTasks = async (req, res) => {
              approver_5_id LIKE $1)
             AND is_active = true
         `;
-        const workflowResult = await client.query(workflowQuery, [`%${user.id}%`]);
-        approverPlantIds = workflowResult.rows.map(r => r.plant_id);
+        const workflowResult = await client.query(workflowQuery, [
+          `%${user.id}%`,
+        ]);
+        approverPlantIds = workflowResult.rows.map((r) => r.plant_id);
       } catch (err) {
-        console.error('Error fetching approver plants:', err);
+        console.error("Error fetching approver plants:", err);
       }
     }
 
@@ -100,26 +104,39 @@ exports.getAllTasks = async (req, res) => {
     // Filter for approvers - show tasks from their assigned plants based on approval_workflow_master
     if (isApprover && !isSuperAdmin) {
       // Get plants where this user is an approver from approval workflow
-      const approverResult = await client.query(`
+      const approverResult = await client.query(
+        `
         SELECT DISTINCT plant_id 
         FROM approval_workflow_master 
         WHERE (
-          approver1_list LIKE '%' || $1 || '%' OR
-          approver2_list LIKE '%' || $1 || '%' OR
-          approver3_list LIKE '%' || $1 || '%'
-        ) AND status = true
-      `, [user.id.toString()]);
-      
-      console.log('User ID:', user.id, 'Approver query results:', approverResult.rows);
+          approver_1_id LIKE $1 OR
+          approver_2_id LIKE $1 OR
+          approver_3_id LIKE $1 OR
+          approver_4_id LIKE $1 OR
+          approver_5_id LIKE $1
+        ) AND is_active = true
+      `,
+        [`%${user.id}%`]
+      );
+
+      console.log(
+        "User ID:",
+        user.id,
+        "Approver query results:",
+        approverResult.rows
+      );
 
       if (approverResult.rows.length > 0) {
-        const approverPlants = approverResult.rows.map(row => row.plant_id);
+        const approverPlants = approverResult.rows
+          .map((row) => row.plant_id)
+          .filter((p) => p != null);
+        // Pass as an array param and use ANY($n::int[])
         params.push(approverPlants);
-        whereClauses.push(`tr.location = ANY($${params.length})`);
-        console.log('Approver plants:', approverPlants);
+        whereClauses.push(`tr.location = ANY($${params.length}::int[])`);
+        console.log("Approver plants:", approverPlants);
       } else {
         // If no plants found but user is an approver, return no results rather than all tasks
-        whereClauses.push('false');
+        whereClauses.push("false");
       }
     }
 
@@ -140,14 +157,8 @@ exports.getAllTasks = async (req, res) => {
       whereClauses.push(`tr.location = $${params.length}`);
     }
 
-    // For approvers, show tasks from their assigned plants and pending status
-    if (isApprover && !isSuperAdmin) {
-      if (approverPlantIds.length > 0) {
-        params.push(`{${approverPlantIds.join(',')}}`);
-        whereClauses.push(`tr.location = ANY($${params.length}::int[])`);
-      }
-      whereClauses.push("tr.task_status = 'Pending'");
-    }
+    // Note: For approvers, we already added plant filter above.
+    // Removed hard-coded "Pending" filter to allow frontend to show both pending and completed tasks.
 
     if (transaction_id) {
       params.push(transaction_id);
@@ -163,17 +174,20 @@ exports.getAllTasks = async (req, res) => {
       params.push(access_request_type);
       whereClauses.push(`ur.access_request_type = $${params.length}`);
     }
-
+console.log("user ITBin",user?.isITBin);
+console.log("user itPlantIds",user.itPlantIds);
     // Apply restriction based on ITBIN flag
-    if (user?.isITBin && user.plant_ids?.length > 0) {
-      params.push(user.plant_ids);
+    if (user?.isITBin && user.itPlantIds?.length > 0) {
+      params.push(user.itPlantIds);
       whereClauses.push(`p.id = ANY($${params.length})`);
     }
 
-    const whereSQL = whereClauses.length ? `WHERE ${whereClauses.join(" AND ")}` : "";
+    const whereSQL = whereClauses.length
+      ? `WHERE ${whereClauses.join(" AND ")}`
+      : "";
 
-    console.log('WHERE clauses:', whereClauses);
-    
+    console.log("WHERE clauses:", whereClauses);
+
     const query = `
       SELECT DISTINCT
         ur.id AS user_request_id,
@@ -208,6 +222,14 @@ exports.getAllTasks = async (req, res) => {
         tr.task_status,
         tr.remarks,
         tr.created_on AS task_created_on,
+        tr.approver1_name,
+        tr.approver1_email,
+        tr.approver2_name,
+        tr.approver2_email,
+        tr.approver1_action,
+        tr.approver2_action,
+        tr.approver1_action_timestamp,
+        tr.approver2_action_timestamp,
         tc.assignment_group,
         tc.role_granted,
         tc.access,
@@ -232,7 +254,7 @@ exports.getAllTasks = async (req, res) => {
       ORDER BY tr.created_on DESC, ur.id;
     `;
 
-    console.log('Executing query with params:', params);
+    console.log("Executing query with params:", params);
     const { rows } = await client.query(query, params);
     res.json(rows);
   } catch (err) {

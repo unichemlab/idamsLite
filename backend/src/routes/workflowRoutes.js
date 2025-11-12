@@ -4,8 +4,10 @@ const db = require("../config/db");
 const workflowController = require("../controllers/workflowController");
 const authorize = require("../middleware/authorize");
 
-// GET /api/workflows
-router.get("/", authorize("read:workflows"), workflowController.getWorkflows);
+// GET /api/workflows - allow any authenticated user to list workflows (we check membership inside controller)
+router.get("/", authorize(), workflowController.getWorkflows);
+// Debug endpoint: check if a user id appears as approver in any workflow
+router.get("/is-approver/:id", authorize(), workflowController.isApprover);
 // POST /api/workflows
 router.post(
   "/",

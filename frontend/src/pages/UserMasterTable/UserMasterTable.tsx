@@ -3,6 +3,7 @@ import { AbilityContext } from "../../context/AbilityContext";
 import ProfileIconWithLogout from "../PlantMasterTable/ProfileIconWithLogout";
 import { useNavigate } from "react-router-dom";
 import styles from "./UserMasterTable.module.css";
+import paginationStyles from "../../styles/Pagination.module.css";
 import { FaEdit, FaTrash } from "react-icons/fa";
 import { FaRegClock } from "react-icons/fa6";
 import { useUserContext } from "../../context/UserContext";
@@ -14,6 +15,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { fetchActivityLog } from "../../utils/api";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
+import unichemLogoBase64 from "../../assets/unichemLogoBase64";
 
 const UserMasterTable = () => {
   const navigate = useNavigate();
@@ -128,11 +130,54 @@ const UserMasterTable = () => {
   const handleExportPDF = () => {
     const doc = new jsPDF({ orientation: "landscape" });
     const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
-    const fileName = `UserMasterTable_${yyyy}-${mm}-${dd}.pdf`;
+    const fileName = `UserMaster_${today.toISOString().split("T")[0]}.pdf`;
 
+    // --- HEADER BAR ---
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageMargin = 14;
+    const headerHeight = 20;
+    doc.setFillColor(0, 82, 155);
+    doc.rect(0, 0, pageWidth, headerHeight, "F");
+
+    // Logo (if available)
+    let logoWidth = 0;
+    let logoHeight = 0;
+    try {
+      if (unichemLogoBase64 && unichemLogoBase64.startsWith("data:image")) {
+        logoWidth = 50;
+        logoHeight = 18;
+        const logoY = headerHeight / 2 - logoHeight / 2;
+        doc.addImage(
+          unichemLogoBase64,
+          "PNG",
+          pageMargin,
+          logoY,
+          logoWidth,
+          logoHeight
+        );
+      }
+    } catch (e) {
+      // ignore logo error
+    }
+
+    // Title + Exported by/date
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    const titleX = pageMargin + logoWidth + 10;
+    const titleY = headerHeight / 2 + 5;
+    doc.text("User Master", titleX, titleY);
+
+    doc.setFontSize(9);
+    doc.setTextColor(220, 230, 245);
+    const exportedText = `Exported on: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
+    const textWidth = doc.getTextWidth(exportedText);
+    doc.text(exportedText, pageWidth - pageMargin - textWidth, titleY);
+
+    doc.setDrawColor(0, 82, 155);
+    doc.setLineWidth(0.5);
+    doc.line(0, headerHeight, pageWidth, headerHeight);
+
+    // --- TABLE ---
     const headers = [
       [
         "User Name",
@@ -159,12 +204,10 @@ const UserMasterTable = () => {
       formatPermissions(user),
     ]);
 
-    doc.setFontSize(18);
-    doc.text("User Master Table", 14, 18);
     autoTable(doc, {
       head: headers,
       body: rows,
-      startY: 28,
+      startY: headerHeight + 8,
       styles: {
         fontSize: 11,
         cellPadding: 3,
@@ -179,9 +222,28 @@ const UserMasterTable = () => {
       alternateRowStyles: {
         fillColor: [240, 245, 255],
       },
-      margin: { left: 14, right: 14 },
+      margin: { left: pageMargin, right: pageMargin },
       tableWidth: "auto",
     });
+
+    // --- FOOTER ---
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const pageCount =
+      (doc as any).getNumberOfPages?.() ||
+      (doc as any).internal?.getNumberOfPages?.() ||
+      1;
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.text("Unichem Laboratories", pageMargin, pageHeight - 6);
+      doc.text(
+        `Page ${i} of ${pageCount}`,
+        pageWidth - pageMargin - 30,
+        pageHeight - 6
+      );
+    }
+
     doc.save(fileName);
   };
 
@@ -676,19 +738,19 @@ const UserMasterTable = () => {
                   </tbody>
                 </table>
 
-                <div className={styles.pagination}>
+                <div className={paginationStyles.pagination}>
                   <button
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
                     className={
                       currentPage === 1
-                        ? styles.disabledPageBtn
-                        : styles.pageBtn
+                        ? paginationStyles.disabledPageBtn
+                        : paginationStyles.pageBtn
                     }
                   >
                     Previous
                   </button>
-                  <span className={styles.pageInfo}>
+                  <span className={paginationStyles.pageInfo}>
                     Page {currentPage} of {totalPages}
                   </span>
                   <button
@@ -698,8 +760,8 @@ const UserMasterTable = () => {
                     disabled={currentPage === totalPages}
                     className={
                       currentPage === totalPages
-                        ? styles.disabledPageBtn
-                        : styles.pageBtn
+                        ? paginationStyles.disabledPageBtn
+                        : paginationStyles.pageBtn
                     }
                   >
                     Next

@@ -20,34 +20,40 @@ const authorize = (requiredPermissions) => {
 
       // Verify token
       const decoded = jwt.verify(token, JWT_SECRET);
-
+      console.log("token_decode",decoded);
       // Extract user info from token
-      const { user_id, role_id, permissions } = decoded;
+      const { user_id, role_id, permissions ,itPlants,isITBin,itPlantIds,} = decoded;
 
       if (!user_id || !role_id) {
         return res.status(401).json({ message: "Invalid token structure" });
       }
 
+      // Normalize and attach a consistent user object on req.user
+      const normalizedUser = {
+        user_id: user_id,
+        id: user_id,
+        role_id: role_id,
+        roles: role_id,
+        permissions: permissions || [],
+      };
+
       // Check if user is an approver
       const isApprover = Array.isArray(role_id) && role_id.includes(4); // Role ID 4 is for approvers
 
-      // If user is an approver, they should have access to workflows
+      // If user is an approver and the route requires basic workflow/task/roles read access,
+      // allow through (so approvers can view workflows even if they don't have explicit permission)
       if (
         isApprover &&
         (requiredPermissions === "read:workflows" ||
           requiredPermissions === "read:tasks" ||
           requiredPermissions === "read:roles")
       ) {
-        req.user = { user_id, role_id, permissions, isApprover };
+        req.user = { ...normalizedUser, isApprover: true };
         return next();
       }
 
-      // Attach user info to request
-      req.user = {
-        id: user_id,
-        roles: role_id,
-        permissions: permissions || [], // May be empty if using role-based checks
-      };
+      // Attach normalized user by default
+      req.user = normalizedUser;
 
       // If no permissions required, just validate token
       if (!requiredPermissions) {
@@ -64,8 +70,17 @@ const authorize = (requiredPermissions) => {
         // Special case for superadmin
         if (role_id.includes(1)) return true;
 
-        // Check if user has the specific permission
-        return req.user.permissions.includes(permission);
+        // Allow role-based short-circuit for approvers when route requests the
+        // logical 'approver' capability. This lets users with role_id 4 call
+        // approval endpoints even if their token does not include the
+        // 'approve:user-requests' permission string.
+        if (permission === "approver" && role_id.includes(4)) return true;
+
+        // Check if user has the specific permission string
+        return (
+          Array.isArray(req.user.permissions) &&
+          req.user.permissions.includes(permission)
+        );
       });
 
       if (!hasPermission) {
@@ -88,7 +103,7 @@ const authorize = (requiredPermissions) => {
               userAgent: req.headers["user-agent"] || null,
             },
           });
-        } catch (logErr) {
+         } catch (logErr) {
           // log a warning and continue to respond with 403
           console.warn(
             "Authorization logging failed (non-blocking):",

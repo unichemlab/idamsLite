@@ -402,13 +402,10 @@ const AddUserRequest: React.FC = () => {
       const cardBgColor = index % 2 === 0 ? [245, 247, 250] : [230, 235, 245];
 
       // Card text
-      const textContent = `Transaction ID: ${
-        req.transaction_id || "-"
-      } | Name: ${req.name || "-"} | Employee Code: ${
-        req.employeeCode || "-"
-      } | Location: ${req.tasks?.[0]?.location || "-"} | Department: ${
-        req.tasks?.[0]?.department || "-"
-      } | Access Type: ${req.accessType || "-"}
+      const textContent = `Transaction ID: ${req.transaction_id || "-"
+        } | Name: ${req.name || "-"} | Employee Code: ${req.employeeCode || "-"
+        } | Location: ${req.tasks?.[0]?.location || "-"} | Department: ${req.tasks?.[0]?.department || "-"
+        } | Access Type: ${req.accessType || "-"}
     | Approver 1: ${"Pending"} | Approver 2: ${"Pending"} | Status: ${"Pending"}`;
       const textLines = doc.splitTextToSize(
         textContent,
@@ -624,25 +621,25 @@ const AddUserRequest: React.FC = () => {
   const accessOptions =
     form.request_for_by === "Vendor / OEM"
       ? [
-          "New User Creation",
-          "Modify Access",
-          "Active / Enable User Access",
-          "Deactivation / Disable / Remove User Access",
-          "Password Reset",
-          "Account Unlock",
-          "Account Unlock and Password Reset",
-        ]
+        "New User Creation",
+        "Modify Access",
+        "Active / Enable User Access",
+        "Deactivation / Disable / Remove User Access",
+        "Password Reset",
+        "Account Unlock",
+        "Account Unlock and Password Reset",
+      ]
       : [
-          "New User Creation",
-          "Modify Access",
-          "Password Reset",
-          "Account Unlock",
-          "Account Unlock and Password Reset",
-          "Active / Enable User Access",
-          "Deactivation / Disable / Remove User Access",
-          "Bulk De-activation",
-          "Bulk New User Creation",
-        ];
+        "New User Creation",
+        "Modify Access",
+        "Password Reset",
+        "Account Unlock",
+        "Account Unlock and Password Reset",
+        "Active / Enable User Access",
+        "Deactivation / Disable / Remove User Access",
+        "Bulk De-activation",
+        "Bulk New User Creation",
+      ];
 
   // ===================== Data Fetch =====================
 
@@ -1105,6 +1102,20 @@ const AddUserRequest: React.FC = () => {
             </div>
           </div>
           <div className={addUserRequestStyles["header-right"]}>
+            {/* Task Closure Button - Only for IT BIN Admins */}
+            {user?.isITBin && (
+              <button
+                className={addUserRequestStyles["addUserBtn"]}
+                style={{
+                  backgroundColor: "#4caf50",
+                  color: "white",
+                  marginLeft: "10px",
+                }}
+                onClick={() => navigate("/task")}
+              >
+                Task Closure
+              </button>
+            )}
             <button
               className={addUserRequestStyles["addUserBtn"]}
               onClick={() => setFilterModalOpen(true)}
@@ -1119,6 +1130,7 @@ const AddUserRequest: React.FC = () => {
                 View Admin Panel
               </button>
             ) : (
+
               <button
                 className={addUserRequestStyles["addUserBtn"]}
                 style={{
@@ -1446,115 +1458,115 @@ const AddUserRequest: React.FC = () => {
               {/* Card 4 Access Information */}
               {(isBulkDeactivation ||
                 (!isVendorModify && !isBulkDeactivation)) && (
-                <div className={addUserRequestStyles.section}>
-                  <span className={addUserRequestStyles.sectionHeaderTitle}>
-                    Access Information
-                  </span>
-                  <div className={addUserRequestStyles.fourCol}>
-                    <div className={addUserRequestStyles.formGroup}>
-                      <select
-                        name="plant_location"
-                        value={form.plant_location}
-                        onChange={handleChange}
-                        required
-                      >
-                        <option value="">Select Plant</option>
-                        {plants.map((plant) => (
-                          <option
-                            key={plant.id}
-                            value={plant.id}
-                            title={plant.plant_name}
-                          >
-                            {plant.plant_name}
-                          </option>
-                        ))}
-                      </select>
-                      <label htmlFor="plant_location">
-                        Plant Location <span style={{ color: "red" }}>*</span>{" "}
-                      </label>
-                    </div>
-                    <div className={addUserRequestStyles.formGroup}>
-                      <select
-                        name="department"
-                        value={form.department}
-                        onChange={handleChange}
-                        required
-                      >
-                        <option value="">Select Department</option>
-                        {departments.map((dept) => (
-                          <option
-                            key={dept.id}
-                            value={dept.id}
-                            title={dept.department_name}
-                          >
-                            {dept.department_name}
-                          </option>
-                        ))}
-                      </select>
-                      <label htmlFor="department">
-                        Req. App. Department <span style={{ color: "red" }}>*</span>{" "}
-                      </label>
-                    </div>
-                    {!isBulkDeactivation && !isBulkNew && (
+                  <div className={addUserRequestStyles.section}>
+                    <span className={addUserRequestStyles.sectionHeaderTitle}>
+                      Access Information
+                    </span>
+                    <div className={addUserRequestStyles.fourCol}>
                       <div className={addUserRequestStyles.formGroup}>
                         <select
-                          name="applicationId"
-                          value={form.applicationId}
+                          name="plant_location"
+                          value={form.plant_location}
                           onChange={handleChange}
                           required
                         >
-                          <option value="">
-                            Select Application / Equipment ID
-                          </option>
-                          {applications.map((app, index) => (
-                            <option key={index} value={app.id} title={app.name}>
-                              {app.name}
-                            </option>
-                          ))}
-                        </select>
-                        <label htmlFor="applicationId">
-                          Application / Equipment ID{" "}
-                          <span style={{ color: "red" }}>*</span>
-                        </label>
-                      </div>
-                    )}
-                    {!isBulkDeactivation && !isBulkNew && (
-                      <div className={addUserRequestStyles.formGroup}>
-                        <select
-                          name="role"
-                          value={form.role}
-                          onChange={handleChange}
-                          required
-                        >
-                          <option value="">Select Role</option>
-                          {roles.map((role) => (
+                          <option value="">Select Plant</option>
+                          {plants.map((plant) => (
                             <option
-                              key={role.id}
-                              value={role.id}
-                              title={role.name}
+                              key={plant.id}
+                              value={plant.id}
+                              title={plant.plant_name}
                             >
-                              {role.name}
+                              {plant.plant_name}
                             </option>
                           ))}
                         </select>
-                        <label htmlFor="role">
-                          Role <span style={{ color: "red" }}>*</span>
+                        <label htmlFor="plant_location">
+                          Plant Location <span style={{ color: "red" }}>*</span>{" "}
                         </label>
                       </div>
-                    )}
+                      <div className={addUserRequestStyles.formGroup}>
+                        <select
+                          name="department"
+                          value={form.department}
+                          onChange={handleChange}
+                          required
+                        >
+                          <option value="">Select Department</option>
+                          {departments.map((dept) => (
+                            <option
+                              key={dept.id}
+                              value={dept.id}
+                              title={dept.department_name}
+                            >
+                              {dept.department_name}
+                            </option>
+                          ))}
+                        </select>
+                        <label htmlFor="department">
+                          Req. App. Department <span style={{ color: "red" }}>*</span>{" "}
+                        </label>
+                      </div>
+                      {!isBulkDeactivation && !isBulkNew && (
+                        <div className={addUserRequestStyles.formGroup}>
+                          <select
+                            name="applicationId"
+                            value={form.applicationId}
+                            onChange={handleChange}
+                            required
+                          >
+                            <option value="">
+                              Select Application / Equipment ID
+                            </option>
+                            {applications.map((app, index) => (
+                              <option key={index} value={app.id} title={app.name}>
+                                {app.name}
+                              </option>
+                            ))}
+                          </select>
+                          <label htmlFor="applicationId">
+                            Application / Equipment ID{" "}
+                            <span style={{ color: "red" }}>*</span>
+                          </label>
+                        </div>
+                      )}
+                      {!isBulkDeactivation && !isBulkNew && (
+                        <div className={addUserRequestStyles.formGroup}>
+                          <select
+                            name="role"
+                            value={form.role}
+                            onChange={handleChange}
+                            required
+                          >
+                            <option value="">Select Role</option>
+                            {roles.map((role) => (
+                              <option
+                                key={role.id}
+                                value={role.id}
+                                title={role.name}
+                              >
+                                {role.name}
+                              </option>
+                            ))}
+                          </select>
+                          <label htmlFor="role">
+                            Role <span style={{ color: "red" }}>*</span>
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                    <div className={addUserRequestStyles.formGroup}>
+                      <label></label>
+                      <textarea
+                        name="remarks"
+                        value={form.remarks}
+                        onChange={handleChange}
+                        maxLength={50}
+                      />
+                      <label htmlFor="remarks">Remarks</label>
+                    </div>
                   </div>
-                  <div className={addUserRequestStyles.formGroup}>
-                    <label></label>
-                    <textarea
-                      name="remarks"
-                      value={form.remarks}
-                      onChange={handleChange}
-                      maxLength={50}
-                    />
-                    <label htmlFor="remarks">Remarks</label>
-                  </div>
-                </div>
-              )}
+                )}
 
               {/* Card 5 Bulk User Creation */}
               {form.request_for_by !== "Vendor / OEM" && isBulkNew && (

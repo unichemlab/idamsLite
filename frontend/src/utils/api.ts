@@ -1,12 +1,21 @@
+// utils/api.ts - Fixed TypeScript version
+
 // Centralized API base
 // Uses REACT_APP_API_URL from .env.local or .env.production
 // Example: REACT_APP_API_URL=https://lucky-hope-production.up.railway.app
 export const API_BASE =
   process.env.REACT_APP_API_URL || "http://localhost:4000";
 
+/**
+ * Main request function with automatic token injection
+ */
 export async function request(path: string, options: RequestInit = {}) {
   const url = `${API_BASE}${path}`;
-  const headers = options.headers ? { ...options.headers } : {};
+  
+  // ✅ FIX: Properly type headers as Record<string, string>
+  const headers: Record<string, string> = options.headers 
+    ? { ...(options.headers as Record<string, string>) } 
+    : {};
 
   // ---- READ JWT TOKEN ----
   const token = localStorage.getItem("token");
@@ -16,31 +25,25 @@ export async function request(path: string, options: RequestInit = {}) {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  // Attach Authorization header automatically if a token is present in localStorage.
-  try {
-    const token =
-      localStorage.getItem("token") ||
-      (() => {
-        const au = localStorage.getItem("authUser");
-        if (!au) return null;
-        try {
-          const parsed = JSON.parse(au);
-          return parsed?.token || null;
-        } catch (e) {
-          return null;
+  // Fallback: Try to get token from authUser object
+  if (!token && !headers["Authorization"]) {
+    try {
+      const authUser = localStorage.getItem("authUser");
+      if (authUser) {
+        const parsed = JSON.parse(authUser);
+        if (parsed?.token) {
+          headers["Authorization"] = `Bearer ${parsed.token}`;
         }
-      })();
-    if (token && !(headers as any)["Authorization"]) {
-      (headers as any)["Authorization"] = `Bearer ${token}`;
+      }
+    } catch (e) {
+      // ignore localStorage errors in non-browser environments
+      console.warn("Failed to parse authUser from localStorage:", e);
     }
-  } catch (e) {
-    // ignore localStorage errors in non-browser environments
   }
 
-  // don't overwrite content-type when sending FormData
+  // Don't overwrite content-type when sending FormData
   if (!(options.body instanceof FormData)) {
-    headers["Content-Type"] =
-      headers["Content-Type"] || "application/json";
+    headers["Content-Type"] = headers["Content-Type"] || "application/json";
   }
 
   const res = await fetch(url, {
@@ -53,23 +56,26 @@ export async function request(path: string, options: RequestInit = {}) {
     const text = await res.text().catch(() => null);
     throw new Error(text || res.statusText || "API request failed");
   }
+  
   if (res.status === 204) return null;
+  
   return await res.json().catch(() => null);
 }
 
+// ========================================
 // System Inventory API
+// ========================================
+
 export async function fetchSystems(): Promise<any[]> {
   return request("/api/systems");
 }
 
-// System Inventory API
 export async function fetchActivityLog(): Promise<any[]> {
   return request("/api/activity-logs");
 }
 
-// Task API
 export async function fetchTaskLog(): Promise<any[]> {
-  return request(`/api/task`);
+  return request("/api/task");
 }
 
 export async function addSystemAPI(system: any): Promise<any> {
@@ -89,26 +95,34 @@ export async function updateSystemAPI(id: number, system: any): Promise<any> {
 export async function deleteSystemAPI(id: number): Promise<void> {
   return request(`/api/systems/${id}`, { method: "DELETE" });
 }
-// Fetch application master data from backend API
+
+// ========================================
+// Application Master API
+// ========================================
+
 export async function fetchApplications(): Promise<any[]> {
   return request("/api/applications");
 }
 
-// Fetch application activity logs
 export async function fetchApplicationActivityLogs(): Promise<any[]> {
   return request("/api/applications/activity-logs");
 }
-// Fetch role master data from backend API
+
+// ========================================
+// Role Master API
+// ========================================
+
 export async function fetchRoles(): Promise<any[]> {
   return request("/api/roles");
 }
 
-// Add a new role
 export async function addRoleAPI(role: any): Promise<any> {
-  return request("/api/roles", { method: "POST", body: JSON.stringify(role) });
+  return request("/api/roles", { 
+    method: "POST", 
+    body: JSON.stringify(role) 
+  });
 }
 
-// Update a role
 export async function updateRoleAPI(id: number, role: any): Promise<any> {
   return request(`/api/roles/${id}`, {
     method: "PUT",
@@ -116,20 +130,26 @@ export async function updateRoleAPI(id: number, role: any): Promise<any> {
   });
 }
 
-// Delete a role
 export async function deleteRoleAPI(id: number): Promise<void> {
   return request(`/api/roles/${id}`, { method: "DELETE" });
 }
-// Fetch plant activity logs
-export async function fetchPlantActivityLogs(): Promise<any[]> {
-  return request("/api/plants/activity-logs");
+
+export async function fetchRoleActivityLogs(): Promise<any[]> {
+  return request("/api/roles/activity-logs");
 }
-// Fetch plant master data from backend API
+
+// ========================================
+// Plant Master API
+// ========================================
+
 export async function fetchPlants(): Promise<any[]> {
   return request("/api/plants");
 }
 
-// Add a new plant
+export async function fetchPlantActivityLogs(): Promise<any[]> {
+  return request("/api/plants/activity-logs");
+}
+
 export async function addPlantAPI(plant: any): Promise<any> {
   return request("/api/plants", {
     method: "POST",
@@ -137,7 +157,6 @@ export async function addPlantAPI(plant: any): Promise<any> {
   });
 }
 
-// Update a plant
 export async function updatePlantAPI(id: number, plant: any): Promise<any> {
   return request(`/api/plants/${id}`, {
     method: "PUT",
@@ -145,26 +164,22 @@ export async function updatePlantAPI(id: number, plant: any): Promise<any> {
   });
 }
 
-// Delete a plant
 export async function deletePlantAPI(id: number): Promise<void> {
   return request(`/api/plants/${id}`, { method: "DELETE" });
 }
 
-/************************** api for vendor*********************************************** */
-// Fetch vendor activity logs
-export async function fetchVendorActivityLogs(): Promise<any[]> {
-  return request("/api/vendors/activity-logs");
-}
-// Fetch role activity logs
-export async function fetchRoleActivityLogs(): Promise<any[]> {
-  return request("/api/roles/activity-logs");
-}
-// Fetch vendor master data from backend API
+// ========================================
+// Vendor Master API
+// ========================================
+
 export async function fetchVendors(): Promise<any[]> {
   return request("/api/vendors");
 }
 
-// Add a new vendor
+export async function fetchVendorActivityLogs(): Promise<any[]> {
+  return request("/api/vendors/activity-logs");
+}
+
 export async function addVendorAPI(vendor: any): Promise<any> {
   return request("/api/vendors", {
     method: "POST",
@@ -172,7 +187,6 @@ export async function addVendorAPI(vendor: any): Promise<any> {
   });
 }
 
-// Update a vendor
 export async function updateVendorAPI(id: number, vendor: any): Promise<any> {
   return request(`/api/vendors/${id}`, {
     method: "PUT",
@@ -180,29 +194,21 @@ export async function updateVendorAPI(id: number, vendor: any): Promise<any> {
   });
 }
 
-// Delete a vendor
 export async function deleteVendorAPI(id: number): Promise<void> {
   return request(`/api/vendors/${id}`, { method: "DELETE" });
 }
 
-// Fetch document activity logs
+// ========================================
+// Department Master API
+// ========================================
 
-// Add this if not already defined
-// Department Activity Logs
-
-// ✅ Department Activity Logs
-export async function fetchDepartmentActivityLogs(): Promise<any[]> {
-  return request("/api/departments/activity-logs");
-}
-
-// Fetch plant master data from backend API
 export async function fetchDepartments(): Promise<any[]> {
   try {
     const data = await request("/api/departments");
-    // Map API fields to frontend model, fallback for missing department_name
+    // Map API fields to frontend model
     return data.map((dept: any) => ({
       id: dept.id,
-      name: dept.department_name || dept.name || "", // always provide name
+      name: dept.department_name || dept.name || "",
       description: dept.description || "",
       status: dept.status || "",
       transaction_id: dept.transaction_id,
@@ -215,7 +221,10 @@ export async function fetchDepartments(): Promise<any[]> {
   }
 }
 
-// Add a new plant
+export async function fetchDepartmentActivityLogs(): Promise<any[]> {
+  return request("/api/departments/activity-logs");
+}
+
 export async function addDepartmentAPI(department: any): Promise<any> {
   // Map 'name' to 'department_name' for backend
   const payload = {
@@ -223,13 +232,13 @@ export async function addDepartmentAPI(department: any): Promise<any> {
     department_name: department.name,
   };
   delete payload.name;
+  
   return request("/api/departments", {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
-// Update a plant
 export async function updateDepartmentAPI(
   id: number,
   department: any
@@ -240,31 +249,32 @@ export async function updateDepartmentAPI(
     department_name: department.name,
   };
   delete payload.name;
+  
   return request(`/api/departments/${id}`, {
     method: "PUT",
     body: JSON.stringify(payload),
   });
 }
 
-// Delete a plant
 export async function deleteDepartmentAPI(id: number): Promise<void> {
   return request(`/api/departments/${id}`, { method: "DELETE" });
 }
 
-/************************** API for User Request *****************************************/
+// ========================================
+// User Request API
+// ========================================
 
-// Fetch all user requests
 export async function fetchUserRequests(): Promise<any[]> {
   return request("/api/user-requests");
 }
 
-// Add a new user request
 export async function addUserRequestAPI(userRequest: FormData): Promise<any> {
-  // when sending FormData the request wrapper preserves FormData content-type
-  return request(`/api/user-requests`, { method: "POST", body: userRequest });
+  return request("/api/user-requests", { 
+    method: "POST", 
+    body: userRequest 
+  });
 }
 
-// Update a user request
 export async function updateUserRequestAPI(
   id: number,
   userRequest: any
@@ -275,19 +285,18 @@ export async function updateUserRequestAPI(
   });
 }
 
-// Delete a user request
 export async function deleteUserRequestAPI(id: number): Promise<void> {
   return request(`/api/user-requests/${id}`, { method: "DELETE" });
 }
 
-/************************** API for Task *****************************************/
+// ========================================
+// Task API
+// ========================================
 
-// Fetch all tasks
 export async function fetchTasks(): Promise<any[]> {
-  return request(`/api/task`);
+  return request("/api/task");
 }
 
-// Fetch tasks optionally for a specific approver
 export async function fetchTasksForApprover(
   approverId?: number
 ): Promise<any[]> {
@@ -299,12 +308,13 @@ export async function fetchTaskById(id: string): Promise<any> {
   return request(`/api/task/${id}`);
 }
 
-// Add a new task
 export async function addTaskAPI(task: any): Promise<any> {
-  return request(`/api/tasks`, { method: "POST", body: JSON.stringify(task) });
+  return request("/api/tasks", { 
+    method: "POST", 
+    body: JSON.stringify(task) 
+  });
 }
 
-// Update a task
 export async function updateTaskAPI(id: string, task: any): Promise<any> {
   return request(`/api/task/tasks/${id}`, {
     method: "PUT",
@@ -312,18 +322,24 @@ export async function updateTaskAPI(id: string, task: any): Promise<any> {
   });
 }
 
-// Delete a task
 export async function deleteTaskAPI(id: number): Promise<void> {
   return request(`/api/tasks/${id}`, { method: "DELETE" });
 }
 
-// Fetch workflows (used to derive approver plant assignments)
+// ========================================
+// Workflow & Approval API
+// ========================================
+
 export async function fetchWorkflows(approverId?: number): Promise<any[]> {
   const q = approverId ? `?approver_id=${encodeURIComponent(approverId)}` : "";
-  return request(`/api/workflows${q}`);
+  const data: any = await request(`/api/workflows${q}`);
+  // Backend may return { workflows: [...] } or an array directly. Normalize to array.
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.workflows)) return data.workflows;
+  if (Array.isArray(data?.data?.workflows)) return data.data.workflows;
+  return [];
 }
 
-// Post approval action (approve/reject)
 export async function postApprovalAction(
   id: string,
   action: "approve" | "reject",
@@ -335,41 +351,36 @@ export async function postApprovalAction(
   });
 }
 
-/************************** API for Access Log *****************************************/
+// ========================================
+// Access Log API
+// ========================================
 
-// Fetch all access logs
 export async function fetchAccessLogs(): Promise<any[]> {
-  return request(`/api/access-logs`);
+  return request("/api/access-logs");
 }
 
-// Add a new access log
 export async function addAccessLogAPI(accessLog: any): Promise<any> {
-  return request(`/api/access-logs`, {
+  return request("/api/access-logs", {
     method: "POST",
     body: JSON.stringify(accessLog),
   });
 }
 
-/************************** API for Application / Department / Role *****************************************/
+// ========================================
+// Department/Role/Application by Plant
+// ========================================
 
-// Fetch departments, roles, and applications by Plant ID
 export async function fetchDepartmentsByPlantId(plantId: number): Promise<{
   departments: { id: number; department_name: string }[];
 }> {
   try {
     return request(`/api/applications/${plantId}`);
   } catch (error) {
-    console.error(
-      "API fetchDepartmentsRolesApplicationsByPlantId error:",
-      error
-    );
+    console.error("API fetchDepartmentsByPlantId error:", error);
     throw error;
   }
 }
 
-/************************** API for Applications, Roles by Plant and Department *****************************************/
-
-// Fetch roles and applications by plant ID and department ID
 export async function fetchRolesApplicationsByPlantAndDepartment(
   plantId: number,
   deptId: number
@@ -380,21 +391,21 @@ export async function fetchRolesApplicationsByPlantAndDepartment(
   try {
     return request(`/api/applications/${plantId}/${deptId}`);
   } catch (error) {
-    console.error(
-      "API fetchRolesApplicationsByPlantAndDepartment error:",
-      error
-    );
+    console.error("API fetchRolesApplicationsByPlantAndDepartment error:", error);
     throw error;
   }
 }
 
+// ========================================
 // Server Inventory API
+// ========================================
+
 export async function fetchServers(): Promise<any[]> {
-  return request(`/api/servers`);
+  return request("/api/servers");
 }
 
 export async function addServerAPI(server: any): Promise<any> {
-  return request(`/api/servers`, {
+  return request("/api/servers", {
     method: "POST",
     body: JSON.stringify(server),
   });
@@ -411,58 +422,66 @@ export async function deleteServerAPI(id: number): Promise<void> {
   return request(`/api/servers/${id}`, { method: "DELETE" });
 }
 
-// Fetch employee details by employee code
+// ========================================
+// User API
+// ========================================
+
 export async function fetchUserByEmployeeCode(employeeCode: number): Promise<{
-  user: [];
+  user: any[];
 }> {
   try {
     return request(`/api/users/${employeeCode}`);
   } catch (error) {
-    console.error("API employeeCode error:", error);
+    console.error("API fetchUserByEmployeeCode error:", error);
     throw error;
   }
 }
 
-// Authentication
-export async function fetchPermissionsAPI(): Promise<any> {
-  return request(`/api/auth/permissions`);
-}
+// ========================================
+// Authentication API
+// ========================================
 
 export async function loginAPI(credentials: {
   username: string;
   password: string;
-}) {
-  return request(`/api/auth/login`, {
+}): Promise<any> {
+  return request("/api/auth/login", {
     method: "POST",
     body: JSON.stringify(credentials),
   });
 }
 
-/************************** API for Service Request *****************************************/
+export async function fetchPermissionsAPI(): Promise<any> {
+  return request("/api/auth/permissions");
+}
 
-// Fetch all user requests
+// ========================================
+// Service Request API
+// ========================================
+
 export async function fetchServiceRequests(): Promise<any[]> {
   return request("/api/service-requests");
 }
 
-// Add a new user request
-export async function addServiceRequestAPI(userRequest: FormData): Promise<any> {
-  // when sending FormData the request wrapper preserves FormData content-type
-  return request(`/api/service-requests`, { method: "POST", body: userRequest });
-}
-
-// Update a user request
-export async function updateServiceRequestAPI(
-  id: number,
-  userRequest: any
+export async function addServiceRequestAPI(
+  serviceRequest: FormData
 ): Promise<any> {
-  return request(`/api/service-requests/${id}`, {
-    method: "PUT",
-    body: JSON.stringify(userRequest),
+  return request("/api/service-requests", { 
+    method: "POST", 
+    body: serviceRequest 
   });
 }
 
-// Delete a user request
+export async function updateServiceRequestAPI(
+  id: number,
+  serviceRequest: any
+): Promise<any> {
+  return request(`/api/service-requests/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(serviceRequest),
+  });
+}
+
 export async function deleteServiceRequestAPI(id: number): Promise<void> {
   return request(`/api/service-requests/${id}`, { method: "DELETE" });
 }

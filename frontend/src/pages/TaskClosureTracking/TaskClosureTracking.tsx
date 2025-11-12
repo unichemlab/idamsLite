@@ -1,11 +1,14 @@
 import React, { useEffect, useState, useRef } from "react";
+import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import ProfileIconWithLogout from "./ProfileIconWithLogout";
 import { useTaskContext } from "./TaskContext";
 import styles from "./TaskClosureTracking.module.css";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
-import { FaEdit, FaChevronDown, FaChevronRight } from "react-icons/fa";
+import { FaChevronDown, FaChevronRight } from "react-icons/fa";
+import { FiUser,FiSettings,FiLogOut,FiChevronDown,FiMapPin,FiMail,FiBriefcase,FiShield } from "react-icons/fi";
+import login_headTitle2 from "../../assets/login_headTitle2.png";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { fetchTaskLog } from "../../utils/api";
@@ -32,20 +35,35 @@ interface TaskLog {
 }
 
 const TaskTable: React.FC = () => {
-  const { tasks, loading, error } = useTaskContext();
+  const { loading, error } = useTaskContext();
   const [taskLogs, setTaskLogs] = useState<TaskLog[]>([]);
-  const [selectedRow, setSelectedRow] = useState<number | null>(null);
+  //const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const [expandedRequests, setExpandedRequests] = useState<string[]>([]);
-  const [filterColumn, setFilterColumn] = useState<keyof TaskLog>("application_name");
-  const [filterValue, setFilterValue] = useState("");
-  const [tempFilterColumn, setTempFilterColumn] = useState<keyof TaskLog>(filterColumn);
-  const [tempFilterValue, setTempFilterValue] = useState(filterValue);
+  const [filterColumn] = useState<keyof TaskLog>("application_name");
+  const [filterValue] = useState("");
+  //const [tempFilterColumn, setTempFilterColumn] = useState<keyof TaskLog>(filterColumn);
+  // const [tempFilterValue, setTempFilterValue] = useState(filterValue);
   const [showFilterPopover, setShowFilterPopover] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 10;
   const navigate = useNavigate();
   const popoverRef = useRef<HTMLDivElement | null>(null);
+  
+   const [showUserMenu, setShowUserMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
+  // Close menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false);
+      }
+    };
+    if (showUserMenu) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showUserMenu]);
+
+  const { user, logout } = useAuth();
   useEffect(() => {
     fetchTaskLog()
       .then(setTaskLogs)
@@ -89,46 +107,11 @@ const TaskTable: React.FC = () => {
         : [...prev, requestId]
     );
   };
-
-  const handleExportCSV = () => {
-    if (!filteredLogs.length) return;
-    const headers = [
-      "Request ID",
-      "Name",
-      "Employee Code",
-      "Application Name",
-      "Role Name",
-      "Task Status",
-      "User Request Status",
-      "Plant Name",
-    ];
-    const rows = filteredLogs.map((log) => [
-      log.user_request_transaction_id ?? "",
-      log.name ?? "",
-      log.employee_code ?? "",
-      log.application_name ?? "",
-      log.role_name ?? "",
-      log.task_status ?? "",
-      log.user_request_status ?? "",
-      log.plant_name ?? "",
-    ]);
-    const csvContent =
-      [headers, ...rows]
-        .map((row) =>
-          row
-            .map((cell) => `"${cell.toString().replace(/"/g, '""')}"`)
-            .join(",")
-        )
-        .join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `TaskLog_${new Date().toISOString().split("T")[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleLogout = () => {
+    logout();
+    navigate("/");
   };
+
 
   const handleExportPDF = () => {
     if (!filteredLogs.length) return;
@@ -172,328 +155,662 @@ const TaskTable: React.FC = () => {
   if (error) return <div className={styles.error}>{error}</div>;
 
   return (
-    <div>
-      <header className={styles["main-header"]}>
-        <h2 className={styles["header-title"]}>Task Request</h2>
-        <div className={styles["header-icons"]}>
-          <NotificationsIcon fontSize="small" />
-          <SettingsIcon fontSize="small" />
-          <ProfileIconWithLogout />
-        </div>
-      </header>
+    <div className={styles["main-container"]}>
+      <main className={styles["main-content"]}>
+       
+        {user?.isITBin ?
+          (
+            <header className={styles["main-header"]}>
+              <div className={styles["header-left"]}>
+                <div className={styles["header-left"]}>
+                  <div className={styles["logo-wrapper"]}>
+                    <img
+                      src={login_headTitle2}
+                      alt="Logo"
+                      className={styles.logo}
+                    />
+                    <span className={styles.version}>v1.00</span>
+                  </div>
+                  <h1 className={styles["header-title"]}>
+                    Task Clouser Request
+                  </h1>
+                </div>
+              </div>
+              <div className={styles["header-right"]}>
+                 {/* User Name Display */}
+                {/* Task Closure Button - Only for IT BIN Admins */}
+                
+                 {/* User Avatar Dropdown */}
+          {user && (
+            <div style={{ position: "relative" }} ref={menuRef}>
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  padding: "6px 12px 6px 6px",
+                  backgroundColor: showUserMenu ? "#f1f5f9" : "#2196f3",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "24px",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                }}
+              >
+                {/* Avatar */}
+                <div style={{ position: "relative" }}>
+                  <div
+                    style={{
+                      width: "36px",
+                      height: "36px",
+                      borderRadius: "50%",
+                      background:
+                        "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "white",
+                      fontWeight: "700",
+                      fontSize: "14px",
+                    }}
+                  >
+                    {(user.name || user.username || "U")
+                      .charAt(0)
+                      .toUpperCase()}
+                  </div>
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: "0",
+                      right: "0",
+                      width: "10px",
+                      height: "10px",
+                      backgroundColor: "#22c55e",
+                      borderRadius: "50%",
+                      border: "2px solid white",
+                    }}
+                  ></div>
+                </div>
 
-      <div className={styles.headerTopRow}>
-        <div className={styles.controls}>
-          <button
-            className={styles.filterBtn}
-            onClick={() => setShowFilterPopover((prev) => !prev)}
-          >
-            🔍 Filter
-          </button>
-          <button onClick={handleExportPDF} className={styles.exportPdfBtn}>
-            🗎 Export PDF
-          </button>
-        </div>
-      </div>
-
-      <div className={styles.container}>
-        <div
-          style={{
-            maxHeight: 400,
-            overflowY: "auto",
-            border: "1px solid #e2e8f0",
-            borderRadius: 8,
-            boxShadow: "0 0 4px rgba(0,0,0,0.05)",
-          }}
-        >
-          <table className={styles.taskTable}>
-            <thead>
-              <tr>
-                <th></th>
-                <th>Request ID</th>
-                <th>Plant</th>
-                <th>Department</th>
-                <th>Requested For/By</th>
-                <th>Access Request Type</th>
-                <th>Request Date</th>
-                <th>Assignment IT group</th>
-                <th>Status</th>
-                <th>Tasks</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedRequests.map((requestId) => {
-                const tasks = groupedLogs[requestId];
-                console.log("groupedLogs", tasks);
-                return (
-                  <React.Fragment key={requestId}>
-                    <tr
-                      onClick={() => toggleExpand(requestId)}
-                      style={{ backgroundColor: "#f9fafb", cursor: "pointer" }}
+                {/* User Name */}
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "flex-start",
+                    gap: "2px",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      color: "orange",
+                      lineHeight: "1",
+                    }}
+                  >
+                    {user.name || user.username}
+                  </span>
+                  {user.isITBin && (
+                    <span
+                      style={{
+                        fontSize: "11px",
+                        color: "white",
+                        fontWeight: "600",
+                        lineHeight: "1",
+                      }}
                     >
-                      <td style={{ width: 30, textAlign: "center" }}>
-                        {expandedRequests.includes(requestId) ? (
-                          <FaChevronDown />
-                        ) : (
-                          <FaChevronRight />
+                      IT Admin
+                    </span>
+                  )}
+                </div>
+
+                {/* Dropdown Arrow */}
+                <FiChevronDown
+                  size={16}
+                  color="#64748b"
+                  style={{
+                    transition: "transform 0.2s",
+                    transform: showUserMenu
+                      ? "rotate(180deg)"
+                      : "rotate(0deg)",
+                  }}
+                />
+              </button>
+
+              {/* Dropdown Menu */}
+              {showUserMenu && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "calc(100% + 8px)",
+                    right: "0",
+                    width: "280px",
+                    backgroundColor: "white",
+                    borderRadius: "12px",
+                    boxShadow: "0 10px 40px rgba(0, 0, 0, 0.15)",
+                    border: "1px solid #e2e8f0",
+                    zIndex: 1000,
+                    overflow: "hidden",
+                    animation: "slideDown 0.2s ease",
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "16px",
+                      borderBottom: "1px solid #f1f5f9",
+                      background:
+                        "linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px",
+                        marginBottom: "12px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: "48px",
+                          height: "48px",
+                          borderRadius: "50%",
+                          background:
+                            "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "white",
+                          fontWeight: "700",
+                          fontSize: "20px",
+                        }}
+                      >
+                        {(user.name || user.username || "U")
+                          .charAt(0)
+                          .toUpperCase()}
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column" }}>
+                        <span
+                          style={{
+                            fontSize: "16px",
+                            fontWeight: "700",
+                            color: "#0c4a6e",
+                          }}
+                        >
+                          {user.name || user.username}
+                        </span>
+                        {user.employee_code && (
+                          <span
+                            style={{
+                              fontSize: "12px",
+                              color: "#0369a1",
+                              fontWeight: "500",
+                            }}
+                          >
+                            {user.employee_code}
+                          </span>
                         )}
-                      </td>
-                      <td style={{ fontWeight: "bold" }}>{requestId}</td>
-                      <td>{tasks[0]?.plant_name}</td>
-                      <td>{tasks[0]?.department_name}</td>
-                      <td>{tasks[0]?.name} ({tasks[0]?.employee_code})</td>
-                      <td>{tasks[0]?.access_request_type}</td>
-                      <td>{new Date(tasks[0]?.created_on).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", })}</td>
-                      <td>{tasks[0]?.assignment_group}</td>
-                      <td>{tasks[0]?.user_request_status}</td>
-                      <td>{tasks.length} task(s)</td>
-                    </tr>
+                      </div>
+                    </div>
 
-                    {expandedRequests.includes(requestId) && tasks &&
-                      tasks.length > 0 && (
-                        <tr>
-                          <td colSpan={12} style={{ padding: 0 }}>
-                            <div style={{ overflowX: "auto" }}>
-                              <table
-                                className={styles.subTable}
-                              >
-                                <thead>
-                                  <tr>
-                                    <th>Task Transaction ID</th>
-                                    <th>Application / Equip ID</th>
-                                    <th>Department</th>
-                                    <th>Location</th>
-                                    <th>Requestor Role</th>
-                                    <th>Granted Role</th>
-                                    <th>Access</th>
-                                    <th>Assigned To</th>
-                                    <th>Status</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {tasks.map((task, tIdx) => (
-                                    <tr key={tIdx}>
-                                      <td>
-                                        <a
-                                          target="_blank"
-                                          href={
-                                            task.task_status === "Closed"
-                                              ? `/task-detail/${task.task_id}` // 👈 go to TaskDetailView
-                                              : `/task/${task.task_id}`        // 👈 go to normal task view
-                                          }
-                                          style={{
-                                            color: "#2563eb",
-                                            textDecoration: "none",
-                                            fontWeight: 600,
-                                          }}
-                                        >
-                                          {task.task_request_transaction_id || "-"}
-                                        </a>
-                                      </td>
+                    {user.isITBin && (
+                      <div
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          padding: "6px 12px",
+                          backgroundColor: "rgba(76, 175, 80, 0.15)",
+                          borderRadius: "20px",
+                          border: "1px solid rgba(76, 175, 80, 0.3)",
+                        }}
+                      >
+                        <FiShield size={14} color="#4caf50" />
+                        <span
+                          style={{
+                            fontSize: "12px",
+                            color: "#2e7d32",
+                            fontWeight: "600",
+                          }}
+                        >
+                          IT BIN Administrator
+                        </span>
+                      </div>
+                    )}
+                  </div>
 
-                                      <td>
-                                        {task.application_name || "-"}
-                                      </td>
-                                      <td>{task.department_name || "-"}</td>
-                                      <td>{task.plant_name || "-"}</td>
-                                      <td>{task.role_name || "-"}</td>
-                                      <td>{task.role_granted || "-"}</td>
-                                      <td>{task.access}</td>
-                                      <td>{task.assigned_to_name}</td>
-                                      <td>{task.task_status || "-"}</td>
+                  {/* Contact Info */}
+                  <div style={{ padding: "12px 16px" }}>
+                    {user.email && (
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "10px",
+                          padding: "8px 0",
+                          fontSize: "13px",
+                          color: "#64748b",
+                        }}
+                      >
+                        <FiMail size={16} color="#94a3b8" />
+                        <span>{user.email}</span>
+                      </div>
+                    )}
+                    {user.location && (
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "10px",
+                          padding: "8px 0",
+                          fontSize: "13px",
+                          color: "#64748b",
+                        }}
+                      >
+                        <FiMapPin size={16} color="#94a3b8" />
+                        <span>{user.location}</span>
+                      </div>
+                    )}
+                    {user.designation && (
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "10px",
+                          padding: "8px 0",
+                          fontSize: "13px",
+                          color: "#64748b",
+                        }}
+                      >
+                        <FiBriefcase size={16} color="#94a3b8" />
+                        <span>{user.designation}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Logout */}
+                  <div style={{ padding: "8px", borderTop: "1px solid #f1f5f9" }}>
+                    <button
+                  onClick={() => navigate("/user-access-management")}
+                  style={{
+                        width: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px",
+                        padding: "10px 12px",
+                        backgroundColor: "transparent",
+                        border: "none",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        fontWeight: "500",
+                        color: "#dc2626",
+                      }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = "#1976d2";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "#2196f3";
+                  }}
+                  title="Navigate to User Access Management"
+                >
+                  <FiBriefcase size={16} />
+                  User Access Management
+                </button>
+                    <button
+                      onClick={handleLogout}
+                      style={{
+                        width: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px",
+                        padding: "10px 12px",
+                        backgroundColor: "transparent",
+                        border: "none",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        fontWeight: "500",
+                        color: "#dc2626",
+                      }}
+                    >
+                      <FiLogOut size={18} />
+                      <span>Logout</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+              </div>
+            </header>
+          ) :
+          (
+            <header className={styles["main-header"]}>
+              <h2 className={styles["header-title"]}>Task Request</h2>
+              <div className={styles["header-icons"]}>
+                <NotificationsIcon fontSize="small" />
+                <SettingsIcon fontSize="small" />
+                <ProfileIconWithLogout />
+              </div>
+            </header>
+          )}
+
+
+        <div className={styles.headerTopRow}>
+          <div className={styles.controls}>
+            <button
+              className={styles.filterBtn}
+              onClick={() => setShowFilterPopover((prev) => !prev)}
+            >
+              🔍 Filter
+            </button>
+            <button onClick={handleExportPDF} className={styles.exportPdfBtn}>
+              🗎 Export PDF
+            </button>
+          </div>
+        </div>
+
+        <div className={styles.container}>
+          <div
+            style={{
+              maxHeight: 400,
+              overflowY: "auto",
+              border: "1px solid #e2e8f0",
+              borderRadius: 8,
+              boxShadow: "0 0 4px rgba(0,0,0,0.05)",
+            }}
+          >
+            <table className={styles.taskTable}>
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Request ID</th>
+                  <th>Plant</th>
+                  <th>Department</th>
+                  <th>Requested For/By</th>
+                  <th>Access Request Type</th>
+                  <th>Request Date</th>
+                  <th>Assignment IT group</th>
+                  <th>Status</th>
+                  <th>Tasks</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedRequests.map((requestId) => {
+                  const tasks = groupedLogs[requestId];
+                  console.log("groupedLogs", tasks);
+                  return (
+                    <React.Fragment key={requestId}>
+                      <tr
+                        onClick={() => toggleExpand(requestId)}
+                        style={{ backgroundColor: "#f9fafb", cursor: "pointer" }}
+                      >
+                        <td style={{ width: 30, textAlign: "center" }}>
+                          {expandedRequests.includes(requestId) ? (
+                            <FaChevronDown />
+                          ) : (
+                            <FaChevronRight />
+                          )}
+                        </td>
+                        <td style={{ fontWeight: "bold" }}>{requestId}</td>
+                        <td>{tasks[0]?.plant_name}</td>
+                        <td>{tasks[0]?.department_name}</td>
+                        <td>{tasks[0]?.name} ({tasks[0]?.employee_code})</td>
+                        <td>{tasks[0]?.access_request_type}</td>
+                        <td>{new Date(tasks[0]?.created_on).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", })}</td>
+                        <td>{tasks[0]?.assignment_group}</td>
+                        <td>{tasks[0]?.user_request_status}</td>
+                        <td>{tasks.length} task(s)</td>
+                      </tr>
+
+                      {expandedRequests.includes(requestId) && tasks &&
+                        tasks.length > 0 && (
+                          <tr>
+                            <td colSpan={12} style={{ padding: 0 }}>
+                              <div style={{ overflowX: "auto" }}>
+                                <table
+                                  className={styles.subTable}
+                                >
+                                  <thead>
+                                    <tr>
+                                      <th>Task Transaction ID</th>
+                                      <th>Application / Equip ID</th>
+                                      <th>Department</th>
+                                      <th>Location</th>
+                                      <th>Requestor Role</th>
+                                      <th>Granted Role</th>
+                                      <th>Access</th>
+                                      <th>Assigned To</th>
+                                      <th>Status</th>
                                     </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    }
+                                  </thead>
+                                  <tbody>
+                                    {tasks.map((task, tIdx) => (
+                                      <tr key={tIdx}>
+                                        <td>
+                                          <a
+                                            target="_blank" rel="noreferrer"
+                                            href={
+                                              task.task_status === "Closed"
+                                                ? `/task-detail/${task.task_id}` // 👈 go to TaskDetailView
+                                                : `/task/${task.task_id}`        // 👈 go to normal task view
+                                            }
+                                            style={{
+                                              color: "#2563eb",
+                                              textDecoration: "none",
+                                              fontWeight: 600,
+                                            }}
+                                          >
+                                            {task.task_request_transaction_id || "-"}
+                                          </a>
+                                        </td>
 
-                  </React.Fragment>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                                        <td>
+                                          {task.application_name || "-"}
+                                        </td>
+                                        <td>{task.department_name || "-"}</td>
+                                        <td>{task.plant_name || "-"}</td>
+                                        <td>{task.role_name || "-"}</td>
+                                        <td>{task.role_granted || "-"}</td>
+                                        <td>{task.access}</td>
+                                        <td>{task.assigned_to_name}</td>
+                                        <td>{task.task_status || "-"}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      }
 
-        {/* Pagination */}
-        <div
-          style={{
-            marginTop: 20,
-            paddingBottom: 24, // 👈 Add this line
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            gap: 6,
-            flexWrap: "wrap",
-            fontFamily: "Segoe UI, Roboto, sans-serif",
-            fontSize: 14,
-          }}
-        >
-          {/* First */}
-          <button
-            onClick={() => setCurrentPage(1)}
-            disabled={currentPage === 1}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          <div
             style={{
-              padding: "6px 10px",
-              borderRadius: 6,
-              border: "1px solid #d0d5dd",
-              backgroundColor: currentPage === 1 ? "#f9fafb" : "#ffffff",
-              color: currentPage === 1 ? "#cbd5e1" : "#344054",
-              cursor: currentPage === 1 ? "not-allowed" : "pointer",
-              minWidth: 40,
+              marginTop: 20,
+              paddingBottom: 24, // 👈 Add this line
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: 6,
+              flexWrap: "wrap",
+              fontFamily: "Segoe UI, Roboto, sans-serif",
+              fontSize: 14,
             }}
           >
-            {"<<"}
-          </button>
+            {/* First */}
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 6,
+                border: "1px solid #d0d5dd",
+                backgroundColor: currentPage === 1 ? "#f9fafb" : "#ffffff",
+                color: currentPage === 1 ? "#cbd5e1" : "#344054",
+                cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                minWidth: 40,
+              }}
+            >
+              {"<<"}
+            </button>
 
-          {/* Prev */}
-          <button
-            onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-            disabled={currentPage === 1}
-            style={{
-              padding: "6px 10px",
-              borderRadius: 6,
-              border: "1px solid #d0d5dd",
-              backgroundColor: currentPage === 1 ? "#f9fafb" : "#ffffff",
-              color: currentPage === 1 ? "#cbd5e1" : "#344054",
-              cursor: currentPage === 1 ? "not-allowed" : "pointer",
-              minWidth: 40,
-            }}
-          >
-            Prev
-          </button>
+            {/* Prev */}
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+              disabled={currentPage === 1}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 6,
+                border: "1px solid #d0d5dd",
+                backgroundColor: currentPage === 1 ? "#f9fafb" : "#ffffff",
+                color: currentPage === 1 ? "#cbd5e1" : "#344054",
+                cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                minWidth: 40,
+              }}
+            >
+              Prev
+            </button>
 
-          {/* Page Numbers (Dynamic max 5 pages) */}
-          {(() => {
-            const pageButtons = [];
-            const maxPagesToShow = 5;
-            let start = Math.max(1, currentPage - 2);
-            let end = Math.min(totalPages, start + maxPagesToShow - 1);
-            if (end - start < maxPagesToShow - 1) {
-              start = Math.max(1, end - maxPagesToShow + 1);
-            }
+            {/* Page Numbers (Dynamic max 5 pages) */}
+            {(() => {
+              const pageButtons = [];
+              const maxPagesToShow = 5;
+              let start = Math.max(1, currentPage - 2);
+              let end = Math.min(totalPages, start + maxPagesToShow - 1);
+              if (end - start < maxPagesToShow - 1) {
+                start = Math.max(1, end - maxPagesToShow + 1);
+              }
 
-            if (start > 1) {
-              pageButtons.push(
-                <button
-                  key={1}
-                  onClick={() => setCurrentPage(1)}
-                  style={{
-                    padding: "6px 10px",
-                    borderRadius: 6,
-                    border: "1px solid #d0d5dd",
-                    backgroundColor: currentPage === 1 ? "#007bff" : "#ffffff",
-                    color: currentPage === 1 ? "#fff" : "#344054",
-                    cursor: "pointer",
-                    minWidth: 40,
-                  }}
-                >
-                  1
-                </button>
-              );
-              if (start > 2) {
+              if (start > 1) {
                 pageButtons.push(
-                  <span key="ellipsis-left" style={{ padding: "6px 10px", color: "#999" }}>
-                    ...
-                  </span>
+                  <button
+                    key={1}
+                    onClick={() => setCurrentPage(1)}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 6,
+                      border: "1px solid #d0d5dd",
+                      backgroundColor: currentPage === 1 ? "#007bff" : "#ffffff",
+                      color: currentPage === 1 ? "#fff" : "#344054",
+                      cursor: "pointer",
+                      minWidth: 40,
+                    }}
+                  >
+                    1
+                  </button>
+                );
+                if (start > 2) {
+                  pageButtons.push(
+                    <span key="ellipsis-left" style={{ padding: "6px 10px", color: "#999" }}>
+                      ...
+                    </span>
+                  );
+                }
+              }
+
+              for (let i = start; i <= end; i++) {
+                pageButtons.push(
+                  <button
+                    key={i}
+                    onClick={() => setCurrentPage(i)}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 6,
+                      border: i === currentPage ? "1px solid #007bff" : "1px solid #d0d5dd",
+                      backgroundColor: i === currentPage ? "#007bff" : "#ffffff",
+                      color: i === currentPage ? "#fff" : "#344054",
+                      cursor: "pointer",
+                      minWidth: 40,
+                    }}
+                  >
+                    {i}
+                  </button>
                 );
               }
-            }
 
-            for (let i = start; i <= end; i++) {
-              pageButtons.push(
-                <button
-                  key={i}
-                  onClick={() => setCurrentPage(i)}
-                  style={{
-                    padding: "6px 10px",
-                    borderRadius: 6,
-                    border: i === currentPage ? "1px solid #007bff" : "1px solid #d0d5dd",
-                    backgroundColor: i === currentPage ? "#007bff" : "#ffffff",
-                    color: i === currentPage ? "#fff" : "#344054",
-                    cursor: "pointer",
-                    minWidth: 40,
-                  }}
-                >
-                  {i}
-                </button>
-              );
-            }
-
-            if (end < totalPages) {
-              if (end < totalPages - 1) {
+              if (end < totalPages) {
+                if (end < totalPages - 1) {
+                  pageButtons.push(
+                    <span key="ellipsis-right" style={{ padding: "6px 10px", color: "#999" }}>
+                      ...
+                    </span>
+                  );
+                }
                 pageButtons.push(
-                  <span key="ellipsis-right" style={{ padding: "6px 10px", color: "#999" }}>
-                    ...
-                  </span>
+                  <button
+                    key={totalPages}
+                    onClick={() => setCurrentPage(totalPages)}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 6,
+                      border: currentPage === totalPages ? "1px solid #007bff" : "1px solid #d0d5dd",
+                      backgroundColor: currentPage === totalPages ? "#007bff" : "#ffffff",
+                      color: currentPage === totalPages ? "#fff" : "#344054",
+                      cursor: "pointer",
+                      minWidth: 40,
+                    }}
+                  >
+                    {totalPages}
+                  </button>
                 );
               }
-              pageButtons.push(
-                <button
-                  key={totalPages}
-                  onClick={() => setCurrentPage(totalPages)}
-                  style={{
-                    padding: "6px 10px",
-                    borderRadius: 6,
-                    border: currentPage === totalPages ? "1px solid #007bff" : "1px solid #d0d5dd",
-                    backgroundColor: currentPage === totalPages ? "#007bff" : "#ffffff",
-                    color: currentPage === totalPages ? "#fff" : "#344054",
-                    cursor: "pointer",
-                    minWidth: 40,
-                  }}
-                >
-                  {totalPages}
-                </button>
-              );
-            }
 
-            return pageButtons;
-          })()}
+              return pageButtons;
+            })()}
 
-          {/* Next */}
-          <button
-            onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-            disabled={currentPage === totalPages || totalPages === 0}
-            style={{
-              padding: "6px 10px",
-              borderRadius: 6,
-              border: "1px solid #d0d5dd",
-              backgroundColor:
-                currentPage === totalPages || totalPages === 0 ? "#f9fafb" : "#ffffff",
-              color:
-                currentPage === totalPages || totalPages === 0 ? "#cbd5e1" : "#344054",
-              cursor:
-                currentPage === totalPages || totalPages === 0 ? "not-allowed" : "pointer",
-              minWidth: 40,
-            }}
-          >
-            Next
-          </button>
+            {/* Next */}
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+              disabled={currentPage === totalPages || totalPages === 0}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 6,
+                border: "1px solid #d0d5dd",
+                backgroundColor:
+                  currentPage === totalPages || totalPages === 0 ? "#f9fafb" : "#ffffff",
+                color:
+                  currentPage === totalPages || totalPages === 0 ? "#cbd5e1" : "#344054",
+                cursor:
+                  currentPage === totalPages || totalPages === 0 ? "not-allowed" : "pointer",
+                minWidth: 40,
+              }}
+            >
+              Next
+            </button>
 
-          {/* Last */}
-          <button
-            onClick={() => setCurrentPage(totalPages)}
-            disabled={currentPage === totalPages || totalPages === 0}
-            style={{
-              padding: "6px 10px",
-              borderRadius: 6,
-              border: "1px solid #d0d5dd",
-              backgroundColor:
-                currentPage === totalPages || totalPages === 0 ? "#f9fafb" : "#ffffff",
-              color:
-                currentPage === totalPages || totalPages === 0 ? "#cbd5e1" : "#344054",
-              cursor:
-                currentPage === totalPages || totalPages === 0 ? "not-allowed" : "pointer",
-              minWidth: 40,
-            }}
-          >
-            {">>"}
-          </button>
+            {/* Last */}
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages || totalPages === 0}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 6,
+                border: "1px solid #d0d5dd",
+                backgroundColor:
+                  currentPage === totalPages || totalPages === 0 ? "#f9fafb" : "#ffffff",
+                color:
+                  currentPage === totalPages || totalPages === 0 ? "#cbd5e1" : "#344054",
+                cursor:
+                  currentPage === totalPages || totalPages === 0 ? "not-allowed" : "pointer",
+                minWidth: 40,
+              }}
+            >
+              {">>"}
+            </button>
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };
