@@ -168,18 +168,27 @@ exports.login = async (req, res) => {
 
     // Check if user is an approver in any workflows
     try {
+      // approval_workflow_master is the table used for workflows in this project.
+      // Columns are approver_1_id ... approver_5_id and values may be comma-separated ids.
       const approverQuery = `
-        SELECT DISTINCT workflow_id 
-        FROM approval_workflow 
+        SELECT DISTINCT id
+        FROM approval_workflow_master
         WHERE (
-          approver_level1 LIKE $1 OR 
-          approver_level2 LIKE $1 OR 
-          approver_level3 LIKE $1
+          approver_1_id LIKE $1 OR
+          approver_2_id LIKE $1 OR
+          approver_3_id LIKE $1 OR
+          approver_4_id LIKE $1 OR
+          approver_5_id LIKE $1
         ) AND is_active = true
+        LIMIT 1
       `;
       const approverResult = await db.query(approverQuery, [`%${user.id}%`]);
 
-      if (approverResult.rows.length > 0) {
+      if (
+        approverResult &&
+        approverResult.rows &&
+        approverResult.rows.length > 0
+      ) {
         permissions.push("approve:requests");
         permissions.push("view:approvals");
         permissions.push("read:workflows");
@@ -189,7 +198,7 @@ exports.login = async (req, res) => {
           user.role_id.push(4);
         }
       }
-      
+
       // Add workflow permissions for superadmins and plant admins
       if (user.role_id.includes(1) || user.role_id.includes(2)) {
         permissions.push("read:workflows");

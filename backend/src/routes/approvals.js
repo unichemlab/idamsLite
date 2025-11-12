@@ -6,14 +6,16 @@ const authorize = require("../middleware/authorize");
 // POST /api/approvals/:transaction/approve
 router.post(
   "/:transaction/approve",
-  authorize("approve:user-requests"),
+  // Allow either an explicit permission or the approver role to perform approvals
+  authorize(["approve:user-requests", "approver"]),
   approvalsController.approveByTransaction
 );
 
 // POST /api/approvals/:transaction/reject
 router.post(
   "/:transaction/reject",
-  authorize("approve:user-requests"),
+  // Allow either an explicit permission or the approver role to perform approvals
+  authorize(["approve:user-requests", "approver"]),
   approvalsController.rejectByTransaction
 );
 

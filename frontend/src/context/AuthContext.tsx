@@ -125,7 +125,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       try {
-        const workflows = await fetchWorkflows();
+        // Ask backend to return workflows that include this approver id
+        const workflows = await fetchWorkflows(userId);
         if (!Array.isArray(workflows)) {
           console.warn("fetchWorkflows did not return an array");
           return false;
@@ -183,47 +184,58 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
               if (!mounted) return;
 
-              // Then check workflows if user is an approver
-              if (
-                parsed.id &&
-                Array.isArray(parsed.role_id) &&
-                parsed.role_id.includes(4)
-              ) {
-                const workflows = await fetchWorkflows();
+              // Then check workflows for approver membership regardless of role id
+              let isApproverFound = false;
+              try {
+                isApproverFound = await fetchWorkflowsForUser(parsed.id, token);
+              } catch (e) {
+                console.warn("Error checking workflows on restore:", e);
+              }
 
-                if (!mounted) return;
+              if (!mounted) return;
 
-                const approverPlants = workflows
-                  .filter((w) =>
-                    [
-                      w.approver_1_id,
-                      w.approver_2_id,
-                      w.approver_3_id,
-                      w.approver_4_id,
-                      w.approver_5_id,
-                    ].some((id) => id === String(parsed.id))
-                  )
-                  .map((w) => w.plant_id)
-                  .filter((pid): pid is number => pid !== null);
+              if (isApproverFound) {
+                // compute approver plants list for UI convenience
+                try {
+                  const workflows = await fetchWorkflows(parsed.id);
+                  const approverPlants = (workflows || [])
+                    .filter((w) =>
+                      [
+                        w.approver_1_id,
+                        w.approver_2_id,
+                        w.approver_3_id,
+                        w.approver_4_id,
+                        w.approver_5_id,
+                      ].some((id) => id === String(parsed.id))
+                    )
+                    .map((w) => w.plant_id)
+                    .filter((pid) => pid != null);
 
+                  setUser((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          permissions: userPermissions,
+                          isApprover: true,
+                          approverPlants: [...new Set(approverPlants)],
+                        }
+                      : null
+                  );
+                } catch (e) {
+                  // fallback: set isApprover only
+                  setUser((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          permissions: userPermissions,
+                          isApprover: true,
+                        }
+                      : null
+                  );
+                }
+              } else {
                 setUser((prev) =>
-                  prev
-                    ? {
-                        ...prev,
-                        permissions: userPermissions,
-                        isApprover: true,
-                        approverPlants: [...new Set(approverPlants)],
-                      }
-                    : null
-                );
-              } else if (mounted) {
-                setUser((prev) =>
-                  prev
-                    ? {
-                        ...prev,
-                        permissions: userPermissions,
-                      }
-                    : null
+                  prev ? { ...prev, permissions: userPermissions } : null
                 );
               }
             } catch (e) {

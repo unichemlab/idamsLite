@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import loginHeadTitle from "../assets/login_headTitle.png";
 import styles from "./Login.module.css";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "../context/AuthContext"
+import { useAuth } from "../context/AuthContext";
 
 // Logo heading with centered image and improved design
 const LogoHeading = () => (
@@ -42,9 +42,15 @@ const Login: React.FC = () => {
 
     if (user.status.toUpperCase() !== "ACTIVE") return;
 
+    // If backend determined this user is an approver, send them to approver dashboard
+    if ((user as any).isApprover) {
+      navigate("/approver", { replace: true });
+      return;
+    }
+
     // Get return path if one was saved during auth redirect
     const returnPath = location.state?.from;
-    
+
     // Role names used across the app
     type RoleName =
       | "SuperAdmin"
@@ -87,13 +93,21 @@ const Login: React.FC = () => {
       ? [user.role_id]
       : [];
 
-    const roleNames = roleIds.map((id) => roleMap[id]).filter(Boolean) as RoleName[];
-    const highestRole = roleNames.reduce((highest: RoleName, current: RoleName) => {
-      return (RoleHierarchy[current] || 0) > (RoleHierarchy[highest] || 0) ? current : highest;
-    }, "PlantUser");
+    const roleNames = roleIds
+      .map((id) => roleMap[id])
+      .filter(Boolean) as RoleName[];
+    const highestRole = roleNames.reduce(
+      (highest: RoleName, current: RoleName) => {
+        return (RoleHierarchy[current] || 0) > (RoleHierarchy[highest] || 0)
+          ? current
+          : highest;
+      },
+      "PlantUser"
+    );
 
     // Determine target - prefer return path if exists and user has permission
-  const defaultTarget = RoleLandingPages[highestRole] || "/user-access-management";
+    const defaultTarget =
+      RoleLandingPages[highestRole] || "/user-access-management";
     const target = returnPath || defaultTarget;
 
     if (location.pathname !== target) {

@@ -181,6 +181,35 @@ exports.getWorkflows = async (req, res) => {
   }
 };
 
+// GET /api/workflows/is-approver/:id
+// Small debug endpoint to check whether a given user id appears as an approver in any workflow
+exports.isApprover = async (req, res) => {
+  try {
+    const id = req.params.id || req.query.id;
+    if (!id) return res.status(400).json({ error: "approver id required" });
+
+    const q = `
+      SELECT id, transaction_id, plant_id, approver_1_id, approver_2_id, approver_3_id, approver_4_id, approver_5_id
+      FROM approval_workflow_master
+      WHERE (
+        approver_1_id LIKE '%' || $1 || '%' OR
+        approver_2_id LIKE '%' || $1 || '%' OR
+        approver_3_id LIKE '%' || $1 || '%' OR
+        approver_4_id LIKE '%' || $1 || '%' OR
+        approver_5_id LIKE '%' || $1 || '%'
+      ) AND is_active = true
+      LIMIT 100
+    `;
+
+    const { rows } = await db.query(q, [String(id)]);
+    const isApprover = Array.isArray(rows) && rows.length > 0;
+    return res.json({ isApprover, workflows: rows });
+  } catch (err) {
+    console.error("[WORKFLOW isApprover ERROR]", err);
+    return res.status(500).json({ error: err.message });
+  }
+};
+
 // POST /api/workflows
 exports.createWorkflow = async (req, res) => {
   try {

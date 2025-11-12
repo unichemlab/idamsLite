@@ -9,6 +9,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useNavigate } from "react-router-dom";
 import { ServerContext } from "../ServerInventoryMaster/ServerContext";
+import unichemLogoBase64 from "../../assets/unichemLogoBase64";
 
 const ServerInventoryMasterTable: React.FC = () => {
   const serverCtx = useContext(ServerContext);
@@ -50,10 +51,54 @@ const ServerInventoryMasterTable: React.FC = () => {
   const handleExportPDF = () => {
     const doc = new jsPDF({ orientation: "landscape" });
     const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
-    const fileName = `ServerMaster_${yyyy}-${mm}-${dd}.pdf`;
+    const fileName = `ServerMaster_${today.toISOString().split("T")[0]}.pdf`;
+
+    // --- HEADER BAR ---
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageMargin = 14;
+    const headerHeight = 20;
+    doc.setFillColor(0, 82, 155);
+    doc.rect(0, 0, pageWidth, headerHeight, "F");
+
+    // Logo (if available)
+    let logoWidth = 0;
+    let logoHeight = 0;
+    try {
+      if (unichemLogoBase64 && unichemLogoBase64.startsWith("data:image")) {
+        logoWidth = 50;
+        logoHeight = 18;
+        const logoY = headerHeight / 2 - logoHeight / 2;
+        doc.addImage(
+          unichemLogoBase64,
+          "PNG",
+          pageMargin,
+          logoY,
+          logoWidth,
+          logoHeight
+        );
+      }
+    } catch (e) {
+      // ignore logo error
+    }
+
+    // Title + Exported by/date
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    const titleX = pageMargin + logoWidth + 10;
+    const titleY = headerHeight / 2 + 5;
+    doc.text("Server Master", titleX, titleY);
+
+    doc.setFontSize(9);
+    doc.setTextColor(220, 230, 245);
+    const exportedText = `Exported on: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
+    const textWidth = doc.getTextWidth(exportedText);
+    doc.text(exportedText, pageWidth - pageMargin - textWidth, titleY);
+
+    doc.setDrawColor(0, 82, 155);
+    doc.setLineWidth(0.5);
+    doc.line(0, headerHeight, pageWidth, headerHeight);
+
+    // --- TABLE ---
     const headers = [
       [
         "Plant Location",
@@ -160,12 +205,10 @@ const ServerInventoryMasterTable: React.FC = () => {
       server.remarks ?? "",
       server.status ?? "",
     ]);
-    doc.setFontSize(18);
-    doc.text("Server Master", 14, 18);
     autoTable(doc, {
       head: headers,
       body: rows,
-      startY: 28,
+      startY: headerHeight + 8,
       styles: {
         fontSize: 11,
         cellPadding: 3,
@@ -180,9 +223,28 @@ const ServerInventoryMasterTable: React.FC = () => {
       alternateRowStyles: {
         fillColor: [240, 245, 255],
       },
-      margin: { left: 14, right: 14 },
+      margin: { left: pageMargin, right: pageMargin },
       tableWidth: "auto",
     });
+
+    // --- FOOTER ---
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const pageCount =
+      (doc as any).getNumberOfPages?.() ||
+      (doc as any).internal?.getNumberOfPages?.() ||
+      1;
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.text("Unichem Laboratories", pageMargin, pageHeight - 6);
+      doc.text(
+        `Page ${i} of ${pageCount}`,
+        pageWidth - pageMargin - 30,
+        pageHeight - 6
+      );
+    }
+
     doc.save(fileName);
   };
 

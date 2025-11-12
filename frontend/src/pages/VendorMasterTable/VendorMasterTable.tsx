@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import ProfileIconWithLogout from "./ProfileIconWithLogout";
 import { useVendorContext } from "../VendorMaster/VendorContext";
 import styles from "../ApplicationMasterTable/ApplicationMasterTable.module.css";
+import paginationStyles from "../../styles/Pagination.module.css";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { FaEdit, FaTrash } from "react-icons/fa";
@@ -11,6 +12,7 @@ import autoTable from "jspdf-autotable";
 import { FaRegClock } from "react-icons/fa6";
 import { useNavigate } from "react-router-dom";
 import { fetchVendorActivityLogs } from "../../utils/api";
+import unichemLogoBase64 from "../../assets/unichemLogoBase64";
 
 // Activity logs from backend
 
@@ -19,6 +21,9 @@ const VendorMasterTable: React.FC = () => {
   const [selectedRow, setSelectedRow] = React.useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   const [showActivityModal, setShowActivityModal] = React.useState(false);
+  // Pagination state
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const rowsPerPage = 10;
   // activity logs fetched per-click; we don't keep a global cache here
   const [approverFilter, setApproverFilter] = React.useState("");
   const [activityVendor, setActivityVendor] = React.useState<any>(null);
@@ -61,26 +66,79 @@ const VendorMasterTable: React.FC = () => {
     }
   });
 
+  // Reset to first page when filter changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [filterValue]);
+
+  const totalPages = Math.ceil(filteredData.length / rowsPerPage) || 1;
+  const paginatedData = filteredData.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  );
+
   // PDF Export Handler for Vendor Table
   const handleExportPDF = () => {
     const doc = new jsPDF({ orientation: "landscape" });
     const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
-    const fileName = `VendorMaster_${yyyy}-${mm}-${dd}.pdf`;
-    const headers = [["Vender/OEM Name", "Description", "Status"]];
+    const fileName = `VendorMaster_${today.toISOString().split("T")[0]}.pdf`;
+
+    // --- HEADER BAR ---
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageMargin = 14;
+    const headerHeight = 20;
+    doc.setFillColor(0, 82, 155);
+    doc.rect(0, 0, pageWidth, headerHeight, "F");
+
+    // Logo (if available)
+    let logoWidth = 0;
+    let logoHeight = 0;
+    try {
+      if (unichemLogoBase64 && unichemLogoBase64.startsWith("data:image")) {
+        logoWidth = 50;
+        logoHeight = 18;
+        const logoY = headerHeight / 2 - logoHeight / 2;
+        doc.addImage(
+          unichemLogoBase64,
+          "PNG",
+          pageMargin,
+          logoY,
+          logoWidth,
+          logoHeight
+        );
+      }
+    } catch (e) {
+      // ignore logo error
+    }
+
+    // Title + Exported by/date
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    const titleX = pageMargin + logoWidth + 10;
+    const titleY = headerHeight / 2 + 5;
+    doc.text("Vendor Master", titleX, titleY);
+
+    doc.setFontSize(9);
+    doc.setTextColor(220, 230, 245);
+    const exportedText = `Exported on: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
+    const textWidth = doc.getTextWidth(exportedText);
+    doc.text(exportedText, pageWidth - pageMargin - textWidth, titleY);
+
+    doc.setDrawColor(0, 82, 155);
+    doc.setLineWidth(0.5);
+    doc.line(0, headerHeight, pageWidth, headerHeight);
+
+    // --- TABLE ---
     const rows = filteredData.map((vendor) => [
-      vendor.name ?? vendor.name ?? "",
-      vendor.description ?? "",
-      vendor.status ?? "",
+      vendor.name ?? vendor.vendor_name ?? "-",
+      vendor.description ?? "-",
+      vendor.status ?? "-",
     ]);
-    doc.setFontSize(18);
-    doc.text("Vendor Master", 14, 18);
+
     autoTable(doc, {
-      head: headers,
+      head: [["Vendor Name", "Description", "Status"]],
       body: rows,
-      startY: 28,
+      startY: headerHeight + 8,
       styles: {
         fontSize: 11,
         cellPadding: 3,
@@ -92,12 +150,29 @@ const VendorMasterTable: React.FC = () => {
         textColor: 255,
         fontStyle: "bold",
       },
-      alternateRowStyles: {
-        fillColor: [240, 245, 255],
-      },
-      margin: { left: 14, right: 14 },
+      alternateRowStyles: { fillColor: [240, 245, 255] },
+      margin: { left: pageMargin, right: pageMargin },
       tableWidth: "auto",
     });
+
+    // --- FOOTER ---
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const pageCount =
+      (doc as any).getNumberOfPages?.() ||
+      (doc as any).internal?.getNumberOfPages?.() ||
+      1;
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.text("Unichem Laboratories", pageMargin, pageHeight - 6);
+      doc.text(
+        `Page ${i} of ${pageCount}`,
+        pageWidth - pageMargin - 30,
+        pageHeight - 6
+      );
+    }
+
     doc.save(fileName);
   };
 
@@ -332,66 +407,70 @@ const VendorMasterTable: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredData.map((vendor, index) => (
-                <tr
-                  key={index}
-                  onClick={() => setSelectedRow(index)}
-                  style={{
-                    background: selectedRow === index ? "#f0f4ff" : undefined,
-                  }}
-                >
-                  <td>
-                    <input
-                      type="radio"
-                      className={styles.radioInput}
-                      checked={selectedRow === index}
-                      onChange={() => setSelectedRow(index)}
-                    />
-                  </td>
-                  <td>{vendor.name ?? vendor.vendor_name ?? ""}</td>
-                  <td>{vendor.description ?? ""}</td>
-                  <td>
-                    <span
-                      className={
-                        vendor.status === "INACTIVE"
-                          ? styles.statusInactive
-                          : styles.status
-                      }
-                    >
-                      {vendor.status ?? ""}
-                    </span>
-                  </td>
-                  <td>
-                    <span
-                      style={{ cursor: "pointer", color: "#0b63ce" }}
-                      title="View Activity Log"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        setApproverFilter("");
-                        try {
-                          const logs = await fetchVendorActivityLogs();
-                          const filtered = filterLogsForVendor(
-                            logs,
-                            vendor.name ?? ""
-                          );
-                          setActivityVendor({
-                            name: vendor.name ?? "",
-                            logs: filtered,
-                          });
-                        } catch (err) {
-                          setActivityVendor({
-                            name: vendor.name ?? "",
-                            logs: [],
-                          });
+              {paginatedData.map((vendor, index) => {
+                const globalIndex = (currentPage - 1) * rowsPerPage + index;
+                return (
+                  <tr
+                    key={globalIndex}
+                    onClick={() => setSelectedRow(globalIndex)}
+                    style={{
+                      background:
+                        selectedRow === globalIndex ? "#f0f4ff" : undefined,
+                    }}
+                  >
+                    <td>
+                      <input
+                        type="radio"
+                        className={styles.radioInput}
+                        checked={selectedRow === globalIndex}
+                        onChange={() => setSelectedRow(globalIndex)}
+                      />
+                    </td>
+                    <td>{vendor.name ?? vendor.vendor_name ?? ""}</td>
+                    <td>{vendor.description ?? ""}</td>
+                    <td>
+                      <span
+                        className={
+                          vendor.status === "INACTIVE"
+                            ? styles.statusInactive
+                            : styles.status
                         }
-                        setShowActivityModal(true);
-                      }}
-                    >
-                      <FaRegClock size={18} />
-                    </span>
-                  </td>
-                </tr>
-              ))}
+                      >
+                        {vendor.status ?? ""}
+                      </span>
+                    </td>
+                    <td>
+                      <span
+                        style={{ cursor: "pointer", color: "#0b63ce" }}
+                        title="View Activity Log"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          setApproverFilter("");
+                          try {
+                            const logs = await fetchVendorActivityLogs();
+                            const filtered = filterLogsForVendor(
+                              logs,
+                              vendor.name ?? ""
+                            );
+                            setActivityVendor({
+                              name: vendor.name ?? "",
+                              logs: filtered,
+                            });
+                          } catch (err) {
+                            setActivityVendor({
+                              name: vendor.name ?? "",
+                              logs: [],
+                            });
+                          }
+                          setShowActivityModal(true);
+                        }}
+                      >
+                        <FaRegClock size={18} />
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
               <ConfirmDeleteModal
                 open={showDeleteModal}
                 name={
@@ -404,6 +483,37 @@ const VendorMasterTable: React.FC = () => {
               />
             </tbody>
           </table>
+          {/* Pagination controls */}
+          <div className={paginationStyles.pagination} style={{ marginTop: 8 }}>
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className={
+                currentPage === 1
+                  ? paginationStyles.disabledPageBtn
+                  : paginationStyles.pageBtn
+              }
+            >
+              Previous
+            </button>
+            <span
+              className={paginationStyles.pageInfo}
+              style={{ margin: "0 12px" }}
+            >
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className={
+                currentPage === totalPages
+                  ? paginationStyles.disabledPageBtn
+                  : paginationStyles.pageBtn
+              }
+            >
+              Next
+            </button>
+          </div>
         </div>
       </div>
 

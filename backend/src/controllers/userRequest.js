@@ -84,7 +84,10 @@ const fs = require("fs");
 
 // Helper: fetch user request and tasks
 const getUserRequestWithTasks = async (id) => {
-  const { rows: userRows } = await pool.query( `SELECT * FROM user_requests WHERE id=$1`, [id]  );
+  const { rows: userRows } = await pool.query(
+    `SELECT * FROM user_requests WHERE id=$1`,
+    [id]
+  );
   if (!userRows[0]) return null;
   const request = userRows[0];
 
@@ -110,7 +113,7 @@ const getUserRequestWithTasks = async (id) => {
     [id]
   );
 
-  const tasks = taskRows.map(t => ({
+  const tasks = taskRows.map((t) => ({
     task_id: t.task_id,
     application_equip_id: t.application_equip_id,
     application_name: t.application_name,
@@ -120,7 +123,7 @@ const getUserRequestWithTasks = async (id) => {
     role_name: t.role_name,
     location: t.location_name,
     reports_to: t.reports_to,
-    task_status: t.task_status
+    task_status: t.task_status,
   }));
 
   return { request, tasks };
@@ -174,7 +177,7 @@ exports.getAllUserRequests = async (req, res) => {
       if (!requestsMap[row.user_request_id]) {
         requestsMap[row.user_request_id] = {
           id: row.user_request_id,
-          transaction_id:row.user_request_transaction_id,
+          transaction_id: row.user_request_transaction_id,
           request_for_by: row.request_for_by,
           name: row.name,
           employee_code: row.employee_code,
@@ -196,7 +199,7 @@ exports.getAllUserRequests = async (req, res) => {
       if (row.task_id) {
         requestsMap[row.user_request_id].tasks.push({
           task_id: row.task_id,
-          transaction_id:row.task_request_transaction_id,
+          transaction_id: row.task_request_transaction_id,
           application_equip_id: row.application_equip_id,
           application_name: row.application_name,
           department_id: row.department,
@@ -232,7 +235,7 @@ exports.createUserRequest = async (req, res) => {
       vendor_allocated_id,
       status,
       approver1_email, // send email to Approver 1
-      approver2_email  // send email to Approver 2
+      approver2_email, // send email to Approver 2
     } = req.body;
 
     // Parse tasks safely
@@ -278,13 +281,55 @@ exports.createUserRequest = async (req, res) => {
 
     const userRequest = rows[0];
 
+    // Fetch approval workflow for this location/department to get approver details
+    const workflowQuery = `
+      SELECT awm.approver_1_id, awm.approver_2_id, 
+             u1.employee_name AS approver1_name, u1.email AS approver1_email,
+             u2.employee_name AS approver2_name, u2.email AS approver2_email
+      FROM approval_workflow_master awm
+      LEFT JOIN user_master u1 ON u1.id::text = awm.approver_1_id
+      LEFT JOIN user_master u2 ON u2.id::text = awm.approver_2_id
+      WHERE awm.plant_id = (
+        SELECT id FROM plant_master WHERE id = $1 LIMIT 1
+      )
+      LIMIT 1
+    `;
+
+    // Get the location id from first task to find the approval workflow
+    let approverDetails = null;
+    if (tasks.length > 0 && tasks[0].location) {
+      try {
+        const workflowResult = await pool.query(workflowQuery, [
+          tasks[0].location,
+        ]);
+        if (workflowResult.rows.length > 0) {
+          approverDetails = workflowResult.rows[0];
+        }
+      } catch (err) {
+        console.error("Error fetching workflow details:", err);
+      }
+    }
+
     // Insert tasks
-    
     for (const task of tasks) {
-        await pool.query(
+      // Determine approver details - either from task or from workflow
+      const approver1Id = task.approver1_id || approverDetails?.approver_1_id;
+      const approver2Id = task.approver2_id || approverDetails?.approver_2_id;
+      const approver1Name =
+        task.approver1_name || approverDetails?.approver1_name;
+      const approver2Name =
+        task.approver2_name || approverDetails?.approver2_name;
+      const approver1Email =
+        approverDetails?.approver1_email || approver1_email;
+      const approver2Email =
+        approverDetails?.approver2_email || approver2_email;
+
+      await pool.query(
         `INSERT INTO task_requests
-        (user_request_id, application_equip_id, department, role, location, reports_to, task_status,approver1_id,approver2_id, created_on)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())`,
+        (user_request_id, application_equip_id, department, role, location, reports_to, task_status,
+         approver1_id, approver2_id, approver1_name, approver2_name, 
+         approver1_email, approver2_email, created_on)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW())`,
         [
           userRequest.id,
           task.application_equip_id,
@@ -293,16 +338,22 @@ exports.createUserRequest = async (req, res) => {
           task.location,
           task.reports_to,
           task.task_status || "Pending",
-          task.approver1_id,
-          task.approver2_id,
-          
+          approver1Id,
+          approver2Id,
+          approver1Name,
+          approver2Name,
+          approver1Email,
+          approver2Email,
         ]
       );
     }
-     const { request: user_request, tasks: task_request } = await getUserRequestWithTasks(userRequest.id);;
+    const { request: user_request, tasks: task_request } =
+      await getUserRequestWithTasks(userRequest.id);
     // --- Send email to Approver 1 ---
     if (approver1_email) {
-      const token = Buffer.from(`${userRequest.id}|${approver1_email}`).toString("base64");
+      const token = Buffer.from(
+        `${userRequest.id}|${approver1_email}`
+      ).toString("base64");
 
       const approveLink = `${process.env.FRONTEND_URL}/approve-request/${userRequest.id}?token=${token}&action=approve&approverEmail=${approver1_email}`;
       const rejectLink = `${process.env.FRONTEND_URL}/approve-request/${userRequest.id}?token=${token}&action=reject&approverEmail=${approver1_email}`;
@@ -315,33 +366,37 @@ exports.createUserRequest = async (req, res) => {
           tasks: task_request,
           approveLink,
           rejectLink,
-          approverName: "Approver 1"
+          approverName: "Approver 1",
         }),
-        attachments: training_attachment ? [
-          // Inline logo
-        {
-          filename: "login_headTitle2.png",
-          path: path.join(__dirname, "../../../frontend/src/assets/login_headTitle2.png"),
-          cid: "logo", // <img src="cid:logo">
-        },
-          {
-            filename: training_attachment_name,
-            path: path.join(__dirname, "../uploads", training_attachment),
-          },
-        ] : [],
+        attachments: training_attachment
+          ? [
+              // Inline logo
+              {
+                filename: "login_headTitle2.png",
+                path: path.join(
+                  __dirname,
+                  "../../../frontend/src/assets/login_headTitle2.png"
+                ),
+                cid: "logo", // <img src="cid:logo">
+              },
+              {
+                filename: training_attachment_name,
+                path: path.join(__dirname, "../uploads", training_attachment),
+              },
+            ]
+          : [],
       });
     }
 
-     res.status(201).json({
+    res.status(201).json({
       userRequest: user_request,
-          tasks: task_request,
+      tasks: task_request,
     });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
   }
 };
-
 
 /**
  * Update a user request and replace tasks
@@ -395,7 +450,9 @@ exports.updateUserRequest = async (req, res) => {
     );
     const updatedRequest = rows[0];
 
-    await pool.query("DELETE FROM task_requests WHERE user_request_id=$1", [id]);
+    await pool.query("DELETE FROM task_requests WHERE user_request_id=$1", [
+      id,
+    ]);
 
     for (const task of tasks) {
       await pool.query(
@@ -531,21 +588,24 @@ exports.downloadAttachment = async (req, res) => {
       return res.status(404).json({ error: "File not found" });
     }
 
-    const filePath = path.join(__dirname, "../uploads", rows[0].training_attachment);
+    const filePath = path.join(
+      __dirname,
+      "../uploads",
+      rows[0].training_attachment
+    );
     const originalName = rows[0].training_attachment_name || "attachment";
-console.log("filepath:",filePath);
-console.log("originalpath:",originalName);
+    console.log("filepath:", filePath);
+    console.log("originalpath:", originalName);
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: "File not found" });
     }
 
     res.download(filePath, originalName);
   } catch (err) {
-    console.log("dfdfdf",err.message);
+    console.log("dfdfdf", err.message);
     res.status(500).json({ error: err.message });
   }
 };
-
 
 exports.searchUserRequests = async (req, res) => {
   console.log("req.query:", req.query);
@@ -657,12 +717,12 @@ exports.searchUserRequests = async (req, res) => {
       values
     );
 
-   const requestsMap = {};
+    const requestsMap = {};
     for (const row of rows) {
       if (!requestsMap[row.user_request_id]) {
         requestsMap[row.user_request_id] = {
           id: row.user_request_id,
-          transaction_id:row.user_request_transaction_id,
+          transaction_id: row.user_request_transaction_id,
           request_for_by: row.request_for_by,
           name: row.name,
           employeeCode: row.employee_code,
@@ -684,7 +744,7 @@ exports.searchUserRequests = async (req, res) => {
       if (row.task_id) {
         requestsMap[row.user_request_id].tasks.push({
           task_id: row.task_id,
-          transaction_id:row.task_request_transaction_id,
+          transaction_id: row.task_request_transaction_id,
           application_equip_id: row.application_equip_id,
           application_name: row.application_name,
           department_id: row.department,
@@ -704,6 +764,3 @@ exports.searchUserRequests = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-
-
-

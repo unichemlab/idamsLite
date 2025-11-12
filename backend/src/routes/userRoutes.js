@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const userController = require("../controllers/userController");
+const pool = require("../config/db");
 
 // Get all users
 router.get("/", userController.getAllUsers);
@@ -17,8 +18,9 @@ router.get("/approvers", async (req, res) => {
   console.log(email);
   try {
     console.log("➡️ [Approvers API] Checking approver email:", email);
+    // approver2_email may contain comma-separated emails, match via ILIKE
     const result = await pool.query(
-      `SELECT * FROM user_requests WHERE approver1_email = $1 OR approver2_email = $1`,
+      `SELECT * FROM user_requests WHERE approver1_email = $1 OR approver2_email ILIKE '%' || $1 || '%'`,
       [email]
     );
     res.json(result.rows || []);

@@ -311,7 +311,12 @@ export async function deleteTaskAPI(id: number): Promise<void> {
 // Fetch workflows (used to derive approver plant assignments)
 export async function fetchWorkflows(approverId?: number): Promise<any[]> {
   const q = approverId ? `?approver_id=${encodeURIComponent(approverId)}` : "";
-  return request(`/api/workflows${q}`);
+  const data: any = await request(`/api/workflows${q}`);
+  // Backend may return { workflows: [...] } or an array directly. Normalize to array.
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.workflows)) return data.workflows;
+  if (Array.isArray(data?.data?.workflows)) return data.data.workflows;
+  return [];
 }
 
 // Post approval action (approve/reject)

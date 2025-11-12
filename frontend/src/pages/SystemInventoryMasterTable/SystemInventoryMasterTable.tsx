@@ -1,6 +1,7 @@
 import React, { useState, useRef, useContext } from "react";
 import ProfileIconWithLogout from "../../pages/PlantMasterTable/ProfileIconWithLogout";
 import styles from "../ApplicationMasterTable/ApplicationMasterTable.module.css";
+import paginationStyles from "../../styles/Pagination.module.css";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { FaEdit, FaTrash } from "react-icons/fa";
@@ -11,6 +12,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useNavigate } from "react-router-dom";
 import { SystemContext } from "../SystemInventoryMaster/SystemContext";
+import unichemLogoBase64 from "../../assets/unichemLogoBase64";
 
 const SystemInventoryMasterTable: React.FC = () => {
   const systemCtx = useContext(SystemContext);
@@ -26,6 +28,16 @@ const SystemInventoryMasterTable: React.FC = () => {
   const navigate = useNavigate();
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [activityLogsSystem, setActivityLogsSystem] = useState<any>(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const rowsPerPage = 10;
+
+  // Reset page and selection when filter changes to avoid out-of-range selections
+  React.useEffect(() => {
+    setCurrentPage(1);
+    setSelectedRow(null);
+  }, [filterValue, filterColumn]);
 
   // Fetch systems from backend
   // Removed direct fetch; data comes from context
@@ -46,14 +58,64 @@ const SystemInventoryMasterTable: React.FC = () => {
     }
   });
 
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / rowsPerPage));
+  const paginatedData = filteredData.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  );
+
   // PDF Export Handler
   const handleExportPDF = () => {
     const doc = new jsPDF({ orientation: "landscape" });
     const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
-    const fileName = `SystemMaster_${yyyy}-${mm}-${dd}.pdf`;
+    const fileName = `SystemMaster_${today.toISOString().split("T")[0]}.pdf`;
+
+    // --- HEADER BAR ---
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageMargin = 14;
+    const headerHeight = 20;
+    doc.setFillColor(0, 82, 155);
+    doc.rect(0, 0, pageWidth, headerHeight, "F");
+
+    // Logo (if available)
+    let logoWidth = 0;
+    let logoHeight = 0;
+    try {
+      if (unichemLogoBase64 && unichemLogoBase64.startsWith("data:image")) {
+        logoWidth = 50;
+        logoHeight = 18;
+        const logoY = headerHeight / 2 - logoHeight / 2;
+        doc.addImage(
+          unichemLogoBase64,
+          "PNG",
+          pageMargin,
+          logoY,
+          logoWidth,
+          logoHeight
+        );
+      }
+    } catch (e) {
+      // ignore logo error
+    }
+
+    // Title + Exported by/date
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    const titleX = pageMargin + logoWidth + 10;
+    const titleY = headerHeight / 2 + 5;
+    doc.text("System Master", titleX, titleY);
+
+    doc.setFontSize(9);
+    doc.setTextColor(220, 230, 245);
+    const exportedText = `Exported on: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
+    const textWidth = doc.getTextWidth(exportedText);
+    doc.text(exportedText, pageWidth - pageMargin - textWidth, titleY);
+
+    doc.setDrawColor(0, 82, 155);
+    doc.setLineWidth(0.5);
+    doc.line(0, headerHeight, pageWidth, headerHeight);
+
+    // --- TABLE ---
     const headers = [
       [
         "Plant Location",
@@ -198,12 +260,10 @@ const SystemInventoryMasterTable: React.FC = () => {
       system.created_on ?? "",
       system.updated_on ?? "",
     ]);
-    doc.setFontSize(18);
-    doc.text("System Master", 14, 18);
     autoTable(doc, {
       head: headers,
       body: rows,
-      startY: 28,
+      startY: headerHeight + 8,
       styles: {
         fontSize: 11,
         cellPadding: 3,
@@ -218,9 +278,28 @@ const SystemInventoryMasterTable: React.FC = () => {
       alternateRowStyles: {
         fillColor: [240, 245, 255],
       },
-      margin: { left: 14, right: 14 },
+      margin: { left: pageMargin, right: pageMargin },
       tableWidth: "auto",
     });
+
+    // --- FOOTER ---
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const pageCount =
+      (doc as any).getNumberOfPages?.() ||
+      (doc as any).internal?.getNumberOfPages?.() ||
+      1;
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.text("Unichem Laboratories", pageMargin, pageHeight - 6);
+      doc.text(
+        `Page ${i} of ${pageCount}`,
+        pageWidth - pageMargin - 30,
+        pageHeight - 6
+      );
+    }
+
     doc.save(fileName);
   };
 
@@ -462,204 +541,214 @@ const SystemInventoryMasterTable: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredData.map((system, index) => (
-                <tr
-                  key={system.id}
-                  onClick={() => setSelectedRow(index)}
-                  style={{
-                    background: selectedRow === index ? "#f0f4ff" : undefined,
-                  }}
-                >
-                  <td>
-                    <input
-                      type="radio"
-                      className={styles.radioInput}
-                      checked={selectedRow === index}
-                      onChange={() => setSelectedRow(index)}
-                    />
-                  </td>
-                  {/* Removed System Name, Status, Description, Transaction ID cells */}
-                  <td>{system.plant_location_id}</td>
-                  <td>{system.user_location}</td>
-                  <td>{system.building_location}</td>
-                  <td>{system.department_id}</td>
-                  <td>{system.allocated_to_user_name}</td>
-                  <td>{system.host_name}</td>
-                  <td>{system.make}</td>
-                  <td>{system.model}</td>
-                  <td>{system.serial_no}</td>
-                  <td>{system.processor}</td>
-                  <td>{system.ram_capacity}</td>
-                  <td>{system.hdd_capacity}</td>
-                  <td>{system.ip_address}</td>
-                  <td>{system.other_software}</td>
-                  <td>{system.windows_activated ? "Yes" : "No"}</td>
-                  <td>{system.os_version_service_pack}</td>
-                  <td>{system.architecture}</td>
-                  <td>{system.type_of_asset}</td>
-                  <td>{system.category_gxp}</td>
-                  <td>{system.gamp_category}</td>
-                  <td>{system.instrument_equipment_name}</td>
-                  <td>{system.equipment_instrument_id}</td>
-                  <td>{system.instrument_owner}</td>
-                  <td>{system.service_tag}</td>
-                  <td>{system.warranty_status}</td>
-                  <td>{system.warranty_end_date}</td>
-                  <td>{system.connected_no_of_equipments}</td>
-                  <td>{system.application_name}</td>
-                  <td>{system.application_version}</td>
-                  <td>{system.application_oem}</td>
-                  <td>{system.application_vendor}</td>
-                  <td>{system.user_management_applicable ? "Yes" : "No"}</td>
-                  <td>{system.application_onboard}</td>
-                  <td>{system.system_process_owner}</td>
-                  <td>{system.database_version}</td>
-                  <td>{system.domain_workgroup}</td>
-                  <td>{system.connected_through}</td>
-                  <td>{system.specific_vlan}</td>
-                  <td>{system.ip_address_type}</td>
-                  <td>{system.date_time_sync_available ? "Yes" : "No"}</td>
-                  <td>{system.antivirus}</td>
-                  <td>{system.antivirus_version}</td>
-                  <td>{system.backup_type}</td>
-                  <td>{system.backup_frequency_days}</td>
-                  <td>{system.backup_path}</td>
-                  <td>{system.backup_tool}</td>
-                  <td>{system.backup_procedure_available ? "Yes" : "No"}</td>
-                  <td>{system.folder_deletion_restriction ? "Yes" : "No"}</td>
-                  <td>{system.remote_tool_available ? "Yes" : "No"}</td>
-                  <td>{system.os_administrator}</td>
-                  <td>{system.system_running_with}</td>
-                  <td>{system.audit_trail_adequacy}</td>
-                  <td>{system.user_roles_availability ? "Yes" : "No"}</td>
-                  <td>{system.user_roles_challenged ? "Yes" : "No"}</td>
-                  <td>{system.system_managed_by}</td>
-                  <td>{system.planned_upgrade_fy2526 ? "Yes" : "No"}</td>
-                  <td>{system.eol_eos_upgrade_status}</td>
-                  <td>{system.system_current_status}</td>
-                  <td>{system.purchase_po}</td>
-                  <td>{system.purchase_vendor_name}</td>
-                  <td>{system.amc_vendor_name}</td>
-                  <td>{system.renewal_po}</td>
-                  <td>{system.warranty_period}</td>
-                  <td>{system.amc_start_date}</td>
-                  <td>{system.amc_expiry_date}</td>
-                  <td>{system.sap_asset_no}</td>
-                  <td>{system.remarks}</td>
-                  <td>{system.created_on}</td>
-                  <td>{system.updated_on}</td>
-                  <td>
-                    <button
-                      className={styles.actionBtn}
-                      title="View Activity Logs"
-                      onClick={async () => {
-                        try {
-                          const logs = await fetchActivityLog();
-                          const filtered = (logs || [])
-                            .filter((log: any) => {
-                              if (
-                                log.table_name === "system_master" &&
-                                String(log.record_id) === String(system.id)
-                              )
-                                return true;
-                              if (
-                                log.details &&
-                                typeof log.details === "string"
-                              ) {
-                                return (
-                                  log.details.includes(
-                                    '"tableName":"system_master"'
-                                  ) &&
-                                  log.details.includes(
-                                    `"recordId":"${system.id}"`
-                                  )
-                                );
-                              }
-                              return false;
-                            })
-                            .map((r: any) => {
-                              let parsedDetails = null;
-                              if (r.details && typeof r.details === "string") {
-                                try {
-                                  parsedDetails = JSON.parse(r.details);
-                                } catch (e) {
-                                  parsedDetails = null;
+              {paginatedData.map((system, index) => {
+                const globalIdx = (currentPage - 1) * rowsPerPage + index;
+                return (
+                  <tr
+                    key={system.id}
+                    onClick={() => setSelectedRow(globalIdx)}
+                    style={{
+                      background:
+                        selectedRow === globalIdx ? "#f0f4ff" : undefined,
+                    }}
+                  >
+                    <td>
+                      <input
+                        type="radio"
+                        className={styles.radioInput}
+                        checked={selectedRow === globalIdx}
+                        onChange={() => setSelectedRow(globalIdx)}
+                      />
+                    </td>
+                    {/* Removed System Name, Status, Description, Transaction ID cells */}
+                    <td>{system.plant_location_id}</td>
+                    <td>{system.user_location}</td>
+                    <td>{system.building_location}</td>
+                    <td>{system.department_id}</td>
+                    <td>{system.allocated_to_user_name}</td>
+                    <td>{system.host_name}</td>
+                    <td>{system.make}</td>
+                    <td>{system.model}</td>
+                    <td>{system.serial_no}</td>
+                    <td>{system.processor}</td>
+                    <td>{system.ram_capacity}</td>
+                    <td>{system.hdd_capacity}</td>
+                    <td>{system.ip_address}</td>
+                    <td>{system.other_software}</td>
+                    <td>{system.windows_activated ? "Yes" : "No"}</td>
+                    <td>{system.os_version_service_pack}</td>
+                    <td>{system.architecture}</td>
+                    <td>{system.type_of_asset}</td>
+                    <td>{system.category_gxp}</td>
+                    <td>{system.gamp_category}</td>
+                    <td>{system.instrument_equipment_name}</td>
+                    <td>{system.equipment_instrument_id}</td>
+                    <td>{system.instrument_owner}</td>
+                    <td>{system.service_tag}</td>
+                    <td>{system.warranty_status}</td>
+                    <td>{system.warranty_end_date}</td>
+                    <td>{system.connected_no_of_equipments}</td>
+                    <td>{system.application_name}</td>
+                    <td>{system.application_version}</td>
+                    <td>{system.application_oem}</td>
+                    <td>{system.application_vendor}</td>
+                    <td>{system.user_management_applicable ? "Yes" : "No"}</td>
+                    <td>{system.application_onboard}</td>
+                    <td>{system.system_process_owner}</td>
+                    <td>{system.database_version}</td>
+                    <td>{system.domain_workgroup}</td>
+                    <td>{system.connected_through}</td>
+                    <td>{system.specific_vlan}</td>
+                    <td>{system.ip_address_type}</td>
+                    <td>{system.date_time_sync_available ? "Yes" : "No"}</td>
+                    <td>{system.antivirus}</td>
+                    <td>{system.antivirus_version}</td>
+                    <td>{system.backup_type}</td>
+                    <td>{system.backup_frequency_days}</td>
+                    <td>{system.backup_path}</td>
+                    <td>{system.backup_tool}</td>
+                    <td>{system.backup_procedure_available ? "Yes" : "No"}</td>
+                    <td>{system.folder_deletion_restriction ? "Yes" : "No"}</td>
+                    <td>{system.remote_tool_available ? "Yes" : "No"}</td>
+                    <td>{system.os_administrator}</td>
+                    <td>{system.system_running_with}</td>
+                    <td>{system.audit_trail_adequacy}</td>
+                    <td>{system.user_roles_availability ? "Yes" : "No"}</td>
+                    <td>{system.user_roles_challenged ? "Yes" : "No"}</td>
+                    <td>{system.system_managed_by}</td>
+                    <td>{system.planned_upgrade_fy2526 ? "Yes" : "No"}</td>
+                    <td>{system.eol_eos_upgrade_status}</td>
+                    <td>{system.system_current_status}</td>
+                    <td>{system.purchase_po}</td>
+                    <td>{system.purchase_vendor_name}</td>
+                    <td>{system.amc_vendor_name}</td>
+                    <td>{system.renewal_po}</td>
+                    <td>{system.warranty_period}</td>
+                    <td>{system.amc_start_date}</td>
+                    <td>{system.amc_expiry_date}</td>
+                    <td>{system.sap_asset_no}</td>
+                    <td>{system.remarks}</td>
+                    <td>{system.created_on}</td>
+                    <td>{system.updated_on}</td>
+                    <td>
+                      <button
+                        className={styles.actionBtn}
+                        title="View Activity Logs"
+                        onClick={async () => {
+                          try {
+                            const logs = await fetchActivityLog();
+                            const filtered = (logs || [])
+                              .filter((log: any) => {
+                                if (
+                                  log.table_name === "system_master" &&
+                                  String(log.record_id) === String(system.id)
+                                )
+                                  return true;
+                                if (
+                                  log.details &&
+                                  typeof log.details === "string"
+                                ) {
+                                  return (
+                                    log.details.includes(
+                                      '"tableName":"system_master"'
+                                    ) &&
+                                    log.details.includes(
+                                      `"recordId":"${system.id}"`
+                                    )
+                                  );
                                 }
-                              }
-
-                              const parseMaybeJson = (v: any) => {
-                                if (v === null || v === undefined) return null;
-                                if (typeof v === "string") {
+                                return false;
+                              })
+                              .map((r: any) => {
+                                let parsedDetails = null;
+                                if (
+                                  r.details &&
+                                  typeof r.details === "string"
+                                ) {
                                   try {
-                                    return JSON.parse(v);
-                                  } catch {
-                                    return v;
+                                    parsedDetails = JSON.parse(r.details);
+                                  } catch (e) {
+                                    parsedDetails = null;
                                   }
                                 }
-                                return v;
-                              };
 
-                              const oldVal = parseMaybeJson(
-                                r.old_value ||
-                                  (parsedDetails && parsedDetails.old_value)
-                              );
-                              const newVal = parseMaybeJson(
-                                r.new_value ||
-                                  (parsedDetails && parsedDetails.new_value)
-                              );
-                              const action =
-                                r.action ||
-                                (parsedDetails && parsedDetails.action) ||
-                                "";
-                              const approver =
-                                r.action_performed_by ||
-                                r.user_id ||
-                                (parsedDetails && parsedDetails.userId) ||
-                                null;
-                              const dateTime =
-                                r.date_time_ist ||
-                                r.timestamp ||
-                                r.created_at ||
-                                (parsedDetails && parsedDetails.dateTime) ||
-                                null;
-                              const comments =
-                                r.comments ||
-                                (parsedDetails && parsedDetails.comments) ||
-                                (parsedDetails && parsedDetails.reason) ||
-                                null;
+                                const parseMaybeJson = (v: any) => {
+                                  if (v === null || v === undefined)
+                                    return null;
+                                  if (typeof v === "string") {
+                                    try {
+                                      return JSON.parse(v);
+                                    } catch {
+                                      return v;
+                                    }
+                                  }
+                                  return v;
+                                };
 
-                              return {
-                                action,
-                                oldValue: oldVal,
-                                newValue: newVal,
-                                approver,
-                                approvedOrRejectedBy: r.approved_by || null,
-                                approvalStatus:
-                                  r.approve_status || r.approval_status || null,
-                                dateTime,
-                                reason: comments,
-                                _raw: r,
-                              };
+                                const oldVal = parseMaybeJson(
+                                  r.old_value ||
+                                    (parsedDetails && parsedDetails.old_value)
+                                );
+                                const newVal = parseMaybeJson(
+                                  r.new_value ||
+                                    (parsedDetails && parsedDetails.new_value)
+                                );
+                                const action =
+                                  r.action ||
+                                  (parsedDetails && parsedDetails.action) ||
+                                  "";
+                                const approver =
+                                  r.action_performed_by ||
+                                  r.user_id ||
+                                  (parsedDetails && parsedDetails.userId) ||
+                                  null;
+                                const dateTime =
+                                  r.date_time_ist ||
+                                  r.timestamp ||
+                                  r.created_at ||
+                                  (parsedDetails && parsedDetails.dateTime) ||
+                                  null;
+                                const comments =
+                                  r.comments ||
+                                  (parsedDetails && parsedDetails.comments) ||
+                                  (parsedDetails && parsedDetails.reason) ||
+                                  null;
+
+                                return {
+                                  action,
+                                  oldValue: oldVal,
+                                  newValue: newVal,
+                                  approver,
+                                  approvedOrRejectedBy: r.approved_by || null,
+                                  approvalStatus:
+                                    r.approve_status ||
+                                    r.approval_status ||
+                                    null,
+                                  dateTime,
+                                  reason: comments,
+                                  _raw: r,
+                                };
+                              });
+
+                            setActivityLogsSystem({
+                              ...system,
+                              activityLogs: filtered,
                             });
-
-                          setActivityLogsSystem({
-                            ...system,
-                            activityLogs: filtered,
-                          });
-                        } catch (err) {
-                          setActivityLogsSystem({
-                            ...system,
-                            activityLogs: [],
-                          });
-                        }
-                        setShowActivityModal(true);
-                      }}
-                    >
-                      <FaRegClock size={17} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                          } catch (err) {
+                            setActivityLogsSystem({
+                              ...system,
+                              activityLogs: [],
+                            });
+                          }
+                          setShowActivityModal(true);
+                        }}
+                      >
+                        <FaRegClock size={17} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
               <ConfirmDeleteModal
                 open={showDeleteModal}
                 name={
@@ -672,6 +761,33 @@ const SystemInventoryMasterTable: React.FC = () => {
               />
             </tbody>
           </table>
+        </div>
+
+        {/* Pagination controls */}
+        <div
+          style={{ display: "flex", justifyContent: "center", marginTop: 8 }}
+        >
+          <div className={paginationStyles.pagination}>
+            <button
+              className={paginationStyles.pageBtn}
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              aria-label="Previous page"
+            >
+              Previous
+            </button>
+            <div className={paginationStyles.pageInfo}>
+              Page {currentPage} of {totalPages}
+            </div>
+            <button
+              className={paginationStyles.pageBtn}
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              aria-label="Next page"
+            >
+              Next
+            </button>
+          </div>
         </div>
       </div>
 
