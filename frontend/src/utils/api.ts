@@ -4,26 +4,36 @@
 export const API_BASE =
   process.env.REACT_APP_API_URL || "http://localhost:4000";
 
+// Flag to prevent multiple simultaneous redirects
+let isHandlingTokenExpiry = false;
+
 export async function request(path: string, options: RequestInit = {}) {
   const url = `${API_BASE}${path}`;
-  const headers = options.headers || {};
+  const headers = options.headers ? { ...options.headers } : {};
 
   // Attach Authorization header automatically if a token is present in localStorage.
+  let token: string | null = null;
   try {
-    const token =
-      localStorage.getItem("token") ||
-      (() => {
-        const au = localStorage.getItem("authUser");
-        if (!au) return null;
+    token = localStorage.getItem("token");
+
+    // Fallback: try to get token from authUser if not found in direct token key
+    if (!token) {
+      const au = localStorage.getItem("authUser");
+      if (au) {
         try {
           const parsed = JSON.parse(au);
-          return parsed?.token || null;
+          token = parsed?.token || null;
         } catch (e) {
-          return null;
+          // ignore parse errors
         }
-      })();
-    if (token && !(headers as any)["Authorization"]) {
-      (headers as any)["Authorization"] = `Bearer ${token}`;
+      }
+    }
+
+    // Only add Authorization header if we have a valid token and no header already exists
+    if (token && token.trim()) {
+      if (!(headers as any)["Authorization"]) {
+        (headers as any)["Authorization"] = `Bearer ${token}`;
+      }
     }
   } catch (e) {
     // ignore localStorage errors in non-browser environments
@@ -40,6 +50,59 @@ export async function request(path: string, options: RequestInit = {}) {
     ...options,
     headers,
   });
+
+  // Handle 401 Unauthorized
+  // Only redirect to login if user HAD a token (was logged in) and now it's invalid/expired
+  // Don't redirect if user never had a token (not logged in)
+  if (res.status === 401) {
+    const text = await res.text().catch(() => null);
+    let errorMsg = "";
+
+    try {
+      const parsed = JSON.parse(text || "{}");
+      errorMsg = parsed.message || "";
+    } catch {
+      errorMsg = text || "";
+    }
+
+    // Only handle redirect if user WAS authenticated (had a token in the request)
+    // AND they're not already on the login page
+    const isOnLoginPage =
+      typeof window !== "undefined" && window.location.pathname === "/";
+
+    if (token && !isHandlingTokenExpiry && !isOnLoginPage) {
+      isHandlingTokenExpiry = true;
+
+      // Clear authentication data from localStorage
+      try {
+        localStorage.removeItem("token");
+        localStorage.removeItem("authUser");
+        localStorage.removeItem("role");
+        localStorage.removeItem("username");
+        localStorage.removeItem("superadmin_activeTab");
+        localStorage.removeItem("initialRoute");
+      } catch (e) {
+        // ignore localStorage errors
+      }
+
+      // Redirect to login page after a small delay to allow cleanup
+      if (typeof window !== "undefined") {
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 100);
+      }
+
+      throw new Error("Session expired. Please login again.");
+    }
+
+    // If no token or already on login page, just throw error without redirecting
+    // This prevents redirect loops on login page
+    const error = new Error(errorMsg || "Unauthorized");
+    (error as any).status = 401;
+    (error as any).isAuthError = true;
+    throw error;
+  }
+
   if (!res.ok) {
     const text = await res.text().catch(() => null);
     throw new Error(text || res.statusText || "API request failed");

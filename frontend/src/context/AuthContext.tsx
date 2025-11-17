@@ -179,23 +179,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const token = localStorage.getItem("token");
           if (token) {
             // Try to extract permissions from token payload first (fast, local)
+            let userPermissions: string[] = [];
             try {
               const payload = JSON.parse(atob(token.split(".")[1]));
               if (payload && Array.isArray(payload.permissions)) {
+                userPermissions = payload.permissions;
                 setUser((prev) =>
-                  prev ? { ...prev, permissions: payload.permissions } : prev
+                  prev ? { ...prev, permissions: userPermissions } : prev
                 );
-                setPermissions(payload.permissions);
+                setPermissions(userPermissions);
               }
             } catch (e) {
               // ignore decode errors and fall back to API
             }
             try {
-              // If we already set permissions from token payload, skip the API call
-              const hadTokenPermissions =
-                Array.isArray(permissions) && permissions.length > 0;
-              let userPermissions = hadTokenPermissions ? permissions : [];
-              if (!hadTokenPermissions) {
+              // If we didn't get permissions from token, fetch from API
+              if (!userPermissions || userPermissions.length === 0) {
                 userPermissions = await fetchPermissions(token);
               }
 
