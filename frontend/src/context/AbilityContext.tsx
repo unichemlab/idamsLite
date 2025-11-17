@@ -5,6 +5,7 @@ import {
   AbilityClass,
   RawRuleOf,
   Subject,
+  subject as caslSubject,
 } from "@casl/ability";
 import { useAuth } from "./AuthContext";
 
@@ -210,11 +211,14 @@ export const AbilityProvider: React.FC<{
         if (parts.length >= 3 && parts[2]) {
           const plantId = Number(parts[2]);
           if (!Number.isNaN(plantId))
-            return (ability as any).can(action, subj, { plantId });
+            // Use CASL subject helper so conditional rules with { plantId }
+            // are matched by passing a subject instance that contains plantId
+            return (ability as any).can(action, caslSubject(subj, { plantId }));
           // fallback: send leftover as scope
-          return (ability as any).can(action, subj, {
-            scope: parts.slice(2).join(":"),
-          });
+          return (ability as any).can(
+            action,
+            caslSubject(subj, { scope: parts.slice(2).join(":") })
+          );
         }
 
         // no scope
@@ -226,10 +230,27 @@ export const AbilityProvider: React.FC<{
         typeof permissionOrAction === "string" &&
         typeof subject !== "undefined"
       ) {
+        // If meta/conditions provided and subject is a string (subject name),
+        // wrap into a CASL subject instance so conditional rules are checked
+        // against the object's properties.
+        if (meta && Object.keys(meta).length > 0) {
+          if (typeof subject === "string") {
+            return (ability as any).can(
+              permissionOrAction as AbilityAction,
+              caslSubject(subject as AbilitySubject, meta)
+            );
+          }
+          // subject is an object instance - merge meta into it for checking
+          const subjectObj = { ...(subject as Record<string, any>), ...meta };
+          return (ability as any).can(
+            permissionOrAction as AbilityAction,
+            subjectObj
+          );
+        }
+
         return (ability as any).can(
           permissionOrAction as AbilityAction,
-          subject as AbilitySubject,
-          meta || {}
+          subject as AbilitySubject
         );
       }
 

@@ -19,7 +19,10 @@ import { useAbility } from "../../context/AbilityContext";
 
 const PlantMasterTable: React.FC = () => {
   const { plants, deletePlant } = usePlantContext();
-  const [selectedRow, setSelectedRow] = React.useState<number | null>(null);
+  // store selected plant by its DB id (more robust than an index)
+  const [selectedPlantId, setSelectedPlantId] = React.useState<number | null>(
+    null
+  );
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   const [showActivityModal, setShowActivityModal] = React.useState(false);
   // Pagination state
@@ -80,6 +83,12 @@ const PlantMasterTable: React.FC = () => {
     (currentPage - 1) * rowsPerPage,
     currentPage * rowsPerPage
   );
+
+  // currently selected plant object (found from filteredData by id)
+  const selectedPlant =
+    selectedPlantId !== null
+      ? filteredData.find((p: any) => p.id === selectedPlantId) || null
+      : null;
 
   // PDF Export Handler for Plant Table
   const handleExportPDF = () => {
@@ -249,9 +258,12 @@ const PlantMasterTable: React.FC = () => {
   // Logs are fetched on-demand when opening the modal (see click handler)
 
   const confirmDelete = async () => {
-    if (selectedRow === null) return;
-    await deletePlant(selectedRow);
-    setSelectedRow(null);
+    if (selectedPlantId === null) return;
+    // find index in the original plants array expected by PlantContext.deletePlant
+    const idx = plants.findIndex((p: any) => p.id === selectedPlantId);
+    if (idx === -1) return;
+    await deletePlant(idx);
+    setSelectedPlantId(null);
     setShowDeleteModal(false);
   };
 
@@ -294,26 +306,22 @@ const PlantMasterTable: React.FC = () => {
           <button
             className={`${styles.btn} ${styles.editBtn}`}
             onClick={() => {
-              if (selectedRow !== null && filteredData[selectedRow]) {
-                const id = filteredData[selectedRow].id;
+              if (selectedPlant) {
+                const id = selectedPlant.id;
                 if (typeof id === "number") navigate(`/plants/edit/${id}`);
               }
             }}
             disabled={
-              selectedRow === null ||
+              selectedPlantId === null ||
               !(
-                filteredData[selectedRow] &&
-                can("update", "plants", {
-                  plantId: filteredData[selectedRow]?.id,
-                })
+                selectedPlant &&
+                can("update", "plants", { plantId: selectedPlant?.id })
               )
             }
             title={
-              selectedRow === null
+              selectedPlantId === null
                 ? "Select a plant to edit"
-                : !can("update", "plants", {
-                    plantId: filteredData[selectedRow]?.id,
-                  })
+                : !can("update", "plants", { plantId: selectedPlant?.id })
                 ? "You don't have permission to edit this plant"
                 : ""
             }
@@ -323,21 +331,17 @@ const PlantMasterTable: React.FC = () => {
           <button
             className={`${styles.btn} ${styles.deleteBtn}`}
             disabled={
-              selectedRow === null ||
+              selectedPlantId === null ||
               !(
-                filteredData[selectedRow] &&
-                can("delete", "plants", {
-                  plantId: filteredData[selectedRow]?.id,
-                })
+                selectedPlant &&
+                can("delete", "plants", { plantId: selectedPlant?.id })
               )
             }
             onClick={() => setShowDeleteModal(true)}
             title={
-              selectedRow === null
+              selectedPlantId === null
                 ? "Select a plant to delete"
-                : !can("delete", "plants", {
-                    plantId: filteredData[selectedRow]?.id,
-                  })
+                : !can("delete", "plants", { plantId: selectedPlant?.id })
                 ? "You don't have permission to delete this plant"
                 : ""
             }
@@ -445,18 +449,18 @@ const PlantMasterTable: React.FC = () => {
                 return (
                   <tr
                     key={globalIndex}
-                    onClick={() => setSelectedRow(globalIndex)}
+                    onClick={() => setSelectedPlantId(plant.id ?? null)}
                     style={{
                       background:
-                        selectedRow === globalIndex ? "#f0f4ff" : undefined,
+                        selectedPlantId === plant.id ? "#f0f4ff" : undefined,
                     }}
                   >
                     <td>
                       <input
                         type="radio"
                         className={styles.radioInput}
-                        checked={selectedRow === globalIndex}
-                        onChange={() => setSelectedRow(globalIndex)}
+                        checked={selectedPlantId === plant.id}
+                        onChange={() => setSelectedPlantId(plant.id ?? null)}
                       />
                     </td>
                     <td>{plant.name ?? plant.plant_name ?? ""}</td>
@@ -524,11 +528,7 @@ const PlantMasterTable: React.FC = () => {
               })}
               <ConfirmDeleteModal
                 open={showDeleteModal}
-                name={
-                  selectedRow !== null && filteredData[selectedRow]
-                    ? filteredData[selectedRow].name ?? "plant"
-                    : "plant"
-                }
+                name={selectedPlant ? selectedPlant.name ?? "plant" : "plant"}
                 onCancel={() => setShowDeleteModal(false)}
                 onConfirm={confirmDelete}
               />
@@ -589,7 +589,7 @@ const PlantMasterTable: React.FC = () => {
               display: "flex",
               flexDirection: "column",
               background: "#fff",
-              zIndex: "1",
+              zIndex: "2",
             }}
           >
             <div

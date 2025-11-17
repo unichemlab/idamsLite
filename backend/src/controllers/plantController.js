@@ -138,6 +138,23 @@ exports.updatePlant = async (req, res) => {
   const { id } = req.params;
   const { plant_name, description, location, status } = req.body;
   try {
+    if (process.env.ACTIVITY_LOG_DEBUG === "true") {
+      console.log(
+        `[PLANT UPDATE DEBUG] invoked id=${id} user=${
+          req.user?.id || req.user?.user_id || "unknown"
+        } time=${new Date().toISOString()}`
+      );
+      // include a short stack to help trace duplicate invocations
+      const st = new Error().stack || "";
+      console.log(
+        "[PLANT UPDATE DEBUG] stack:\n",
+        st.split("\n").slice(2, 6).join("\n")
+      );
+    }
+  } catch (e) {
+    // ignore debug logging errors
+  }
+  try {
     // fetch old value
     const oldRes = await pool.query("SELECT * FROM plant_master WHERE id=$1", [
       id,
