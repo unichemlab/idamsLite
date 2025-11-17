@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { API_BASE } from "../utils/api";
+import { API_BASE, request } from "../utils/api";
 // Backend API base URL
 const API_URL = `${API_BASE}/api/users`;
 
@@ -51,9 +51,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Fetch users from backend
   const fetchUsers = async () => {
-    const res = await fetch(API_URL);
-    if (!res.ok) throw new Error("Failed to fetch users");
-    const data = await res.json();
+    // use centralized request helper so Authorization header and base URL are applied
+    const data: any = await request("/api/users");
     // Map backend fields to frontend camelCase fields
     const mapUser = (user: any) => ({
       id: user.id,
@@ -92,23 +91,79 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Add user via backend
   const addUser = async (user: UserForm) => {
-    const payload = {
+    // Convert frontend permission object into an array of permission tokens
+    // Example token: "create:roles:3" meaning create on roles for plant id 3
+    const permissionTokens: string[] = [];
+    // Map human-friendly module names to backend subjects
+    const moduleToSubject: Record<string, string> = {
+      "Role Master": "roles",
+      "Plant Master": "plants",
+      "Vendor Master": "vendors",
+      "Application Master": "applications",
+      "Approval Workflow": "workflows",
+      "Audit Review": "audit",
+      Reports: "reports",
+      "Plant IT Admin": "plant_it_admin",
+    };
+
+    const actionMap: Record<string, string> = {
+      Add: "create",
+      Edit: "update",
+      View: "read",
+      Delete: "delete",
+    };
+
+    // Try to map plant names (used in AddUserPanel) to plant ids via API
+    let plantsByName: Record<string, number> = {};
+    try {
+      const plantList: any[] = await request("/api/plants");
+      (plantList || []).forEach((p) => {
+        const name = p.name || p.plant_name || "";
+        if (name) plantsByName[String(name)] = p.id;
+      });
+    } catch (e) {
+      // If mapping fails, continue and emit tokens without numeric plant id
+      console.warn("Failed to fetch plants for permission mapping:", e);
+    }
+
+    Object.keys(user.permissions || {}).forEach((moduleKey) => {
+      // moduleKey format: "PlantName-Module Name"
+      const split = moduleKey.split("-");
+      const plantName = split[0];
+      const moduleName = split.slice(1).join("-") || "";
+      const subject =
+        moduleToSubject[moduleName] ||
+        moduleName.toLowerCase().replace(/\s+/g, "_");
+      const actions = user.permissions[moduleKey] || [];
+      actions.forEach((act) => {
+        const mapped = actionMap[act] || act.toLowerCase();
+        const plantId = plantsByName[plantName];
+        if (plantId) {
+          permissionTokens.push(`${mapped}:${subject}:${plantId}`);
+        } else {
+          // fallback without plant id (global permission)
+          permissionTokens.push(`${mapped}:${subject}`);
+        }
+      });
+    });
+
+    const payload: any = {
       username: user.email.split("@")[0],
       full_name: user.fullName,
       email: user.email,
       emp_code: user.empCode,
-      // send department name (DB stores department as name string)
       department: user.department,
-      role_id: 4, // TODO: map role if needed
-      password: "changeme123", // TODO: prompt or generate
+      password: "changeme123",
       status: user.status.toUpperCase(),
       plants: user.plants,
-      permissions: user.permissions,
+      // send transformed permission tokens to backend
+      permissions: permissionTokens,
       central_permission: user.centralPermission,
       comment: user.comment,
       corporate_access_enabled: user.corporateAccessEnabled,
       location: user.location,
     };
+
     const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -120,21 +175,69 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Edit user via backend
   const editUser = async (userId: string, user: UserForm) => {
-    const payload = {
+    // Transform permissions similar to addUser
+    const permissionTokens: string[] = [];
+    const moduleToSubject: Record<string, string> = {
+      "Role Master": "roles",
+      "Plant Master": "plants",
+      "Vendor Master": "vendors",
+      "Application Master": "applications",
+      "Approval Workflow": "workflows",
+      "Audit Review": "audit",
+      Reports: "reports",
+      "Plant IT Admin": "plant_it_admin",
+    };
+    const actionMap: Record<string, string> = {
+      Add: "create",
+      Edit: "update",
+      View: "read",
+      Delete: "delete",
+    };
+
+    let plantsByName: Record<string, number> = {};
+    try {
+      const plantList: any[] = await request("/api/plants");
+      (plantList || []).forEach((p) => {
+        const name = p.name || p.plant_name || "";
+        if (name) plantsByName[String(name)] = p.id;
+      });
+    } catch (e) {
+      console.warn("Failed to fetch plants for permission mapping:", e);
+    }
+
+    Object.keys(user.permissions || {}).forEach((moduleKey) => {
+      const split = moduleKey.split("-");
+      const plantName = split[0];
+      const moduleName = split.slice(1).join("-") || "";
+      const subject =
+        moduleToSubject[moduleName] ||
+        moduleName.toLowerCase().replace(/\s+/g, "_");
+      const actions = user.permissions[moduleKey] || [];
+      actions.forEach((act) => {
+        const mapped = actionMap[act] || act.toLowerCase();
+        const plantId = plantsByName[plantName];
+        if (plantId) {
+          permissionTokens.push(`${mapped}:${subject}:${plantId}`);
+        } else {
+          permissionTokens.push(`${mapped}:${subject}`);
+        }
+      });
+    });
+
+    const payload: any = {
       full_name: user.fullName,
       email: user.email,
       emp_code: user.empCode,
-      // send department name so backend stores the name
       department: user.department,
-      role_id: 4, // TODO: map role if needed
       status: user.status.toUpperCase(),
       plants: user.plants,
-      permissions: user.permissions,
+      permissions: permissionTokens,
       central_permission: user.centralPermission,
       comment: user.comment,
       corporate_access_enabled: user.corporateAccessEnabled,
       location: user.location,
     };
+
     const res = await fetch(`${API_URL}/${userId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },

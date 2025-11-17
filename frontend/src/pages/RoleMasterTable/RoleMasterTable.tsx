@@ -10,6 +10,7 @@ import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { useNavigate } from "react-router-dom";
 import { useRoles } from "../../RoleMaster/RolesContext";
+import { useAbility } from "../../context/AbilityContext";
 import { fetchRoleActivityLogs } from "../../utils/api";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
 
@@ -39,6 +40,7 @@ export default function RoleMasterTable({
   const [tempFilterValue, setTempFilterValue] = React.useState(filterValue);
   const popoverRef = React.useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
+  const { can } = useAbility();
 
   // Filtering logic
   const filteredData = roles.filter((role) => {
@@ -216,6 +218,12 @@ export default function RoleMasterTable({
                 navigate("/roles/add");
               }
             }}
+            disabled={!can("create:roles")}
+            title={
+              !can("create:roles")
+                ? "You don't have permission to add roles"
+                : ""
+            }
           >
             + Add New
           </button>
@@ -239,15 +247,26 @@ export default function RoleMasterTable({
                 }
               }
             }}
-            disabled={selectedRow === null}
+            disabled={selectedRow === null || !can("update:roles")}
+            title={
+              selectedRow === null
+                ? "Select a role to edit"
+                : !can("update:roles")
+                ? "You don't have permission to edit roles"
+                : ""
+            }
           >
             <FaEdit size={14} /> Edit
           </button>
           <button
             className={`${styles.btn} ${styles.deleteBtn}`}
-            disabled={selectedRow === null}
+            disabled={selectedRow === null || !can("delete:roles")}
             onClick={handleDeleteRole}
-            title="Delete selected role"
+            title={
+              !can("delete:roles")
+                ? "You don't have permission to delete roles"
+                : "Delete selected role"
+            }
           >
             <FaTrash size={14} /> Delete
           </button>

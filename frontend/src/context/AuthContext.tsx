@@ -178,9 +178,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
           const token = localStorage.getItem("token");
           if (token) {
+            // Try to extract permissions from token payload first (fast, local)
             try {
-              // First fetch permissions
-              const userPermissions = await fetchPermissions(token);
+              const payload = JSON.parse(atob(token.split(".")[1]));
+              if (payload && Array.isArray(payload.permissions)) {
+                setUser((prev) =>
+                  prev ? { ...prev, permissions: payload.permissions } : prev
+                );
+                setPermissions(payload.permissions);
+              }
+            } catch (e) {
+              // ignore decode errors and fall back to API
+            }
+            try {
+              // If we already set permissions from token payload, skip the API call
+              const hadTokenPermissions =
+                Array.isArray(permissions) && permissions.length > 0;
+              let userPermissions = hadTokenPermissions ? permissions : [];
+              if (!hadTokenPermissions) {
+                userPermissions = await fetchPermissions(token);
+              }
 
               if (!mounted) return;
 
@@ -258,7 +275,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       mounted = false;
     };
-  }, [fetchWorkflowsForUser, fetchPermissions]);
+    // Run this restore-on-mount effect only once. We intentionally do not include
+    // `permissions`, `fetchPermissions` or `fetchWorkflowsForUser` in the deps
+    // to avoid repeated re-runs that can cause update loops when we attach
+    // permissions into `user` during the effect. These functions are stable
+    // enough for a single-run restore on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const login = async (username: string, password: string) => {
     setLoading(true);
@@ -326,13 +349,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         token: data.token,
       };
 
+      // Try to extract permissions from the token payload immediately so AbilityProvider
+      // can build rules synchronously without waiting for the /permissions API.
+      try {
+        const payload = JSON.parse(atob(data.token.split(".")[1]));
+        if (payload && Array.isArray(payload.permissions)) {
+          (authUser as any).permissions = payload.permissions;
+          setPermissions(payload.permissions);
+        }
+      } catch (e) {
+        // ignore decode errors
+      }
       setUser(authUser);
       try {
         localStorage.setItem("authUser", JSON.stringify(authUser));
         localStorage.setItem("token", authUser.token);
 
-        // fetch permissions for the logged in user and initialize AbilityProvider
-        await fetchPermissions(authUser.token);
+        // If token didn't include permissions, fetch them from the API and attach.
+        if (
+          !(
+            (authUser as any).permissions &&
+            (authUser as any).permissions.length
+          )
+        ) {
+          const userPermissions = await fetchPermissions(authUser.token);
+          // merge permissions into the stored user so AbilityProvider sees them
+          setUser((prev) =>
+            prev ? { ...prev, permissions: userPermissions } : prev
+          );
+        }
       } catch (e) {
         console.warn("Error saving auth data or fetching permissions:", e);
         /* localStorage may fail in some environments; continue anyway */

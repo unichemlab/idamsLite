@@ -22,6 +22,8 @@ import {
   Settings as SettingsIcon,
   Assignment as AssignmentIcon,
 } from "@mui/icons-material";
+import { sidebarConfig } from "../../components/Common/sidebarConfig";
+import { useAbility } from "../../context/AbilityContext";
 // ----- Component -----
 import ServerInventoryMasterTable from "pages/ServerInventoryMasterTable/ServerInventoryMasterTable";
 import PlantMasterTable from "pages/PlantMasterTable/PlantMasterTable";
@@ -42,13 +44,6 @@ import { useAuth } from "../../context/AuthContext";
 
 // ----- Types -----
 type Role = "superAdmin" | "plantAdmin" | "qaManager" | "user";
-
-type SidebarItem = {
-  key: string;
-  label: string;
-  icon: React.ReactNode;
-  perm: string;
-};
 
 interface DashboardCounts {
   applications: { total: string; active: string; inactive: string };
@@ -89,27 +84,38 @@ const SuperAdmin: React.FC = () => {
     navigate("/");
   };
 
-  // ----- Sidebar config -----
-  const sidebarConfig: SidebarItem[] = [
-    { key: "dashboard", label: "Dashboard", icon: <DashboardIcon fontSize="small" />, perm: "dashboard:view" },
-    { key: "plant", label: "Plant Master", icon: <FactoryIcon fontSize="small" />, perm: "plantMaster:view" },
-    { key: "role", label: "Role Master", icon: <SecurityIcon fontSize="small" />, perm: "roleMaster:view" },
-    { key: "vendor", label: "Vendor Information", icon: <ListAltIcon fontSize="small" />, perm: "vendorMaster:view" },
-    { key: "department", label: "Department Master", icon: <SecurityIcon fontSize="small" />, perm: "department:view" },
-    { key: "application", label: "Application Master", icon: <AppsIcon fontSize="small" />, perm: "applicationMaster:view" },
-    { key: "user", label: "User Master", icon: <PersonIcon fontSize="small" />, perm: "userMaster:view" },
-    { key: "request", label: "User Request", icon: <ListAltIcon fontSize="small" />, perm: "userRequest:view" },
-    { key: "task", label: "Task", icon: <ListAltIcon fontSize="small" />, perm: "Task:view" },
-    { key: "activity-logs", label: "Activity Logs", icon: <ListAltIcon fontSize="small" />, perm: "activityMaster:view" },
-    { key: "workflow", label: "Approval Workflow", icon: <AssignmentIcon fontSize="small" />, perm: "workflow:view" },
-    { key: "system", label: "System Inventory", icon: <AssignmentIcon fontSize="small" />, perm: "system:view" },
-    {
-      key: "server",
-      label: "Server Inventory",
-      icon: <AssignmentIcon fontSize="small" />,
-      perm: "server:view",
-    },
-  ];
+  // Use shared sidebarConfig and an ability mapper to translate legacy perm names
+  const ability = useAbility();
+
+  const mapSidebarPermToAbility = (perm?: string) => {
+    if (!perm) return null;
+    // Example: "roleMaster:view" -> action: view -> read, subject: roles
+    const [subjectKey, action] = perm.split(":");
+    const actionMap: Record<string, string> = {
+      view: "read",
+      add: "create",
+      edit: "update",
+      delete: "delete",
+    };
+    const subjectMap: Record<string, string> = {
+      roleMaster: "roles",
+      plantMaster: "plants",
+      vendorMaster: "vendors",
+      department: "departments",
+      applicationMaster: "applications",
+      userMaster: "users",
+      userRequest: "user_requests",
+      activityMaster: "activity",
+      workflow: "workflows",
+      system: "systems",
+      server: "servers",
+      dashboard: "dashboard",
+      Task: "tasks",
+    };
+    const act = actionMap[action] || action;
+    const subj = subjectMap[subjectKey] || subjectKey;
+    return `${act}:${subj}`;
+  };
 
   // ----- Role mapping for multi-role users -----
   const getRolesFromIds = (roleIds: number[]): Role[] => {
@@ -131,7 +137,7 @@ const SuperAdmin: React.FC = () => {
     );
   };
 
-  // ----- Compute user permissions based on roles -----
+  // ----- Compute user roles for display -----
   const roleIdsArray: number[] = user
     ? Array.isArray(user.role_id)
       ? user.role_id
@@ -139,38 +145,16 @@ const SuperAdmin: React.FC = () => {
       ? [user.role_id]
       : []
     : [];
-
-  console.log("[SuperAdmin] roleIdsArray:", roleIdsArray);
   const userRoles = getRolesFromIds(roleIdsArray);
 
-  console.log("[SuperAdmin] roleIdsArray:", roleIdsArray);
-
-  let userPermissions: string[] = [];
-  if (userRoles.includes("superAdmin")) {
-    userPermissions = sidebarConfig.map((item) => item.perm);
-  } else {
-    const perms: string[] = [];
-    if (userRoles.includes("plantAdmin")) {
-      perms.push(
-        "dashboard:view",
-        "plantMaster:view",
-        "userMaster:view",
-        "workflow:view"
-      );
-    }
-    if (userRoles.includes("qaManager")) {
-      perms.push(
-        "dashboard:view",
-        "roleMaster:view",
-        "applicationMaster:view",
-        "workflow:view"
-      );
-    }
-    userPermissions = Array.from(new Set(perms)); // remove duplicates
-  }
-
+  // Determine disabled keys using ability checks (falls back to role-based SuperAdmin handling)
   const disabledKeys = sidebarConfig
-    .filter((item) => !userPermissions.includes(item.perm))
+    .filter((item) => {
+      const mapped = mapSidebarPermToAbility(item.perm);
+      if (!mapped) return false; // don't disable if unknown
+      // SuperAdmin will have manage:all and ability.can will reflect that
+      return !ability.can(mapped as any);
+    })
     .map((item) => item.key);
 
   // ----- Role Master panel state -----
@@ -212,16 +196,27 @@ const SuperAdmin: React.FC = () => {
             />
           );
         }
-        return <RoleMasterTable onAdd={handleRoleAdd} onEdit={handleRoleEdit} />;
-      case "vendor": return <VendorMasterTable />;
-      case "department": return <DepartmentMasterTable />;
-      case "application": return <ApplicationMasterTable />;
-      case "user": return <UserMasterTable />;
-      case "request": return <UserRequestTable />;
-      case "workflow": return <WorkflowBuilder />;
-      case "system": return <SystemInventoryMasterTable />;
-      case "activity-logs": return <ActivityMasterTable />;
-      case "task": return <TaskTable />;
+        return (
+          <RoleMasterTable onAdd={handleRoleAdd} onEdit={handleRoleEdit} />
+        );
+      case "vendor":
+        return <VendorMasterTable />;
+      case "department":
+        return <DepartmentMasterTable />;
+      case "application":
+        return <ApplicationMasterTable />;
+      case "user":
+        return <UserMasterTable />;
+      case "request":
+        return <UserRequestTable />;
+      case "workflow":
+        return <WorkflowBuilder />;
+      case "system":
+        return <SystemInventoryMasterTable />;
+      case "activity-logs":
+        return <ActivityMasterTable />;
+      case "task":
+        return <TaskTable />;
       case "server":
         return <ServerInventoryMasterTable />;
       default:

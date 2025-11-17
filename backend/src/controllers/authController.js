@@ -136,6 +136,69 @@ exports.login = async (req, res) => {
 
     logDebug("User login successful:", { username, roleIds });
 
+    // ---------------- Fetch roles dynamically ----------------
+    const roleQuery = `
+      SELECT rm.id, rm.role_name, rm.description, rm.status
+      FROM role_master rm
+      WHERE rm.id = ANY($1)
+    `;
+    const roleResult = await db.query(roleQuery, [roleIds]);
+    user.roles = roleResult.rows.map((role) => ({
+      id: role.id,
+      name: role.role_name,
+      description: role.description,
+      status: role.status,
+    }));
+
+    // ---------------- Fetch approver status dynamically ----------------
+    const approverStatusQuery = `
+      SELECT COUNT(*) > 0 AS is_approver
+      FROM access_log
+      WHERE employee_code = $1
+        AND (approver1_status = 'ACTIVE' OR approver2_status = 'ACTIVE')
+    `;
+    const approverStatusResult = await db.query(approverStatusQuery, [
+      user.employee_code,
+    ]);
+    user.is_approver = approverStatusResult.rows[0]?.is_approver || false;
+
+    logDebug("Roles and approver status fetched:", {
+      roles: user.roles,
+      isApprover: user.is_approver,
+    });
+
+    // ---------------- Dynamic Role Assignment ----------------
+    const dynamicRoleQuery = `
+      SELECT rm.id, rm.role_name
+      FROM role_master rm
+      WHERE rm.id = (
+        SELECT role
+        FROM access_log
+        WHERE employee_code = $1
+        ORDER BY created_on DESC
+        LIMIT 1
+      )
+    `;
+    const dynamicRoleResult = await db.query(dynamicRoleQuery, [
+      user.employee_code,
+    ]);
+    if (dynamicRoleResult.rows.length > 0) {
+      user.role_id = [dynamicRoleResult.rows[0].id];
+      user.roles = [
+        {
+          id: dynamicRoleResult.rows[0].id,
+          name: dynamicRoleResult.rows[0].role_name,
+        },
+      ];
+    } else {
+      logDebug("No dynamic role found for user:", user.employee_code);
+    }
+
+    logDebug("Dynamic role assigned:", {
+      roleId: user.role_id,
+      roles: user.roles,
+    });
+
     // ---------------- Generate JWT ----------------
     // Fetch user permissions
     let permissions = [];
@@ -194,9 +257,8 @@ exports.login = async (req, res) => {
         permissions.push("read:workflows");
         permissions.push("update:workflows");
         // Add approver role if user is an approver but doesn't have role 4 (Manager)
-        if (!user.role_id.includes(4)) {
-          user.role_id.push(4);
-        }
+        // Do NOT change user's numeric role_id when they are an approver.
+        // Approver is a dynamic permission, not a static role assignment.
       }
 
       // Add workflow permissions for superadmins and plant admins

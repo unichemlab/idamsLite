@@ -13,6 +13,7 @@ import unichemLogoBase64 from "../../assets/unichemLogoBase64";
 import { FaRegClock } from "react-icons/fa6";
 import { useNavigate } from "react-router-dom";
 import { fetchPlantActivityLogs } from "../../utils/api";
+import { useAbility } from "../../context/AbilityContext";
 
 // Activity logs from backend
 
@@ -35,6 +36,7 @@ const PlantMasterTable: React.FC = () => {
   const [tempFilterValue, setTempFilterValue] = React.useState(filterValue);
   const popoverRef = React.useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
+  const { can } = useAbility();
 
   useEffect(() => {
     if (!showFilterPopover) return;
@@ -272,6 +274,12 @@ const PlantMasterTable: React.FC = () => {
           <button
             className={styles.addUserBtn}
             onClick={() => navigate("/plants/add")}
+            disabled={!can("create:plants")}
+            title={
+              !can("create:plants")
+                ? "You don't have permission to add plants"
+                : ""
+            }
           >
             + Add New
           </button>
@@ -286,17 +294,53 @@ const PlantMasterTable: React.FC = () => {
           <button
             className={`${styles.btn} ${styles.editBtn}`}
             onClick={() => {
-              if (selectedRow !== null) navigate(`/plants/edit/${selectedRow}`);
+              if (selectedRow !== null && filteredData[selectedRow]) {
+                const id = filteredData[selectedRow].id;
+                if (typeof id === "number") navigate(`/plants/edit/${id}`);
+              }
             }}
-            disabled={selectedRow === null}
+            disabled={
+              selectedRow === null ||
+              !(
+                filteredData[selectedRow] &&
+                can("update", "plants", {
+                  plantId: filteredData[selectedRow]?.id,
+                })
+              )
+            }
+            title={
+              selectedRow === null
+                ? "Select a plant to edit"
+                : !can("update", "plants", {
+                    plantId: filteredData[selectedRow]?.id,
+                  })
+                ? "You don't have permission to edit this plant"
+                : ""
+            }
           >
             <FaEdit size={14} /> Edit
           </button>
           <button
             className={`${styles.btn} ${styles.deleteBtn}`}
-            disabled={selectedRow === null}
+            disabled={
+              selectedRow === null ||
+              !(
+                filteredData[selectedRow] &&
+                can("delete", "plants", {
+                  plantId: filteredData[selectedRow]?.id,
+                })
+              )
+            }
             onClick={() => setShowDeleteModal(true)}
-            title="Delete selected plant"
+            title={
+              selectedRow === null
+                ? "Select a plant to delete"
+                : !can("delete", "plants", {
+                    plantId: filteredData[selectedRow]?.id,
+                  })
+                ? "You don't have permission to delete this plant"
+                : ""
+            }
           >
             <FaTrash size={14} /> Delete
           </button>

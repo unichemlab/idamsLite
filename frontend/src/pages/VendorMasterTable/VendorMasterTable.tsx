@@ -11,6 +11,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { FaRegClock } from "react-icons/fa6";
 import { useNavigate } from "react-router-dom";
+import { useAbility } from "../../context/AbilityContext";
 import { fetchVendorActivityLogs } from "../../utils/api";
 import unichemLogoBase64 from "../../assets/unichemLogoBase64";
 
@@ -35,6 +36,7 @@ const VendorMasterTable: React.FC = () => {
   const [tempFilterValue, setTempFilterValue] = React.useState(filterValue);
   const popoverRef = React.useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
+  const { can } = useAbility();
 
   useEffect(() => {
     if (!showFilterPopover) return;
@@ -284,6 +286,12 @@ const VendorMasterTable: React.FC = () => {
           <button
             className={styles.addUserBtn}
             onClick={() => navigate("/vendors/add")}
+            disabled={!can("create:vendors")}
+            title={
+              !can("create:vendors")
+                ? "You don't have permission to add vendors"
+                : ""
+            }
           >
             + Add New
           </button>
@@ -301,15 +309,28 @@ const VendorMasterTable: React.FC = () => {
               if (selectedRow !== null)
                 navigate(`/vendors/edit/${selectedRow}`);
             }}
-            disabled={selectedRow === null}
+            disabled={selectedRow === null || !can("update:vendors")}
+            title={
+              selectedRow === null
+                ? "Select a vendor to edit"
+                : !can("update:vendors")
+                ? "You don't have permission to edit vendors"
+                : ""
+            }
           >
             <FaEdit size={14} /> Edit
           </button>
           <button
             className={`${styles.btn} ${styles.deleteBtn}`}
-            disabled={selectedRow === null}
+            disabled={selectedRow === null || !can("delete:vendors")}
             onClick={() => setShowDeleteModal(true)}
-            title="Delete selected vendor"
+            title={
+              selectedRow === null
+                ? "Select a vendor to delete"
+                : !can("delete:vendors")
+                ? "You don't have permission to delete vendors"
+                : ""
+            }
           >
             <FaTrash size={14} /> Delete
           </button>

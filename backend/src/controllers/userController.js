@@ -137,24 +137,47 @@ exports.addUser = async (req, res) => {
       emp_code,
       department_id,
       role_id,
-      password,
       status,
       plants,
       permissions,
-      central_permission,
       comment,
       corporate_access_enabled,
     } = req.body;
 
-    // Hash password
-    const password_hash = await bcrypt.hash(password, 12);
+    // Accept location as sent by frontend (e.g., react-select)
+    const location = req.body.location || null;
 
-    // Insert user
+    // Accept department as either `department` (frontend) or `department_id` (older clients)
+    const department = req.body.department || department_id || null;
+
+    // Normalize role_id into a JS array so node-postgres can send it as an int[]
+    // This is more robust than building a literal string like "{1,2}" which
+    // can sometimes be interpreted incorrectly.
+    let roleIdArray = null;
+    if (role_id !== undefined && role_id !== null) {
+      if (Array.isArray(role_id)) {
+        roleIdArray = role_id.map((r) => Number(r)).filter((n) => !isNaN(n));
+      } else if (typeof role_id === "number" || !isNaN(parseInt(role_id))) {
+        roleIdArray = [Number(role_id)];
+      } else if (typeof role_id === "string") {
+        // Allow string like "[4]" or "4" or "{4}" by extracting digits
+        const cleaned = role_id.replace(/[^0-9,]/g, "");
+        roleIdArray = cleaned
+          .split(",")
+          .map((s) => Number(s.trim()))
+          .filter((n) => !isNaN(n));
+      }
+      // If the resulting array is empty, treat as null
+      if (Array.isArray(roleIdArray) && roleIdArray.length === 0)
+        roleIdArray = null;
+    }
+
+    // Insert user into user_master (include location)
     const insertQuery = `
-      INSERT INTO admin_master
-        (username, full_name, email, emp_code, department_id, role_id, password_hash, status, plants, permissions, central_permission, comment, corporate_access_enabled)
+      INSERT INTO user_master
+        (employee_id, employee_name, email, employee_code, department, location, role_id, status, plants, permissions, comment, corporate_access_enabled)
       VALUES
-        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *;
     `;
     const values = [
@@ -162,13 +185,12 @@ exports.addUser = async (req, res) => {
       full_name,
       email,
       emp_code,
-      department_id,
-      role_id,
-      password_hash,
+      department,
+      location,
+      roleIdArray, // Pass a JS array (or null) - node-postgres will convert to int[]
       status,
-      plants,
+      JSON.stringify(plants), // Ensure plants is stored as JSON
       JSON.stringify(permissions),
-      central_permission,
       comment,
       corporate_access_enabled,
     ];
@@ -229,10 +251,7 @@ exports.editUser = async (req, res) => {
     } = req.body;
 
     // Map incoming fields to the actual user_master table columns.
-    // The database in this project stores users in `user_master` with columns
-    // like id, employee_name, employee_code, department, location, email, status, role_id.
-    // Frontend may send department_id (placeholder). Prefer `department` if provided,
-    // otherwise fall back to department_id.
+    // Frontend may send department (name) or department_id; prefer `department` if provided.
     const department = req.body.department || department_id || null;
     const updateQuery = `
       UPDATE user_master SET
