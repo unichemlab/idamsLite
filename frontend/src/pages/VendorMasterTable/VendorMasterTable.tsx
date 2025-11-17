@@ -624,7 +624,7 @@ const VendorMasterTable: React.FC = () => {
               <table className={styles.table} style={{ minWidth: 1100 }}>
                 <thead>
                   <tr>
-                    <th>Action</th>
+                    <th>Actions</th>
                     <th>Old Value</th>
                     <th>New Value</th>
                     <th>Action Performed By</th>
