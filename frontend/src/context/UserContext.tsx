@@ -53,35 +53,132 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
   const fetchUsers = async () => {
     // use centralized request helper so Authorization header and base URL are applied
     const data: any = await request("/api/users");
+
+    // Fetch global plant list to resolve plant IDs -> names when mapping permissions
+    let globalPlantIdToName: Record<string, string> = {};
+    try {
+      const plantList: any[] = await request("/api/plants");
+      (plantList || []).forEach((p) => {
+        const id = p.id !== undefined && p.id !== null ? String(p.id) : null;
+        const name = p.name || p.plant_name || "";
+        if (id && name) globalPlantIdToName[id] = name;
+      });
+    } catch (e) {
+      console.warn("Failed to fetch global plants for permission mapping:", e);
+    }
+
+    // Helper: convert tokens to object shape, matching plant IDs to plant names
+    const tokensToObject = (tokens: string[], userPlants?: any[]) => {
+      const subjectToModule: Record<string, string> = {
+        roles: "Role Master",
+        plants: "Plant Master",
+        vendors: "Vendor Master",
+        applications: "Application Master",
+        workflows: "Approval Workflow",
+        audit: "Audit Review",
+        reports: "Reports",
+        plant_it_admin: "Plant IT Admin",
+      };
+      const actionReverse: Record<string, string> = {
+        create: "Add",
+        update: "Edit",
+        read: "View",
+        delete: "Delete",
+      };
+      // Start with global plant id->name map, overlay user's plants when provided
+      const plantIdToName: Record<string, string> = { ...globalPlantIdToName };
+      (userPlants || []).forEach((plant) => {
+        if (typeof plant === "object" && plant !== null) {
+          if (plant.id && plant.name)
+            plantIdToName[String(plant.id)] = plant.name;
+        } else if (typeof plant === "string") {
+          // If plant is a string, assume name only (map name->name so lookups by name work)
+          plantIdToName[plant] = plant;
+        }
+      });
+      const permsObj: Record<string, string[]> = {};
+      tokens.forEach((token) => {
+        const parts = token.split(":");
+        if (parts.length < 2) return;
+        const action = actionReverse[parts[0]] || parts[0];
+        const subject = parts[1];
+        // Ignore malformed tokens like "create:" which have empty subject
+        if (!subject || subject.trim() === "") return;
+        const plantId = parts[2];
+        const moduleName = subjectToModule[subject] || subject;
+        let key = moduleName;
+        if (plantId) {
+          // Try to match plantId to plant name
+          const plantName = plantIdToName[plantId] || plantId;
+          key = `${plantName}-${moduleName}`;
+        }
+        if (!permsObj[key]) permsObj[key] = [];
+        permsObj[key].push(action);
+      });
+      return permsObj;
+    };
+
     // Map backend fields to frontend camelCase fields
-    const mapUser = (user: any) => ({
-      id: user.id,
-      fullName: user.full_name || user.employee_name || user.fullName || "",
-      email: user.email,
-      empCode: user.employee_code || user.empCode || "",
-      department: user.department || "-", // Optionally map department_id to name
-      department_id: user.department_id,
-      status: user.status,
-      plants: user.plants || [],
-      centralMaster: user.centralMaster || [],
-      permissions: user.permissions || {},
-      centralPermission: user.central_permission || false,
-      comment: user.comment || "",
-      corporateAccessEnabled: user.corporate_access_enabled || false,
-      activityLogs: user.activityLogs || [],
-      // Add all backend fields for direct access if needed
-      employee_name: user.employee_name,
-      employee_code: user.employee_code,
-      // expose employee_id so consumers can use it directly (e.g., WorkflowBuilder)
-      employee_id: user.employee_id,
-      location: user.location,
-      designation: user.designation,
-      company: user.company,
-      mobile: user.mobile,
-      role_id: user.role_id,
-      created_on: user.created_on,
-      updated_on: user.updated_on,
-    });
+    const mapUser = (user: any) => {
+      let permissions: Record<string, string[]> = {};
+      if (Array.isArray(user.permissions)) {
+        // If permissions is an array of tokens, convert to object
+        permissions = tokensToObject(user.permissions, user.plants || []);
+      } else if (
+        typeof user.permissions === "object" &&
+        user.permissions !== null
+      ) {
+        // If permissions is already an object, use as-is
+        permissions = user.permissions;
+      } else if (typeof user.permissions === "string") {
+        // If permissions is a stringified array, parse and convert
+        try {
+          const arr = JSON.parse(user.permissions);
+          if (Array.isArray(arr)) {
+            permissions = tokensToObject(arr, user.plants || []);
+          }
+        } catch {}
+      }
+      // Normalize user's plants into an array of plant names so UI checkboxes match
+      const normalizedPlants = (user.plants || []).map((p: any) => {
+        if (typeof p === "object" && p !== null) {
+          return p.name || p.plant_name || String(p.id || "");
+        }
+        // if it's a number-like id, resolve via global map
+        if (typeof p === "number" || /^[0-9]+$/.test(String(p))) {
+          return globalPlantIdToName[String(p)] || String(p);
+        }
+        // otherwise assume it's a name string
+        return String(p);
+      });
+
+      return {
+        id: user.id,
+        fullName: user.full_name || user.employee_name || user.fullName || "",
+        email: user.email,
+        empCode: user.employee_code || user.empCode || "",
+        department: user.department || "-", // Optionally map department_id to name
+        department_id: user.department_id,
+        status: user.status,
+        plants: normalizedPlants || [],
+        centralMaster: user.centralMaster || [],
+        permissions,
+        centralPermission: user.central_permission || false,
+        comment: user.comment || "",
+        corporateAccessEnabled: user.corporate_access_enabled || false,
+        activityLogs: user.activityLogs || [],
+        employee_name: user.employee_name,
+        employee_code: user.employee_code,
+        employee_id: user.employee_id,
+        location: user.location,
+        designation: user.designation,
+        company: user.company,
+        mobile: user.mobile,
+        role_id: user.role_id,
+        created_on: user.created_on,
+        updated_on: user.updated_on,
+      };
+    };
     setUsers(Array.isArray(data.users) ? data.users.map(mapUser) : []);
   };
 
@@ -126,26 +223,43 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
       console.warn("Failed to fetch plants for permission mapping:", e);
     }
 
-    Object.keys(user.permissions || {}).forEach((moduleKey) => {
-      // moduleKey format: "PlantName-Module Name"
-      const split = moduleKey.split("-");
-      const plantName = split[0];
-      const moduleName = split.slice(1).join("-") || "";
-      const subject =
-        moduleToSubject[moduleName] ||
-        moduleName.toLowerCase().replace(/\s+/g, "_");
-      const actions = user.permissions[moduleKey] || [];
-      actions.forEach((act) => {
-        const mapped = actionMap[act] || act.toLowerCase();
-        const plantId = plantsByName[plantName];
-        if (plantId) {
-          permissionTokens.push(`${mapped}:${subject}:${plantId}`);
+    // Robustly handle empty, null, or unexpected permissions object
+    if (user.permissions && typeof user.permissions === "object") {
+      Object.keys(user.permissions).forEach((moduleKey) => {
+        // moduleKey may be either "PlantName-Module Name" or just "Module Name"
+        const split = moduleKey.split("-");
+        let plantName: string | undefined;
+        let moduleName: string;
+        if (split.length > 1) {
+          plantName = split[0];
+          moduleName = split.slice(1).join("-");
         } else {
-          // fallback without plant id (global permission)
-          permissionTokens.push(`${mapped}:${subject}`);
+          plantName = undefined;
+          moduleName = moduleKey;
         }
+        const subject =
+          moduleToSubject[moduleName] ||
+          moduleName.toLowerCase().replace(/\s+/g, "_");
+        const actions = Array.isArray(user.permissions[moduleKey])
+          ? user.permissions[moduleKey]
+          : [];
+        actions.forEach((act) => {
+          const mapped = actionMap[act] || act.toLowerCase();
+          if (plantName) {
+            const plantId = plantsByName[plantName];
+            if (plantId) {
+              permissionTokens.push(`${mapped}:${subject}:${plantId}`);
+            } else {
+              // fallback: include plant name so frontend can reconcile if needed
+              permissionTokens.push(`${mapped}:${subject}:${plantName}`);
+            }
+          } else {
+            // global permission (no plant)
+            permissionTokens.push(`${mapped}:${subject}`);
+          }
+        });
       });
-    });
+    }
 
     const payload: any = {
       username: user.email.split("@")[0],
@@ -163,6 +277,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
       corporate_access_enabled: user.corporateAccessEnabled,
       location: user.location,
     };
+    // TEMP LOG: inspect payload in browser console to debug mismatches
+    try {
+      // eslint-disable-next-line no-console
+      console.log("[DEBUG][frontend] addUser payload:", payload);
+    } catch (e) {}
 
     const res = await fetch(API_URL, {
       method: "POST",
@@ -205,24 +324,42 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
       console.warn("Failed to fetch plants for permission mapping:", e);
     }
 
-    Object.keys(user.permissions || {}).forEach((moduleKey) => {
-      const split = moduleKey.split("-");
-      const plantName = split[0];
-      const moduleName = split.slice(1).join("-") || "";
-      const subject =
-        moduleToSubject[moduleName] ||
-        moduleName.toLowerCase().replace(/\s+/g, "_");
-      const actions = user.permissions[moduleKey] || [];
-      actions.forEach((act) => {
-        const mapped = actionMap[act] || act.toLowerCase();
-        const plantId = plantsByName[plantName];
-        if (plantId) {
-          permissionTokens.push(`${mapped}:${subject}:${plantId}`);
+    // Robustly handle empty, null, or unexpected permissions object
+    if (user.permissions && typeof user.permissions === "object") {
+      Object.keys(user.permissions).forEach((moduleKey) => {
+        let plantName: string | undefined;
+        let moduleName: string;
+        const split = moduleKey.split("-");
+        if (split.length > 1) {
+          plantName = split[0];
+          moduleName = split.slice(1).join("-");
         } else {
-          permissionTokens.push(`${mapped}:${subject}`);
+          plantName = undefined;
+          moduleName = moduleKey;
         }
+        const subject =
+          moduleToSubject[moduleName] ||
+          moduleName.toLowerCase().replace(/\s+/g, "_");
+        const actions = Array.isArray(user.permissions[moduleKey])
+          ? user.permissions[moduleKey]
+          : [];
+        actions.forEach((act) => {
+          const mapped = actionMap[act] || act.toLowerCase();
+          // Skip if subject empty for any reason
+          if (!subject || String(subject).trim() === "") return;
+          if (plantName) {
+            const plantId = plantsByName[plantName];
+            if (plantId) {
+              permissionTokens.push(`${mapped}:${subject}:${plantId}`);
+            } else {
+              permissionTokens.push(`${mapped}:${subject}:${plantName}`);
+            }
+          } else {
+            permissionTokens.push(`${mapped}:${subject}`);
+          }
+        });
       });
-    });
+    }
 
     const payload: any = {
       full_name: user.fullName,
@@ -237,6 +374,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
       corporate_access_enabled: user.corporateAccessEnabled,
       location: user.location,
     };
+    // TEMP LOG: inspect payload in browser console to debug mismatches
+    try {
+      // eslint-disable-next-line no-console
+      console.log("[DEBUG][frontend] editUser payload:", payload);
+    } catch (e) {}
 
     const res = await fetch(`${API_URL}/${userId}`, {
       method: "PUT",
