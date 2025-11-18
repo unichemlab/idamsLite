@@ -1,5 +1,11 @@
 const pool = require("../config/db");
+const crypto = require("crypto");
 
+// In-memory cache: track recently-logged actions to prevent duplicates
+// Key: "userId|module|table|record|action"
+// Value: timestamp of last log
+const _requestInFlight = new Map();
+const DEDUP_WINDOW_MS = 2000; // 2 seconds - if same action logged again, skip it
 /**
  * @typedef {Object} ActivityLogEntry
  * @property {number} userId - The ID of the user performing the action
@@ -59,33 +65,57 @@ const diffObjects = (oldObj, newObj) => {
       diff[key] = { from: oldVal, to: newVal };
     }
   }
-
   return diff;
 };
 
-/**
- * Safely stringify and truncate objects for logging
- * @param {Object} obj - Object to stringify
- * @param {number} maxLength - Maximum length for the string
- * @returns {string} Truncated JSON string
- */
-const safeStringify = (obj, maxLength = 4000) => {
-  try {
-    const str = JSON.stringify(obj);
-    if (str.length <= maxLength) return str;
-    return str.substring(0, maxLength - 3) + "...";
-  } catch (e) {
-    return "[Unstringifiable Object]";
-  }
-};
+// Normalize objects for deterministic hashing: sort keys and strip volatile fields
+function normalizeForHash(value) {
+  const volatileKeys = new Set([
+    "updated_on",
+    "created_on",
+    "date_time_ist",
+    "transaction_id",
+  ]);
 
-/**
- * Log an activity in the activity_log table
- */
-// Cache column introspection for a short duration to avoid querying on every log
+  function recurse(v) {
+    if (v === null || v === undefined) return null;
+    if (typeof v !== "object") return v;
+    if (Array.isArray(v)) return v.map(recurse);
+    // object: sort keys
+    const keys = Object.keys(v)
+      .filter((k) => !volatileKeys.has(k))
+      .sort();
+    const out = {};
+    for (const k of keys) {
+      out[k] = recurse(v[k]);
+    }
+    return out;
+  }
+
+  try {
+    return JSON.stringify(recurse(value));
+  } catch (e) {
+    return safeStringify(value);
+  }
+}
+
+// helper caches & config
 let _cachedColumns = null;
 let _cachedAt = 0;
-const COLUMN_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const COLUMN_CACHE_TTL_MS = 60 * 1000; // 1 minute
+
+// safe stringify helper used to normalize objects for storage/comparison
+function safeStringify(obj) {
+  try {
+    return JSON.stringify(obj);
+  } catch (e) {
+    try {
+      return String(obj);
+    } catch (e2) {
+      return null;
+    }
+  }
+}
 
 async function getActivityLogColumns() {
   const now = Date.now();
@@ -119,6 +149,47 @@ const logActivity = async ({
   comments = "",
   reqMeta = {},
 }) => {
+  // Normalize action (avoid duplicates due to casing like 'UPDATE' vs 'update')
+  try {
+    if (action && typeof action === "string") action = action.toLowerCase();
+  } catch (e) {
+    /* ignore */
+  }
+
+  // ABSOLUTE DEDUP: If same user/module/table/record/action was logged within 2 seconds, SKIP
+  // This is the ONLY check we need - simple and foolproof.
+  try {
+    const simpleKey = `${userId}|${module}|${tableName}|${recordId}|${action}`;
+    const lastTime = _requestInFlight.get(simpleKey);
+    const now = Date.now();
+
+    console.log(
+      `[ACTIVITY LOG] Check dedup - key=${simpleKey}, lastTime=${lastTime}, timeSince=${
+        lastTime ? now - lastTime : "N/A"
+      }ms`
+    );
+
+    if (lastTime && now - lastTime < 2000) {
+      // Duplicate within 2 seconds - skip entirely
+      console.log(
+        `[ACTIVITY LOG] ✓ DUPLICATE BLOCKED (${simpleKey}) - last logged ${
+          now - lastTime
+        }ms ago`
+      );
+      return null;
+    }
+
+    // Update the timestamp for this key
+    _requestInFlight.set(simpleKey, now);
+    // Cleanup after 3 seconds
+    setTimeout(() => _requestInFlight.delete(simpleKey), 3000);
+    console.log(
+      `[ACTIVITY LOG] Allowing insert - marked key in cache for dedup window`
+    );
+  } catch (e) {
+    console.error("[ACTIVITY LOG DEDUP ERROR]", e);
+  }
+
   // Calculate changes if both old and new values exist
   let changes = null;
   try {
@@ -136,6 +207,86 @@ const logActivity = async ({
       cols.has("table_name");
 
     if (hasCanonical) {
+      // Debugging aid: when enabled, print call stack and payload so we can trace duplicate callers
+      try {
+        if (process.env.ACTIVITY_LOG_DEBUG === "true") {
+          console.log("[ACTIVITY LOG DEBUG] payload:", {
+            userId,
+            module,
+            tableName,
+            recordId,
+            action,
+          });
+          // include trimmed stack to help find the caller
+          const st = new Error().stack || "";
+          console.log(
+            "[ACTIVITY LOG DEBUG] stack:\n",
+            st.split("\n").slice(2, 8).join("\n")
+          );
+        }
+      } catch (e) {
+        // ignore debug logging failures
+      }
+
+      // Deduplication: Simple 2-second window to prevent duplicate logs
+      // from same user/module/table/record/action within 2 seconds
+      try {
+        if (userId && module && tableName && recordId && action) {
+          const simpleKey = `${userId}|${module}|${tableName}|${recordId}|${action}`;
+          const lastTime = _requestInFlight.get(simpleKey);
+          const now = Date.now();
+
+          if (lastTime && now - lastTime < DEDUP_WINDOW_MS) {
+            console.log(
+              `[ACTIVITY LOG] DUPLICATE BLOCKED (${simpleKey}) - last logged ${
+                now - lastTime
+              }ms ago`
+            );
+            return null;
+          }
+
+          // Mark this action as just-logged
+          _requestInFlight.set(simpleKey, now);
+          // Auto-cleanup after 3 seconds
+          setTimeout(() => _requestInFlight.delete(simpleKey), 3000);
+        }
+      } catch (dedupErr) {
+        // Non-fatal: if dedup check fails, continue to insert normally
+        console.warn(
+          "[ACTIVITY LOG DEDUP ERROR]",
+          dedupErr.message || dedupErr
+        );
+      }
+      // Extra debug: print payload and stack right before insertion so we can
+      // trace duplicate insert callers when ACTIVITY_LOG_DEBUG is enabled.
+      try {
+        if (process.env.ACTIVITY_LOG_DEBUG === "true") {
+          const stInsert = new Error().stack || "";
+          console.log("[ACTIVITY LOG DEBUG] Inserting activity log payload:", {
+            userId,
+            module,
+            tableName,
+            recordId,
+            action,
+            oldValue: oldValue ? safeStringify(oldValue) : null,
+            newValue: newValue ? safeStringify(newValue) : null,
+            comments,
+            reqMeta,
+            time: new Date().toISOString(),
+          });
+          console.log(
+            "[ACTIVITY LOG DEBUG] stack at insert:\n",
+            stInsert.split("\n").slice(2, 10).join("\n")
+          );
+        }
+      } catch (debugErr) {
+        /* ignore debug logging failures */
+      }
+
+      console.log(
+        `[ACTIVITY LOG] Inserting canonical record - action=${action}, user=${userId}, module=${module}, table=${tableName}, record=${recordId}`
+      );
+
       const query = `
         INSERT INTO activity_log (
           action_performed_by,
@@ -169,7 +320,8 @@ const logActivity = async ({
       ];
 
       const result = await pool.query(query, values);
-      return result.rows[0].id;
+      const insertedId = result.rows[0].id;
+      return insertedId;
     }
 
     // If canonical not available, try to build an insert using whichever known
@@ -222,6 +374,11 @@ const logActivity = async ({
       }
 
       if (insertCols.length > 0) {
+        console.log(
+          `[ACTIVITY LOG] Inserting via fallback path 1 - columns=${insertCols.join(
+            ","
+          )}, user=${userId}`
+        );
         const query = `INSERT INTO activity_log (${insertCols.join(
           ","
         )}) VALUES (${insertParams.join(",")}${
@@ -234,6 +391,10 @@ const logActivity = async ({
 
     // As a last resort, try the previous fallback that uses 'details' column
     try {
+      console.log(
+        `[ACTIVITY LOG] Inserting via fallback path 2 (details column) - action=${action}, user=${userId}`
+      );
+
       const fallbackQuery = `
         INSERT INTO activity_log (
           user_id,

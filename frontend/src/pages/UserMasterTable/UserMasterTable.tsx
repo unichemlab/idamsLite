@@ -16,6 +16,7 @@ import autoTable from "jspdf-autotable";
 import { fetchActivityLog } from "../../utils/api";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
 import unichemLogoBase64 from "../../assets/unichemLogoBase64";
+import login_headTitle2 from "../../assets/login_headTitle2.png";
 
 const UserMasterTable = () => {
   const navigate = useNavigate();
@@ -126,41 +127,47 @@ const UserMasterTable = () => {
     currentPage * rowsPerPage
   );
 
-  // PDF Export Handler
-  const handleExportPDF = () => {
+  const loadImage = (url: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.src = url;
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+    });
+  };
+
+  // PDF Export Handler (updated to match RoleMasterTable design)
+  const handleExportPDF = async () => {
     const doc = new jsPDF({ orientation: "landscape" });
     const today = new Date();
     const fileName = `UserMaster_${today.toISOString().split("T")[0]}.pdf`;
 
     // --- HEADER BAR ---
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     const pageMargin = 14;
-    const headerHeight = 20;
+    const headerHeight = 28;
     doc.setFillColor(0, 82, 155);
     doc.rect(0, 0, pageWidth, headerHeight, "F");
 
-    // Logo (if available)
+    // Logo
     let logoWidth = 0;
     let logoHeight = 0;
-    try {
-      if (unichemLogoBase64 && unichemLogoBase64.startsWith("data:image")) {
-        logoWidth = 50;
-        logoHeight = 18;
+    if (login_headTitle2) {
+      try {
+        const img = await loadImage(login_headTitle2);
+        const maxLogoHeight = headerHeight * 0.6;
+        const scale = maxLogoHeight / img.height;
+        logoWidth = img.width * scale;
+        logoHeight = img.height * scale;
         const logoY = headerHeight / 2 - logoHeight / 2;
-        doc.addImage(
-          unichemLogoBase64,
-          "PNG",
-          pageMargin,
-          logoY,
-          logoWidth,
-          logoHeight
-        );
+        doc.addImage(img, "PNG", pageMargin, logoY, logoWidth, logoHeight);
+      } catch (e) {
+        console.warn("Logo load failed", e);
       }
-    } catch (e) {
-      // ignore logo error
     }
 
-    // Title + Exported by/date
+    // Title + Exported by on the same line
     doc.setFontSize(16);
     doc.setTextColor(255, 255, 255);
     const titleX = pageMargin + logoWidth + 10;
@@ -169,7 +176,10 @@ const UserMasterTable = () => {
 
     doc.setFontSize(9);
     doc.setTextColor(220, 230, 245);
-    const exportedText = `Exported on: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
+    const exportedByName =
+      (currentUser && (currentUser.name || currentUser.username)) ||
+      "Unknown User";
+    const exportedText = `Exported by: ${exportedByName}  On: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
     const textWidth = doc.getTextWidth(exportedText);
     doc.text(exportedText, pageWidth - pageMargin - textWidth, titleY);
 
@@ -192,16 +202,21 @@ const UserMasterTable = () => {
       ],
     ];
 
-    const rows = filteredUsers.map((user: any) => [
-      user.employee_name,
-      user.email,
-      user.employee_code,
-      user.department,
-      user.location,
-      user.designation,
-      user.status,
-      user.company,
-      formatPermissions(user),
+    const rows = filteredUsers.map((u: any) => [
+      u.employee_name ?? "-",
+      u.email ?? "-",
+      u.employee_code ?? "-",
+      // prefer resolved department name where available
+      (() => {
+        if (u.department && typeof u.department === "string")
+          return u.department;
+        return u.department ?? "-";
+      })(),
+      u.location ?? "-",
+      u.designation ?? "-",
+      u.status ?? "-",
+      u.company ?? "-",
+      formatPermissions(u),
     ]);
 
     autoTable(doc, {
@@ -227,7 +242,6 @@ const UserMasterTable = () => {
     });
 
     // --- FOOTER ---
-    const pageHeight = doc.internal.pageSize.getHeight();
     const pageCount =
       (doc as any).getNumberOfPages?.() ||
       (doc as any).internal?.getNumberOfPages?.() ||
@@ -810,20 +824,92 @@ const UserMasterTable = () => {
                   >
                     <button
                       className={styles.exportPdfBtn}
-                      onClick={() => {
+                      onClick={async () => {
+                        if (!activityLogsUser) return;
                         const doc = new jsPDF({ orientation: "landscape" });
-                        const headers = [
-                          [
-                            "Action",
-                            "Old Value",
-                            "New Value",
-                            "Action Performed By",
-                            "Approved/Rejected By",
-                            "Approval Status",
-                            "Date/Time (IST)",
-                            "Comments",
-                          ],
-                        ];
+                        const today = new Date();
+                        const yyyy = today.getFullYear();
+                        const mm = String(today.getMonth() + 1).padStart(
+                          2,
+                          "0"
+                        );
+                        const dd = String(today.getDate()).padStart(2, "0");
+                        const fileName = `ActivityLog_${yyyy}-${mm}-${dd}.pdf`;
+
+                        const pageWidth = doc.internal.pageSize.getWidth();
+                        const pageHeight = doc.internal.pageSize.getHeight();
+                        const pageMargin = 14;
+                        const headerHeight = 28;
+
+                        // Header bar
+                        doc.setFillColor(0, 82, 155);
+                        doc.rect(0, 0, pageWidth, headerHeight, "F");
+
+                        // Logo (prefer PNG import, fallback to base64)
+                        let logoWidth = 0;
+                        let logoHeight = 0;
+                        try {
+                          if (login_headTitle2) {
+                            const img = await loadImage(login_headTitle2);
+                            const maxLogoHeight = headerHeight * 0.6;
+                            const scale = maxLogoHeight / img.height;
+                            logoWidth = img.width * scale;
+                            logoHeight = img.height * scale;
+                            const logoY = headerHeight / 2 - logoHeight / 2;
+                            doc.addImage(
+                              img,
+                              "PNG",
+                              pageMargin,
+                              logoY,
+                              logoWidth,
+                              logoHeight
+                            );
+                          } else if (
+                            unichemLogoBase64 &&
+                            unichemLogoBase64.startsWith("data:image")
+                          ) {
+                            logoWidth = 50;
+                            logoHeight = 18;
+                            const logoY = headerHeight / 2 - logoHeight / 2;
+                            doc.addImage(
+                              unichemLogoBase64,
+                              "PNG",
+                              pageMargin,
+                              logoY,
+                              logoWidth,
+                              logoHeight
+                            );
+                          }
+                        } catch (e) {
+                          console.warn("Logo load failed", e);
+                        }
+
+                        // Title + exported by
+                        doc.setFontSize(16);
+                        doc.setTextColor(255, 255, 255);
+                        const titleX = pageMargin + logoWidth + 10;
+                        const titleY = headerHeight / 2 + 5;
+                        doc.text("Activity Log", titleX, titleY);
+
+                        doc.setFontSize(9);
+                        doc.setTextColor(220, 230, 245);
+                        const exportedByName =
+                          (currentUser &&
+                            (currentUser.name || currentUser.username)) ||
+                          "Unknown User";
+                        const exportedText = `Exported by: ${exportedByName}  On: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
+                        const textWidth = doc.getTextWidth(exportedText);
+                        doc.text(
+                          exportedText,
+                          pageWidth - pageMargin - textWidth,
+                          titleY
+                        );
+
+                        doc.setDrawColor(0, 82, 155);
+                        doc.setLineWidth(0.5);
+                        doc.line(0, headerHeight, pageWidth, headerHeight);
+
+                        // Table rows
                         const allowed = [
                           "edit",
                           "update",
@@ -831,11 +917,12 @@ const UserMasterTable = () => {
                           "add",
                           "create",
                         ];
-                        const logs = (
-                          Array.isArray(activityLogsUser.activityLogs)
-                            ? activityLogsUser.activityLogs
-                            : [activityLogsUser.activityLogs]
+                        const rawLogs = Array.isArray(
+                          activityLogsUser.activityLogs
                         )
+                          ? activityLogsUser.activityLogs
+                          : [activityLogsUser.activityLogs];
+                        const logs = rawLogs
                           .filter((log: any) => {
                             const actionType = (log.action || "").toLowerCase();
                             return allowed.some((type) =>
@@ -848,65 +935,97 @@ const UserMasterTable = () => {
                               (log.approver || "")
                                 .toLowerCase()
                                 .includes(
-                                  activityLogsUser.approverFilter.toLowerCase()
+                                  (
+                                    activityLogsUser.approverFilter || ""
+                                  ).toLowerCase()
                                 )
                           );
+
+                        const headers = [
+                          [
+                            "Action",
+                            "Old Value",
+                            "New Value",
+                            "Action Performed By",
+                            "Approval Status",
+                            "Date/Time (IST)",
+                            "Comments",
+                          ],
+                        ];
+
                         const rows = logs.map((log: any) => {
-                          let dateObj = new Date(log.dateTime || log.timestamp);
-                          let istDate = new Date(
+                          let dateObj = new Date(
+                            log.dateTime ||
+                              log.timestamp ||
+                              log.created_at ||
+                              Date.now()
+                          );
+                          if (Number.isNaN(dateObj.getTime()))
+                            dateObj = new Date();
+                          const istDate = new Date(
                             dateObj.getTime() + 5.5 * 60 * 60 * 1000
                           );
-                          let formattedDate = istDate.toLocaleString("en-IN", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "2-digit",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: false,
-                          });
+                          const formattedDate = istDate.toLocaleString();
                           return [
                             log.action || "-",
                             renderLogValue(log.oldValue),
                             renderLogValue(log.newValue),
-                            log.approver || "-",
-                            log.approvedOrRejectedBy || "-",
-                            log.approvalStatus || "-",
+                            log.approver || log.action_performed_by || "-",
+                            log.approve_status || log.approvalStatus || "-",
                             formattedDate,
-                            log.reason || log.comment || "-",
+                            log.reason || log.comments || log.comment || "-",
                           ];
                         });
 
-                        doc.setFontSize(18);
-                        doc.text("Activity Log", 14, 18);
                         autoTable(doc, {
                           head: headers,
                           body: rows,
-                          startY: 28,
+                          startY: headerHeight + 8,
                           styles: {
-                            fontSize: 11,
+                            fontSize: 9,
                             cellPadding: 3,
                             halign: "left",
                             valign: "middle",
+                            textColor: 80,
                           },
                           headStyles: {
                             fillColor: [11, 99, 206],
-                            textColor: 255,
+                            textColor: [255, 255, 255],
                             fontStyle: "bold",
+                            fontSize: 9,
                           },
-                          alternateRowStyles: {
-                            fillColor: [240, 245, 255],
-                          },
-                          margin: { left: 14, right: 14 },
+                          alternateRowStyles: { fillColor: [240, 245, 255] },
+                          margin: { left: pageMargin, right: pageMargin },
                           tableWidth: "auto",
                         });
 
-                        const today = new Date();
-                        const fileName = `activity_log_${today.getFullYear()}-${String(
-                          today.getMonth() + 1
-                        ).padStart(2, "0")}-${String(today.getDate()).padStart(
-                          2,
-                          "0"
-                        )}.pdf`;
+                        // Footer: page count and footers per page
+                        const pageCount =
+                          (doc as any).internal.getNumberOfPages?.() || 1;
+                        doc.setFontSize(8);
+                        doc.setTextColor(100, 100, 100);
+                        for (let i = 1; i <= pageCount; i++) {
+                          doc.setPage(i);
+                          doc.setDrawColor(200, 200, 200);
+                          doc.setLineWidth(0.3);
+                          doc.line(
+                            pageMargin,
+                            pageHeight - 15,
+                            pageWidth - pageMargin,
+                            pageHeight - 15
+                          );
+                          doc.text(
+                            "Unichem Laboratories",
+                            pageMargin,
+                            pageHeight - 10
+                          );
+                          doc.text(
+                            `Page ${i} of ${pageCount}`,
+                            pageWidth - pageMargin - 40,
+                            pageHeight - 10
+                          );
+                        }
+
                         doc.save(fileName);
                       }}
                       aria-label="Export activity log to PDF"

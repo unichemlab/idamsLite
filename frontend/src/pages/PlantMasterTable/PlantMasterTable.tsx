@@ -9,16 +9,21 @@ import { FaEdit, FaTrash } from "react-icons/fa";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import unichemLogoBase64 from "../../assets/unichemLogoBase64";
+import login_headTitle2 from "../../assets/login_headTitle2.png";
 import { FaRegClock } from "react-icons/fa6";
 import { useNavigate } from "react-router-dom";
 import { fetchPlantActivityLogs } from "../../utils/api";
+import { useAbility } from "../../context/AbilityContext";
+import { useAuth } from "../../context/AuthContext";
 
 // Activity logs from backend
 
 const PlantMasterTable: React.FC = () => {
   const { plants, deletePlant } = usePlantContext();
-  const [selectedRow, setSelectedRow] = React.useState<number | null>(null);
+  // store selected plant by its DB id (more robust than an index)
+  const [selectedPlantId, setSelectedPlantId] = React.useState<number | null>(
+    null
+  );
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   const [showActivityModal, setShowActivityModal] = React.useState(false);
   // Pagination state
@@ -35,6 +40,8 @@ const PlantMasterTable: React.FC = () => {
   const [tempFilterValue, setTempFilterValue] = React.useState(filterValue);
   const popoverRef = React.useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
+  const { can } = useAbility();
+  const { user } = useAuth();
 
   useEffect(() => {
     if (!showFilterPopover) return;
@@ -79,41 +86,55 @@ const PlantMasterTable: React.FC = () => {
     currentPage * rowsPerPage
   );
 
+  // currently selected plant object (found from filteredData by id)
+  const selectedPlant =
+    selectedPlantId !== null
+      ? filteredData.find((p: any) => p.id === selectedPlantId) || null
+      : null;
+
+  const loadImage = (url: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.src = url;
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+    });
+  };
+
   // PDF Export Handler for Plant Table
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     const doc = new jsPDF({ orientation: "landscape" });
     const today = new Date();
     const fileName = `PlantMaster_${today.toISOString().split("T")[0]}.pdf`;
-
-    // --- HEADER BAR ---
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     const pageMargin = 14;
-    const headerHeight = 20;
+
+    // ===== HEADER SECTION =====
+    const headerHeight = 28;
+
+    // Blue background bar
     doc.setFillColor(0, 82, 155);
     doc.rect(0, 0, pageWidth, headerHeight, "F");
 
     // Logo
     let logoWidth = 0;
     let logoHeight = 0;
-    try {
-      if (unichemLogoBase64 && unichemLogoBase64.startsWith("data:image")) {
-        logoWidth = 50;
-        logoHeight = 18;
+    if (login_headTitle2) {
+      try {
+        const img = await loadImage(login_headTitle2);
+        const maxLogoHeight = headerHeight * 0.6;
+        const scale = maxLogoHeight / img.height;
+        logoWidth = img.width * scale;
+        logoHeight = img.height * scale;
         const logoY = headerHeight / 2 - logoHeight / 2;
-        doc.addImage(
-          unichemLogoBase64,
-          "PNG",
-          pageMargin,
-          logoY,
-          logoWidth,
-          logoHeight
-        );
+        doc.addImage(img, "PNG", pageMargin, logoY, logoWidth, logoHeight);
+      } catch (e) {
+        console.warn("Logo load failed", e);
       }
-    } catch (e) {
-      // ignore logo error
     }
 
-    // Title + Exported by/date
+    // Title + Exported by on the same line
     doc.setFontSize(16);
     doc.setTextColor(255, 255, 255);
     const titleX = pageMargin + logoWidth + 10;
@@ -122,7 +143,9 @@ const PlantMasterTable: React.FC = () => {
 
     doc.setFontSize(9);
     doc.setTextColor(220, 230, 245);
-    const exportedText = `Exported on: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
+    const exportedByName =
+      (user && (user.name || user.username)) || "Unknown User";
+    const exportedText = `Exported by: ${exportedByName}  On: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
     const textWidth = doc.getTextWidth(exportedText);
     doc.text(exportedText, pageWidth - pageMargin - textWidth, titleY);
 
@@ -130,7 +153,7 @@ const PlantMasterTable: React.FC = () => {
     doc.setLineWidth(0.5);
     doc.line(0, headerHeight, pageWidth, headerHeight);
 
-    // --- TABLE ---
+    // ===== TABLE SECTION =====
     const rows = filteredData.map((plant) => [
       plant.name ?? plant.plant_name ?? "-",
       plant.description ?? "-",
@@ -142,40 +165,51 @@ const PlantMasterTable: React.FC = () => {
       head: [["Plant Name", "Description", "Location", "Status"]],
       body: rows,
       startY: headerHeight + 8,
-      styles: { fontSize: 10, cellPadding: 2 },
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+        textColor: 80,
+      },
       headStyles: {
         fillColor: [11, 99, 206],
-        textColor: 255,
+        textColor: [255, 255, 255],
         fontStyle: "bold",
+        fontSize: 10,
       },
-      alternateRowStyles: { fillColor: [240, 245, 255] },
-      margin: { left: 14, right: 14 },
+      alternateRowStyles: {
+        fillColor: [240, 245, 255],
+      },
+      margin: { left: pageMargin, right: pageMargin },
     });
 
-    // --- FOOTER ---
-    const pageHeight = doc.internal.pageSize.getHeight();
+    // ===== FOOTER SECTION =====
+    const pageCount = (doc as any).internal.getNumberOfPages?.() || 1;
 
-    const pageCount =
-      (doc as any).getNumberOfPages?.() ||
-      (doc as any).internal?.getNumberOfPages?.() ||
-      1;
-    doc.setFontSize(9);
-    doc.setTextColor(100);
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.text("Unichem Laboratories", pageMargin, pageHeight - 6);
-      doc.text(
-        `Page ${i} of ${pageCount}`,
-        pageWidth - pageMargin - 30,
-        pageHeight - 6
-      );
-    }
+    // Light separator line above footer
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.line(
+      pageMargin,
+      pageHeight - 15,
+      pageWidth - pageMargin,
+      pageHeight - 15
+    );
+
+    // Footer text
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text("Unichem Laboratories", pageMargin, pageHeight - 10);
+    doc.text(
+      `Page 1 of ${pageCount}`,
+      pageWidth - pageMargin - 25,
+      pageHeight - 10
+    );
 
     doc.save(fileName);
   };
 
   // PDF Export Handler for Activity Log
-  const handleExportActivityPDF = () => {
+  const handleExportActivityPDF = async () => {
     if (!activityPlant) return;
     const doc = new jsPDF({ orientation: "landscape" });
     const today = new Date();
@@ -183,6 +217,55 @@ const PlantMasterTable: React.FC = () => {
     const mm = String(today.getMonth() + 1).padStart(2, "0");
     const dd = String(today.getDate()).padStart(2, "0");
     const fileName = `PlantActivityLog_${yyyy}-${mm}-${dd}.pdf`;
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const pageMargin = 14;
+    const headerHeight = 28;
+
+    // ===== HEADER SECTION =====
+
+    // Blue background bar
+    doc.setFillColor(0, 82, 155);
+    doc.rect(0, 0, pageWidth, headerHeight, "F");
+
+    // Logo
+    let logoWidth = 0;
+    let logoHeight = 0;
+    if (login_headTitle2) {
+      try {
+        const img = await loadImage(login_headTitle2);
+        const maxLogoHeight = headerHeight * 0.6;
+        const scale = maxLogoHeight / img.height;
+        logoWidth = img.width * scale;
+        logoHeight = img.height * scale;
+        const logoY = headerHeight / 2 - logoHeight / 2;
+        doc.addImage(img, "PNG", pageMargin, logoY, logoWidth, logoHeight);
+      } catch (e) {
+        console.warn("Logo load failed", e);
+      }
+    }
+
+    // Title + Exported by on the same line
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    const titleX = pageMargin + logoWidth + 10;
+    const titleY = headerHeight / 2 + 5;
+    doc.text("Plant Activity Log", titleX, titleY);
+
+    doc.setFontSize(9);
+    doc.setTextColor(220, 230, 245);
+    const exportedByName =
+      (user && (user.name || user.username)) || "Unknown User";
+    const exportedText = `Exported by: ${exportedByName}  On: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
+    const textWidth = doc.getTextWidth(exportedText);
+    doc.text(exportedText, pageWidth - pageMargin - textWidth, titleY);
+
+    doc.setDrawColor(0, 82, 155);
+    doc.setLineWidth(0.5);
+    doc.line(0, headerHeight, pageWidth, headerHeight);
+
+    // ===== TABLE SECTION =====
     const headers = [
       [
         "Action",
@@ -215,29 +298,54 @@ const PlantMasterTable: React.FC = () => {
         log.comments ?? "",
       ];
     });
-    doc.setFontSize(18);
-    doc.text("Plant Activity Log", 14, 18);
+
     autoTable(doc, {
       head: headers,
       body: rows,
-      startY: 28,
+      startY: headerHeight + 8,
       styles: {
-        fontSize: 11,
+        fontSize: 8,
         cellPadding: 3,
         halign: "left",
         valign: "middle",
+        textColor: 80,
       },
       headStyles: {
         fillColor: [11, 99, 206],
-        textColor: 255,
+        textColor: [255, 255, 255],
         fontStyle: "bold",
+        fontSize: 9,
       },
       alternateRowStyles: {
         fillColor: [240, 245, 255],
       },
-      margin: { left: 14, right: 14 },
+      margin: { left: pageMargin, right: pageMargin },
       tableWidth: "auto",
     });
+
+    // ===== FOOTER SECTION =====
+    const pageCount = (doc as any).internal.getNumberOfPages?.() || 1;
+
+    // Light separator line above footer
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.line(
+      pageMargin,
+      pageHeight - 15,
+      pageWidth - pageMargin,
+      pageHeight - 15
+    );
+
+    // Footer text
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text("Unichem Laboratories", pageMargin, pageHeight - 10);
+    doc.text(
+      `Page 1 of ${pageCount}`,
+      pageWidth - pageMargin - 25,
+      pageHeight - 10
+    );
+
     doc.save(fileName);
   };
 
@@ -247,9 +355,12 @@ const PlantMasterTable: React.FC = () => {
   // Logs are fetched on-demand when opening the modal (see click handler)
 
   const confirmDelete = async () => {
-    if (selectedRow === null) return;
-    await deletePlant(selectedRow);
-    setSelectedRow(null);
+    if (selectedPlantId === null) return;
+    // find index in the original plants array expected by PlantContext.deletePlant
+    const idx = plants.findIndex((p: any) => p.id === selectedPlantId);
+    if (idx === -1) return;
+    await deletePlant(idx);
+    setSelectedPlantId(null);
     setShowDeleteModal(false);
   };
 
@@ -272,6 +383,12 @@ const PlantMasterTable: React.FC = () => {
           <button
             className={styles.addUserBtn}
             onClick={() => navigate("/plants/add")}
+            disabled={!can("create:plants")}
+            title={
+              !can("create:plants")
+                ? "You don't have permission to add plants"
+                : ""
+            }
           >
             + Add New
           </button>
@@ -286,17 +403,45 @@ const PlantMasterTable: React.FC = () => {
           <button
             className={`${styles.btn} ${styles.editBtn}`}
             onClick={() => {
-              if (selectedRow !== null) navigate(`/plants/edit/${selectedRow}`);
+              if (selectedPlant) {
+                const id = selectedPlant.id;
+                if (typeof id === "number") navigate(`/plants/edit/${id}`);
+              }
             }}
-            disabled={selectedRow === null}
+            disabled={
+              selectedPlantId === null ||
+              !(
+                selectedPlant &&
+                can("update", "plants", { plantId: selectedPlant?.id })
+              )
+            }
+            title={
+              selectedPlantId === null
+                ? "Select a plant to edit"
+                : !can("update", "plants", { plantId: selectedPlant?.id })
+                ? "You don't have permission to edit this plant"
+                : ""
+            }
           >
             <FaEdit size={14} /> Edit
           </button>
           <button
             className={`${styles.btn} ${styles.deleteBtn}`}
-            disabled={selectedRow === null}
+            disabled={
+              selectedPlantId === null ||
+              !(
+                selectedPlant &&
+                can("delete", "plants", { plantId: selectedPlant?.id })
+              )
+            }
             onClick={() => setShowDeleteModal(true)}
-            title="Delete selected plant"
+            title={
+              selectedPlantId === null
+                ? "Select a plant to delete"
+                : !can("delete", "plants", { plantId: selectedPlant?.id })
+                ? "You don't have permission to delete this plant"
+                : ""
+            }
           >
             <FaTrash size={14} /> Delete
           </button>
@@ -401,18 +546,18 @@ const PlantMasterTable: React.FC = () => {
                 return (
                   <tr
                     key={globalIndex}
-                    onClick={() => setSelectedRow(globalIndex)}
+                    onClick={() => setSelectedPlantId(plant.id ?? null)}
                     style={{
                       background:
-                        selectedRow === globalIndex ? "#f0f4ff" : undefined,
+                        selectedPlantId === plant.id ? "#f0f4ff" : undefined,
                     }}
                   >
                     <td>
                       <input
                         type="radio"
                         className={styles.radioInput}
-                        checked={selectedRow === globalIndex}
-                        onChange={() => setSelectedRow(globalIndex)}
+                        checked={selectedPlantId === plant.id}
+                        onChange={() => setSelectedPlantId(plant.id ?? null)}
                       />
                     </td>
                     <td>{plant.name ?? plant.plant_name ?? ""}</td>
@@ -480,11 +625,7 @@ const PlantMasterTable: React.FC = () => {
               })}
               <ConfirmDeleteModal
                 open={showDeleteModal}
-                name={
-                  selectedRow !== null && filteredData[selectedRow]
-                    ? filteredData[selectedRow].name ?? "plant"
-                    : "plant"
-                }
+                name={selectedPlant ? selectedPlant.name ?? "plant" : "plant"}
                 onCancel={() => setShowDeleteModal(false)}
                 onConfirm={confirmDelete}
               />
@@ -545,7 +686,7 @@ const PlantMasterTable: React.FC = () => {
               display: "flex",
               flexDirection: "column",
               background: "#fff",
-              zIndex: "1",
+              zIndex: "2",
             }}
           >
             <div

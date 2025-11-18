@@ -21,9 +21,7 @@ async function auditLog(
     const device = req.headers["user-agent"];
 
     console.log("AUDIT --- START");
-    console.log("operation:", operation);
-    console.log("entity:", entity_name);
-    console.log("record_id:", record_id);
+    
     console.log("req.user:", req.user);
 
     const user_id = user?.id ?? null;

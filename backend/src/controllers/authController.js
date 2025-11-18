@@ -1,5 +1,25 @@
 /**
- * authController.js - Fixed version with complete user data in JWT
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: User login (AD auth, fetch user info from DB)
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *       401:
+ *         description: Invalid credentials
  */
 
 const jwt = require("jsonwebtoken");
@@ -7,9 +27,9 @@ const db = require("../config/db");
 const ActiveDirectory = require("activedirectory2");
 
 const AD_SERVER = process.env.AD_SERVER;
-const AD_USER = process.env.AD_USER;
+const AD_USER = process.env.AD_USER; // Service account
 const AD_PASSWORD = process.env.AD_PASSWORD;
-const AD_DOMAIN = process.env.AD_DOMAIN;
+const AD_DOMAIN = process.env.AD_DOMAIN; // e.g., UNIWIN
 const DEFAULT_PASSWORD = process.env.DEFAULT_USER_PASSWORD || "Admin@123";
 
 function logDebug(...args) {
@@ -23,15 +43,13 @@ exports.login = async (req, res) => {
   logDebug("Login attempt", { username });
 
   if (!username || !password) {
-    return res.status(400).json({ 
-      message: "Username and password are required" 
-    });
+    return res
+      .status(400)
+      .json({ message: "Username and password are required" });
   }
 
   try {
-    // ===============================================
-    // 1. Fetch user from database
-    // ===============================================
+    // ---------------- Fetch user from DB ----------------
     const userQuery = "SELECT * FROM user_master WHERE employee_id = $1";
     const { rows } = await db.query(userQuery, [username]);
 
@@ -48,9 +66,7 @@ exports.login = async (req, res) => {
       return res.status(403).json({ message: "User is not active" });
     }
 
-    // ===============================================
-    // 2. AD Authentication (optional)
-    // ===============================================
+    // ---------------- AD Authentication (optional) ----------------
     let authenticated = false;
     const useAdAuth = process.env.USE_AD_AUTH === "true";
 
@@ -92,9 +108,11 @@ exports.login = async (req, res) => {
       }
     }
 
-    // Fallback: default DB password
+    // ---------------- Fallback: default DB password ----------------
     if (!authenticated && password === DEFAULT_PASSWORD) {
-      logDebug(`Default password used for ${username}`);
+      logDebug(
+        `AD failed or unavailable, default password used for ${username}`
+      );
       authenticated = true;
     }
 
@@ -103,9 +121,7 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // ===============================================
-    // 3. Normalize role_id
-    // ===============================================
+    // ---------------- Normalize role_id ----------------
     let roleIds = [];
     if (Array.isArray(user.role_id)) roleIds = user.role_id;
     else if (typeof user.role_id === "number") roleIds = [user.role_id];
@@ -118,59 +134,77 @@ exports.login = async (req, res) => {
     }
     user.role_id = roleIds;
 
-    // ===============================================
-    // 4. Fetch IT BIN Admin Status & Plant IDs
-    // ===============================================
-    let isITBin = false;
-    let itPlantIds = [];
-    let itPlants = [];
+    logDebug("User login successful:", { username, roleIds });
 
-    try {
-      // Check if user is an IT BIN admin
-      const itBinQuery = `
-        SELECT 
-          piau.plant_it_admin_id,
-          pia.plant_id,
-          pm.plant_name
-        FROM plant_it_admin_users piau
-        INNER JOIN plant_it_admin pia ON piau.plant_it_admin_id = pia.id
-        INNER JOIN plant_master pm ON pia.plant_id = pm.id
-        WHERE piau.user_id = $1 AND pia.status = 'ACTIVE'
-      `;
-      
-      const itBinResult = await db.query(itBinQuery, [user.id]);
-      
-      if (itBinResult.rows.length > 0) {
-        isITBin = true;
-        itPlantIds = itBinResult.rows.map(row => row.plant_id);
-        itPlants = itBinResult.rows.map(row => ({
-          plant_id: row.plant_id,
-          plant_name: row.plant_name,
-          plant_it_admin_id: row.plant_it_admin_id
-        }));
-        
-        logDebug(`User ${username} is IT BIN admin for plants:`, itPlantIds);
-      }
-    } catch (err) {
-      console.error("[IT BIN CHECK ERROR]", err);
-      // Continue without IT BIN info
+    // ---------------- Fetch roles dynamically ----------------
+    const roleQuery = `
+      SELECT rm.id, rm.role_name, rm.description, rm.status
+      FROM role_master rm
+      WHERE rm.id = ANY($1)
+    `;
+    const roleResult = await db.query(roleQuery, [roleIds]);
+    user.roles = roleResult.rows.map((role) => ({
+      id: role.id,
+      name: role.role_name,
+      description: role.description,
+      status: role.status,
+    }));
+
+    // ---------------- Fetch approver status dynamically ----------------
+    const approverStatusQuery = `
+      SELECT COUNT(*) > 0 AS is_approver
+      FROM access_log
+      WHERE employee_code = $1
+        AND (approver1_status = 'ACTIVE' OR approver2_status = 'ACTIVE')
+    `;
+    const approverStatusResult = await db.query(approverStatusQuery, [
+      user.employee_code,
+    ]);
+    user.is_approver = approverStatusResult.rows[0]?.is_approver || false;
+
+    logDebug("Roles and approver status fetched:", {
+      roles: user.roles,
+      isApprover: user.is_approver,
+    });
+
+    // ---------------- Dynamic Role Assignment ----------------
+    const dynamicRoleQuery = `
+      SELECT rm.id, rm.role_name
+      FROM role_master rm
+      WHERE rm.id = (
+        SELECT role
+        FROM access_log
+        WHERE employee_code = $1
+        ORDER BY created_on DESC
+        LIMIT 1
+      )
+    `;
+    const dynamicRoleResult = await db.query(dynamicRoleQuery, [
+      user.employee_code,
+    ]);
+    if (dynamicRoleResult.rows.length > 0) {
+      user.role_id = [dynamicRoleResult.rows[0].id];
+      user.roles = [
+        {
+          id: dynamicRoleResult.rows[0].id,
+          name: dynamicRoleResult.rows[0].role_name,
+        },
+      ];
+    } else {
+      logDebug("No dynamic role found for user:", user.employee_code);
     }
 
-    // ===============================================
-    // 5. Fetch User Permissions
-    // ===============================================
+    logDebug("Dynamic role assigned:", {
+      roleId: user.role_id,
+      roles: user.roles,
+    });
+
+    // ---------------- Generate JWT ----------------
+    // Fetch user permissions
     let permissions = [];
-    let permittedPlantIds = [];
-    
     try {
       const userPermsQuery = `
-        SELECT 
-          plant_id, 
-          module_id, 
-          can_add, 
-          can_edit, 
-          can_view, 
-          can_delete 
+        SELECT module_id, can_add, can_edit, can_view, can_delete 
         FROM user_plant_permission 
         WHERE user_id = $1
       `;
@@ -184,24 +218,18 @@ exports.login = async (req, res) => {
         if (p.can_delete) perms.push(`delete:${p.module_id}`);
         return perms;
       });
-
-      // Extract unique plant IDs from permissions
-      permittedPlantIds = [...new Set(userPerms.rows.map(p => p.plant_id))];
-      
-      logDebug(`User has permissions for plants:`, permittedPlantIds);
     } catch (err) {
       console.error("[PERMISSIONS ERROR]", err);
+      // Continue without permissions - they'll be fetched later if needed
     }
 
     // Add role-based permissions
-    if (roleIds.includes(1)) {
-      // SuperAdmin - full access
+    if (user.role_id.includes(1)) {
+      // SuperAdmin
       permissions.push("manage:all");
     }
 
-    // ===============================================
-    // 6. Check if User is an Approver
-    // ===============================================
+    // Check if user is an approver in any workflows
     try {
       // approval_workflow_master is the table used for workflows in this project.
       // Columns are approver_1_id ... approver_5_id and values may be comma-separated ids.
@@ -228,13 +256,9 @@ exports.login = async (req, res) => {
         permissions.push("view:approvals");
         permissions.push("read:workflows");
         permissions.push("update:workflows");
-        
-        // Add approver role if not already present
-        if (!roleIds.includes(4)) {
-          roleIds.push(4);
-        }
-        
-        logDebug(`User ${username} is an approver`);
+        // Add approver role if user is an approver but doesn't have role 4 (Manager)
+        // Do NOT change user's numeric role_id when they are an approver.
+        // Approver is a dynamic permission, not a static role assignment.
       }
 
       // Add workflow permissions for superadmins and plant admins
@@ -247,280 +271,127 @@ exports.login = async (req, res) => {
       console.error("[APPROVER CHECK ERROR]", err);
     }
 
-    // ===============================================
-    // 7. Fetch User's Location/Plant Details
-    // ===============================================
-    let userLocation = null;
-    let userPlantName = null;
-    
-    if (user.location) {
-      try {
-        const locationQuery = `
-          SELECT id, plant_name 
-          FROM plant_master 
-          WHERE id = $1
-        `;
-        const locationResult = await db.query(locationQuery, [user.location]);
-        
-        if (locationResult.rows.length > 0) {
-          userLocation = locationResult.rows[0].id;
-          userPlantName = locationResult.rows[0].plant_name;
-        }
-      } catch (err) {
-        console.error("[LOCATION FETCH ERROR]", err);
-      }
-    }
-
-    // ===============================================
-    // 8. Generate JWT with ALL user data
-    // ===============================================
+    // Ensure we include a reliable user id and username in the token payload.
+    // DB rows may have id, user_id or employee_id fields; prefer internal id and employee_id as username.
     const payload = {
-      // Core user identification
-      user_id: user.id,
-      username: user.employee_id,
-      employee_name: user.employee_name,
-      employee_code: user.employee_code,
-      email: user.email,
-      
-      // Role and permissions
-      role_id: roleIds,
+      user_id: user.id || user.user_id || null,
+      username: user.employee_id || user.username || null,
+      role_id: user.role_id,
       permissions,
-      permissions_version: 1,
-      
-      // IT BIN Admin info
-      isITBin,
-      itPlants: isITBin ? itPlants : [], // Full plant details for IT BIN admins
-      itPlantIds: isITBin ? itPlantIds : [], // Just IDs for quick checks
-      
-      // User's assigned plant/location
-      location: userLocation,
-      plant_name: userPlantName,
-      department: user.department,
-      designation: user.designation,
-      
-      // Plant access (from permissions)
-      permittedPlantIds,
-      
-      // Metadata
-      loginTime: new Date().toISOString(),
+      permissions_version: 1, // Increment when permission structure changes
     };
-
-    logDebug("JWT payload created:", {
-      user_id: payload.user_id,
-      username: payload.username,
-      role_id: payload.role_id,
-      isITBin: payload.isITBin,
-      itPlantIds: payload.itPlantIds,
-      permittedPlantIds: payload.permittedPlantIds
-    });
 
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
       expiresIn: "8h",
     });
 
-    // ===============================================
-    // 9. Return response with user info
-    // ===============================================
     return res.json({
-      success: true,
       token,
       user: {
-        id: user.id,
+        id: user.id || user.user_id,
         username: user.employee_id,
         name: user.employee_name,
         employee_code: user.employee_code,
-        email: user.email,
-        location: userLocation,
-        plant_name: userPlantName,
+        location: user.location,
         department: user.department,
         designation: user.designation,
         reporting_manager: user.reporting_manager ?? "",
         managers_manager: user.managers_manager ?? "",
-        role_id: roleIds,
+        role_id: user.role_id,
         status: user.status,
-        
-        // IT BIN info
-        isITBin,
-        itPlants: isITBin ? itPlants : [],
-        
-        // Permissions summary
-        permittedPlantIds,
-        hasApproverAccess: permissions.includes("approve:requests"),
+        email: user.email,
+        full_name: user.employee_name,
       },
     });
-
   } catch (err) {
     console.error("[AUTH ERROR]", err);
-    logDebug("Error stack:", err.stack);
-    
-    return res.status(500).json({ 
-      success: false,
-      message: "Server error during authentication" 
-    });
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
 /**
  * GET /api/auth/permissions
+ * Returns permission rows for the authenticated user.
+ * Looks for admin_plant_permission first then falls back to user_plant_permission.
  */
 exports.getPermissions = async (req, res) => {
   try {
-    logDebug("getPermissions called");
-    
+    logDebug("getPermissions called", {
+      headers: req.headers && { authorization: req.headers.authorization },
+      cookies: req.cookies ? Object.keys(req.cookies) : undefined,
+    });
+    // Extract token from Authorization header or cookie
     const authHeader = req.headers.authorization || req.headers.Authorization;
     let token = null;
-    
-    if (authHeader && typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
+    if (
+      authHeader &&
+      typeof authHeader === "string" &&
+      authHeader.startsWith("Bearer ")
+    ) {
       token = authHeader.split(" ")[1];
     } else if (req.cookies && req.cookies.token) {
       token = req.cookies.token;
     }
 
     if (!token) {
-      logDebug("No token found");
+      logDebug("getPermissions: no token found on request");
       return res.status(401).json({ message: "Missing authentication token" });
     }
 
     let payload;
     try {
       payload = jwt.verify(token, process.env.JWT_SECRET);
-      logDebug("Token verified:", {
-        user_id: payload.user_id,
-        username: payload.username,
-        isITBin: payload.isITBin
-      });
+      logDebug("getPermissions: token payload", payload);
     } catch (err) {
-      logDebug("Token verification failed:", err.message);
+      logDebug("getPermissions: token verify failed", err && err.message);
       return res.status(401).json({ message: "Invalid token" });
     }
 
+    // Determine user id from token payload or username
     let userId = payload.user_id || payload.id || null;
-    
     if (!userId && payload.username) {
+      // try to map username (employee_id) to internal id
       const userRes = await db.query(
         "SELECT id FROM user_master WHERE employee_id = $1 LIMIT 1",
         [payload.username]
       );
-      if (userRes?.rows?.length) {
+      if (userRes && userRes.rows && userRes.rows.length)
         userId = userRes.rows[0].id;
-      }
     }
 
     if (!userId) {
-      logDebug("Unable to determine user id");
-      return res.status(400).json({ 
-        message: "Unable to determine user id from token" 
+      logDebug("getPermissions: unable to determine user id from token", {
+        payload,
       });
+      return res
+        .status(400)
+        .json({ message: "Unable to determine user id from token" });
     }
 
-    // Fetch permissions
+    // Try to fetch from admin_plant_permission, fallback to user_plant_permission
     let permissions = [];
     try {
-      const q = `
-        SELECT 
-          id, transaction_id, user_id, plant_id, module_id, 
-          can_add, can_edit, can_view, can_delete, 
-          created_on, updated_on
-        FROM user_plant_permission 
-        WHERE user_id = $1 
-        ORDER BY id
-      `;
+      const q = `SELECT id, transaction_id, user_id, plant_id, module_id, can_add, can_edit, can_view, can_delete, created_on, updated_on
+                 FROM admin_plant_permission WHERE user_id = $1 ORDER BY id`;
       const { rows } = await db.query(q, [userId]);
       permissions = rows || [];
-      
-      logDebug(`Found ${permissions.length} permissions`);
     } catch (err) {
-      console.error("[PERMISSIONS FETCH ERROR]", err);
-      permissions = [];
+      // Table might not exist or query failed; try alternative table
+      try {
+        const q2 = `SELECT id, transaction_id, user_id, plant_id, module_id, can_add, can_edit, can_view, can_delete, created_on, updated_on
+                    FROM user_plant_permission WHERE user_id = $1 ORDER BY id`;
+        const { rows } = await db.query(q2, [userId]);
+        permissions = rows || [];
+      } catch (err2) {
+        // No permissions table found or other DB error - return empty list
+        console.error("[PERMISSIONS FETCH ERROR]", err, err2);
+        return res.json({ permissions: [] });
+      }
     }
 
-    return res.json({ 
-      success: true,
-      permissions,
-      user: {
-        user_id: payload.user_id,
-        username: payload.username,
-        isITBin: payload.isITBin,
-        itPlants: payload.itPlants,
-      }
-    });
-    
+    return res.json({ permissions });
   } catch (err) {
     console.error("[GET PERMISSIONS ERROR]", err);
-    return res.status(500).json({ 
-      message: "Server error" 
-    });
+    return res.status(500).json({ message: "Server error" });
   }
 };
-
-/**
- * GET /api/auth/me - Get current user details
- */
-exports.getCurrentUser = async (req, res) => {
-  try {
-    const authHeader = req.headers.authorization || req.headers.Authorization;
-    let token = null;
-    
-    if (authHeader && typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
-      token = authHeader.split(" ")[1];
-    } else if (req.cookies && req.cookies.token) {
-      token = req.cookies.token;
-    }
-
-    if (!token) {
-      return res.status(401).json({ 
-        success: false,
-        message: "Missing authentication token" 
-      });
-    }
-
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Return all data from token
-    return res.json({
-      success: true,
-      user: {
-        user_id: payload.user_id,
-        username: payload.username,
-        employee_name: payload.employee_name,
-        employee_code: payload.employee_code,
-        email: payload.email,
-        role_id: payload.role_id,
-        location: payload.location,
-        plant_name: payload.plant_name,
-        department: payload.department,
-        designation: payload.designation,
-        
-        // IT BIN info
-        isITBin: payload.isITBin,
-        itPlants: payload.itPlants,
-        itPlantIds: payload.itPlantIds,
-        
-        // Permissions
-        permissions: payload.permissions,
-        permittedPlantIds: payload.permittedPlantIds,
-        
-        // Metadata
-        loginTime: payload.loginTime,
-        tokenExpiry: payload.exp,
-      }
-    });
-    
-  } catch (err) {
-    console.error("[GET CURRENT USER ERROR]", err);
-    
-    if (err.name === "TokenExpiredError") {
-      return res.status(401).json({ 
-        success: false,
-        message: "Token expired" 
-      });
-    }
-    
-    return res.status(401).json({ 
-      success: false,
-      message: "Invalid token" 
-    });
-  }
-};
-
-module.exports = exports;

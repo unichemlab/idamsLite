@@ -174,10 +174,10 @@ exports.getAllTasks = async (req, res) => {
       params.push(access_request_type);
       whereClauses.push(`ur.access_request_type = $${params.length}`);
     }
-console.log("user ITBin",user?.isITBin);
-console.log("user itPlantIds",user.itPlantIds);
-console.log("user ITBin",user?.isITBin);
-console.log("user itPlantIds",user.itPlantIds);
+    console.log("user ITBin", user?.isITBin);
+    console.log("user itPlantIds", user.itPlantIds);
+    console.log("user ITBin", user?.isITBin);
+    console.log("user itPlantIds", user.itPlantIds);
     // Apply restriction based on ITBIN flag
     if (user?.isITBin && user.itPlantIds?.length > 0) {
       params.push(user.itPlantIds);
@@ -324,47 +324,74 @@ exports.deleteTask = async (req, res) => {
 };
 
 exports.getUserTaskRequestById = async (req, res) => {
-  const client = await pool.connect();
+  const { id } = req.params;
+
   try {
-    const { id } = req.params;
-    const { rows } = await client.query(
-      `SELECT ur.id AS user_request_id,
-              ur.transaction_id AS user_request_transaction_id,
-              ur.request_for_by,
-              ur.name,
-              ur.employee_code,
-              ur.employee_location,
-              ur.access_request_type,
-              ur.training_status,
-              ur.training_attachment,
-              ur.training_attachment_name,
-              ur.vendor_name,
-              ur.vendor_firm,
-              ur.vendor_code,
-              ur.vendor_allocated_id,
-              ur.status AS user_request_status,
-              ur.approver1_status,
-              ur.approver2_status,
-              ur.created_on,
-              tr.id AS task_id,
-              tr.transaction_id AS task_request_transaction_id,
-              tr.application_equip_id,
-              app.display_name AS application_name,
-              tr.department,
-              d.department_name,
-              tr.role,
-              r.role_name AS role_name,
-              p.plant_name AS plant_name,
-              tr.location,
-              tr.reports_to,
-              tr.task_status,
-              tr.remarks
+    // Step 1: Fetch user request + task info + task_closure
+    const { rows } = await pool.query(
+      `SELECT 
+          ur.id AS user_request_id,
+          ur.transaction_id AS user_request_transaction_id,
+          ur.request_for_by,
+          ur.name,
+          ur.employee_code,
+          ur.employee_location,
+          ur.access_request_type,
+          ur.training_status,
+          ur.training_attachment,
+          ur.training_attachment_name,
+          ur.vendor_name,
+          ur.vendor_firm,
+          ur.vendor_code,
+          ur.vendor_allocated_id,
+          ur.status AS user_request_status,
+          ur.approver1_status,
+          ur.approver2_status,
+          ur.created_on,
+          tr.id AS task_id,
+          tr.transaction_id AS task_request_transaction_id,
+          tr.application_equip_id,
+          tr.created_on AS task_created,
+          tr.updated_on AS task_updated,
+          app.display_name AS application_name,
+          tr.department,
+          d.department_name,
+          tr.role,
+          r.role_name AS role_name,
+          p.id AS plant_id,
+          p.plant_name AS plant_name,
+          tr.location,
+          tr.reports_to,
+          tr.task_status,
+          tr.remarks,
+
+         -- 🧩 Task Closure info (if exists)
+          tc.assignment_group,
+          tc.role_granted,
+          tc.access,
+          tc.assigned_to,
+          tc.status,
+          tc.from_date,
+          tc.to_date,
+          tc.updated_on,
+
+          -- 🧩 Assigned User info (from user_master)
+          um.employee_name AS assigned_to_name,
+          um.email AS closure_assigned_to_email,
+          um.department AS closure_assigned_to_department,
+          um.location AS closure_assigned_to_location
+
        FROM task_requests tr
        LEFT JOIN user_requests ur ON tr.user_request_id = ur.id
        LEFT JOIN department_master d ON tr.department = d.id
        LEFT JOIN role_master r ON tr.role = r.id
        LEFT JOIN plant_master p ON tr.location = p.id
        LEFT JOIN application_master app ON tr.application_equip_id = app.id
+       LEFT JOIN task_closure tc 
+              ON tc.ritm_number = ur.transaction_id 
+             AND tc.task_number = tr.transaction_id
+       LEFT JOIN user_master um 
+        ON tc.assigned_to = um.id
        WHERE tr.id = $1
        ORDER BY tr.id`,
       [id]
@@ -374,12 +401,67 @@ exports.getUserTaskRequestById = async (req, res) => {
       return res.status(404).json({ error: "User request not found" });
     }
 
+    const plantId = rows[0].plant_id;
+    let itAdminGroup = null;
+    let itAdminUsers = [];
+
+    // Step 2: Fetch assignment_it_group from plant_it_admin where status = ACTIVE
+    const itAdminResult = await pool.query(
+      `SELECT id, assignment_it_group
+         FROM plant_it_admin
+        WHERE plant_id = $1 
+          AND status = 'ACTIVE'`,
+      [plantId]
+    );
+
+    if (itAdminResult.rows.length > 0) {
+      const plantItAdmin = itAdminResult.rows[0];
+      itAdminGroup = plantItAdmin;
+
+      // Step 3: Fetch all IT admin user IDs from plant_it_admin_users
+      const adminUsersResult = await pool.query(
+        `SELECT user_id
+           FROM plant_it_admin_users
+          WHERE plant_it_admin_id = $1`,
+        [plantItAdmin.id]
+      );
+
+      const userIds = adminUsersResult.rows.map((row) => row.user_id);
+
+      // Step 4: Fetch user details if user IDs exist
+      if (userIds.length > 0) {
+        const usersQuery = await pool.query(
+          `SELECT id AS user_id, employee_name, employee_code, email, department, location
+             FROM user_master
+            WHERE id = ANY($1::int[])`,
+          [userIds]
+        );
+        itAdminUsers = usersQuery.rows;
+      }
+    }
+
+    // Step 5: Fetch assigned_to user details from user_master
+    let assignedUserDetails = null;
+    const assignedToId = rows[0].assigned_to;
+
+    if (assignedToId) {
+      const assignedUserQuery = await pool.query(
+        `SELECT id AS user_id, employee_name, employee_code, email, department, location
+           FROM user_master
+          WHERE id = $1`,
+        [assignedToId]
+      );
+      assignedUserDetails = assignedUserQuery.rows[0] || null;
+    }
+
+    // Step 6: Structure final response
     const userRequest = {
       id: rows[0].user_request_id,
       request_for_by: rows[0].request_for_by,
       ritmNumber: rows[0].user_request_transaction_id,
       name: rows[0].name,
       employee_code: rows[0].employee_code,
+      request_created_on: rows[0].created_on,
       employee_location: rows[0].employee_location,
       access_request_type: rows[0].access_request_type,
       training_status: rows[0].training_status,
@@ -395,23 +477,35 @@ exports.getUserTaskRequestById = async (req, res) => {
         .map((row) => ({
           task_id: row.task_id,
           taskNumber: row.task_request_transaction_id,
+          taskNumber: row.task_request_transaction_id,
           application_equip_id: row.application_equip_id,
           application_name: row.application_name,
           department_id: row.department,
           department_name: row.department_name,
+          plant_name: row.plant_name,
           role_id: row.role,
           role_name: row.role_name,
           location: row.location,
           reports_to: row.reports_to,
           task_status: row.task_status,
+          task_created: row.task_created,
+          task_updated: row.task_updated,
+          remarks: row.remarks,
+          // Task Closure info
+          assignment_it_group: row.assignment_group,
+          granted_role: row.role_granted,
+          assigned_to: row.assigned_to,
+          assigned_user: assignedUserDetails,
+          access: row.access,
         })),
+      it_admin_group: itAdminGroup,
+      it_admin_users: itAdminUsers,
     };
-
+  console.log(res.json(userRequest));
     res.json(userRequest);
   } catch (err) {
-    console.error("❌ Error fetching user task request:", err);
+    console.error("Error in getUserTaskRequestById:", err);
     res.status(500).json({ error: err.message });
-  } finally {
-    client.release();
   }
 };
+

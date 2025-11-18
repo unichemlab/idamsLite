@@ -32,10 +32,12 @@ const authorize = (requiredPermissions) => {
       // Normalize and attach a consistent user object on req.user
       const normalizedUser = {
         user_id: user_id,
-        id: user_id,
-        role_id: role_id,
+         id: user_id,
         roles: role_id,
-        permissions: permissions || [],
+        permissions: permissions || [], // May be empty if using role-based checks
+        isITBin:isITBin,
+        itPlants:itPlants,
+        itPlantIds:itPlantIds
       };
 
       // Check if user is an approver
@@ -54,14 +56,7 @@ const authorize = (requiredPermissions) => {
       }
 
       // Attach user info to request
-      req.user = {
-        id: user_id,
-        roles: role_id,
-        permissions: permissions || [], // May be empty if using role-based checks
-        isITBin:isITBin,
-        itPlants:itPlants,
-        itPlantIds:itPlantIds
-      };
+      req.user = normalizedUser;
 
       // If no permissions required, just validate token
       if (!requiredPermissions) {

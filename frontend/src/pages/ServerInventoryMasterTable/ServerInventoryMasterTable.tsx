@@ -10,6 +10,8 @@ import autoTable from "jspdf-autotable";
 import { useNavigate } from "react-router-dom";
 import { ServerContext } from "../ServerInventoryMaster/ServerContext";
 import unichemLogoBase64 from "../../assets/unichemLogoBase64";
+import login_headTitle2 from "../../assets/login_headTitle2.png";
+import { useAuth } from "../../context/AuthContext";
 
 const ServerInventoryMasterTable: React.FC = () => {
   const serverCtx = useContext(ServerContext);
@@ -23,6 +25,8 @@ const ServerInventoryMasterTable: React.FC = () => {
   const [tempFilterValue, setTempFilterValue] = useState(filterValue);
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
+
+  const { user } = useAuth();
 
   // Fetch servers from backend
   // Removed direct fetch; data comes from context
@@ -48,23 +52,44 @@ const ServerInventoryMasterTable: React.FC = () => {
   });
 
   // PDF Export Handler
-  const handleExportPDF = () => {
+  const loadImage = (url: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.src = url;
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+    });
+  };
+
+  const handleExportPDF = async () => {
     const doc = new jsPDF({ orientation: "landscape" });
     const today = new Date();
     const fileName = `ServerMaster_${today.toISOString().split("T")[0]}.pdf`;
 
     // --- HEADER BAR ---
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     const pageMargin = 14;
-    const headerHeight = 20;
+    const headerHeight = 28;
     doc.setFillColor(0, 82, 155);
     doc.rect(0, 0, pageWidth, headerHeight, "F");
 
-    // Logo (if available)
+    // Logo (prefer PNG import, fallback to base64)
     let logoWidth = 0;
     let logoHeight = 0;
     try {
-      if (unichemLogoBase64 && unichemLogoBase64.startsWith("data:image")) {
+      if (login_headTitle2) {
+        const img = await loadImage(login_headTitle2);
+        const maxLogoHeight = headerHeight * 0.6;
+        const scale = maxLogoHeight / img.height;
+        logoWidth = img.width * scale;
+        logoHeight = img.height * scale;
+        const logoY = headerHeight / 2 - logoHeight / 2;
+        doc.addImage(img, "PNG", pageMargin, logoY, logoWidth, logoHeight);
+      } else if (
+        unichemLogoBase64 &&
+        unichemLogoBase64.startsWith("data:image")
+      ) {
         logoWidth = 50;
         logoHeight = 18;
         const logoY = headerHeight / 2 - logoHeight / 2;
@@ -78,7 +103,7 @@ const ServerInventoryMasterTable: React.FC = () => {
         );
       }
     } catch (e) {
-      // ignore logo error
+      console.warn("Logo load failed", e);
     }
 
     // Title + Exported by/date
@@ -90,7 +115,9 @@ const ServerInventoryMasterTable: React.FC = () => {
 
     doc.setFontSize(9);
     doc.setTextColor(220, 230, 245);
-    const exportedText = `Exported on: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
+    const exportedByName =
+      (user && (user.name || user.username)) || "Unknown User";
+    const exportedText = `Exported by: ${exportedByName}  On: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
     const textWidth = doc.getTextWidth(exportedText);
     doc.text(exportedText, pageWidth - pageMargin - textWidth, titleY);
 
@@ -228,7 +255,6 @@ const ServerInventoryMasterTable: React.FC = () => {
     });
 
     // --- FOOTER ---
-    const pageHeight = doc.internal.pageSize.getHeight();
     const pageCount =
       (doc as any).getNumberOfPages?.() ||
       (doc as any).internal?.getNumberOfPages?.() ||

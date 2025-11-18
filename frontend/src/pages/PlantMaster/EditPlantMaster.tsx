@@ -14,8 +14,12 @@ const EditPlantMaster: React.FC = () => {
   const plantCtx = useContext(PlantContext);
   const navigate = useNavigate();
   const location = useLocation();
-  const index = id ? parseInt(id, 10) : -1;
-  const plant = plantCtx?.plants[index];
+  // `id` route param is a DB id (number). Find the corresponding index in
+  // the plants array maintained by PlantContext so update/delete functions
+  // that expect an index still work.
+  const routeId = id ? parseInt(id, 10) : -1;
+  const plantIndex = plantCtx?.plants.findIndex((p) => p.id === routeId) ?? -1;
+  const plant = plantIndex >= 0 ? plantCtx?.plants[plantIndex] : undefined;
   const [form, setForm] = useState<Plant>(
     plant ?? {
       name: "",
@@ -55,7 +59,8 @@ const EditPlantMaster: React.FC = () => {
 
   const handleConfirm = (data: Record<string, string>) => {
     // Optionally, you can check password here with backend
-    plantCtx.updatePlant(index, form);
+    // plantCtx.updatePlant expects an index into the plants array
+    if (plantIndex >= 0) plantCtx.updatePlant(plantIndex, form);
     setShowConfirm(false);
     navigate("/superadmin");
   };

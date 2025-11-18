@@ -5,6 +5,7 @@ import {
   AbilityClass,
   RawRuleOf,
   Subject,
+  subject as caslSubject,
 } from "@casl/ability";
 import { useAuth } from "./AuthContext";
 
@@ -20,7 +21,15 @@ export type AbilitySubject =
   | "tasks"
   | "approvals"
   | "reports"
-  | "settings";
+  | "settings"
+  | "plants"
+  | "vendors"
+  | "applications"
+  | "departments"
+  | "servers"
+  | "systems"
+  | "user_requests"
+  | "activity";
 
 // Define the type for ability rules
 type AppAbilityType = Ability<[AbilityAction, AbilitySubject | Subject]>;
@@ -34,9 +43,11 @@ interface IAbilityContext {
   ability: AppAbilityType;
   // Accept either the newer single-string permission "action:subject" OR
   // the legacy two-argument form ability.can(action, subject)
+  // and an optional meta/conditions object for scoped permissions (e.g. plantId)
   can: (
     permissionOrAction: Permission | AbilityAction,
-    subject?: AbilitySubject | Subject
+    subject?: AbilitySubject | Subject,
+    meta?: Record<string, any>
   ) => boolean;
   role: string;
   permissions: Permission[];
@@ -61,9 +72,44 @@ function buildRulesFromPermissions(permissions: Permission[] = []): Rules {
 
   // Add granular permissions
   permissions.forEach((permission) => {
-    const [action, subject] = permission.split(":") as [AbilityAction, AbilitySubject];
-    if (action && subject) {
-      can(action, subject);
+    // Support multiple forms:
+    // - "action:subject" (legacy)
+    // - "action:subject:plantId" (scoped)
+    // - JSON stringified object: { action, subject, conditions }
+    try {
+      if (typeof permission === "string" && permission.trim().startsWith("{")) {
+        // try parse JSON encoded permission (backend may send structured rules)
+        const obj = JSON.parse(permission);
+        if (obj.action && obj.subject) {
+          can(
+            obj.action as AbilityAction,
+            obj.subject as AbilitySubject,
+            obj.conditions || {}
+          );
+        }
+        return;
+      }
+
+      const parts = (permission as string).split(":");
+      const action = parts[0] as AbilityAction;
+      const subject = (parts[1] || "") as AbilitySubject;
+
+      if (!action || !subject) return;
+
+      // If a plant id is provided as the third token, attach as condition plantId
+      if (parts.length >= 3 && parts[2]) {
+        const plantId = Number(parts[2]);
+        if (!Number.isNaN(plantId)) {
+          can(action, subject, { plantId });
+        } else {
+          // non-numeric token — treat as a generic condition key:value pair if possible
+          can(action, subject, { scope: parts.slice(2).join(":") });
+        }
+      } else {
+        can(action, subject);
+      }
+    } catch (e) {
+      console.warn("Invalid permission entry, skipping:", permission, e);
     }
   });
 
@@ -144,17 +190,68 @@ export const AbilityProvider: React.FC<{
 
   const contextValue = {
     ability,
-    can: (permissionOrAction: Permission | AbilityAction, subject?: AbilitySubject | Subject) => {
-      // single string form: "action:subject"
-      if (typeof permissionOrAction === "string" && typeof subject === "undefined") {
+    can: (
+      permissionOrAction: Permission | AbilityAction,
+      subject?: AbilitySubject | Subject,
+      meta?: Record<string, any>
+    ) => {
+      // single string form: "action:subject" or "action:subject:plantId"
+      if (
+        typeof permissionOrAction === "string" &&
+        typeof subject === "undefined"
+      ) {
         const permission = permissionOrAction as Permission;
-        const [action, subj] = permission.split(":") as [AbilityAction, AbilitySubject];
-        return ability.can(action, subj);
+        const parts = permission.split(":");
+        const action = parts[0] as AbilityAction;
+        const subj = (parts[1] || "") as AbilitySubject;
+
+        if (!action || !subj) return false;
+
+        // plant-scoped: third token is plant id
+        if (parts.length >= 3 && parts[2]) {
+          const plantId = Number(parts[2]);
+          if (!Number.isNaN(plantId))
+            // Use CASL subject helper so conditional rules with { plantId }
+            // are matched by passing a subject instance that contains plantId
+            return (ability as any).can(action, caslSubject(subj, { plantId }));
+          // fallback: send leftover as scope
+          return (ability as any).can(
+            action,
+            caslSubject(subj, { scope: parts.slice(2).join(":") })
+          );
+        }
+
+        // no scope
+        return (ability as any).can(action, subj);
       }
 
-      // two-argument legacy form: can(action, subject)
-      if (typeof permissionOrAction === "string" && typeof subject !== "undefined") {
-        return ability.can(permissionOrAction as AbilityAction, subject as AbilitySubject);
+      // two-argument legacy form: can(action, subject) with optional meta
+      if (
+        typeof permissionOrAction === "string" &&
+        typeof subject !== "undefined"
+      ) {
+        // If meta/conditions provided and subject is a string (subject name),
+        // wrap into a CASL subject instance so conditional rules are checked
+        // against the object's properties.
+        if (meta && Object.keys(meta).length > 0) {
+          if (typeof subject === "string") {
+            return (ability as any).can(
+              permissionOrAction as AbilityAction,
+              caslSubject(subject as AbilitySubject, meta)
+            );
+          }
+          // subject is an object instance - merge meta into it for checking
+          const subjectObj = { ...(subject as Record<string, any>), ...meta };
+          return (ability as any).can(
+            permissionOrAction as AbilityAction,
+            subjectObj
+          );
+        }
+
+        return (ability as any).can(
+          permissionOrAction as AbilityAction,
+          subject as AbilitySubject
+        );
       }
 
       return false;
