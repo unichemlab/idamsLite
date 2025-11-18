@@ -31,6 +31,7 @@ const app = express();
 // Configure CORS to allow both localhost and deployed frontend
 const allowedOrigins = [
   "http://localhost:3000",
+  "http://10.1.19.109:3000",
   "https://pharmacorp-app-production.up.railway.appE",
   "https://idams-lite.vercel.app",
 ];
@@ -80,6 +81,29 @@ app.use("/api/approvals", approvalsRoutes);
 // Use AD sync routes
 app.use(adSyncRoutes);
 app.use("/api/workflows", workflowRoutes);
+
+app.get("/api/tech-stack", (req, res) => {
+  res.json({
+    frontend: {
+      framework: "React",
+      libs: ["axios", "react-router-dom", "redux"]
+    },
+    backend: {
+      framework: "Node.js + Express",
+      libs: ["pg", "cors", "multer", "jsonwebtoken", "winston"]
+    },
+    database: {
+      type: "PostgreSQL",
+      version: "17 / 18"
+    },
+    tools: {
+      ci_cd: "GitHub (future Docker)",
+      api_docs: "Swagger UI"
+    }
+  });
+});
+
+
 
 app.get("/api/ad-users-sync", async (req, res) => {
   let totalRecords = 0,
@@ -360,8 +384,8 @@ app.get("/api/ad-check", async (req, res) => {
       res.json({
         status: true,
         message: "✅ AD connected successfully",
-        user: user || {},
-        baseDN,
+        // user: user || {},
+        // baseDN,
       });
     });
   } catch (err) {
