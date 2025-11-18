@@ -2,7 +2,8 @@ import React from "react";
 import ProfileIconWithLogout from "../PlantMasterTable/ProfileIconWithLogout";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import unichemLogoBase64 from "../../assets/unichemLogoBase64";
+import login_headTitle2 from "../../assets/login_headTitle2.png";
+import { useAuth } from "../../context/AuthContext";
 import styles from "./RoleMasterTable.module.css";
 import paginationStyles from "../../styles/Pagination.module.css";
 import { FaEdit, FaTrash, FaRegClock } from "react-icons/fa";
@@ -41,6 +42,7 @@ export default function RoleMasterTable({
   const popoverRef = React.useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
   const { can } = useAbility();
+  const { user } = useAuth();
 
   // Filtering logic
   const filteredData = roles.filter((role) => {
@@ -69,8 +71,17 @@ export default function RoleMasterTable({
     currentPage * rowsPerPage
   );
 
+  const loadImage = (url: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.src = url;
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+    });
+  };
+
   // PDF Export Handler for Role Table
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     const doc = new jsPDF({ orientation: "landscape" });
     const today = new Date();
     const fileName = `RoleMaster_${today.toISOString().split("T")[0]}.pdf`;
@@ -78,29 +89,25 @@ export default function RoleMasterTable({
     // --- HEADER BAR ---
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageMargin = 14;
-    const headerHeight = 20;
+    const headerHeight = 28;
     doc.setFillColor(0, 82, 155);
     doc.rect(0, 0, pageWidth, headerHeight, "F");
 
-    // Logo (if available)
+    // Logo
     let logoWidth = 0;
     let logoHeight = 0;
-    try {
-      if (unichemLogoBase64 && unichemLogoBase64.startsWith("data:image")) {
-        logoWidth = 50;
-        logoHeight = 18;
+    if (login_headTitle2) {
+      try {
+        const img = await loadImage(login_headTitle2);
+        const maxLogoHeight = headerHeight * 0.6;
+        const scale = maxLogoHeight / img.height;
+        logoWidth = img.width * scale;
+        logoHeight = img.height * scale;
         const logoY = headerHeight / 2 - logoHeight / 2;
-        doc.addImage(
-          unichemLogoBase64,
-          "PNG",
-          pageMargin,
-          logoY,
-          logoWidth,
-          logoHeight
-        );
+        doc.addImage(img, "PNG", pageMargin, logoY, logoWidth, logoHeight);
+      } catch (e) {
+        console.warn("Logo load failed", e);
       }
-    } catch (e) {
-      // ignore logo error
     }
 
     // Title + Exported by/date
@@ -112,7 +119,9 @@ export default function RoleMasterTable({
 
     doc.setFontSize(9);
     doc.setTextColor(220, 230, 245);
-    const exportedText = `Exported on: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
+    const exportedByName =
+      (user && (user.name || user.username)) || "Unknown User";
+    const exportedText = `Exported by: ${exportedByName}  On: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
     const textWidth = doc.getTextWidth(exportedText);
     doc.text(exportedText, pageWidth - pageMargin - textWidth, titleY);
 

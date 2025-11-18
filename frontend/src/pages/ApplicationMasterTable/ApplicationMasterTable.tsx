@@ -7,10 +7,12 @@ import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { FaEdit, FaTrash } from "react-icons/fa";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
+import login_headTitle2 from "../../assets/login_headTitle2.png";
 
 import { useApplications } from "../../context/ApplicationsContext";
 import { useDepartmentContext } from "../DepartmentMaster/DepartmentContext";
 import { usePlantContext } from "../PlantMaster/PlantContext";
+import { useAuth } from "../../context/AuthContext";
 import { fetchApplicationActivityLogs } from "../../utils/api";
 
 // Removed unused local applications array. Use context instead.
@@ -34,6 +36,7 @@ export default function ApplicationMasterTable() {
   const { applications, setApplications } = useApplications();
   const { departments } = useDepartmentContext();
   const { plants } = usePlantContext();
+  const { user } = useAuth();
 
   // Helper to get department name by id
   const getDepartmentName = (id: number) => {
@@ -138,10 +141,18 @@ export default function ApplicationMasterTable() {
     navigate("/superadmin", { state: { activeTab: "application" } });
   };
 
+  const loadImage = (url: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.src = url;
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+    });
+  };
+
   const handleExportPDF = async () => {
     const jsPDF = (await import("jspdf")).default;
     const autoTable = (await import("jspdf-autotable")).default;
-    const unichemLogoBase64 = require("../../assets/unichemLogoBase64").default;
 
     const doc = new jsPDF({ orientation: "landscape" });
     const today = new Date();
@@ -151,30 +162,27 @@ export default function ApplicationMasterTable() {
 
     // --- HEADER BAR ---
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     const pageMargin = 14;
-    const headerHeight = 20;
+    const headerHeight = 28;
     doc.setFillColor(0, 82, 155);
     doc.rect(0, 0, pageWidth, headerHeight, "F");
 
-    // Logo (if available)
+    // Logo
     let logoWidth = 0;
     let logoHeight = 0;
-    try {
-      if (unichemLogoBase64 && unichemLogoBase64.startsWith("data:image")) {
-        logoWidth = 50;
-        logoHeight = 18;
+    if (login_headTitle2) {
+      try {
+        const img = await loadImage(login_headTitle2);
+        const maxLogoHeight = headerHeight * 0.6;
+        const scale = maxLogoHeight / img.height;
+        logoWidth = img.width * scale;
+        logoHeight = img.height * scale;
         const logoY = headerHeight / 2 - logoHeight / 2;
-        doc.addImage(
-          unichemLogoBase64,
-          "PNG",
-          pageMargin,
-          logoY,
-          logoWidth,
-          logoHeight
-        );
+        doc.addImage(img, "PNG", pageMargin, logoY, logoWidth, logoHeight);
+      } catch (e) {
+        console.warn("Logo load failed", e);
       }
-    } catch (e) {
-      // ignore logo error
     }
 
     // Title + Exported by/date
@@ -186,7 +194,9 @@ export default function ApplicationMasterTable() {
 
     doc.setFontSize(9);
     doc.setTextColor(220, 230, 245);
-    const exportedText = `Exported on: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
+    const exportedByName =
+      (user && (user.name || user.username)) || "Unknown User";
+    const exportedText = `Exported by: ${exportedByName}  On: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
     const textWidth = doc.getTextWidth(exportedText);
     doc.text(exportedText, pageWidth - pageMargin - textWidth, titleY);
 
@@ -251,7 +261,6 @@ export default function ApplicationMasterTable() {
     });
 
     // --- FOOTER ---
-    const pageHeight = doc.internal.pageSize.getHeight();
     const pageCount =
       (doc as any).getNumberOfPages?.() ||
       (doc as any).internal?.getNumberOfPages?.() ||
