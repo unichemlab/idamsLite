@@ -40,6 +40,7 @@ export interface AuthUser {
   token: string;
   // true when this user appears as an approver in any workflow
   isApprover?: boolean;
+  isITBin?: boolean;
   // Role name for easier checks
   roleName?: string;
   // User's permissions array
