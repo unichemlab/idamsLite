@@ -449,7 +449,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } catch (e) {
         console.warn("fetchWorkflowsForUser", e);
       }
-
+       try {
+                await fetchITBinForUser(authUser.id, authUser.token);
+              } catch (e) {
+                console.warn("restore ITBIN", e);
+              }
       console.log("[AuthContext] User set after login:", authUser);
 
       // Determine initial route and store it

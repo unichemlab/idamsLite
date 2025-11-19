@@ -111,6 +111,7 @@ const SuperAdmin: React.FC = () => {
       server: "servers",
       dashboard: "dashboard",
       Task: "tasks",
+      TaskPlantITSupport :"it_support"
     };
     const act = actionMap[action] || action;
     const subj = subjectMap[subjectKey] || subjectKey;
