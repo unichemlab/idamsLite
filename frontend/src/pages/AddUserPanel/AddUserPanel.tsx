@@ -113,6 +113,49 @@ const AddUserPanel = ({
     }
   }, [departments, initialData]);
 
+  // If editing an existing user, fetch plant-level permissions and populate form
+  useEffect(() => {
+    let mounted = true;
+    const loadPlantPermissions = async () => {
+      try {
+        const id = (initialData as any)?.id;
+        if (!id) return;
+        const res = await fetch(`/api/users/${id}/plant-permissions`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!mounted) return;
+        const mapped = data.mappedPermissions || {};
+        // Only include keys that look like "Plant-Module"
+        const filtered: Record<string, string[]> = {};
+        Object.keys(mapped).forEach((k) => {
+          if (k && k.includes("-")) {
+            filtered[k] = mapped[k];
+          }
+        });
+        setForm((prev) => ({
+          ...prev,
+          permissions:
+            Object.keys(filtered).length > 0 ? filtered : prev.permissions,
+          // ensure plants include any plant names derived from mapped keys
+          plants: Array.from(
+            new Set([
+              ...prev.plants,
+              ...(Object.keys(filtered)
+                .map((k) => (k.includes("-") ? k.split("-")[0] : null))
+                .filter(Boolean) as string[]),
+            ])
+          ),
+        }));
+      } catch (e) {
+        // ignore load errors
+      }
+    };
+    if (mode === "edit" && initialData) loadPlantPermissions();
+    return () => {
+      mounted = false;
+    };
+  }, [initialData, mode]);
+
   // Plant selection logic
   const handleCheckboxChange = (plant: string) => {
     let shouldShowError = false;

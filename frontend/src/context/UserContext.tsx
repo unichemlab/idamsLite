@@ -223,6 +223,25 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
       console.warn("Failed to fetch plants for permission mapping:", e);
     }
 
+    // helper: fuzzy resolve plant name -> id (handles minor name differences)
+    const normalize = (s: string) =>
+      String(s || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
+    const resolvePlantId = (plantName?: string) => {
+      if (!plantName) return null;
+      if (plantsByName[plantName]) return plantsByName[plantName];
+      const target = normalize(plantName);
+      for (const k of Object.keys(plantsByName)) {
+        if (normalize(k) === target) return plantsByName[k];
+      }
+      for (const k of Object.keys(plantsByName)) {
+        const nk = normalize(k);
+        if (nk.includes(target) || target.includes(nk)) return plantsByName[k];
+      }
+      return null;
+    };
+
     // Robustly handle empty, null, or unexpected permissions object
     if (user.permissions && typeof user.permissions === "object") {
       Object.keys(user.permissions).forEach((moduleKey) => {
@@ -289,6 +308,71 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
       body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error("Failed to add user");
+    const created = await res.json();
+
+    // If permissions present, convert to plant-permission rows and send to backend
+    try {
+      const createdId = created?.user?.id || created?.id;
+      if (
+        createdId &&
+        user.permissions &&
+        typeof user.permissions === "object"
+      ) {
+        const permissionRows: any[] = [];
+        Object.keys(user.permissions).forEach((moduleKey) => {
+          const split = moduleKey.split("-");
+          let plantName: string | undefined;
+          let moduleName: string;
+          if (split.length > 1) {
+            plantName = split[0];
+            moduleName = split.slice(1).join("-");
+          } else {
+            plantName = undefined;
+            moduleName = moduleKey;
+          }
+          const moduleId = moduleName
+            .toLowerCase()
+            .replace(/\s+/g, "_")
+            .replace(/[^a-z0-9_]/g, "");
+          const actions = Array.isArray(user.permissions[moduleKey])
+            ? user.permissions[moduleKey]
+            : [];
+          // Map actions to booleans
+          const can_add = actions.includes("Add");
+          const can_edit = actions.includes("Edit");
+          const can_view = actions.includes("View");
+          const can_delete = actions.includes("Delete");
+          // Resolve plant id via plantsByName map (with fuzzy fallback)
+          const plantId = resolvePlantId(plantName);
+          if (!plantId) {
+            console.warn(
+              "Skipping permission for unresolved plant:",
+              plantName,
+              moduleName
+            );
+            return; // skip global or unresolved plants
+          }
+          permissionRows.push({
+            plant_id: plantId,
+            module_id: moduleId,
+            can_add,
+            can_edit,
+            can_view,
+            can_delete,
+          });
+        });
+        if (permissionRows.length > 0) {
+          await fetch(`${API_URL}/${createdId}/plant-permissions`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ permissions: permissionRows }),
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to save plant permissions after create:", e);
+    }
+
     await fetchUsers();
   };
 
@@ -324,6 +408,25 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
       console.warn("Failed to fetch plants for permission mapping:", e);
     }
 
+    // helper: fuzzy resolve plant name -> id (handles minor name differences)
+    const normalize = (s: string) =>
+      String(s || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
+    const resolvePlantId = (plantName?: string) => {
+      if (!plantName) return null;
+      if (plantsByName[plantName]) return plantsByName[plantName];
+      const target = normalize(plantName);
+      for (const k of Object.keys(plantsByName)) {
+        if (normalize(k) === target) return plantsByName[k];
+      }
+      for (const k of Object.keys(plantsByName)) {
+        const nk = normalize(k);
+        if (nk.includes(target) || target.includes(nk)) return plantsByName[k];
+      }
+      return null;
+    };
+
     // Robustly handle empty, null, or unexpected permissions object
     if (user.permissions && typeof user.permissions === "object") {
       Object.keys(user.permissions).forEach((moduleKey) => {
@@ -348,10 +451,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
           // Skip if subject empty for any reason
           if (!subject || String(subject).trim() === "") return;
           if (plantName) {
-            const plantId = plantsByName[plantName];
+            const plantId = resolvePlantId(plantName);
             if (plantId) {
               permissionTokens.push(`${mapped}:${subject}:${plantId}`);
             } else {
+              // fallback to plant name when id resolution fails
               permissionTokens.push(`${mapped}:${subject}:${plantName}`);
             }
           } else {
@@ -386,6 +490,61 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
       body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error("Failed to edit user");
+    // After updating user_master, also update user_plant_permission
+    try {
+      // Build permission rows similar to addUser
+      const permissionRows: any[] = [];
+      Object.keys(user.permissions || {}).forEach((moduleKey) => {
+        const split = moduleKey.split("-");
+        let plantName: string | undefined;
+        let moduleName: string;
+        if (split.length > 1) {
+          plantName = split[0];
+          moduleName = split.slice(1).join("-");
+        } else {
+          plantName = undefined;
+          moduleName = moduleKey;
+        }
+        const moduleId = moduleName
+          .toLowerCase()
+          .replace(/\s+/g, "_")
+          .replace(/[^a-z0-9_]/g, "");
+        const actions = Array.isArray(user.permissions[moduleKey])
+          ? user.permissions[moduleKey]
+          : [];
+        const can_add = actions.includes("Add");
+        const can_edit = actions.includes("Edit");
+        const can_view = actions.includes("View");
+        const can_delete = actions.includes("Delete");
+        const plantId = plantsByName[plantName || ""];
+        if (!plantId) return; // skip unresolved or global
+        permissionRows.push({
+          plant_id: plantId,
+          module_id: moduleId,
+          can_add,
+          can_edit,
+          can_view,
+          can_delete,
+        });
+      });
+      if (permissionRows.length > 0) {
+        await fetch(`${API_URL}/${userId}/plant-permissions`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ permissions: permissionRows }),
+        });
+      } else {
+        // If no permissions provided, clear existing
+        await fetch(`${API_URL}/${userId}/plant-permissions`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ permissions: [] }),
+        });
+      }
+    } catch (e) {
+      console.warn("Failed to save plant permissions after edit:", e);
+    }
+
     await fetchUsers();
   };
 
