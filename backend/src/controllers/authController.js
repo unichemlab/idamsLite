@@ -173,6 +173,8 @@ exports.login = async (req, res) => {
       console.error("[IT BIN CHECK ERROR]", err);
      }
 
+    // ---------------- Generate JWT ----------------
+    // Fetch user permissions
     // ---------------- Fetch roles dynamically ----------------
     const roleQuery = `
       SELECT rm.id, rm.role_name, rm.description, rm.status
@@ -312,6 +314,15 @@ exports.login = async (req, res) => {
       console.error("[APPROVER CHECK ERROR]", err);
     }
 
+    // ===============================================
+// 6.1 Add IT BIN Admin Extra Permissions
+// ===============================================
+if (isITBin) {
+  permissions.push("view:tasks");
+  permissions.push("manage:tasks");
+}
+
+
 
     // ===============================================
     // 7. Fetch User's Location/Plant Details
@@ -447,7 +458,7 @@ exports.getPermissions = async (req, res) => {
     if (!userId && payload.username) {
       // try to map username (employee_id) to internal id
       const userRes = await db.query(
-        "SELECT id FROM user_master WHERE employee_id = $1 LIMIT 1",
+        "SELECT id FROM manage:all WHERE employee_id = $1 LIMIT 1",
         [payload.username]
       );
       if (userRes && userRes.rows && userRes.rows.length)

@@ -6,7 +6,7 @@ import React, {
   useEffect,
   useCallback,
 } from "react";
-import { fetchPermissionsAPI, fetchWorkflows, loginAPI } from "../utils/api";
+import { fetchPermissionsAPI, fetchWorkflows, loginAPI,API_BASE } from "../utils/api";
 import AbilityProvider from "./AbilityContext";
 
 // Interface for workflow data
@@ -166,6 +166,69 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     [setUser]
   );
 
+
+  // Check whether a given user id appears in any workflow approver lists.
+  // Uses setUser updater safely to avoid stale closures / unnecessary deps.
+  const fetchITBinForUser = useCallback(
+  async (userId: number, token?: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/plant-itsupport`, {
+        method: "GET",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) return false;
+
+      const data = await res.json().catch(() => []);
+      const workflows = Array.isArray(data) ? data : [];
+
+      console.log("workflow", workflows);
+
+      // find all workflows where this user exists
+      const matched = workflows.filter(
+        (wf: any) =>
+          wf &&
+          Array.isArray(wf.users) &&
+          wf.users.some((u: any) => u && Number(u.user_id) === Number(userId))
+      );
+
+      const found = matched.length > 0;
+
+      if (found) {
+        // extract plant list
+        const plantList = matched.map((wf) => ({
+          plant_id: wf.plant_id,
+          plant_name: wf.plant_name,
+        }));
+
+        setUser((prev) => {
+          if (!prev) return prev;
+
+          // only update if not already stored
+          const updated = {
+            ...prev,
+            isITBin: true,
+            itPlants: plantList,
+          };
+
+          try {
+            localStorage.setItem("authUser", JSON.stringify(updated));
+          } catch {}
+
+          return updated;
+        });
+      }
+
+      console.log("ITBin result:", found);
+      console.log("ITBin plant result:", matched);
+      return { found, plants: matched };
+    } catch (err) {
+      console.error("fetchITBinForUser error", err);
+      return false;
+    }
+  },
+  [setUser]
+);
+
   // Restore user from localStorage on app load for persistent login
   useEffect(() => {
     let mounted = true;
@@ -192,7 +255,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               }
             } catch (e) {
               // ignore decode errors and fall back to API
-            }
+            }  
             try {
               // If we didn't get permissions from token, fetch from API
               if (!userPermissions || userPermissions.length === 0) {
@@ -271,17 +334,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       }
     })();
-
-    return () => {
+    return () =>
+    { 
       mounted = false;
     };
-    // Run this restore-on-mount effect only once. We intentionally do not include
-    // `permissions`, `fetchPermissions` or `fetchWorkflowsForUser` in the deps
-    // to avoid repeated re-runs that can cause update loops when we attach
-    // permissions into `user` during the effect. These functions are stable
-    // enough for a single-run restore on mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // fetchWorkflowsForUser is stable via useCallback
+  }, [fetchWorkflowsForUser,fetchITBinForUser,fetchPermissions]);
 
   const login = async (username: string, password: string) => {
     setLoading(true);
