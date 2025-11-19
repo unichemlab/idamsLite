@@ -12,7 +12,6 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import { useNavigate } from "react-router-dom";
 import { useRoles } from "../../RoleMaster/RolesContext";
 import { useAbility } from "../../context/AbilityContext";
-import { useAbility } from "../../context/AbilityContext";
 import { fetchRoleActivityLogs } from "../../utils/api";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
 
