@@ -83,7 +83,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       (Array.isArray(userData.role_id) && userData.role_id.includes(4));
 
     if (Array.isArray(userData.role_id) && userData.role_id.includes(1)) {
-      return "/superadmin"; // SuperAdmin
+      return "/home"; // SuperAdmin
     } else if (isApprover) {
       return "/approver"; // Approver
     } else if (

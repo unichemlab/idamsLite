@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import styles from "./WorkflowBuilder.module.css";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
-import ProfileIconWithLogout from "../PlantMasterTable/ProfileIconWithLogout";
+import ProfileIconWithLogout from "../../components/Common/ProfileIconWithLogout";
 
 const WorkflowBuilder: React.FC = () => {
   const navigate = useNavigate();

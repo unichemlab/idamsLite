@@ -7,7 +7,7 @@ import styles from "../ApplicationMasterTable/ApplicationMasterTable.module.css"
 import paginationStyles from "../../styles/Pagination.module.css";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
-import ProfileIconWithLogout from "../PlantMasterTable/ProfileIconWithLogout";
+import ProfileIconWithLogout from "../../components/Common/ProfileIconWithLogout";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";

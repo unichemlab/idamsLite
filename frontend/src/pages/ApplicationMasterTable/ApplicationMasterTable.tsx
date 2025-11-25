@@ -1,5 +1,5 @@
 import React from "react";
-import ProfileIconWithLogout from "../PlantMasterTable/ProfileIconWithLogout";
+import ProfileIconWithLogout from "../../components/Common/ProfileIconWithLogout";
 import styles from "./ApplicationMasterTable.module.css";
 import paginationStyles from "../../styles/Pagination.module.css";
 import { FaRegClock } from "react-icons/fa6";

@@ -1094,7 +1094,7 @@ const AddUserRequest: React.FC = () => {
                   alt="Logo"
                   className={addUserRequestStyles.logo}
                 />
-                <span className={addUserRequestStyles.version}>v1.00</span>
+                <span className={addUserRequestStyles.version}>version-1.0</span>
               </div>
               <h1 className={addUserRequestStyles["header-title"]}>
                 User Access Management
@@ -1708,7 +1708,7 @@ const AddUserRequest: React.FC = () => {
                 <button
                   type="button"
                   className={addUserRequestStyles.cancelBtn}
-                  onClick={() => navigate("/user-requests")}
+                  onClick={() => navigate("/homepage")}
                 >
                   Cancel
                 </button>

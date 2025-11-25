@@ -18,6 +18,7 @@ const LogoHeading = () => (
           verticalAlign: "middle",
         }}
       />
+      <span className={styles.version}>version-1.0</span>
     </div>
     <div className={styles.logoUam}>User Access Management</div>
   </div>
@@ -127,14 +128,14 @@ const Login: React.FC = () => {
       : [];
 console.log("user login",user);
     // Prefer routing by explicit approver flag if present (set from AuthContext workflow check)
-    let target = "/user-access-management";
+    let target = "/homepage";
     if (user.isApprover) {
       target = "/approver";
     } else if (user.isITBin) {
       target = "/task";
     }
     else if (roleIds.includes(1)) {
-      target = "/superadmin";
+      target = "/home";
     } else if (roleIds.includes(2)) {
       target = "/plantadmin";
     } else if (roleIds.includes(3)) {

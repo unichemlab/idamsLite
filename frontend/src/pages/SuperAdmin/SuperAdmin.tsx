@@ -21,8 +21,10 @@ import {
   Notifications as NotificationsIcon,
   Settings as SettingsIcon,
   Assignment as AssignmentIcon,
+  ExpandMore,
+  ChevronRight,
 } from "@mui/icons-material";
-import { sidebarConfig } from "../../components/Common/sidebarConfig";
+import { sidebarConfig,SidebarConfigItem } from "../../components/Common/sidebarConfig";
 import { useAbility } from "../../context/AbilityContext";
 // ----- Component -----
 import ServerInventoryMasterTable from "pages/ServerInventoryMasterTable/ServerInventoryMasterTable";
@@ -40,6 +42,10 @@ import SystemInventoryMasterTable from "pages/SystemInventoryMasterTable/SystemI
 import AddRoleFormPage from "RoleMaster/AddRoleFormPage";
 import EditRoleFormPage from "RoleMaster/EditRoleFormPage";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
+import HomeView from "../HomePage/HomePage";
+import MasterApprovalBin from "pages/MasterApprovalBin/MasterApprovalBin";
+import MasterApprovalDetails from "pages/MasterApprovalBin/MasterApprovalDetails";
+import PlantSupportBin from "pages/PlantITSupport/PlantITSupportMaster";
 import { useAuth } from "../../context/AuthContext";
 
 // ----- Types -----
@@ -74,7 +80,10 @@ const SuperAdmin: React.FC = () => {
     if (location.state?.activeTab) return location.state.activeTab;
     return "dashboard";
   });
-
+// Expanded menus state
+  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(
+    new Set(["masters"])
+  );
   useEffect(() => {
     localStorage.setItem("superadmin_activeTab", activeTab);
   }, [activeTab]);
@@ -82,6 +91,81 @@ const SuperAdmin: React.FC = () => {
   const handleLogout = () => {
     logout();
     navigate("/");
+  };
+ 
+// Handle navigation
+  const handleNavigation = (key: string, hasChildren: boolean) => {
+    if (hasChildren) {
+      // Toggle submenu
+      setExpandedMenus((prev) => {
+        const newSet = new Set(prev);
+        if (newSet.has(key)) {
+          newSet.delete(key);
+        } else {
+          newSet.add(key);
+        }
+        return newSet;
+      });
+    } else {
+      // Navigate to page
+      if (!disabledKeys.includes(key)) {
+        setActiveTab(key);
+        localStorage.setItem("superadmin_activeTab", key);
+      }
+    }
+  };
+
+  // Render menu item (with support for nesting)
+  const renderMenuItem = (item: SidebarConfigItem, level: number = 0) => {
+    const hasChildren = Boolean(item.children && item.children.length > 0);
+    const isExpanded = expandedMenus.has(item.key);
+    const isActive = activeTab === item.key;
+    const isDisabled = disabledKeys.includes(item.key);
+    const isParentOfActive =
+      hasChildren && item.children?.some((child) => child.key === activeTab);
+
+    return (
+      <div key={item.key}>
+        <button
+          className={`${styles["nav-button"]} ${
+            isActive || isParentOfActive ? styles.active : ""
+          }`}
+          onClick={() => !isDisabled && handleNavigation(item.key, hasChildren)}
+          disabled={isDisabled}
+          style={{
+            paddingLeft: `${16 + level * 20}px`,
+            opacity: isDisabled ? 0.5 : 1,
+            cursor: isDisabled ? "not-allowed" : "pointer",
+            fontWeight: isActive || isParentOfActive ? 700 : 400,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {item.icon} {item.label}
+          </span>
+          {hasChildren &&
+            (isExpanded ? (
+              <ExpandMore fontSize="small" />
+            ) : (
+              <ChevronRight fontSize="small" />
+            ))}
+        </button>
+
+        {hasChildren && isExpanded && (
+          <div
+            style={{
+              background: "rgba(255, 255, 255, 0.03)",
+              borderLeft: "2px solid rgba(255, 255, 255, 0.1)",
+              marginLeft: "12px",
+            }}
+          >
+            {item.children?.map((child) => renderMenuItem(child, level + 1))}
+          </div>
+        )}
+      </div>
+    );
   };
 
   // Use shared sidebarConfig and an ability mapper to translate legacy perm names
@@ -182,6 +266,8 @@ const SuperAdmin: React.FC = () => {
   // ----- Render main content -----
   const renderContent = () => {
     switch (activeTab) {
+      case "home":
+        return <HomeView/>;
       case "dashboard":
         return <DashboardView handleLogout={handleLogout} />;
       case "plant":
@@ -220,6 +306,10 @@ const SuperAdmin: React.FC = () => {
         return <TaskTable />;
       case "server":
         return <ServerInventoryMasterTable />;
+      case "master-approval":
+        return <MasterApprovalBin />;
+        case "plant-itsupport":
+        return <PlantSupportBin />;
       default:
         return null;
     }
@@ -236,32 +326,11 @@ const SuperAdmin: React.FC = () => {
             style={{ width: 250, height: 35 }}
           />
           <br />
-          <span>Unichem Laboratories</span>
+          <span className={styles.version}>version-1.0</span>
         </div>
         <nav>
           <div className={styles["sidebar-group"]}>OVERVIEW</div>
-          {sidebarConfig.map((item) => (
-            <button
-              key={item.key}
-              className={`${styles["nav-button"]} ${
-                activeTab === item.key ? styles.active : ""
-              }`}
-              onClick={() => {
-                if (!disabledKeys.includes(item.key)) {
-                  setActiveTab(item.key);
-                  localStorage.setItem("superadmin_activeTab", item.key);
-                }
-              }}
-              disabled={disabledKeys.includes(item.key)}
-              style={
-                disabledKeys.includes(item.key)
-                  ? { opacity: 0.5, cursor: "not-allowed" }
-                  : {}
-              }
-            >
-              {item.icon} {item.label}
-            </button>
-          ))}
+          {sidebarConfig.map((item) => renderMenuItem(item))}
           <div className={styles["sidebar-footer"]}>
             <div className={styles["admin-info"]}>
               <div className={styles.avatar}>A</div>

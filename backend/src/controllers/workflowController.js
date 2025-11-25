@@ -3,7 +3,7 @@ const db = require("../config/db");
 // GET /api/workflows?plant=GOA-1 OR ?transaction_id=APPR0000001
 exports.getWorkflows = async (req, res) => {
   try {
-    const { plant, plant_id, transaction_id, approver_id } = req.query;
+    const { plant, plant_id, transaction_id, approver_id,type,corporate_type } = req.query;
     const { user_id, isApprover } = req.user;
 
     // Build base query
@@ -67,6 +67,18 @@ exports.getWorkflows = async (req, res) => {
         `(approver_1_id LIKE ${placeholder} OR approver_2_id LIKE ${placeholder} OR approver_3_id LIKE ${placeholder} OR approver_4_id LIKE ${placeholder} OR approver_5_id LIKE ${placeholder})`
       );
     }
+
+    // Filter by workflow_type (from ?type=)
+if (type) {
+  params.push(type);
+  where.push(`workflow_type = $${params.length}`);
+}
+
+// Filter by corporate_type (from ?corporate_type=)
+if (corporate_type) {
+  params.push(corporate_type);
+  where.push(`corporate_type = $${params.length}`);
+}
 
     const q = `
       SELECT
@@ -225,6 +237,7 @@ exports.createWorkflow = async (req, res) => {
       approver_5_id,
       max_approvers,
       is_active,
+      corporate_type
     } = req.body;
 
     // Convert approver columns to comma-separated string if array
@@ -244,7 +257,7 @@ exports.createWorkflow = async (req, res) => {
       ? approver_5_id.join(",")
       : approver_5_id || null;
 
-    const q = `INSERT INTO approval_workflow_master (transaction_id, workflow_type, plant_id, department_id, approver_1_id, approver_2_id, approver_3_id, approver_4_id, approver_5_id, max_approvers, is_active, created_on, updated_on) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW(),NOW()) RETURNING *`;
+    const q = `INSERT INTO approval_workflow_master (transaction_id, workflow_type, plant_id, department_id, approver_1_id, approver_2_id, approver_3_id, approver_4_id, approver_5_id, max_approvers, is_active,corporate_type, created_on, updated_on) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW(),NOW()) RETURNING *`;
     const params = [
       transaction_id,
       workflow_type,
@@ -256,6 +269,7 @@ exports.createWorkflow = async (req, res) => {
       approver_4_id_str,
       approver_5_id_str,
       max_approvers || 0,
+      corporate_type,
       is_active === undefined ? true : is_active,
     ];
     console.log("[WORKFLOW CREATE] SQL:", q);
@@ -286,6 +300,7 @@ exports.updateWorkflow = async (req, res) => {
       approver_5_id,
       max_approvers,
       is_active,
+      corporate_type,
     } = req.body;
 
     // Convert approver columns to comma-separated string if array
@@ -305,7 +320,7 @@ exports.updateWorkflow = async (req, res) => {
       ? approver_5_id.join(",")
       : approver_5_id || null;
 
-    const q = `UPDATE approval_workflow_master SET transaction_id=$1, workflow_type=$2, plant_id=$3, department_id=$4, approver_1_id=$5, approver_2_id=$6, approver_3_id=$7, approver_4_id=$8, approver_5_id=$9, max_approvers=$10, is_active=$11, updated_on=NOW() WHERE id=$12 RETURNING *`;
+    const q = `UPDATE approval_workflow_master SET transaction_id=$1, workflow_type=$2, plant_id=$3, department_id=$4, approver_1_id=$5, approver_2_id=$6, approver_3_id=$7, approver_4_id=$8, approver_5_id=$9, max_approvers=$10, is_active=$11,corporate_type=$13, updated_on=NOW() WHERE id=$12 RETURNING *`;
     const params = [
       transaction_id,
       workflow_type,
@@ -319,6 +334,7 @@ exports.updateWorkflow = async (req, res) => {
       max_approvers || 0,
       is_active === undefined ? true : is_active,
       id,
+      corporate_type
     ];
     console.log("[WORKFLOW UPDATE] SQL:", q);
     console.log("[WORKFLOW UPDATE] PARAMS:", params);

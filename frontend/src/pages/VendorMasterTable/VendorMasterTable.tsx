@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import ProfileIconWithLogout from "./ProfileIconWithLogout";
+import ProfileIconWithLogout from "../../components/Common/ProfileIconWithLogout";
 import { useVendorContext } from "../VendorMaster/VendorContext";
 import styles from "../ApplicationMasterTable/ApplicationMasterTable.module.css";
 import paginationStyles from "../../styles/Pagination.module.css";

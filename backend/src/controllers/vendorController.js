@@ -1,6 +1,10 @@
 const pool = require("../config/db");
 const { logActivity } = require("../utils/activityLogger");
+const { submitForApproval } = require("../utils/masterApprovalHelper");
 
+// -------------------------------
+// GET VENDOR ACTIVITY LOGS
+// -------------------------------
 exports.getVendorActivityLogs = async (req, res) => {
   try {
     const { rows: rawRows } = await pool.query(
@@ -14,19 +18,17 @@ exports.getVendorActivityLogs = async (req, res) => {
       if (r.details) {
         try {
           const parsed = JSON.parse(r.details);
-          r.table_name = r.table_name || parsed.tableName || r.table_name;
+          r.table_name = r.table_name || parsed.tableName;
           r.old_value =
             r.old_value ||
             (parsed.old_value ? JSON.stringify(parsed.old_value) : null);
           r.new_value =
             r.new_value ||
             (parsed.new_value ? JSON.stringify(parsed.new_value) : null);
-          r.action = r.action || parsed.action || r.action;
+          r.action = r.action || parsed.action;
           r.action_performed_by =
-            r.action_performed_by || r.user_id || parsed.userId || null;
-        } catch (e) {
-          // ignore parse errors
-        }
+            r.action_performed_by || parsed.userId || r.user_id;
+        } catch (e) {}
       }
       return r;
     });
@@ -37,6 +39,9 @@ exports.getVendorActivityLogs = async (req, res) => {
   }
 };
 
+// -------------------------------
+// GET ALL VENDORS (approved only)
+// -------------------------------
 exports.getAllVendors = async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -48,18 +53,43 @@ exports.getAllVendors = async (req, res) => {
   }
 };
 
+// -------------------------------
+// CREATE VENDOR (WITH APPROVAL)
+// -------------------------------
 exports.createVendor = async (req, res) => {
-  const { vendor_name, description } = req.body;
+  const { vendor_name, description, status } = req.body;
+  const userId = req.user?.id || req.user?.user_id;
+  const username = req.user?.username || "Unknown";
+
   try {
-    const { rows } = await pool.query(
-      "INSERT INTO vendor_master (vendor_name, description) VALUES ($1, $2) RETURNING *",
-      [vendor_name, description]
-    );
-    // Log creation (non-blocking)
-    try {
-      const logId = await logActivity({
-        userId: req.user?.id || req.user?.user_id || null,
-        module: "vendor",
+    const newVendor = {
+      vendor_name,
+      description,
+      status: status || "ACTIVE",
+    };
+
+    const approvalId = await submitForApproval({
+      module: "vendors",
+      tableName: "vendor_master",
+      action: "create",
+      recordId: null,
+      oldValue: null,
+      newValue: newVendor,
+      requestedBy: userId,
+      requestedByUsername: username,
+      comments: `Create vendor: ${vendor_name}`,
+    });
+
+    // DIRECT ENTRY (if no approval required)
+    if (approvalId === null) {
+      const { rows } = await pool.query(
+        "INSERT INTO vendor_master (vendor_name, description, status) VALUES ($1, $2, $3) RETURNING *",
+        [vendor_name, description, status || "ACTIVE"]
+      );
+
+      await logActivity({
+        userId,
+        module: "vendors",
         tableName: "vendor_master",
         recordId: rows[0].id,
         action: "create",
@@ -68,45 +98,72 @@ exports.createVendor = async (req, res) => {
         comments: `Created vendor: ${vendor_name}`,
         reqMeta: req._meta || {},
       });
-      if (!logId)
-        console.warn(
-          "Activity log (createVendor) did not insert a row for record:",
-          rows[0].id
-        );
-      else console.log("Activity log (createVendor) inserted id:", logId);
-    } catch (logErr) {
-      console.warn(
-        "Activity log (createVendor) failed:",
-        logErr.message || logErr
-      );
+
+      return res.status(201).json(rows[0]);
     }
 
-    res.status(201).json(rows[0]);
+    // APPROVAL FLOW
+    res.status(202).json({
+      message: "Vendor creation submitted for approval",
+      approvalId,
+      status: "PENDING_APPROVAL",
+      data: newVendor,
+    });
   } catch (err) {
+    console.error("Error creating vendor:", err);
     res.status(500).json({ error: err.message });
   }
 };
 
+// -------------------------------
+// UPDATE VENDOR (WITH APPROVAL)
+// -------------------------------
 exports.updateVendor = async (req, res) => {
   const { id } = req.params;
-  const { vendor_name, description, location, status } = req.body;
+  const { vendor_name, description, status } = req.body;
+
+  const userId = req.user?.id || req.user?.user_id;
+  const username = req.user?.username || "Unknown";
+
   try {
-    // fetch old value
-    const oldRes = await pool.query("SELECT * FROM vendor_master WHERE id=$1", [
-      id,
-    ]);
-    const oldValue = oldRes.rows[0] || null;
-
-    const { rows } = await pool.query(
-      "UPDATE vendor_master SET vendor_name=$1, description=$2, status=$3, updated_on=NOW() WHERE id=$4 RETURNING *",
-      [vendor_name, description, status, id]
+    const oldRes = await pool.query(
+      "SELECT * FROM vendor_master WHERE id=$1",
+      [id]
     );
+    const oldValue = oldRes.rows[0];
 
-    // Log update activity (non-blocking)
-    try {
-      const logId = await logActivity({
-        userId: req.user?.id || req.user?.user_id || null,
-        module: "vendor",
+    if (!oldValue) {
+      return res.status(404).json({ error: "Vendor not found" });
+    }
+
+    const updatedVendor = {
+      vendor_name,
+      description,
+      status,
+    };
+
+    const approvalId = await submitForApproval({
+      module: "vendors",
+      tableName: "vendor_master",
+      action: "update",
+      recordId: parseInt(id),
+      oldValue,
+      newValue: updatedVendor,
+      requestedBy: userId,
+      requestedByUsername: username,
+      comments: `Update vendor: ${vendor_name}`,
+    });
+
+    // DIRECT UPDATE
+    if (approvalId === null) {
+      const { rows } = await pool.query(
+        "UPDATE vendor_master SET vendor_name=$1, description=$2, status=$3, updated_on=NOW() WHERE id=$4 RETURNING *",
+        [vendor_name, description, status, id]
+      );
+
+      await logActivity({
+        userId,
+        module: "vendors",
         tableName: "vendor_master",
         recordId: id,
         action: "update",
@@ -115,64 +172,83 @@ exports.updateVendor = async (req, res) => {
         comments: `Updated vendor: ${vendor_name}`,
         reqMeta: req._meta || {},
       });
-      if (!logId)
-        console.warn(
-          "Activity log (updateVendor) did not insert a row for record:",
-          id
-        );
-      else console.log("Activity log (updateVendor) inserted id:", logId);
-    } catch (logErr) {
-      console.warn(
-        "Activity log (updateVendor) failed:",
-        logErr.message || logErr
-      );
+
+      return res.json(rows[0]);
     }
 
-    res.json(rows[0]);
+    res.status(202).json({
+      message: "Vendor update submitted for approval",
+      approvalId,
+      status: "PENDING_APPROVAL",
+      data: updatedVendor,
+    });
   } catch (err) {
+    console.error("Error updating vendor:", err);
     res.status(500).json({ error: err.message });
   }
 };
 
+// -------------------------------
+// DELETE VENDOR (WITH APPROVAL)
+// -------------------------------
 exports.deleteVendor = async (req, res) => {
   const { id } = req.params;
+
+  const userId = req.user?.id || req.user?.user_id;
+  const username = req.user?.username || "Unknown";
+
   try {
-    // get old value
-    const oldRes = await pool.query("SELECT * FROM vendor_master WHERE id=$1", [
-      id,
-    ]);
-    const oldValue = oldRes.rows[0] || null;
+    const oldRes = await pool.query(
+      "SELECT * FROM vendor_master WHERE id=$1",
+      [id]
+    );
+    const oldValue = oldRes.rows[0];
 
-    await pool.query("DELETE FROM vendor_master WHERE id=$1", [id]);
+    if (!oldValue) {
+      return res.status(404).json({ error: "Vendor not found" });
+    }
 
-    // Log deletion activity (non-blocking)
-    try {
-      const logId = await logActivity({
-        userId: req.user?.id || req.user?.user_id || null,
-        module: "vendor",
+    const approvalId = await submitForApproval({
+      module: "vendors",
+      tableName: "vendor_master",
+      action: "delete",
+      recordId: parseInt(id),
+      oldValue,
+      newValue: null,
+      requestedBy: userId,
+      requestedByUsername: username,
+      comments: `Delete vendor: ${oldValue.vendor_name}`,
+    });
+
+    // DIRECT DELETE
+    if (approvalId === null) {
+      await pool.query("DELETE FROM vendor_master WHERE id=$1", [id]);
+
+      await logActivity({
+        userId,
+        module: "vendors",
         tableName: "vendor_master",
         recordId: id,
         action: "delete",
         oldValue,
         newValue: null,
-        comments: `Deleted vendor id: ${id}`,
+        comments: `Deleted vendor: ${oldValue.vendor_name}`,
         reqMeta: req._meta || {},
       });
-      if (!logId)
-        console.warn(
-          "Activity log (deleteVendor) did not insert a row for record:",
-          id
-        );
-      else console.log("Activity log (deleteVendor) inserted id:", logId);
-    } catch (logErr) {
-      console.warn(
-        "Activity log (deleteVendor) failed:",
-        logErr.message || logErr
-      );
+
+      return res.status(204).end();
     }
 
-    res.status(204).end();
+    res.status(202).json({
+      message: "Vendor deletion submitted for approval",
+      approvalId,
+      status: "PENDING_APPROVAL",
+      data: oldValue,
+    });
   } catch (err) {
+    console.error("Error deleting vendor:", err);
     res.status(500).json({ error: err.message });
   }
 };
+
+module.exports = exports;

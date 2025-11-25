@@ -1,5 +1,5 @@
 import React from "react";
-import ProfileIconWithLogout from "../PlantMasterTable/ProfileIconWithLogout";
+import ProfileIconWithLogout from "../../components/Common/ProfileIconWithLogout";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import login_headTitle2 from "../../assets/login_headTitle2.png";

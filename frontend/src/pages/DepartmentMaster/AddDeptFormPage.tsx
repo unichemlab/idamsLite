@@ -86,7 +86,7 @@ const AddDeptFormPage: React.FC = () => {
             style={{ width: 250, height: 35 }}
           />
           <br />
-          <span>Unichem Laboratories</span>
+          <span className={superAdminStyles.version}>version-1.0</span>
         </div>
         <nav>
           <div className={superAdminStyles["sidebar-group"]}>OVERVIEW</div>

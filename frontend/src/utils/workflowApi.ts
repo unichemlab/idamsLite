@@ -23,6 +23,7 @@ export interface Workflow {
   approver_5_id: string | null;
   max_approvers: number;
   is_active: boolean;
+  corporate_type?: string | null;
   approvers?: User[][];
 }
 
@@ -52,7 +53,30 @@ export async function fetchWorkflows(approverId?: number, plantId?: number): Pro
   return [];
 }
 
+
+export async function fetchCorporateWorkflows(type?: string, corporate_type?: string): Promise<Workflow[]> {
+  const params = [];
+  if (type) params.push(`workflow_type=${type}`);
+  if (corporate_type) params.push(`corporate_type=${corporate_type}`);
+  const q = params.length ? `?${params.join('&')}` : '';
+  
+  const response = await request(`/api/workflows${q}`) as WorkflowResponse | Workflow[];
+  
+  // Handle both array and object responses from backend
+  if (Array.isArray(response)) {
+    return response;
+  }
+  if ('workflows' in response && Array.isArray(response.workflows)) {
+    return response.workflows;
+  }
+  if ('workflow' in response && response.workflow) {
+    return [response.workflow];
+  }
+  return [];
+}
+
 export async function createWorkflow(workflow: Workflow): Promise<Workflow> {
+  console.log("Creating workflow:", workflow);
   const response = await request('/api/workflows', {
     method: 'POST',
     body: JSON.stringify(workflow),

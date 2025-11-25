@@ -6,6 +6,7 @@ import {
   fetchWorkflows,
   createWorkflow,
   updateWorkflow,
+  fetchCorporateWorkflows,
   Workflow,
 } from "../../utils/workflowApi";
 import Select, { components, MultiValue } from "react-select";
@@ -249,9 +250,138 @@ const WorkflowBuilder: React.FC = () => {
       }
     };
 
+    const loadWorkflowForCoorporate = async () => {
+      if (!selectedCorporate) {
+        setApproverRows(getInitialApproverRows());
+        setCurrentWorkflowId(null);
+        setCurrentWorkflowData(null);
+        return;
+      }
+
+      try {
+        setLoadingWorkflow(true);
+        const data = await fetchCorporateWorkflows('CORPORATE', selectedCorporate);
+        // fetchWorkflows returns Workflow[] directly now
+        const wf = data[0] || null;
+
+        if (!wf) {
+          setApproverRows(getInitialApproverRows());
+          setCurrentWorkflowId(null);
+          setCurrentWorkflowData(null);
+          setLoadingWorkflow(false);
+          return;
+        }
+
+        // Build rows mapping approver_2..approver_5
+        const rows: ApproverRow[] = getInitialApproverRows();
+
+        // helper: try to match a CSV id string to userOptions using multiple possible user id fields
+        const matchUserById = (idStr: string) => {
+          const norm = String(idStr).trim();
+          if (!norm) return null;
+          // direct match on option.value
+          const direct = userOptions.find((u) => String(u.value) === norm);
+          if (direct) return direct;
+          // try matching common fields inside original user object
+          return (
+            userOptions.find((u) => {
+              const uu = u.user || {};
+              const candidates = [
+                uu.id,
+                uu.user_id,
+                uu.employee_id,
+                uu.employee_code,
+                uu.employee_number,
+                uu.emp_id,
+              ]
+                .filter(Boolean)
+                .map((v: any) => String(v));
+              return candidates.includes(norm);
+            }) || null
+          );
+        };
+
+        let hasAnyApprover = false;
+
+        // Prefer backend-provided `approvers` array (it includes user objects when available).
+        // workflows.approvers is an array of arrays: [approver_1_arr, approver_2_arr, ...]
+        if (wf.approvers && Array.isArray(wf.approvers)) {
+          for (let i = 0; i < MAX_APPROVERS; i++) {
+            // UI row i corresponds to approver_(i+2)
+            const backendIndex = i + 1; // approvers[1] -> approver_2
+            const list = wf.approvers[backendIndex] || [];
+            const opts: UserOption[] = list.map((u: any) => {
+              const val = String(
+                u.id ?? u.employee_code ?? u.employee_id ?? u.id ?? ""
+              );
+              return {
+                value: val,
+                label: `${u.employee_name || u.fullName || ""} ${
+                  u.employee_code ? `| ${u.employee_code}` : ""
+                }`.trim(),
+                user: u,
+              } as UserOption;
+            });
+            if (opts.length) hasAnyApprover = true;
+            rows[i] = {
+              isVisible: opts.length > 0 ? true : rows[i].isVisible,
+              users: opts,
+            };
+          }
+        } else {
+          // Fallback to CSV fields (older backend shape)
+          for (let i = 0; i < MAX_APPROVERS; i++) {
+            const fieldIndex = i + 2; // 2..5
+            const key = `approver_${fieldIndex}_id`;
+            const csv = wf[key as keyof Workflow];
+            if (csv && typeof csv === "string") {
+              const ids = csv
+                .split(",")
+                .map((s: string) => s.trim())
+                .filter(Boolean);
+              const opts: UserOption[] = ids
+                .map(
+                  (id) =>
+                    matchUserById(id) || {
+                      value: id,
+                      label: `Unknown user (${id})`,
+                      user: { employee_name: `Unknown (${id})`, id },
+                    }
+                )
+                .filter(Boolean) as UserOption[];
+              if (opts.length) hasAnyApprover = true;
+              rows[i] = {
+                isVisible: opts.length > 0 ? true : rows[i].isVisible,
+                users: opts,
+              };
+            } else {
+              rows[i] = { isVisible: rows[i].isVisible, users: [] };
+            }
+          }
+        }
+
+        setApproverRows(rows);
+        // include a helper flag so the UI can show a hint when workflow exists but no approvers configured
+        setCurrentWorkflowData({ ...(wf || {}), hasAnyApprover });
+        // set id for update operations (try several fields)
+        if (wf && (wf.id || wf.workflow_id)) {
+          setCurrentWorkflowId(wf.id ?? wf.workflow_id ?? null);
+        } else {
+          setCurrentWorkflowId(null);
+        }
+        setLoadingWorkflow(false);
+      } catch (err) {
+        setLoadingWorkflow(false);
+        console.warn("loadWorkflowForPlant", err);
+      }
+    };
+    if (workflowType === "PLANT") {
     loadWorkflowForPlant();
+    } else {
+      loadWorkflowForCoorporate();
+    }
     // note: depends on selectedPlantId, userOptions, plants
-  }, [selectedPlantId, userOptions, plants]);
+  }, [selectedCorporate,selectedPlantId, userOptions, plants]);
 
   const selectWorkflowType = (type: "PLANT" | "CORPORATE") => {
     setWorkflowType(type);
@@ -300,6 +430,9 @@ const WorkflowBuilder: React.FC = () => {
       plant_id:
         workflowType === "PLANT" && selectedPlantId
           ? Number(selectedPlantId)
+          : null,
+      corporate_type:  workflowType === "CORPORATE" && selectedCorporate
+          ? selectedCorporate
           : null,
       department_id: null,
       approver_1_id: null,

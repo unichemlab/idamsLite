@@ -41,8 +41,11 @@
  */
 const pool = require("../config/db");
 const { logActivity } = require("../utils/activityLogger");
+const { submitForApproval } = require("../utils/masterApprovalHelper");
 
-// Get activity logs related to roles (normalizes legacy `details` rows)
+// -------------------------------
+// GET ROLE ACTIVITY LOGS
+// -------------------------------
 exports.getRoleActivityLogs = async (req, res) => {
   try {
     const { rows: rawRows } = await pool.query(
@@ -56,19 +59,17 @@ exports.getRoleActivityLogs = async (req, res) => {
       if (r.details) {
         try {
           const parsed = JSON.parse(r.details);
-          r.table_name = r.table_name || parsed.tableName || r.table_name;
+          r.table_name = r.table_name || parsed.tableName;
           r.old_value =
             r.old_value ||
             (parsed.old_value ? JSON.stringify(parsed.old_value) : null);
           r.new_value =
             r.new_value ||
             (parsed.new_value ? JSON.stringify(parsed.new_value) : null);
-          r.action = r.action || parsed.action || r.action;
+          r.action = r.action || parsed.action;
           r.action_performed_by =
-            r.action_performed_by || r.user_id || parsed.userId || null;
-        } catch (e) {
-          // ignore parse errors
-        }
+            r.action_performed_by || parsed.userId || r.user_id;
+        } catch (e) {}
       }
       return r;
     });
@@ -79,7 +80,9 @@ exports.getRoleActivityLogs = async (req, res) => {
   }
 };
 
-// Get all roles
+// -------------------------------
+// GET ALL ROLES (approved only)
+// -------------------------------
 exports.getAllRoles = async (req, res) => {
   try {
     const { rows } = await pool.query("SELECT * FROM role_master ORDER BY id");
@@ -89,94 +92,199 @@ exports.getAllRoles = async (req, res) => {
   }
 };
 
-// Create a new role
+// -------------------------------
+// CREATE ROLE
+// -------------------------------
 exports.createRole = async (req, res) => {
   const { role_name, description, status } = req.body;
-  try {
-    const { rows } = await pool.query(
-      "INSERT INTO role_master (role_name, description, status) VALUES ($1, $2, $3) RETURNING *",
-      [role_name, description, status]
-    );
+  const userId = req.user?.id || req.user?.user_id;
+  const username = req.user?.username || "Unknown";
 
-    // Log the role creation
-    await logActivity({
-      userId: req.user.id,
+  try {
+    const newRoleData = {
+      role_name,
+      description,
+      status: status || "ACTIVE",
+    };
+
+    // Submit for approval workflow
+    const approvalId = await submitForApproval({
       module: "roles",
       tableName: "role_master",
-      recordId: rows[0].id,
       action: "create",
-      newValue: rows[0],
-      comments: `Created new role: ${role_name}`,
-      reqMeta: req._meta,
+      recordId: null,
+      oldValue: null,
+      newValue: newRoleData,
+      requestedBy: userId,
+      requestedByUsername: username,
+      comments: `Create role: ${role_name}`,
     });
 
-    res.status(201).json(rows[0]);
+    if (approvalId === null) {
+      // Create directly
+      const { rows } = await pool.query(
+        "INSERT INTO role_master (role_name, description, status) VALUES ($1, $2, $3) RETURNING *",
+        [role_name, description, status || "ACTIVE"]
+      );
+
+      await logActivity({
+        userId,
+        module: "roles",
+        tableName: "role_master",
+        recordId: rows[0].id,
+        action: "create",
+        oldValue: null,
+        newValue: rows[0],
+        comments: `Created role: ${role_name}`,
+        reqMeta: req._meta || {},
+      });
+
+      return res.status(201).json(rows[0]);
+    }
+
+    res.status(202).json({
+      message: "Role creation submitted for approval",
+      approvalId,
+      status: "PENDING_APPROVAL",
+      data: newRoleData,
+    });
   } catch (err) {
+    console.error("Error creating role:", err);
     res.status(500).json({ error: err.message });
   }
 };
 
-// Update a role
+// -------------------------------
+// UPDATE ROLE
+// -------------------------------
 exports.updateRole = async (req, res) => {
   const { id } = req.params;
   const { role_name, description, status } = req.body;
+
+  const userId = req.user?.id || req.user?.user_id;
+  const username = req.user?.username || "Unknown";
+
   try {
-    // Get the old value first
-    const oldRole = await pool.query("SELECT * FROM role_master WHERE id=$1", [
-      id,
-    ]);
-
-    // Perform the update
-    const { rows } = await pool.query(
-      "UPDATE role_master SET role_name=$1, description=$2, status=$3, updated_on=NOW() WHERE id=$4 RETURNING *",
-      [role_name, description, status, id]
+    const oldRes = await pool.query(
+      "SELECT * FROM role_master WHERE id=$1",
+      [id]
     );
+    const oldValue = oldRes.rows[0];
 
-    // Log the role update
-    await logActivity({
-      userId: req.user.id,
+    if (!oldValue) {
+      return res.status(404).json({ error: "Role not found" });
+    }
+
+    const updatedRoleData = {
+      role_name,
+      description,
+      status,
+    };
+
+    const approvalId = await submitForApproval({
       module: "roles",
       tableName: "role_master",
-      recordId: id,
       action: "update",
-      oldValue: oldRole.rows[0],
-      newValue: rows[0],
-      comments: `Updated role: ${role_name}`,
-      reqMeta: req._meta,
+      recordId: parseInt(id),
+      oldValue,
+      newValue: updatedRoleData,
+      requestedBy: userId,
+      requestedByUsername: username,
+      comments: `Update role: ${role_name}`,
     });
 
-    res.json(rows[0]);
+    if (approvalId === null) {
+      const { rows } = await pool.query(
+        "UPDATE role_master SET role_name=$1, description=$2, status=$3, updated_on=NOW() WHERE id=$4 RETURNING *",
+        [role_name, description, status, id]
+      );
+
+      await logActivity({
+        userId,
+        module: "roles",
+        tableName: "role_master",
+        recordId: id,
+        action: "update",
+        oldValue,
+        newValue: rows[0],
+        comments: `Updated role: ${role_name}`,
+        reqMeta: req._meta || {},
+      });
+
+      return res.json(rows[0]);
+    }
+
+    res.status(202).json({
+      message: "Role update submitted for approval",
+      approvalId,
+      status: "PENDING_APPROVAL",
+      data: updatedRoleData,
+    });
   } catch (err) {
+    console.error("Error updating role:", err);
     res.status(500).json({ error: err.message });
   }
 };
 
-// Delete a role
+// -------------------------------
+// DELETE ROLE
+// -------------------------------
 exports.deleteRole = async (req, res) => {
   const { id } = req.params;
+  const userId = req.user?.id || req.user?.user_id;
+  const username = req.user?.username || "Unknown";
+
   try {
-    // Get the role details before deleting
-    const oldRole = await pool.query("SELECT * FROM role_master WHERE id=$1", [
-      id,
-    ]);
+    const oldRes = await pool.query(
+      "SELECT * FROM role_master WHERE id=$1",
+      [id]
+    );
+    const oldValue = oldRes.rows[0];
 
-    // Perform the deletion
-    await pool.query("DELETE FROM role_master WHERE id=$1", [id]);
+    if (!oldValue) {
+      return res.status(404).json({ error: "Role not found" });
+    }
 
-    // Log the role deletion
-    await logActivity({
-      userId: req.user.id,
+    const approvalId = await submitForApproval({
       module: "roles",
       tableName: "role_master",
-      recordId: id,
       action: "delete",
-      oldValue: oldRole.rows[0],
-      comments: `Deleted role: ${oldRole.rows[0].role_name}`,
-      reqMeta: req._meta,
+      recordId: parseInt(id),
+      oldValue,
+      newValue: null,
+      requestedBy: userId,
+      requestedByUsername: username,
+      comments: `Delete role: ${oldValue.role_name}`,
     });
 
-    res.status(204).send();
+    if (approvalId === null) {
+      await pool.query("DELETE FROM role_master WHERE id=$1", [id]);
+
+      await logActivity({
+        userId,
+        module: "roles",
+        tableName: "role_master",
+        recordId: id,
+        action: "delete",
+        oldValue,
+        newValue: null,
+        comments: `Deleted role: ${oldValue.role_name}`,
+        reqMeta: req._meta || {},
+      });
+
+      return res.status(204).end();
+    }
+
+    res.status(202).json({
+      message: "Role deletion submitted for approval",
+      approvalId,
+      status: "PENDING_APPROVAL",
+      data: oldValue,
+    });
   } catch (err) {
+    console.error("Error deleting role:", err);
     res.status(500).json({ error: err.message });
   }
 };
+
+module.exports = exports;

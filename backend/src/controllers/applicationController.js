@@ -1,6 +1,7 @@
 const db = require("../config/db");
 const auditLog = require("../utils/audit");
 const { logActivity } = require("../utils/activityLogger");
+const { submitForApproval } = require("../utils/masterApprovalHelper");
 // Get all applications (GET)
 exports.getAllApplications = async (req, res) => {
   try {
@@ -21,42 +22,73 @@ exports.deleteApplication = async (req, res) => {
     if (isNaN(id)) {
       return res.status(400).json({ error: "Invalid application ID" });
     }
-    const oldRow = await db.query("SELECT * FROM application_master WHERE id=$1", [id]);
-    const result = await db.query(`DELETE FROM application_master WHERE id = $1 RETURNING *`,    [id]
+
+    const oldRow = await db.query(
+      "SELECT * FROM application_master WHERE id=$1",
+      [id]
     );
-    if (result.rows.length === 0) {
+
+    const oldValue = oldRow.rows[0] || null;
+    if (!oldValue) {
       return res.status(404).json({ error: "Application not found" });
     }
-    
-     auditLog(req, "application_master", id, "DELETE", oldRow.rows[0], {}, "application deleted");
 
+    const userId = req.user?.id || req.user?.user_id;
+    const username = req.user?.username || "Unknown";
 
-    // Log deletion activity (non-blocking)
-    try {
-      const deletedRow = result.rows[0];
-      const logId = await logActivity({
-        userId: req.user?.id || req.user?.user_id || null,
-        module: "application",
-        tableName: "application_master",
-        recordId: deletedRow.id,
-        action: "delete",
-        oldValue: deletedRow,
-        newValue: null,
-        comments: `Deleted application id: ${deletedRow.id}`,
-        reqMeta: req._meta || {},
+    // 🔥 Submit for approval (same as plant)
+    const approvalId = await submitForApproval({
+      module: "application",
+      tableName: "application_master",
+      action: "delete",
+      recordId: id,
+      oldValue,
+      newValue: null,
+      requestedBy: userId,
+      requestedByUsername: username,
+      comments: `Delete application: ${oldValue.display_name}`,
+    });
+
+    if (approvalId !== null) {
+      return res.status(202).json({
+        message: "Application deletion submitted for approval",
+        approvalId,
+        status: "PENDING_APPROVAL",
+        data: oldValue,
       });
-      if (!logId)
-        console.warn(
-          "Activity log (deleteApplication) did not insert a row for record:",
-          deletedRow.id
-        );
-      else console.log("Activity log (deleteApplication) inserted id:", logId);
-    } catch (logErr) {
-      console.warn(
-        "Activity log (deleteApplication) failed:",
-        logErr.message || logErr
-      );
     }
+
+    // No approval required → delete directly
+    const result = await db.query(
+      "DELETE FROM application_master WHERE id = $1 RETURNING *",
+      [id]
+    );
+
+    const deletedRow = result.rows[0];
+
+    // normal audit log
+    auditLog(
+      req,
+      "application_master",
+      id,
+      "DELETE",
+      oldValue,
+      {},
+      "application deleted"
+    );
+
+    // activity log
+    await logActivity({
+      userId,
+      module: "application",
+      tableName: "application_master",
+      recordId: deletedRow.id,
+      action: "delete",
+      oldValue: deletedRow,
+      newValue: null,
+      comments: `Deleted application id: ${deletedRow.id}`,
+      reqMeta: req._meta || {},
+    });
 
     res.status(200).json({ message: "Application deleted successfully" });
   } catch (err) {
@@ -64,10 +96,13 @@ exports.deleteApplication = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
 // Add Application (POST)
 exports.addApplication = async (req, res) => {
   try {
-    console.log("[addApplication] Incoming body:", req.body);
+    const userId = req.user?.id || req.user?.user_id;
+    const username = req.user?.username || "Unknown";
+
     const {
       transaction_id,
       plant_location_id,
@@ -84,19 +119,60 @@ exports.addApplication = async (req, res) => {
       status,
       role_lock = false,
     } = req.body;
-    // Accept role_id as array or string, store as comma-separated string
+
     let roleIdStr = Array.isArray(role_id)
       ? role_id.join(",")
       : String(role_id);
-    console.log("[addApplication] roleIdStr:", roleIdStr);
+
+    const newData = {
+      transaction_id,
+      plant_location_id,
+      department_id,
+      application_hmi_name,
+      application_hmi_version,
+      equipment_instrument_id,
+      application_hmi_type,
+      display_name,
+      role_id: roleIdStr,
+      system_name,
+      system_inventory_id,
+      multiple_role_access,
+      role_lock,
+      status,
+    };
+
+    // 🔥 SUBMIT FOR APPROVAL
+    const approvalId = await submitForApproval({
+      module: "application",
+      tableName: "application_master",
+      action: "create",
+      recordId: null,
+      oldValue: null,
+      newValue: newData,
+      requestedBy: userId,
+      requestedByUsername: username,
+      comments: `Create Application: ${display_name}`,
+    });
+
+    // If approval required
+    if (approvalId !== null) {
+      return res.status(202).json({
+        message: "Application creation submitted for approval",
+        approvalId,
+        status: "PENDING_APPROVAL",
+        data: newData,
+      });
+    }
+
+    // No approval required → Insert directly
     const result = await db.query(
       `INSERT INTO application_master (
-          transaction_id, plant_location_id, department_id, application_hmi_name, application_hmi_version,
-          equipment_instrument_id, application_hmi_type, display_name, role_id, system_name, system_inventory_id,
-          multiple_role_access, role_lock, status, created_on, updated_on
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW()
-        ) RETURNING *`,
+        transaction_id, plant_location_id, department_id, application_hmi_name, application_hmi_version,
+        equipment_instrument_id, application_hmi_type, display_name, role_id, system_name, system_inventory_id,
+        multiple_role_access, role_lock, status, created_on, updated_on
+      ) VALUES (
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,NOW(),NOW()
+      ) RETURNING *`,
       [
         transaction_id,
         plant_location_id,
@@ -114,57 +190,50 @@ exports.addApplication = async (req, res) => {
         status,
       ]
     );
-    auditLog(req, "application_master", result.rows[0].id, "INSERT", {}, result.rows[0], "new application");
-    console.log("[addApplication] Inserted row:", result.rows[0]);
 
-    // Log creation (non-blocking)
-    try {
-      const logId = await logActivity({
-        userId: req.user?.id || req.user?.user_id || null,
-        module: "application",
-        tableName: "application_master",
-        recordId: result.rows[0].id,
-        action: "create",
-        oldValue: null,
-        newValue: result.rows[0],
-        comments: `Created application: ${
-          result.rows[0].display_name || result.rows[0].application_hmi_name
-        }`,
-        reqMeta: req._meta || {},
-      });
-      if (!logId)
-        console.warn(
-          "Activity log (addApplication) did not insert a row for record:",
-          result.rows[0].id
-        );
-      else console.log("Activity log (addApplication) inserted id:", logId);
-    } catch (logErr) {
-      console.warn(
-        "Activity log (addApplication) failed:",
-        logErr.message || logErr
-      );
-    }
+    auditLog(req, "application_master", result.rows[0].id, "INSERT", {}, result.rows[0], "new application");
+
+    await logActivity({
+      userId,
+      module: "application",
+      tableName: "application_master",
+      recordId: result.rows[0].id,
+      action: "create",
+      oldValue: null,
+      newValue: result.rows[0],
+      comments: `Created application: ${display_name}`,
+      reqMeta: req._meta || {},
+    });
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error("[addApplication] Error:", err);
-    if (err && err.stack) {
-      console.error("[addApplication] Error stack:", err.stack);
-    }
-    res.status(500).json({
-      error: err && err.message ? err.message : "Internal server error",
-    });
+    res.status(500).json({ error: err.message });
   }
 };
+
 
 // Edit Application (PUT)
 exports.editApplication = async (req, res) => {
   try {
-    console.log("request",req);
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
       return res.status(400).json({ error: "Invalid application ID" });
     }
+
+    const userId = req.user?.id || req.user?.user_id;
+    const username = req.user?.username || "Unknown";
+
+    const oldRes = await db.query(
+      "SELECT * FROM application_master WHERE id=$1",
+      [id]
+    );
+    const oldValue = oldRes.rows[0] || null;
+
+    if (!oldValue) {
+      return res.status(404).json({ error: "Application not found" });
+    }
+
     const {
       transaction_id,
       plant_location_id,
@@ -181,37 +250,69 @@ exports.editApplication = async (req, res) => {
       status,
       role_lock = false,
     } = req.body;
-    // Accept role_id as array or string, store as comma-separated string
+
     let roleIdStr = Array.isArray(role_id)
       ? role_id.join(",")
       : String(role_id);
 
-    const oldData = await db.query("SELECT * FROM application_master WHERE id=$1", [id]);
-    // fetch old value
-    const oldRes = await db.query(
-      "SELECT * FROM application_master WHERE id=$1",
-      [id]
-    );
-    const oldValue = oldRes.rows[0] || null;
+    const newData = {
+      transaction_id,
+      plant_location_id,
+      department_id,
+      application_hmi_name,
+      application_hmi_version,
+      equipment_instrument_id,
+      application_hmi_type,
+      display_name,
+      role_id: roleIdStr,
+      system_name,
+      system_inventory_id,
+      multiple_role_access,
+      role_lock,
+      status,
+    };
 
+    // 🔥 Submit for approval
+    const approvalId = await submitForApproval({
+      module: "application",
+      tableName: "application_master",
+      action: "update",
+      recordId: id,
+      oldValue,
+      newValue: newData,
+      requestedBy: userId,
+      requestedByUsername: username,
+      comments: `Update application: ${display_name}`,
+    });
+
+    if (approvalId !== null) {
+      return res.status(202).json({
+        message: "Application update submitted for approval",
+        approvalId,
+        status: "PENDING_APPROVAL",
+        data: newData,
+      });
+    }
+
+    // No approval required → Update directly
     const result = await db.query(
       `UPDATE application_master SET
-          transaction_id = $1,
-          plant_location_id = $2,
-          department_id = $3,
-          application_hmi_name = $4,
-          application_hmi_version = $5,
-          equipment_instrument_id = $6,
-          application_hmi_type = $7,
-          display_name = $8,
-          role_id = $9,
-          system_name = $10,
-          system_inventory_id = $11,
-          multiple_role_access = $12,
-          role_lock = $13,
-          status = $14,
-          updated_on = NOW()
-        WHERE id = $15 RETURNING *`,
+        transaction_id=$1,
+        plant_location_id=$2,
+        department_id=$3,
+        application_hmi_name=$4,
+        application_hmi_version=$5,
+        equipment_instrument_id=$6,
+        application_hmi_type=$7,
+        display_name=$8,
+        role_id=$9,
+        system_name=$10,
+        system_inventory_id=$11,
+        multiple_role_access=$12,
+        role_lock=$13,
+        status=$14,
+        updated_on=NOW()
+      WHERE id=$15 RETURNING *`,
       [
         transaction_id,
         plant_location_id,
@@ -230,44 +331,28 @@ exports.editApplication = async (req, res) => {
         id,
       ]
     );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Application not found" });
-    }
-    console.log("req",req);
-    auditLog(req, "application_master", id, "UPDATE", oldData.rows[0], result.rows[0], "updated application");
 
-    // Log update activity (non-blocking)
-    try {
-      const logId = await logActivity({
-        userId: req.user?.id || req.user?.user_id || null,
-        module: "application",
-        tableName: "application_master",
-        recordId: id,
-        action: "update",
-        oldValue,
-        newValue: result.rows[0],
-        comments: `Updated application id: ${id}`,
-        reqMeta: req._meta || {},
-      });
-      if (!logId)
-        console.warn(
-          "Activity log (editApplication) did not insert a row for record:",
-          id
-        );
-      else console.log("Activity log (editApplication) inserted id:", logId);
-    } catch (logErr) {
-      console.warn(
-        "Activity log (editApplication) failed:",
-        logErr.message || logErr
-      );
-    }
+    auditLog(req, "application_master", id, "UPDATE", oldValue, result.rows[0], "updated application");
+
+    await logActivity({
+      userId,
+      module: "application",
+      tableName: "application_master",
+      recordId: id,
+      action: "update",
+      oldValue,
+      newValue: result.rows[0],
+      comments: `Updated application id: ${id}`,
+      reqMeta: req._meta || {},
+    });
 
     res.status(200).json(result.rows[0]);
   } catch (err) {
     console.error("Error editing application:", err);
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: err.message });
   }
 };
+
 
 exports.getDepartmentByPlantId = async (req, res) => {
   try {

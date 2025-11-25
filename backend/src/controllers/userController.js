@@ -70,7 +70,7 @@
  */
 exports.getAllUsers = async (req, res) => {
   try {
-    // Fetch only required columns from user_master
+    // Fetch required columns from user_master, include permissions/plants for frontend
     const query = `
       SELECT 
         id,
@@ -88,30 +88,65 @@ exports.getAllUsers = async (req, res) => {
         last_sync,
         created_on,
         updated_on,
-        role_id
+        role_id,
+        permissions,
+        plants,
+        corporate_access_enabled
       FROM user_master
       ORDER BY id;
     `;
     const { rows } = await db.query(query);
-    // Map DB fields to UI fields (keep names as in DB)
-    const users = rows.map((user) => ({
-      id: user.id,
-      transaction_id: user.transaction_id,
-      employee_name: user.employee_name,
-      employee_id: user.employee_id,
-      employee_code: user.employee_code,
-      department: user.department,
-      location: user.location,
-      status: user.status,
-      company: user.company,
-      mobile: user.mobile,
-      email: user.email,
-      designation: user.designation,
-      last_sync: user.last_sync,
-      created_on: user.created_on,
-      updated_on: user.updated_on,
-      role_id: user.role_id,
-    }));
+    // Map DB fields to UI fields (keep names as in DB), parse JSON/text fields safely
+    const users = rows.map((user) => {
+      // permissions may be stored as JSON/JSONB or as a stringified JSON array
+      let parsedPermissions = {};
+      try {
+        if (user.permissions === null || user.permissions === undefined) {
+          parsedPermissions = {};
+        } else if (typeof user.permissions === "string") {
+          parsedPermissions = JSON.parse(user.permissions);
+        } else {
+          parsedPermissions = user.permissions;
+        }
+      } catch (e) {
+        parsedPermissions = {};
+      }
+
+      let parsedPlants = [];
+      try {
+        if (user.plants === null || user.plants === undefined) {
+          parsedPlants = [];
+        } else if (typeof user.plants === "string") {
+          parsedPlants = JSON.parse(user.plants);
+        } else {
+          parsedPlants = user.plants;
+        }
+      } catch (e) {
+        parsedPlants = [];
+      }
+
+      return {
+        id: user.id,
+        transaction_id: user.transaction_id,
+        employee_name: user.employee_name,
+        employee_id: user.employee_id,
+        employee_code: user.employee_code,
+        department: user.department,
+        location: user.location,
+        status: user.status,
+        company: user.company,
+        mobile: user.mobile,
+        email: user.email,
+        designation: user.designation,
+        last_sync: user.last_sync,
+        created_on: user.created_on,
+        updated_on: user.updated_on,
+        role_id: user.role_id,
+        permissions: parsedPermissions,
+        plants: parsedPlants,
+        corporate_access_enabled: !!user.corporate_access_enabled,
+      };
+    });
     res.json({ users });
   } catch (err) {
     console.error("[USER LIST ERROR]", err);
@@ -234,24 +269,27 @@ exports.addUser = async (req, res) => {
 
 // Edit user
 exports.editUser = async (req, res) => {
+  // Debug: log permissions before saving
+  const {
+    full_name,
+    email,
+    emp_code,
+    department_id,
+    role_id,
+    status,
+    plants,
+    permissions,
+    central_permission,
+    comment,
+    corporate_access_enabled,
+  } = req.body;
+  console.log("[DEBUG] Permissions to save:", permissions);
+  console.log("[DEBUG] Plants to save:", plants);
+
+  // Map incoming fields to the actual user_master table columns.
+  // Frontend may send department (name) or department_id; prefer `department` if provided.
   try {
     const user_id = req.params.id;
-    const {
-      full_name,
-      email,
-      emp_code,
-      department_id,
-      role_id,
-      status,
-      plants,
-      permissions,
-      central_permission,
-      comment,
-      corporate_access_enabled,
-    } = req.body;
-
-    // Map incoming fields to the actual user_master table columns.
-    // Frontend may send department (name) or department_id; prefer `department` if provided.
     const department = req.body.department || department_id || null;
     const updateQuery = `
       UPDATE user_master SET
@@ -262,8 +300,10 @@ exports.editUser = async (req, res) => {
         location = $5,
         status = $6,
         role_id = $7,
+        plants = $8,
+        permissions = $9,
         updated_on = NOW()
-      WHERE id = $8
+      WHERE id = $10
       RETURNING *;
     `;
     // Ensure role_id is passed as an array when DB column is integer[]
@@ -273,6 +313,56 @@ exports.editUser = async (req, res) => {
         ? [role_id]
         : null;
 
+    // Normalize plants into an array (frontend may send names or objects)
+    let normalizedPlants = [];
+    try {
+      if (Array.isArray(plants)) {
+        normalizedPlants = plants;
+      } else if (typeof plants === "string") {
+        // try to parse stringified JSON
+        try {
+          const parsed = JSON.parse(plants);
+          if (Array.isArray(parsed)) normalizedPlants = parsed;
+        } catch (e) {
+          // fallback: single plant name string
+          normalizedPlants = [plants];
+        }
+      }
+    } catch (e) {
+      normalizedPlants = [];
+    }
+
+    // Clean malformed permission tokens like "create:" (empty subject)
+    let cleanedPermissions = [];
+    try {
+      if (Array.isArray(permissions)) {
+        cleanedPermissions = permissions.filter((t) => {
+          if (!t || typeof t !== "string") return false;
+          const parts = t.split(":");
+          return parts.length > 1 && parts[1] && parts[1].trim() !== "";
+        });
+      } else if (typeof permissions === "string") {
+        try {
+          const parsed = JSON.parse(permissions);
+          if (Array.isArray(parsed)) {
+            cleanedPermissions = parsed.filter((t) => {
+              if (!t || typeof t !== "string") return false;
+              const parts = t.split(":");
+              return parts.length > 1 && parts[1] && parts[1].trim() !== "";
+            });
+          }
+        } catch (e) {
+          cleanedPermissions = [];
+        }
+      }
+    } catch (e) {
+      cleanedPermissions = [];
+    }
+
+    // Save plants and permissions as JSON
+    const plantsJson = JSON.stringify(normalizedPlants || []);
+    const permissionsJson = JSON.stringify(cleanedPermissions || []);
+
     const values = [
       full_name,
       email,
@@ -281,6 +371,8 @@ exports.editUser = async (req, res) => {
       req.body.location || null,
       status,
       roleArray,
+      plantsJson,
+      permissionsJson,
       user_id,
     ];
     // fetch old value for diffing
@@ -340,7 +432,7 @@ exports.getUserByEmployeeCode = async (req, res) => {
     const query = `
       SELECT 
       id,
-        employee_name,
+        employee_employee_name AS name,
         employee_code,
         location,
         department,
@@ -350,13 +442,13 @@ exports.getUserByEmployeeCode = async (req, res) => {
       WHERE employee_code = $1
       LIMIT 1`;
 
-    const { result } = await db.query(query, [employeeCode]);
+    const { rows } = await db.query(query, [employeeCode]);
 
-    if (result.rowCount === 0) {
+    if (!rows || rows.length === 0) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    const user = result.rows[0];
+    const user = rows[0];
 
     res.json({
       id:user.id,

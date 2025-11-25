@@ -490,7 +490,7 @@ const ApproverDashboard: React.FC = () => {
             style={{ width: 250, height: 35 }}
           />
           <br />
-          <span>Unichem Laboratories</span>
+          <span className={styles.version}>version-1.0</span>
         </div>
         <nav>
           <div className={styles["sidebar-group"]}>OVERVIEW</div>

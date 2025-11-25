@@ -400,6 +400,19 @@ export async function fetchWorkflows(approverId?: number): Promise<any[]> {
   return [];
 }
 
+export async function fetchCorporateWorkflows(type?: string,corporate_type?: string): Promise<any[]> {
+  const params = [];
+  if (type) params.push(`workflow_type=${type}`);
+  if (corporate_type) params.push(`corporate_type=${corporate_type}`);
+  const q = params.length ? `?${params.join('&')}` : '';
+  const data: any = await request(`/api/workflows${q}`);
+  // Backend may return { workflows: [...] } or an array directly. Normalize to array.
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.workflows)) return data.workflows;
+  if (Array.isArray(data?.data?.workflows)) return data.data.workflows;
+  return [];
+}
+
 export async function postApprovalAction(
   id: string,
   action: "approve" | "reject",
@@ -545,3 +558,160 @@ export async function updateServiceRequestAPI(
 export async function deleteServiceRequestAPI(id: number): Promise<void> {
   return request(`/api/service-requests/${id}`, { method: "DELETE" });
 }
+
+// ===============================
+// RBAC - Roles
+// ===============================
+export async function getRoles() {
+  return request("/api/rbac/roles");
+}
+
+export async function createRole(payload: { role_name: string; description?: string }) {
+  return request("/api/rbac/roles", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateRole(id: number, payload: any) {
+  return request(`/api/rbac/roles/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteRole(id: number) {
+  return request(`/api/rbac/roles/${id}`, {
+    method: "DELETE",
+  });
+}
+
+// ===============================
+// RBAC - Permissions
+// ===============================
+export async function getPermissions() {
+  return request("/api/rbac/permissions");
+}
+
+export async function createPermission(payload: { module_name: string }) {
+  return request("/api/rbac/permissions", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deletePermission(id: number) {
+  return request(`/api/rbac/permissions/${id}`, {
+    method: "DELETE",
+  });
+}
+
+// ===============================
+// Role → Permission Mapping
+// ===============================
+export async function getRolePermissions() {
+  return request("/api/rbac/role-permissions");
+}
+
+export async function assignRolePermission(payload: {
+  role_id: number;
+  permission_id: number;
+  can_add: boolean;
+  can_edit: boolean;
+  can_view: boolean;
+  can_delete: boolean;
+}) {
+  return request(`/api/rbac/role-permissions`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function removeRolePermission(id: number) {
+  return request(`/api/rbac/role-permissions/${id}`, {
+    method: "DELETE",
+  });
+}
+
+// ===============================
+// User → Plant Permission Mapping
+// ===============================
+export async function getUserPlantPermissions(userId: number) {
+  return request(`/api/rbac/user/${userId}/plant-permissions`);
+}
+
+export async function saveUserPlantPermissions(userId: number, payload: any) {
+  return request(`/api/rbac/user/${userId}/plant-permissions`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+// ===============================
+// My Permissions (AbilityContext)
+// ===============================
+export async function getMyPermissions() {
+  return request("/api/rbac/my-permissions");
+}
+
+// ===============================
+// Approvals API (Rewritten to use request())
+// ===============================
+
+/**
+ * Fetch all approvals with optional filters
+ */
+export const fetchApprovals = async (queryParams?: string): Promise<any[]> => {
+  const q = queryParams ? `?${queryParams}` : "";
+  return request(`/api/master-approvals${q}`);
+};
+
+/**
+ * Fetch a single approval by ID
+ */
+export const fetchApprovalById = async (id: number): Promise<any> => {
+  return request(`/api/master-approvals/${id}`);
+};
+
+/**
+ * Approve a pending change
+ */
+export const approveApproval = async (
+  id: number,
+  comments?: string
+): Promise<any> => {
+  return request(`/api/master-approvals/${id}/approve`, {
+    method: "POST",
+    body: JSON.stringify({ comments }),
+  });
+};
+
+/**
+ * Reject a pending change
+ */
+export const rejectApproval = async (
+  id: number,
+  comments: string
+): Promise<any> => {
+  return request(`/api/master-approvals/${id}/reject`, {
+    method: "POST",
+    body: JSON.stringify({ comments }),
+  });
+};
+
+/**
+ * Get approval statistics
+ */
+export const fetchApprovalStats = async (module?: string): Promise<any> => {
+  const q = module ? `?module=${encodeURIComponent(module)}` : "";
+  return request(`/api/master-approvals/stats${q}`);
+};
+
+/**
+ * Cancel a pending approval (by requester only)
+ */
+export const cancelApproval = async (id: number): Promise<any> => {
+  return request(`/api/master-approvals/${id}`, {
+    method: "DELETE",
+  });
+};

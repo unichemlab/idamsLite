@@ -1,445 +1,188 @@
+// activitylogger.js
+// Activity Logger with verbose DEBUG mode
+
 const pool = require("../config/db");
-const crypto = require("crypto");
 
-// In-memory cache: track recently-logged actions to prevent duplicates
-// Key: "userId|module|table|record|action"
-// Value: timestamp of last log
+/* -------------------------
+ * Config / caches
+ * ------------------------- */
 const _requestInFlight = new Map();
-const DEDUP_WINDOW_MS = 2000; // 2 seconds - if same action logged again, skip it
-/**
- * @typedef {Object} ActivityLogEntry
- * @property {number} userId - The ID of the user performing the action
- * @property {string} module - The module/section where the action occurred (e.g., 'roles', 'users', 'workflow')
- * @property {string} tableName - The database table being modified
- * @property {string|number} recordId - The ID of the record being modified
- * @property {string} action - The type of action (e.g., 'create', 'update', 'delete', 'approve')
- * @property {Object|null} oldValue - The previous state of the record (for updates)
- * @property {Object|null} newValue - The new state of the record
- * @property {string} comments - Additional context about the action
- * @property {Object} reqMeta - Request metadata (IP, user agent, etc)
- */
-
-/**
- * Create a deep diff between two objects
- * @param {Object} oldObj - Original object
- * @param {Object} newObj - Modified object
- * @returns {Object} Object containing only changed fields
- */
-const diffObjects = (oldObj, newObj) => {
-  // Normalize undefined to null for consistency
-  if (oldObj === undefined) oldObj = null;
-  if (newObj === undefined) newObj = null;
-
-  const diff = {};
-
-  // If either side is null or primitive, return a simple from/to diff when they differ
-  const isOldObj = oldObj && typeof oldObj === "object";
-  const isNewObj = newObj && typeof newObj === "object";
-
-  if (!isOldObj || !isNewObj) {
-    if (oldObj !== newObj) {
-      return { from: oldObj, to: newObj };
-    }
-    return {};
-  }
-
-  // Both are objects — collect keys from both
-  const allKeys = new Set([...Object.keys(oldObj), ...Object.keys(newObj)]);
-
-  for (const key of allKeys) {
-    // Skip sensitive fields
-    if (["password", "token", "secret"].includes(key)) continue;
-
-    const oldVal = oldObj[key];
-    const newVal = newObj[key];
-
-    const oldIsObj = oldVal && typeof oldVal === "object";
-    const newIsObj = newVal && typeof newVal === "object";
-
-    if (oldIsObj && newIsObj) {
-      const nestedDiff = diffObjects(oldVal, newVal);
-      if (nestedDiff && Object.keys(nestedDiff).length > 0) {
-        diff[key] = nestedDiff;
-      }
-    } else if (oldVal !== newVal) {
-      diff[key] = { from: oldVal, to: newVal };
-    }
-  }
-  return diff;
-};
-
-// Normalize objects for deterministic hashing: sort keys and strip volatile fields
-function normalizeForHash(value) {
-  const volatileKeys = new Set([
-    "updated_on",
-    "created_on",
-    "date_time_ist",
-    "transaction_id",
-  ]);
-
-  function recurse(v) {
-    if (v === null || v === undefined) return null;
-    if (typeof v !== "object") return v;
-    if (Array.isArray(v)) return v.map(recurse);
-    // object: sort keys
-    const keys = Object.keys(v)
-      .filter((k) => !volatileKeys.has(k))
-      .sort();
-    const out = {};
-    for (const k of keys) {
-      out[k] = recurse(v[k]);
-    }
-    return out;
-  }
-
-  try {
-    return JSON.stringify(recurse(value));
-  } catch (e) {
-    return safeStringify(value);
-  }
-}
-
-// helper caches & config
+const DEDUP_WINDOW_MS = 2000;
 let _cachedColumns = null;
 let _cachedAt = 0;
-const COLUMN_CACHE_TTL_MS = 60 * 1000; // 1 minute
+const COLUMN_CACHE_TTL_MS = 60 * 1000;
 
-// safe stringify helper used to normalize objects for storage/comparison
-function safeStringify(obj) {
-  try {
-    return JSON.stringify(obj);
-  } catch (e) {
-    try {
-      return String(obj);
-    } catch (e2) {
-      return null;
-    }
+// DEBUG flag
+const DEBUG = process.env.ACTIVITY_LOG_DEBUG === "true";
+
+/* -------------------------
+ * Constants
+ * ------------------------- */
+const ACTION = { CREATE:"create", UPDATE:"update", DELETE:"delete", VIEW:"view", APPROVE:"approve", REJECT:"reject" };
+const MODULE = { USER:"user", VENDOR:"vendor", PLANT:"plant", ROLE:"role", TASK:"task" };
+
+/* -------------------------
+ * Helpers
+ * ------------------------- */
+function safeStringify(obj){ try{ return JSON.stringify(obj);}catch{try{return String(obj);}catch{return null;}}}
+function sanitizeObject(obj, opts={}) {
+  if(!obj||typeof obj!=="object") return obj;
+  const sensitive = new Set((opts.extra||[]).concat(["password","pass","pwd","token","secret","authorization","auth","apiKey","api_key","ssn","creditcard","card_number"]));
+  const out = Array.isArray(obj)?[]:{};
+  for(const k of Object.keys(obj)){
+    const lk = k.toLowerCase();
+    if(sensitive.has(k)||sensitive.has(lk)||lk.includes("password")||lk.includes("token")||lk.includes("secret")||lk.includes("card")) out[k]="[REDACTED]";
+    else out[k] = (obj[k]&&typeof obj[k]==="object")?sanitizeObject(obj[k], opts):obj[k];
   }
+  return out;
+}
+function diffObjects(oldObj,newObj){
+  if(!oldObj||typeof oldObj!=="object"||!newObj||typeof newObj!=="object") return oldObj!==newObj?{from:oldObj,to:newObj}:{};
+  const diff={}; const allKeys = new Set([...Object.keys(oldObj),...Object.keys(newObj)]);
+  for(const key of allKeys){
+    if(["password","token","secret"].includes(key)) continue;
+    const oldVal=oldObj[key]; const newVal=newObj[key];
+    if(oldVal&&typeof oldVal==="object"&&newVal&&typeof newVal==="object"){
+      const nested = diffObjects(oldVal,newVal);
+      if(Object.keys(nested).length>0) diff[key]=nested;
+    }else if(oldVal!==newVal) diff[key]={from:oldVal,to:newVal};
+  }
+  return diff;
+}
+function normalizeForHash(value){ const volatileKeys=new Set(["updated_on","created_on","date_time_ist","transaction_id"]); function recurse(v){ if(v==null) return null; if(typeof v!=="object") return v; if(Array.isArray(v)) return v.map(recurse); const keys=Object.keys(v).filter(k=>!volatileKeys.has(k)).sort(); const out={}; for(const k of keys) out[k]=recurse(v[k]); return out;} try{return JSON.stringify(recurse(value));}catch{return safeStringify(value);}}
+function parseUserAgent(ua){ if(!ua||typeof ua!=="string") return {browser:null,os:null}; let browser="Unknown",osName="Unknown"; if(/chrome\/\d+/i.test(ua)&&!/edg\//i.test(ua)) browser="Chrome"; if(/edg\//i.test(ua)) browser="Edge"; if(/firefox\/\d+/i.test(ua)) browser="Firefox"; if(/safari\/\d+/i.test(ua)&&!/chrome\/\d+/i.test(ua)) browser="Safari"; if(/opr\/|opera\//i.test(ua)) browser="Opera"; if(/windows nt 10/i.test(ua)) osName="Windows 10"; else if(/windows nt 6\./i.test(ua)) osName="Windows"; else if(/android/i.test(ua)) osName="Android"; else if(/iphone|ipad|ipod/i.test(ua)) osName="iOS"; else if(/mac os x/i.test(ua)) osName="macOS"; else if(/linux/i.test(ua)) osName="Linux"; return {browser,os:osName};}
+
+/* -------------------------
+ * Dedup helpers
+ * ------------------------- */
+function buildDedupKey({userId,module,tableName,recordId,action,reqMeta={}}){
+  const uid=userId??reqMeta.userId??"anonymous";
+  const mid=module??"unknown";
+  const t=tableName??(reqMeta.tableName||"unknown");
+  const rid=recordId==null?"null":String(recordId);
+  const act=action??"unknown";
+  return `${uid}|${mid}|${t}|${rid}|${act}`;
+}
+function isDuplicateAndMark(key){
+  try{
+    const now=Date.now(); const last=_requestInFlight.get(key);
+    if(last&&now-last<DEDUP_WINDOW_MS){ if(DEBUG) console.log(`[DEBUG] Duplicate detected: ${key}`); return true; }
+    _requestInFlight.set(key,now);
+    setTimeout(()=>_requestInFlight.delete(key), DEDUP_WINDOW_MS+500);
+    return false;
+  }catch(e){ console.warn("[ACTIVITY LOG DEDUP ERROR]",e); return false; }
 }
 
-async function getActivityLogColumns() {
-  const now = Date.now();
-  if (_cachedColumns && now - _cachedAt < COLUMN_CACHE_TTL_MS) {
-    return _cachedColumns;
+/* -------------------------
+ * Main logger
+ * ------------------------- */
+async function logActivity({
+  userId, performedByRole=null, module, module_id=null, tableName, recordId, action,
+  oldValue=null, newValue=null, comments="", approveStatus=null, reqMeta={}, options={}
+}){
+  action = typeof action==="string"?action.toLowerCase():action;
+  const dedupKey = buildDedupKey({userId,module,tableName,recordId,action,reqMeta});
+  if(isDuplicateAndMark(dedupKey)){ return null; }
+
+  const sanitizeExtras=Array.isArray(options.sanitizeExtraKeys)?options.sanitizeExtraKeys:[];
+  const safeOld = oldValue?sanitizeObject(oldValue,{extra:sanitizeExtras}):null;
+  const safeNew = newValue?sanitizeObject(newValue,{extra:sanitizeExtras}):null;
+  const changes = (safeOld&&safeNew)?diffObjects(safeOld,safeNew):null;
+
+  const ip=reqMeta.ip??reqMeta.req?.ip??reqMeta.req?.headers?.["x-forwarded-for"]??null;
+  const ua=reqMeta.userAgent??reqMeta.req?.get?.("User-Agent")??null;
+  const uaParsed=parseUserAgent(ua);
+  const performed_by = userId??reqMeta.userId??null;
+  const performed_by_role = performedByRole??reqMeta.role??null;
+
+  if(DEBUG){
+    console.log("[DEBUG] logActivity called:");
+    console.log("  dedupKey:", dedupKey);
+    console.log("  oldValue:", safeOld);
+    console.log("  newValue:", safeNew);
+    console.log("  changes:", changes);
+    console.log("  module/table/action:", module, tableName, action);
+    console.log("  user:", performed_by, "role:", performed_by_role);
   }
 
-  try {
-    const { rows } = await pool.query(
-      `SELECT column_name FROM information_schema.columns WHERE table_name='activity_log'`
-    );
-    const cols = new Set(rows.map((r) => r.column_name));
-    _cachedColumns = cols;
-    _cachedAt = now;
-    return cols;
-  } catch (e) {
-    console.error("[ACTIVITY LOG INTROSPECTION ERROR]", e);
-    // if introspection fails, return null so caller can decide fallback
-    return null;
+  if(process.env.ACTIVITY_LOG_DRY_RUN==="true"){ return null; } // skip actual insert
+
+  const details = safeStringify({module,tableName,recordId,action,old_value:safeOld,new_value:safeNew,changes,comments,reqMeta:{ip,userAgent:ua,browser:uaParsed.browser,os:uaParsed.os},performed_by,performed_by_role,timestamp:new Date().toISOString()});
+
+  const cols = ["transaction_id","user_id","plant_id","module_id","table_name","record_id","action","old_value","new_value","action_performed_by","approve_status","date_time_ist","comments","ip_address","device","created_on","module","changes","user_agent","details"];
+  const values = [reqMeta.transaction_id??null,performed_by,reqMeta.plant_id??null,module_id,tableName,recordId==null?null:String(recordId),action??null,safeOld?safeStringify(safeOld):null,safeNew?safeStringify(safeNew):null,performed_by,approveStatus??null,comments||null,ip,reqMeta.device??reqMeta.req?.headers?.["sec-ch-ua-platform"]??null,module??null,changes?safeStringify(changes):null,ua,details];
+  const placeholders=[]; const sqlValues=[]; let paramIndex=1;
+  for(let i=0,valIdx=0;i<cols.length;i++){
+    if(cols[i]==="date_time_ist"||cols[i]==="created_on"){placeholders.push("NOW()");continue;}
+    placeholders.push(`$${paramIndex++}`); sqlValues.push(values[valIdx++]);
   }
+  try{
+    const r = await pool.query(`INSERT INTO activity_log (${cols.join(",")}) VALUES (${placeholders.join(",")}) RETURNING id`, sqlValues);
+    if(DEBUG) console.log(`[DEBUG] Inserted id:${r.rows?.[0]?.id ?? null}`);
+    return r.rows?.[0]?.id ?? null;
+  }catch(err){ console.error("[ACTIVITY LOG ERROR]",err); return null;}
 }
 
-const logActivity = async ({
-  userId,
-  module,
-  tableName,
-  recordId,
-  action,
-  oldValue = null,
-  newValue = null,
-  comments = "",
-  reqMeta = {},
-}) => {
-  // Normalize action (avoid duplicates due to casing like 'UPDATE' vs 'update')
-  try {
-    if (action && typeof action === "string") action = action.toLowerCase();
-  } catch (e) {
-    /* ignore */
-  }
+/* -------------------------
+ * Middleware
+ * ------------------------- */
+function activityLoggerMiddleware(opts={}) {
+  const { autoLogMethods=["POST","PUT","DELETE"], autoLogPaths=null, sanitizeExtraKeys=[], attachToReqName="logActivity", autoLog=true }=opts;
+  return function(req,res,next){
+    req[attachToReqName]=async function(params={}){ const final={...params, reqMeta:{...params.reqMeta, ip:req.ip, userAgent:req.get?.("User-Agent"), req, userId:req.user?.id??req.user?.userId, role:req.user?.role??req.user?.roles??null, plant_id:req.user?.plant_id}}; final.userId=final.userId??final.reqMeta.userId??null; return logActivity(final); };
+    if(!autoLog||!autoLogMethods.includes(req.method)) return next();
+    if(Array.isArray(autoLogPaths)&&autoLogPaths.length>0&&!autoLogPaths.some(p=>p instanceof RegExp?p.test(req.path):req.path.includes(p))) return next();
+    res.on("finish",async()=>{
+      try{
+        const performed_by=req.user?.id??req.user?.userId;
+        const performed_by_role=req.user?.role??req.user?.roles;
+        const oldRes=req.oldResource?sanitizeObject(req.oldResource,{extra:sanitizeExtraKeys}):null;
+        const newRes=req.body?sanitizeObject(req.body,{extra:sanitizeExtraKeys}):null;
+        if(DEBUG) console.log(`[DEBUG] Auto-log HTTP ${req.method} ${req.originalUrl} status ${res.statusCode}`);
+        await req[attachToReqName]({userId:performed_by,performedByRole:performed_by_role,module:req.baseUrl?.split("/").filter(Boolean).join("_")??"http",tableName:req.path?.split("/").filter(Boolean)[0]??null,recordId:req.params?.id??req.params?.recordId??null,action:req.method.toLowerCase(),oldValue:oldRes,newValue:newRes,comments:`HTTP ${req.method} ${req.originalUrl} -> ${res.statusCode}`,reqMeta:{ip:req.ip,userAgent:req.get?.("User-Agent"),req},options:{sanitizeExtraKeys}});
+      }catch(e){console.warn("[ACTIVITY LOG AUTO-LOG ERROR]",e);}
+    });
+    return next();
+  };
+}
 
-  // ABSOLUTE DEDUP: If same user/module/table/record/action was logged within 2 seconds, SKIP
-  // This is the ONLY check we need - simple and foolproof.
-  try {
-    const simpleKey = `${userId}|${module}|${tableName}|${recordId}|${action}`;
-    const lastTime = _requestInFlight.get(simpleKey);
-    const now = Date.now();
+/* -------------------------
+ * List activity logs
+ * ------------------------- */
+async function getActivityLogs(req,res){
+  try{
+    const { module,action,userId,role,tableName,q,page=1,perPage=25,from,to,sort="date_time_ist",order="desc" }=req.query;
+    const pageNum=Math.max(1,parseInt(page,10)||1); const limit=Math.max(1,Math.min(200,parseInt(perPage,10)||25)); const offset=(pageNum-1)*limit;
+    const wheres=[]; const vals=[]; let idx=1;
+    if(module){wheres.push(`module=$${idx++}`);vals.push(module);}
+    if(action){wheres.push(`action=$${idx++}`);vals.push(action);}
+    if(userId){wheres.push(`(action_performed_by=$${idx} OR user_id=$${idx})`);vals.push(userId);}
+    if(role){wheres.push(`performed_by_role=$${idx++}`);vals.push(role);}
+    if(tableName){wheres.push(`table_name=$${idx++}`);vals.push(tableName);}
+    if(from){wheres.push(`date_time_ist >= $${idx++}`);vals.push(from);}
+    if(to){wheres.push(`date_time_ist <= $${idx++}`);vals.push(to);}
+    if(q){wheres.push(`(COALESCE(details::text,'') ILIKE $${idx++} OR COALESCE(changes::text,'') ILIKE $${idx++})`); vals.push(`%${q}%`,`%${q}%`);}
+    const whereSql=wheres.length?`WHERE ${wheres.join(" AND ")}`:"";
+    const countRes=await pool.query(`SELECT COUNT(*)::int as total FROM activity_log ${whereSql}`,vals);
+    const total=countRes.rows?.[0]?.total??0;
+    const allowedSortCols=["date_time_ist","created_on","id"]; const sortCol=allowedSortCols.includes(sort)?sort:"date_time_ist";
+    const ord=order?.toLowerCase()==="asc"?"ASC":"DESC"; vals.push(limit,offset);
+    const dataQ=`SELECT * FROM activity_log ${whereSql} ORDER BY ${sortCol} ${ord} LIMIT $${idx++} OFFSET $${idx++}`;
+    const dataRes=await pool.query(dataQ,vals);
+    return res.json({meta:{total,page:pageNum,perPage:limit,pages:Math.ceil(total/limit)},data:dataRes.rows});
+  }catch(err){console.error("[ACTIVITY LOG LIST ERROR]",err);return res.status(500).json({error:"Failed to fetch activity logs"});}
+}
 
-    console.log(
-      `[ACTIVITY LOG] Check dedup - key=${simpleKey}, lastTime=${lastTime}, timeSince=${
-        lastTime ? now - lastTime : "N/A"
-      }ms`
-    );
-
-    if (lastTime && now - lastTime < 2000) {
-      // Duplicate within 2 seconds - skip entirely
-      console.log(
-        `[ACTIVITY LOG] ✓ DUPLICATE BLOCKED (${simpleKey}) - last logged ${
-          now - lastTime
-        }ms ago`
-      );
-      return null;
-    }
-
-    // Update the timestamp for this key
-    _requestInFlight.set(simpleKey, now);
-    // Cleanup after 3 seconds
-    setTimeout(() => _requestInFlight.delete(simpleKey), 3000);
-    console.log(
-      `[ACTIVITY LOG] Allowing insert - marked key in cache for dedup window`
-    );
-  } catch (e) {
-    console.error("[ACTIVITY LOG DEDUP ERROR]", e);
-  }
-
-  // Calculate changes if both old and new values exist
-  let changes = null;
-  try {
-    if (oldValue && newValue) {
-      changes = diffObjects(oldValue, newValue);
-    }
-
-    const cols = await getActivityLogColumns();
-
-    // Prefer canonical insert when full canonical columns are available
-    const hasCanonical =
-      cols &&
-      cols.has("action_performed_by") &&
-      cols.has("module") &&
-      cols.has("table_name");
-
-    if (hasCanonical) {
-      // Debugging aid: when enabled, print call stack and payload so we can trace duplicate callers
-      try {
-        if (process.env.ACTIVITY_LOG_DEBUG === "true") {
-          console.log("[ACTIVITY LOG DEBUG] payload:", {
-            userId,
-            module,
-            tableName,
-            recordId,
-            action,
-          });
-          // include trimmed stack to help find the caller
-          const st = new Error().stack || "";
-          console.log(
-            "[ACTIVITY LOG DEBUG] stack:\n",
-            st.split("\n").slice(2, 8).join("\n")
-          );
-        }
-      } catch (e) {
-        // ignore debug logging failures
-      }
-
-      // Deduplication: Simple 2-second window to prevent duplicate logs
-      // from same user/module/table/record/action within 2 seconds
-      try {
-        if (userId && module && tableName && recordId && action) {
-          const simpleKey = `${userId}|${module}|${tableName}|${recordId}|${action}`;
-          const lastTime = _requestInFlight.get(simpleKey);
-          const now = Date.now();
-
-          if (lastTime && now - lastTime < DEDUP_WINDOW_MS) {
-            console.log(
-              `[ACTIVITY LOG] DUPLICATE BLOCKED (${simpleKey}) - last logged ${
-                now - lastTime
-              }ms ago`
-            );
-            return null;
-          }
-
-          // Mark this action as just-logged
-          _requestInFlight.set(simpleKey, now);
-          // Auto-cleanup after 3 seconds
-          setTimeout(() => _requestInFlight.delete(simpleKey), 3000);
-        }
-      } catch (dedupErr) {
-        // Non-fatal: if dedup check fails, continue to insert normally
-        console.warn(
-          "[ACTIVITY LOG DEDUP ERROR]",
-          dedupErr.message || dedupErr
-        );
-      }
-      // Extra debug: print payload and stack right before insertion so we can
-      // trace duplicate insert callers when ACTIVITY_LOG_DEBUG is enabled.
-      try {
-        if (process.env.ACTIVITY_LOG_DEBUG === "true") {
-          const stInsert = new Error().stack || "";
-          console.log("[ACTIVITY LOG DEBUG] Inserting activity log payload:", {
-            userId,
-            module,
-            tableName,
-            recordId,
-            action,
-            oldValue: oldValue ? safeStringify(oldValue) : null,
-            newValue: newValue ? safeStringify(newValue) : null,
-            comments,
-            reqMeta,
-            time: new Date().toISOString(),
-          });
-          console.log(
-            "[ACTIVITY LOG DEBUG] stack at insert:\n",
-            stInsert.split("\n").slice(2, 10).join("\n")
-          );
-        }
-      } catch (debugErr) {
-        /* ignore debug logging failures */
-      }
-
-      console.log(
-        `[ACTIVITY LOG] Inserting canonical record - action=${action}, user=${userId}, module=${module}, table=${tableName}, record=${recordId}`
-      );
-
-      const query = `
-        INSERT INTO activity_log (
-          action_performed_by,
-          module,
-          table_name,
-          record_id,
-          action,
-          old_value,
-          new_value,
-          changes,
-          comments,
-          ip_address,
-          user_agent,
-          date_time_ist
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
-        RETURNING id
-      `;
-
-      const values = [
-        userId,
-        module,
-        tableName,
-        recordId?.toString(),
-        action,
-        oldValue ? safeStringify(oldValue) : null,
-        newValue ? safeStringify(newValue) : null,
-        changes ? safeStringify(changes) : null,
-        comments,
-        reqMeta.ip || null,
-        reqMeta.userAgent || null,
-      ];
-
-      const result = await pool.query(query, values);
-      const insertedId = result.rows[0].id;
-      return insertedId;
-    }
-
-    // If canonical not available, try to build an insert using whichever known
-    // columns exist (legacy shapes). This avoids hard failing when columns like
-    // 'module' or 'details' are missing in older DBs.
-    if (cols) {
-      // Known columns we can include if present
-      const possible = {
-        user_id: userId,
-        action: action,
-        details: safeStringify({
-          module,
-          tableName,
-          recordId: recordId?.toString(),
-          action,
-          old_value: oldValue || null,
-          new_value: newValue || null,
-          changes: changes || null,
-          comments,
-        }),
-        ip_address: reqMeta.ip || null,
-        user_agent: reqMeta.userAgent || null,
-        date_time_ist: null, // will use NOW() in query if column exists
-      };
-
-      // Build insert columns and values only for columns that exist
-      const insertCols = [];
-      const insertParams = [];
-      const values = [];
-      let paramIndex = 1;
-
-      for (const key of [
-        "user_id",
-        "action",
-        "details",
-        "ip_address",
-        "user_agent",
-      ]) {
-        if (cols.has(key)) {
-          insertCols.push(key);
-          insertParams.push(`$${paramIndex++}`);
-          values.push(possible[key]);
-        }
-      }
-
-      // If activity_log has date_time_ist column, append it as NOW()
-      let appendNow = false;
-      if (cols.has("date_time_ist")) {
-        appendNow = true;
-      }
-
-      if (insertCols.length > 0) {
-        console.log(
-          `[ACTIVITY LOG] Inserting via fallback path 1 - columns=${insertCols.join(
-            ","
-          )}, user=${userId}`
-        );
-        const query = `INSERT INTO activity_log (${insertCols.join(
-          ","
-        )}) VALUES (${insertParams.join(",")}${
-          appendNow ? ", NOW()" : ""
-        }) RETURNING id`;
-        const result = await pool.query(query, values);
-        return result.rows[0].id;
-      }
-    }
-
-    // As a last resort, try the previous fallback that uses 'details' column
-    try {
-      console.log(
-        `[ACTIVITY LOG] Inserting via fallback path 2 (details column) - action=${action}, user=${userId}`
-      );
-
-      const fallbackQuery = `
-        INSERT INTO activity_log (
-          user_id,
-          action,
-          details,
-          ip_address,
-          user_agent,
-          date_time_ist
-        ) VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING id
-      `;
-
-      const detailsObj = {
-        module,
-        tableName,
-        recordId: recordId?.toString(),
-        action,
-        old_value: oldValue || null,
-        new_value: newValue || null,
-        changes: changes || null,
-        comments,
-      };
-
-      const fallbackValues = [
-        userId,
-        action,
-        safeStringify(detailsObj),
-        reqMeta.ip || null,
-        reqMeta.userAgent || null,
-      ];
-
-      const fallbackResult = await pool.query(fallbackQuery, fallbackValues);
-      return fallbackResult.rows[0].id;
-    } catch (fallbackErr) {
-      console.error("[ACTIVITY LOG FALLBACK ERROR]", fallbackErr);
-      return null;
-    }
-  } catch (error) {
-    console.error("[ACTIVITY LOG ERROR]", error);
-    // Do not throw to avoid breaking main flows
-    return null;
-  }
-};
-
+/* -------------------------
+ * Exports
+ * ------------------------- */
 module.exports = {
   logActivity,
-  diffObjects, // Exported for testing
-  safeStringify, // Exported for testing
+  activityLoggerMiddleware,
+  getActivityLogs,
+  diffObjects,
+  safeStringify,
+  normalizeForHash,
+  ACTION,
+  MODULE
 };

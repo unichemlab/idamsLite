@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
-import ProfileIconWithLogout from "./ProfileIconWithLogout";
+import ProfileIconWithLogout from "../../components/Common/ProfileIconWithLogout";
 import { useTaskContext } from "./TaskContext";
 import styles from "./TaskClosureTracking.module.css";
 import NotificationsIcon from "@mui/icons-material/Notifications";
@@ -169,7 +169,7 @@ const TaskTable: React.FC = () => {
                       alt="Logo"
                       className={styles.logo}
                     />
-                    <span className={styles.version}>v1.00</span>
+                    <span className={styles.version}>version-1.0</span>
                   </div>
                   <h1 className={styles["header-title"]}>
                     Task Clouser Request

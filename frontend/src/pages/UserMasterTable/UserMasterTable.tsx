@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { AbilityContext } from "../../context/AbilityContext";
-import ProfileIconWithLogout from "../PlantMasterTable/ProfileIconWithLogout";
+import ProfileIconWithLogout from "../../components/Common/ProfileIconWithLogout";
 import { useNavigate } from "react-router-dom";
 import styles from "./UserMasterTable.module.css";
 import paginationStyles from "../../styles/Pagination.module.css";

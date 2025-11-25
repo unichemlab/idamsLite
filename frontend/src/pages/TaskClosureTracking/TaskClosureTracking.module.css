@@ -7,7 +7,7 @@
   color: #fff;
   padding: 14px 24px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-  height: 70px;
+  height: 60px;
 }
 
 .header-title {
@@ -238,22 +238,7 @@
 }
 
 /* Header adjustments */
-.main-header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 50px;              /* slightly taller for comfort */
-  background: linear-gradient(90deg, #007bff 0%, #0056b3 100%);
-  color: #fff;
-  padding: 0 20px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between; /* left vs right */
-  gap: 12px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  z-index: 1000;
-}
+
 
 .header-left {
   display: flex;
@@ -291,10 +276,10 @@
 .header-right { display: flex; gap: 10px; }
 
 .main-content {
- margin-top: 30px;
+ /* margin-top: 30px; */
     height: calc(100vh - 30px);
     overflow-y: auto;
-    padding: 26px 20px;
+    /* padding: 26px 20px; */
 }
 
 .addUserBtn {

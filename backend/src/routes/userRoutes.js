@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const userController = require("../controllers/userController");
+const userPlantPermissionController = require("../controllers/userPlantPermissionController");
 const pool = require("../config/db");
 
 // Get all users
@@ -9,6 +10,16 @@ router.get("/", userController.getAllUsers);
 router.post("/", userController.addUser);
 // Edit user
 router.put("/:id", userController.editUser);
+
+// User plant-level permissions (store permissions per plant/module)
+router.get(
+  "/:userId/plant-permissions",
+  userPlantPermissionController.getUserPlantPermissions
+);
+router.put(
+  "/:userId/plant-permissions",
+  userPlantPermissionController.setUserPlantPermissions
+);
 
 router.get("/users/:employeeCode", userController.getUserByEmployeeCode);
 
