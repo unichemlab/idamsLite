@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import styles from "./ApproverDashboard.module.css";
 import ListAltIcon from "@mui/icons-material/ListAlt";
 import LogoutIcon from "@mui/icons-material/Logout";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
+import PersonIcon from "@mui/icons-material/Person";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import TaskIcon from "@mui/icons-material/Task";
+import HomeIcon from "@mui/icons-material/Home";
 import {
   Button,
   Dialog,
@@ -55,14 +58,19 @@ interface ApprovalAction {
 
 const ApproverDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<
-    "access-requests" | "approved-rejected"
-  >("access-requests");
+  // Determine active tab from localStorage or default to "pending-approval"
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    const stored = localStorage.getItem("approver_activeTab");
+    return stored || "pending-approval";
+  });
+
   const [requests, setRequests] = useState<AccessRequest[]>([]);
   const [approvalHistory, setApprovalHistory] = useState<ApprovalAction[]>([]);
   const [loading, setLoading] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   // Dialog / selection state for approve/reject
   const [selectedRequest, setSelectedRequest] = useState<AccessRequest | null>(
@@ -72,6 +80,11 @@ const ApproverDashboard: React.FC = () => {
   const [openRejectDialog, setOpenRejectDialog] = useState(false);
   const [actionComments, setActionComments] = useState("");
   const [actionInProgress, setActionInProgress] = useState(false);
+
+  // Save active tab to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem("approver_activeTab", activeTab);
+  }, [activeTab]);
 
   useEffect(() => {
     loadRequestsAndHistory();
@@ -92,11 +105,9 @@ const ApproverDashboard: React.FC = () => {
 
       const [tasks, workflowsResponse]: [any, any] = await Promise.all([
         fetchTasksForApprover(user.id),
-        // ask backend to return only workflows relevant to this approver when possible
         fetchWorkflows(Number(user.id)),
       ]);
 
-      // workflowsResponse can be an object with a 'workflows' property, or an array directly
       let workflows: any[] = [];
       const wfResp: any = workflowsResponse;
       if (Array.isArray(wfResp)) {
@@ -110,13 +121,8 @@ const ApproverDashboard: React.FC = () => {
         workflows = wfResp.workflows;
       }
 
-      // workflows may store approver ids as numbers; compare numerically/string-safe
-      // Workflows may come in two shapes:
-      // - legacy: { approver_1_id, approver_2_id, ... }
-      // - modern: { approvers: [ [userObj...], [userObj...], ... ] }
       const approverPlantIds = workflows
         .filter((wf: any) => {
-          // modern shape: check approvers arrays for a matching user id
           if (Array.isArray(wf.approvers) && wf.approvers.length) {
             return wf.approvers.some((group: any[]) =>
               group.some(
@@ -127,7 +133,6 @@ const ApproverDashboard: React.FC = () => {
             );
           }
 
-          // fallback to legacy comma-separated fields
           return [
             wf.approver_1_id,
             wf.approver_2_id,
@@ -143,33 +148,27 @@ const ApproverDashboard: React.FC = () => {
         })
         .map((wf: any) => Number(wf.plant_id));
 
-      console.log("ApproverDashboard approverPlantIds:", approverPlantIds);
-
       const mapped = Array.isArray(tasks)
         ? tasks
             .filter((tr) => {
               const locNum = Number(tr.location);
               const isInApproverPlant = approverPlantIds.includes(locNum);
               const isDirectlyAssigned = tr.reports_to === user.username;
-              // Only show PENDING requests in Access Requests tab
               const isPending = (tr.task_status || "Pending") === "Pending";
               return isPending && (isInApproverPlant || isDirectlyAssigned);
             })
             .map((tr) => ({
-              // Ensure a stable, unique id for React list keys. Combine user_request_id and task id/transaction
               id:
                 (tr.user_request_id ? String(tr.user_request_id) + "-" : "") +
                 (tr.task_request_transaction_id ||
                   tr.transaction_id ||
                   tr.task_id ||
                   String(tr.task_id || tr.transaction_id)),
-              // Raw transaction id required by approvals API
               transaction:
                 tr.task_request_transaction_id ||
                 tr.transaction_id ||
                 tr.task_id ||
                 String(tr.task_id || tr.transaction_id),
-              // Include user_request_id so backend can scope the update to this request
               user_request_id: tr.user_request_id,
               user: tr.request_name || tr.requestor_name || tr.name || "-",
               approver: tr.reports_to || tr.reportsTo || undefined,
@@ -189,8 +188,6 @@ const ApproverDashboard: React.FC = () => {
             }))
         : [];
 
-      console.log("ApproverDashboard mapped requests (PENDING only):", mapped);
-
       setRequests(mapped);
     } catch (err) {
       console.error("Error fetching requests:", err);
@@ -209,33 +206,26 @@ const ApproverDashboard: React.FC = () => {
       const data: any = await fetchTasksForApprover(Number(user.id));
       const mapped: ApprovalAction[] = Array.isArray(data)
         ? data
-            // Filter to show only APPROVED or REJECTED (not Pending)
             .filter((tr: any) => {
               const status = tr.task_status || "Pending";
               return status === "Approved" || status === "Rejected";
             })
             .map((tr: any) => {
-              // Determine which approver actually approved/rejected
               let approverName = "-";
               let approverAction = tr.task_status || "Pending";
 
-              // Check if Approver2 took the action
               if (tr.approver2_action && tr.approver2_action !== "Pending") {
                 approverName =
                   tr.approver2_name || tr.approver2_email || "Approver 2";
                 approverAction = tr.approver2_action;
-              }
-              // Otherwise check Approver1
-              else if (
+              } else if (
                 tr.approver1_action &&
                 tr.approver1_action !== "Pending"
               ) {
                 approverName =
                   tr.approver1_name || tr.approver1_email || "Approver 1";
                 approverAction = tr.approver1_action;
-              }
-              // Fallback to legacy field
-              else {
+              } else {
                 approverName =
                   tr.reports_to ||
                   tr.approver_name ||
@@ -262,10 +252,6 @@ const ApproverDashboard: React.FC = () => {
               };
             })
         : [];
-      console.log(
-        "ApproverDashboard approval history (APPROVED/REJECTED only):",
-        mapped
-      );
       setApprovalHistory(mapped);
     } catch (err) {
       console.error("Error fetching approval history:", err);
@@ -291,7 +277,7 @@ const ApproverDashboard: React.FC = () => {
       setSelectedRequest(null);
       setActionComments("");
     } catch (err) {
-      // handle error
+      console.error("Error approving request:", err);
     } finally {
       setActionInProgress(false);
     }
@@ -315,7 +301,7 @@ const ApproverDashboard: React.FC = () => {
       setSelectedRequest(null);
       setActionComments("");
     } catch (err) {
-      // handle error
+      console.error("Error rejecting request:", err);
     } finally {
       setActionInProgress(false);
     }
@@ -329,6 +315,14 @@ const ApproverDashboard: React.FC = () => {
       localStorage.removeItem("token");
     }
     navigate("/");
+  };
+
+  const handleProfileClick = () => setProfileOpen((prev) => !prev);
+
+  // Handle navigation between tabs
+  const handleNavigation = (key: string) => {
+    setActiveTab(key);
+    localStorage.setItem("approver_activeTab", key);
   };
 
   const AccessRequestsTable: React.FC<{
@@ -480,6 +474,60 @@ const ApproverDashboard: React.FC = () => {
     setOpenRejectDialog(true);
   };
 
+  // Render main content based on active tab
+  const renderContent = () => {
+    switch (activeTab) {
+      case "home":
+        return (
+          <div className={styles.dashboard1}>
+            <div className={styles["overview-cards"]}>
+              <div style={{ padding: "20px" }}>
+                <h2>Welcome to Approver Dashboard</h2>
+                <p>
+                  Review and approve pending access requests, view approval
+                  history, and manage task closures for your organization.
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+      case "pending-approval":
+        return (
+          <section className={styles.sectionWrap}>
+            <div className={styles.card}>
+              <AccessRequestsTable
+                requests={requests}
+                onView={handleViewRequest}
+                onApprove={onApproveClick}
+                onReject={onRejectClick}
+              />
+            </div>
+          </section>
+        );
+      case "approval-history":
+        return (
+          <section className={styles.sectionWrap}>
+            <div className={styles.card}>
+              <ApprovalHistoryTable actions={approvalHistory} />
+            </div>
+          </section>
+        );
+      case "task-closure":
+        return (
+          <div className={styles.dashboard1}>
+            <div className={styles["overview-cards"]}>
+              <div style={{ padding: "20px" }}>
+                <h2>Task Closure Tracking</h2>
+                <p>Track and manage task closures here.</p>
+              </div>
+            </div>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className={styles["main-container"]}>
       <aside className={styles.sidebar}>
@@ -494,22 +542,43 @@ const ApproverDashboard: React.FC = () => {
         </div>
         <nav>
           <div className={styles["sidebar-group"]}>OVERVIEW</div>
+          
           <button
             className={`${styles["nav-button"]} ${
-              activeTab === "access-requests" ? styles.active : ""
+              activeTab === "home" ? styles.active : ""
             }`}
-            onClick={() => setActiveTab("access-requests")}
+            onClick={() => handleNavigation("home")}
           >
-            <ListAltIcon fontSize="small" /> &nbsp; Access Requests
+            <HomeIcon fontSize="small" /> &nbsp; Home
           </button>
+
           <button
             className={`${styles["nav-button"]} ${
-              activeTab === "approved-rejected" ? styles.active : ""
+              activeTab === "pending-approval" ? styles.active : ""
             }`}
-            onClick={() => setActiveTab("approved-rejected")}
+            onClick={() => handleNavigation("pending-approval")}
           >
-            <AssignmentIcon fontSize="small" /> &nbsp; Approved/Rejected By
+            <ListAltIcon fontSize="small" /> &nbsp; Pending Approval
           </button>
+
+          <button
+            className={`${styles["nav-button"]} ${
+              activeTab === "approval-history" ? styles.active : ""
+            }`}
+            onClick={() => handleNavigation("approval-history")}
+          >
+            <AssignmentIcon fontSize="small" /> &nbsp; Approval History
+          </button>
+
+          <button
+            className={`${styles["nav-button"]} ${
+              activeTab === "task-closure" ? styles.active : ""
+            }`}
+            onClick={() => handleNavigation("task-closure")}
+          >
+            <TaskIcon fontSize="small" /> &nbsp; Task Closure
+          </button>
+
           <div className={styles["sidebar-footer"]}>
             <div className={styles["admin-info"]}>
               <div className={styles.avatar}>
@@ -528,18 +597,57 @@ const ApproverDashboard: React.FC = () => {
           </div>
         </nav>
       </aside>
+
       <main className={styles["main-content"]}>
         <header className={styles["main-header"]}>
           <h2 className={styles["header-title"]}>Approver Dashboard</h2>
           <div className={styles["header-icons"]}>
-            <span className={styles["header-icon"]}>
-              <NotificationsIcon fontSize="small" />
-            </span>
-            <span className={styles["header-icon"]}>
-              <SettingsIcon fontSize="small" />
-            </span>
+            <NotificationsIcon fontSize="small" />
+            <SettingsIcon fontSize="small" />
+            <PersonIcon
+              fontSize="small"
+              onClick={handleProfileClick}
+              style={{
+                cursor: "pointer",
+                position: "relative",
+                borderRadius: "50%",
+              }}
+            />
+            {profileOpen && (
+              <div
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  top: 30,
+                  border: "1px solid #ccc",
+                  background: "#fff",
+                  borderRadius: 4,
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                  zIndex: 10,
+                  minWidth: 120,
+                }}
+              >
+                <button
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    textAlign: "left",
+                  }}
+                  onClick={() => {
+                    setProfileOpen(false);
+                    handleLogout();
+                  }}
+                >
+                  <LogoutIcon fontSize="small" /> Logout
+                </button>
+              </div>
+            )}
           </div>
         </header>
+
         <div className={styles.pageContent}>
           {loading ? (
             <div
@@ -547,26 +655,12 @@ const ApproverDashboard: React.FC = () => {
             >
               <CircularProgress />
             </div>
-          ) : activeTab === "access-requests" ? (
-            <section className={styles.sectionWrap}>
-              <div className={styles.card}>
-                <AccessRequestsTable
-                  requests={requests}
-                  onView={handleViewRequest}
-                  onApprove={onApproveClick}
-                  onReject={onRejectClick}
-                />
-              </div>
-            </section>
           ) : (
-            <section className={styles.sectionWrap}>
-              <div className={styles.card}>
-                <ApprovalHistoryTable actions={approvalHistory} />
-              </div>
-            </section>
+            renderContent()
           )}
         </div>
       </main>
+
       {/* Approve dialog */}
       <Dialog
         open={openApproveDialog}
@@ -610,6 +704,7 @@ const ApproverDashboard: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
       {/* Reject dialog */}
       <Dialog
         open={openRejectDialog}

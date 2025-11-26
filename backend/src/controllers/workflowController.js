@@ -150,6 +150,11 @@ if (corporate_type) {
       department_id: r.department_id,
       max_approvers: r.max_approvers,
       is_active: r.is_active,
+      approver_1_id: r.approver_1_id,
+      approver_2_id: r.approver_2_id,
+      approver_3_id: r.approver_3_id,
+      approver_4_id: r.approver_4_id,
+      approver_5_id: r.approver_5_id,
       approvers: [
         r.approver_1_id
           ? String(r.approver_1_id)

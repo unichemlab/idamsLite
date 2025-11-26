@@ -361,6 +361,7 @@ if (isITBin) {
       role_id: roleIds,
       permissions,
       permissions_version: 1, // Increment when permission structure changes
+      isApprover:user.is_approver,
       // IT BIN Admin info
       isITBin,
       itPlants: isITBin ? itPlants : [], // Full plant details for IT BIN admins
@@ -399,6 +400,7 @@ if (isITBin) {
         managers_manager: user.managers_manager ?? "",
         role_id: user.role_id,
         status: user.status,
+        isApprover:user.is_approver,
          // IT BIN info
         isITBin,
         itPlants: isITBin ? itPlants : [],

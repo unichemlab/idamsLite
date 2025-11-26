@@ -127,11 +127,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       try {
         // Ask backend to return workflows that include this approver id
-        const workflows = await fetchWorkflows(userId);
-        if (!Array.isArray(workflows)) {
-          console.warn("fetchWorkflows did not return an array");
-          return false;
+        // const workflows = await fetchWorkflows(userId);
+        // if (!Array.isArray(workflows)) {
+        //   console.warn("fetchWorkflows did not return an array");
+        //   return false;
+        // }
+        // Get token from parameter or localStorage
+      const authToken = token || localStorage.getItem("token");
+      
+      if (!authToken) {
+        console.warn("No auth token available for fetchWorkflowsForUser");
+        return false;
+      }
+ // Fetch workflows with proper authorization header
+      const res = await fetch(`${API_BASE}/api/workflows?approver_id=${userId}`,
+        {method: "GET",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
         }
+      );
+      if (!res.ok) return false;
+
+      const data = await res.json().catch(() => []); console.log("workflow data", data);
+      const workflows = Array.isArray(data) ? data : data.workflows || [];
+
+      console.log("workflow", workflows);
 
         const found = workflows.some((wf: Workflow) => {
           const approverIds = [
@@ -141,6 +160,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             wf.approver_4_id,
             wf.approver_5_id,
           ];
+          console.log("Checking workflow approvers:", approverIds);
           return approverIds.some((id) => id === String(userId));
         });
 
@@ -156,7 +176,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             return updated;
           });
         }
-
+ console.log("Approver result:", found);
+ console.log("Approver Workflows for user:", workflows);     
         return found;
       } catch (err) {
         console.error("fetchWorkflowsForUser error", err);
