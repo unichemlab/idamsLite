@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import ProfileIconWithLogout from "../../components/Common/ProfileIconWithLogout";
 import { useTaskContext } from "./TaskContext";
 import styles from "./TaskClosureTracking.module.css";
+import headerStyles from "../../pages/HomePage/homepageUser.module.css";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { FaChevronDown, FaChevronRight } from "react-icons/fa";
@@ -158,110 +159,43 @@ const TaskTable: React.FC = () => {
     <div className={styles["main-container"]}>
       <main className={styles["main-content"]}>
        
-        {user?.isITBin ?
-          (
-            <header className={styles["main-header"]}>
-              <div className={styles["header-left"]}>
-                <div className={styles["header-left"]}>
-                  <div className={styles["logo-wrapper"]}>
-                    <img
-                      src={login_headTitle2}
-                      alt="Logo"
-                      className={styles.logo}
-                    />
-                    <span className={styles.version}>version-1.0</span>
-                  </div>
-                  <h1 className={styles["header-title"]}>
-                    Task Clouser Request
-                  </h1>
-                </div>
-              </div>
-              <div className={styles["header-right"]}>
-                 {/* User Name Display */}
-                {/* Task Closure Button - Only for IT BIN Admins */}
-                
-                 {/* User Avatar Dropdown */}
+        <header className={headerStyles["main-header"]}>
+        <div className={headerStyles.navLeft}>
+          <div className={headerStyles.logoWrapper}>
+            <img src={login_headTitle2} alt="Logo" className={headerStyles.logo} />
+            <span className={headerStyles.version}>version-1.0</span>
+          </div>
+          <h1 className={headerStyles.title}>Task Clouser</h1>
+        </div>
+
+
+        <div className={headerStyles.navRight}>
           {user && (
             <div style={{ position: "relative" }} ref={menuRef}>
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                  padding: "6px 12px 6px 6px",
-                  backgroundColor: showUserMenu ? "#f1f5f9" : "#2196f3",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "24px",
-                  cursor: "pointer",
-                  transition: "all 0.2s",
-                }}
+                className={headerStyles.userButton}
               >
                 {/* Avatar */}
-                <div style={{ position: "relative" }}>
-                  <div
-                    style={{
-                      width: "36px",
-                      height: "36px",
-                      borderRadius: "50%",
-                      background:
-                        "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "white",
-                      fontWeight: "700",
-                      fontSize: "14px",
-                    }}
-                  >
+                <div className={headerStyles.avatarContainer}>
+                  <div className={headerStyles.avatar}>
                     {(user.name || user.username || "U")
                       .charAt(0)
                       .toUpperCase()}
                   </div>
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: "0",
-                      right: "0",
-                      width: "10px",
-                      height: "10px",
-                      backgroundColor: "#22c55e",
-                      borderRadius: "50%",
-                      border: "2px solid white",
-                    }}
-                  ></div>
+                  <div className={headerStyles.statusDot}></div>
                 </div>
 
                 {/* User Name */}
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "flex-start",
-                    gap: "2px",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: "14px",
-                      fontWeight: "600",
-                      color: "orange",
-                      lineHeight: "1",
-                    }}
-                  >
+                <div className={headerStyles.userInfo}>
+                  <span className={headerStyles.userName}>
                     {user.name || user.username}
                   </span>
                   {user.isITBin && (
-                    <span
-                      style={{
-                        fontSize: "11px",
-                        color: "white",
-                        fontWeight: "600",
-                        lineHeight: "1",
-                      }}
-                    >
-                      IT Admin
-                    </span>
+                    <span className={headerStyles.userRole}>IT Admin</span>
+                  )}
+                  {user.isApprover && (
+                    <span className={headerStyles.userRole}>Approver</span>
                   )}
                 </div>
 
@@ -271,209 +205,103 @@ const TaskTable: React.FC = () => {
                   color="#64748b"
                   style={{
                     transition: "transform 0.2s",
-                    transform: showUserMenu
-                      ? "rotate(180deg)"
-                      : "rotate(0deg)",
+                    transform: showUserMenu ? "rotate(180deg)" : "rotate(0deg)",
                   }}
                 />
               </button>
 
               {/* Dropdown Menu */}
               {showUserMenu && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "calc(100% + 8px)",
-                    right: "0",
-                    width: "280px",
-                    backgroundColor: "white",
-                    borderRadius: "12px",
-                    boxShadow: "0 10px 40px rgba(0, 0, 0, 0.15)",
-                    border: "1px solid #e2e8f0",
-                    zIndex: 1000,
-                    overflow: "hidden",
-                    animation: "slideDown 0.2s ease",
-                  }}
-                >
-                  <div
-                    style={{
-                      padding: "16px",
-                      borderBottom: "1px solid #f1f5f9",
-                      background:
-                        "linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "12px",
-                        marginBottom: "12px",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: "48px",
-                          height: "48px",
-                          borderRadius: "50%",
-                          background:
-                            "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          color: "white",
-                          fontWeight: "700",
-                          fontSize: "20px",
-                        }}
-                      >
+                <div className={headerStyles.dropdownMenu}>
+                  <div className={headerStyles.dropdownHeader}>
+                    <div className={headerStyles.dropdownAvatar}>
+                      <div className={headerStyles.dropdownAvatarCircle}>
                         {(user.name || user.username || "U")
                           .charAt(0)
                           .toUpperCase()}
                       </div>
-                      <div style={{ display: "flex", flexDirection: "column" }}>
-                        <span
-                          style={{
-                            fontSize: "16px",
-                            fontWeight: "700",
-                            color: "#0c4a6e",
-                          }}
-                        >
+                      <div className={headerStyles.dropdownUserInfo}>
+                        <span className={headerStyles.dropdownUserName}>
                           {user.name || user.username}
                         </span>
                         {user.employee_code && (
-                          <span
-                            style={{
-                              fontSize: "12px",
-                              color: "#0369a1",
-                              fontWeight: "500",
-                            }}
-                          >
+                          <span className={headerStyles.dropdownEmployeeCode}>
                             {user.employee_code}
                           </span>
                         )}
                       </div>
                     </div>
 
-                    {user.isITBin && (
-                      <div
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "6px",
-                          padding: "6px 12px",
-                          backgroundColor: "rgba(76, 175, 80, 0.15)",
-                          borderRadius: "20px",
-                          border: "1px solid rgba(76, 175, 80, 0.3)",
-                        }}
-                      >
-                        <FiShield size={14} color="#4caf50" />
-                        <span
-                          style={{
-                            fontSize: "12px",
-                            color: "#2e7d32",
-                            fontWeight: "600",
-                          }}
-                        >
-                          IT BIN Administrator
-                        </span>
+                    {/* {user.isITBin && (
+                      <div className={styles.adminBadge}>
+                        <FiShield size={14} />
+                        <span>IT BIN Administrator</span>
                       </div>
-                    )}
+                    )} */}
                   </div>
 
                   {/* Contact Info */}
-                  <div style={{ padding: "12px 16px" }}>
+                  {/* <div className={styles.dropdownInfo}>
                     {user.email && (
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "10px",
-                          padding: "8px 0",
-                          fontSize: "13px",
-                          color: "#64748b",
-                        }}
-                      >
-                        <FiMail size={16} color="#94a3b8" />
+                      <div className={styles.infoItem}>
+                        <FiMail size={16} />
                         <span>{user.email}</span>
                       </div>
                     )}
                     {user.location && (
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "10px",
-                          padding: "8px 0",
-                          fontSize: "13px",
-                          color: "#64748b",
-                        }}
-                      >
-                        <FiMapPin size={16} color="#94a3b8" />
+                      <div className={styles.infoItem}>
+                        <FiMapPin size={16} />
                         <span>{user.location}</span>
                       </div>
                     )}
                     {user.designation && (
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "10px",
-                          padding: "8px 0",
-                          fontSize: "13px",
-                          color: "#64748b",
-                        }}
-                      >
-                        <FiBriefcase size={16} color="#94a3b8" />
+                      <div className={styles.infoItem}>
+                        <FiBriefcase size={16} />
                         <span>{user.designation}</span>
                       </div>
                     )}
-                  </div>
+                  </div> */}
 
-                  {/* Logout */}
-                  <div style={{ padding: "8px", borderTop: "1px solid #f1f5f9" }}>
+                  {/* Actions */}
+                  <div className={headerStyles.dropdownActions}>
                     <button
-                  onClick={() => navigate("/user-access-management")}
-                  style={{
-                        width: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "12px",
-                        padding: "10px 12px",
-                        backgroundColor: "transparent",
-                        border: "none",
-                        borderRadius: "8px",
-                        cursor: "pointer",
-                        fontSize: "14px",
-                        fontWeight: "500",
-                        color: "#dc2626",
-                      }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "#1976d2";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "#2196f3";
-                  }}
-                  title="Navigate to User Access Management"
-                >
-                  <FiBriefcase size={16} />
-                  User Access Management
-                </button>
+                      onClick={() => navigate("/user-access-management")}
+                      className={headerStyles.dropdownButton}
+                    >
+                      <FiBriefcase size={16} />
+                      <span>User Access Management</span>
+                    </button>
+                    {user?.isITBin && (
+                      <button
+                        onClick={() => navigate("/task")}
+                        className={headerStyles.dropdownButton}
+                      >
+                        <FiBriefcase size={16} />
+                         <span>Task Closure</span>
+                      </button>
+                    )}
+                     {user?.isApprover && (
+                      <button
+                        onClick={() => navigate("/approver/pending")}
+                        className={headerStyles.dropdownButton}
+                      >
+                        <FiBriefcase size={16} />
+                         <span>Pending Approval</span>
+                      </button>
+                    )}
+                    {user?.isApprover && (
+                      
+                      <button
+                        onClick={() => navigate("/approver/history")}
+                        className={headerStyles.dropdownButton}
+                      >
+                        <FiBriefcase size={16} />
+                         <span>Approval History</span>
+                      </button>
+                    )}
                     <button
                       onClick={handleLogout}
-                      style={{
-                        width: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "12px",
-                        padding: "10px 12px",
-                        backgroundColor: "transparent",
-                        border: "none",
-                        borderRadius: "8px",
-                        cursor: "pointer",
-                        fontSize: "14px",
-                        fontWeight: "500",
-                        color: "#dc2626",
-                      }}
+                      className={`${headerStyles.dropdownButton} ${styles.logoutButton}`}
                     >
                       <FiLogOut size={18} />
                       <span>Logout</span>
@@ -483,19 +311,8 @@ const TaskTable: React.FC = () => {
               )}
             </div>
           )}
-              </div>
-            </header>
-          ) :
-          (
-            <header className={styles["main-header"]}>
-              <h2 className={styles["header-title"]}>Task Request</h2>
-              <div className={styles["header-icons"]}>
-                <NotificationsIcon fontSize="small" />
-                <SettingsIcon fontSize="small" />
-                <ProfileIconWithLogout />
-              </div>
-            </header>
-          )}
+        </div>
+      </header>
 
 
         <div className={styles.headerTopRow}>

@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect,useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { fetchTaskById, updateTaskAPI } from "../../utils/api";
 import addUserRequestStyles from "./AddTaskClosureTracking.module.css";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
+import headerStyles from "../../pages/HomePage/homepageUser.module.css";
+import { FiUser,FiSettings,FiLogOut,FiChevronDown,FiMapPin,FiMail,FiBriefcase,FiShield } from "react-icons/fi";
 
 const TaskClosureForm = () => {
     const [formData, setFormData] = useState<any>({
@@ -36,7 +38,19 @@ const TaskClosureForm = () => {
     });
     const [itAdminUsers, setItAdminUsers] = useState<any[]>([]);
     const [showPassword, setShowPassword] = useState(false);
-
+     const [showUserMenu, setShowUserMenu] = useState(false);
+      const menuRef = useRef<HTMLDivElement>(null);
+    
+      // Close menu on outside click
+      useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+          if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+            setShowUserMenu(false);
+          }
+        };
+        if (showUserMenu) document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+      }, [showUserMenu]);
 
     const navigate = useNavigate();
     const { id } = useParams();
@@ -128,44 +142,160 @@ console.log("formDtaSending",formData);
     return (
         <div className={addUserRequestStyles["main-container"]}>
             <main className={addUserRequestStyles["main-content"]}>
-                <header className={addUserRequestStyles["main-header"]}>
-                    <div className={addUserRequestStyles["header-left"]}>
-                        <div className={addUserRequestStyles["logo-wrapper"]}>
-                            <img
-                                src={login_headTitle2}
-                                alt="Logo"
-                                className={addUserRequestStyles.logo}
-                            />
-                            <span className={addUserRequestStyles.version}>v1.00</span>
-                        </div>
-                        <h1 className={addUserRequestStyles["header-title"]}>
-                            Task Closure Form
-                        </h1>
+                  <header className={headerStyles["main-header"]}>
+        <div className={headerStyles.navLeft}>
+          <div className={headerStyles.logoWrapper}>
+            <img src={login_headTitle2} alt="Logo" className={headerStyles.logo} />
+            <span className={headerStyles.version}>version-1.0</span>
+          </div>
+          <h1 className={headerStyles.title}>Task Clouser</h1>
+        </div>
+
+
+        <div className={headerStyles.navRight}>
+          {user && (
+            <div style={{ position: "relative" }} ref={menuRef}>
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className={headerStyles.userButton}
+              >
+                {/* Avatar */}
+                <div className={headerStyles.avatarContainer}>
+                  <div className={headerStyles.avatar}>
+                    {(user.name || user.username || "U")
+                      .charAt(0)
+                      .toUpperCase()}
+                  </div>
+                  <div className={headerStyles.statusDot}></div>
+                </div>
+
+                {/* User Name */}
+                <div className={headerStyles.userInfo}>
+                  <span className={headerStyles.userName}>
+                    {user.name || user.username}
+                  </span>
+                  {user.isITBin && (
+                    <span className={headerStyles.userRole}>IT Admin</span>
+                  )}
+                  {user.isApprover && (
+                    <span className={headerStyles.userRole}>Approver</span>
+                  )}
+                </div>
+
+                {/* Dropdown Arrow */}
+                <FiChevronDown
+                  size={16}
+                  color="#64748b"
+                  style={{
+                    transition: "transform 0.2s",
+                    transform: showUserMenu ? "rotate(180deg)" : "rotate(0deg)",
+                  }}
+                />
+              </button>
+
+              {/* Dropdown Menu */}
+              {showUserMenu && (
+                <div className={headerStyles.dropdownMenu}>
+                  <div className={headerStyles.dropdownHeader}>
+                    <div className={headerStyles.dropdownAvatar}>
+                      <div className={headerStyles.dropdownAvatarCircle}>
+                        {(user.name || user.username || "U")
+                          .charAt(0)
+                          .toUpperCase()}
+                      </div>
+                      <div className={headerStyles.dropdownUserInfo}>
+                        <span className={headerStyles.dropdownUserName}>
+                          {user.name || user.username}
+                        </span>
+                        {user.employee_code && (
+                          <span className={headerStyles.dropdownEmployeeCode}>
+                            {user.employee_code}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    <div className={addUserRequestStyles["header-right"]}>
-                        {user?.role_id === 1 ? (
-                            <button
-                                className={addUserRequestStyles["addUserBtn"]}
-                                onClick={() => navigate("/superadmin")}
-                            >
-                                View Admin Panel
-                            </button>
-                        ) : (
-                            <button
-                                className={addUserRequestStyles["addUserBtn"]}
-                                style={{
-                                    backgroundColor: "#d32f2f",
-                                    color: "white",
-                                    marginLeft: "10px",
-                                }}
-                                onClick={handleLogout}
-                            >
-                                Logout
-                            </button>
-                        )}
-                    </div>
-                </header>
+                    {/* {user.isITBin && (
+                      <div className={styles.adminBadge}>
+                        <FiShield size={14} />
+                        <span>IT BIN Administrator</span>
+                      </div>
+                    )} */}
+                  </div>
+
+                  {/* Contact Info */}
+                  {/* <div className={styles.dropdownInfo}>
+                    {user.email && (
+                      <div className={styles.infoItem}>
+                        <FiMail size={16} />
+                        <span>{user.email}</span>
+                      </div>
+                    )}
+                    {user.location && (
+                      <div className={styles.infoItem}>
+                        <FiMapPin size={16} />
+                        <span>{user.location}</span>
+                      </div>
+                    )}
+                    {user.designation && (
+                      <div className={styles.infoItem}>
+                        <FiBriefcase size={16} />
+                        <span>{user.designation}</span>
+                      </div>
+                    )}
+                  </div> */}
+
+                  {/* Actions */}
+                  <div className={headerStyles.dropdownActions}>
+                    <button
+                      onClick={() => navigate("/user-access-management")}
+                      className={headerStyles.dropdownButton}
+                    >
+                      <FiBriefcase size={16} />
+                      <span>User Access Management</span>
+                    </button>
+                    {user?.isITBin && (
+                      <button
+                        onClick={() => navigate("/task")}
+                        className={headerStyles.dropdownButton}
+                      >
+                        <FiBriefcase size={16} />
+                         <span>Task Closure</span>
+                      </button>
+                    )}
+                     {user?.isApprover && (
+                      <button
+                        onClick={() => navigate("/approver/pending")}
+                        className={headerStyles.dropdownButton}
+                      >
+                        <FiBriefcase size={16} />
+                         <span>Pending Approval</span>
+                      </button>
+                    )}
+                    {user?.isApprover && (
+                      
+                      <button
+                        onClick={() => navigate("/approver/history")}
+                        className={headerStyles.dropdownButton}
+                      >
+                        <FiBriefcase size={16} />
+                         <span>Approval History</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={handleLogout}
+                      className={`${headerStyles.dropdownButton} ${headerStyles.logoutButton}`}
+                    >
+                      <FiLogOut size={18} />
+                      <span>Logout</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </header>
 
                 <div className={addUserRequestStyles.container}>
                     <form

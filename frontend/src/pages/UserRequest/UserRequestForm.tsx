@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   useUserRequestContext,
@@ -6,15 +6,45 @@ import {
   TaskRequest,
   Manager,
 } from "./UserRequestContext";
+import {
+  FiChevronDown,
+  FiMail,
+  FiMapPin,
+  FiBriefcase,
+  FiLogOut,
+  FiShield,
+  FiUsers,
+  FiCheckCircle,
+  FiClock,
+  FiAlertCircle,
+  FiTrendingUp,
+  FiFileText,
+  FiSettings,
+} from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
 import { fetchPlants } from "../../utils/api";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
 import addUserRequestStyles from "./AddUserRequest.module.css";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import styles from "../../pages/HomePage/homepageUser.module.css";
 export const API_BASE =
   process.env.REACT_APP_API_URL || "http://localhost:4000";
 const AddUserRequest: React.FC = () => {
+  const [showUserMenu, setShowUserMenu] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
+  
+    // Close menu when clicking outside
+    useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+        if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+          setShowUserMenu(false);
+        }
+      };
+  
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
   const { addUserRequest } = useUserRequestContext();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -1085,66 +1115,160 @@ const AddUserRequest: React.FC = () => {
         </div>
       )}
       <main className={addUserRequestStyles["main-content"]}>
-        <header className={addUserRequestStyles["main-header"]}>
-          <div className={addUserRequestStyles["header-left"]}>
-            <div className={addUserRequestStyles["header-left"]}>
-              <div className={addUserRequestStyles["logo-wrapper"]}>
-                <img
-                  src={login_headTitle2}
-                  alt="Logo"
-                  className={addUserRequestStyles.logo}
-                />
-                <span className={addUserRequestStyles.version}>version-1.0</span>
-              </div>
-              <h1 className={addUserRequestStyles["header-title"]}>
-                User Access Management
-              </h1>
-            </div>
+        <header className={styles["main-header"]}>
+        <div className={styles.navLeft}>
+          <div className={styles.logoWrapper}>
+            <img src={login_headTitle2} alt="Logo" className={styles.logo} />
+            <span className={styles.version}>version-1.0</span>
           </div>
-          <div className={addUserRequestStyles["header-right"]}>
-            {/* Task Closure Button - Only for IT BIN Admins */}
-            {user?.isITBin && (
-              <button
-                className={addUserRequestStyles["addUserBtn"]}
-                style={{
-                  backgroundColor: "#4caf50",
-                  color: "white",
-                  marginLeft: "10px",
-                }}
-                onClick={() => navigate("/task")}
-              >
-                Task Closure
-              </button>
-            )}
-            <button
-              className={addUserRequestStyles["addUserBtn"]}
-              onClick={() => setFilterModalOpen(true)}
-            >
-              Filter User Requests
-            </button>
-            {user?.role_id != 12 ? (
-              <button
-                className={addUserRequestStyles["addUserBtn"]}
-                onClick={() => navigate("/superadmin")}
-              >
-                View Admin Panel
-              </button>
-            ) : (
+          <h1 className={styles.title}>User Access Management</h1>
+        </div>
 
+
+        <div className={styles.navRight}>
+          {user && (
+            <div style={{ position: "relative" }} ref={menuRef}>
               <button
-                className={addUserRequestStyles["addUserBtn"]}
-                style={{
-                  backgroundColor: "#d32f2f",
-                  color: "white",
-                  marginLeft: "10px",
-                }}
-                onClick={handleLogout}
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className={styles.userButton}
               >
-                Logout
+                {/* Avatar */}
+                <div className={styles.avatarContainer}>
+                  <div className={styles.avatar}>
+                    {(user.name || user.username || "U")
+                      .charAt(0)
+                      .toUpperCase()}
+                  </div>
+                  <div className={styles.statusDot}></div>
+                </div>
+
+                {/* User Name */}
+                <div className={styles.userInfo}>
+                  <span className={styles.userName}>
+                    {user.name || user.username}
+                  </span>
+                  {user.isITBin && (
+                    <span className={styles.userRole}>IT Admin</span>
+                  )}
+                  {user.isApprover && (
+                    <span className={styles.userRole}>Approver</span>
+                  )}
+                </div>
+
+                {/* Dropdown Arrow */}
+                <FiChevronDown
+                  size={16}
+                  color="#64748b"
+                  style={{
+                    transition: "transform 0.2s",
+                    transform: showUserMenu ? "rotate(180deg)" : "rotate(0deg)",
+                  }}
+                />
               </button>
-            )}
-          </div>
-        </header>
+
+              {/* Dropdown Menu */}
+              {showUserMenu && (
+                <div className={styles.dropdownMenu}>
+                  <div className={styles.dropdownHeader}>
+                    <div className={styles.dropdownAvatar}>
+                      <div className={styles.dropdownAvatarCircle}>
+                        {(user.name || user.username || "U")
+                          .charAt(0)
+                          .toUpperCase()}
+                      </div>
+                      <div className={styles.dropdownUserInfo}>
+                        <span className={styles.dropdownUserName}>
+                          {user.name || user.username}
+                        </span>
+                        {user.employee_code && (
+                          <span className={styles.dropdownEmployeeCode}>
+                            {user.employee_code}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* {user.isITBin && (
+                      <div className={styles.adminBadge}>
+                        <FiShield size={14} />
+                        <span>IT BIN Administrator</span>
+                      </div>
+                    )} */}
+                  </div>
+
+                  {/* Contact Info */}
+                  {/* <div className={styles.dropdownInfo}>
+                    {user.email && (
+                      <div className={styles.infoItem}>
+                        <FiMail size={16} />
+                        <span>{user.email}</span>
+                      </div>
+                    )}
+                    {user.location && (
+                      <div className={styles.infoItem}>
+                        <FiMapPin size={16} />
+                        <span>{user.location}</span>
+                      </div>
+                    )}
+                    {user.designation && (
+                      <div className={styles.infoItem}>
+                        <FiBriefcase size={16} />
+                        <span>{user.designation}</span>
+                      </div>
+                    )}
+                  </div> */}
+
+                  {/* Actions */}
+                  <div className={styles.dropdownActions}>
+                    <button
+                      onClick={() => navigate("/user-access-management")}
+                      className={styles.dropdownButton}
+                    >
+                      <FiBriefcase size={16} />
+                      <span>User Access Management</span>
+                    </button>
+                    {user?.isITBin && (
+                      <button
+                        onClick={() => navigate("/task")}
+                        className={styles.dropdownButton}
+                      >
+                        <FiBriefcase size={16} />
+                         <span>Task Closure</span>
+                      </button>
+                    )}
+                     {user?.isApprover && (
+                      <button
+                        onClick={() => navigate("/approver/pending")}
+                        className={styles.dropdownButton}
+                      >
+                        <FiBriefcase size={16} />
+                         <span>Pending Approval</span>
+                      </button>
+                    )}
+                    {user?.isApprover && (
+                      
+                      <button
+                        onClick={() => navigate("/approver/history")}
+                        className={styles.dropdownButton}
+                      >
+                        <FiBriefcase size={16} />
+                         <span>Approval History</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={handleLogout}
+                      className={`${styles.dropdownButton} ${styles.logoutButton}`}
+                    >
+                      <FiLogOut size={18} />
+                      <span>Logout</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </header>
         {/* ===================== Original Form JSX ===================== */}
         <div className={addUserRequestStyles.container}>
           <form
