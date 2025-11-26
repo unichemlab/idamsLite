@@ -1,15 +1,19 @@
 import React from "react";
-import ProfileIconWithLogout from "../PlantMasterTable/ProfileIconWithLogout";
+import ProfileIconWithLogout from "../../components/Common/ProfileIconWithLogout";
 import styles from "./ApplicationMasterTable.module.css";
+import paginationStyles from "../../styles/Pagination.module.css";
 import { FaRegClock } from "react-icons/fa6";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { FaEdit, FaTrash } from "react-icons/fa";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
+import login_headTitle2 from "../../assets/login_headTitle2.png";
 
 import { useApplications } from "../../context/ApplicationsContext";
 import { useDepartmentContext } from "../DepartmentMaster/DepartmentContext";
 import { usePlantContext } from "../PlantMaster/PlantContext";
+import { useAuth } from "../../context/AuthContext";
+import { fetchApplicationActivityLogs } from "../../utils/api";
 
 // Removed unused local applications array. Use context instead.
 
@@ -18,6 +22,9 @@ export default function ApplicationMasterTable() {
   const [activityLogsApp, setActivityLogsApp] = React.useState<any>(null);
   const [selectedRow, setSelectedRow] = React.useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
+  // Pagination state
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const rowsPerPage = 10;
   const [showFilterPopover, setShowFilterPopover] = React.useState(false);
   const [filterColumn, setFilterColumn] = React.useState(
     "application_hmi_name"
@@ -29,6 +36,7 @@ export default function ApplicationMasterTable() {
   const { applications, setApplications } = useApplications();
   const { departments } = useDepartmentContext();
   const { plants } = usePlantContext();
+  const { user } = useAuth();
 
   // Helper to get department name by id
   const getDepartmentName = (id: number) => {
@@ -94,11 +102,27 @@ export default function ApplicationMasterTable() {
     }
   });
 
+  // Reset to first page when filter changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [filterValue]);
+
+  const totalPages = Math.ceil(filteredData.length / rowsPerPage) || 1;
+  const paginatedData = filteredData.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  );
+
   const handleDelete = () => setShowDeleteModal(true);
   const confirmDelete = () => {
     if (selectedRow === null) return;
+    const sel = filteredData[selectedRow];
+    if (!sel) return;
+    // find index in applications array
+    const idx = applications.findIndex((a: any) => a.id === sel.id);
+    if (idx === -1) return;
     const updated = [...applications];
-    const app = updated[selectedRow];
+    const app = updated[idx];
     // Add activity log for delete
     if (app) {
       app.activityLogs = app.activityLogs || [];
@@ -110,22 +134,77 @@ export default function ApplicationMasterTable() {
         dateTime: new Date().toISOString(),
       });
     }
-    updated.splice(selectedRow, 1);
+    updated.splice(idx, 1);
     setApplications(updated);
     setSelectedRow(null);
     setShowDeleteModal(false);
     navigate("/superadmin", { state: { activeTab: "application" } });
   };
 
+  const loadImage = (url: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.src = url;
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+    });
+  };
+
   const handleExportPDF = async () => {
     const jsPDF = (await import("jspdf")).default;
     const autoTable = (await import("jspdf-autotable")).default;
+
     const doc = new jsPDF({ orientation: "landscape" });
     const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
-    const fileName = `ApplicationMasterTable_${yyyy}-${mm}-${dd}.pdf`;
+    const fileName = `ApplicationMaster_${
+      today.toISOString().split("T")[0]
+    }.pdf`;
+
+    // --- HEADER BAR ---
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const pageMargin = 14;
+    const headerHeight = 28;
+    doc.setFillColor(0, 82, 155);
+    doc.rect(0, 0, pageWidth, headerHeight, "F");
+
+    // Logo
+    let logoWidth = 0;
+    let logoHeight = 0;
+    if (login_headTitle2) {
+      try {
+        const img = await loadImage(login_headTitle2);
+        const maxLogoHeight = headerHeight * 0.6;
+        const scale = maxLogoHeight / img.height;
+        logoWidth = img.width * scale;
+        logoHeight = img.height * scale;
+        const logoY = headerHeight / 2 - logoHeight / 2;
+        doc.addImage(img, "PNG", pageMargin, logoY, logoWidth, logoHeight);
+      } catch (e) {
+        console.warn("Logo load failed", e);
+      }
+    }
+
+    // Title + Exported by/date
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    const titleX = pageMargin + logoWidth + 10;
+    const titleY = headerHeight / 2 + 5;
+    doc.text("Application Master", titleX, titleY);
+
+    doc.setFontSize(9);
+    doc.setTextColor(220, 230, 245);
+    const exportedByName =
+      (user && (user.name || user.username)) || "Unknown User";
+    const exportedText = `Exported by: ${exportedByName}  On: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
+    const textWidth = doc.getTextWidth(exportedText);
+    doc.text(exportedText, pageWidth - pageMargin - textWidth, titleY);
+
+    doc.setDrawColor(0, 82, 155);
+    doc.setLineWidth(0.5);
+    doc.line(0, headerHeight, pageWidth, headerHeight);
+
+    // --- TABLE ---
     const headers = [
       [
         "Plant Location ",
@@ -158,12 +237,11 @@ export default function ApplicationMasterTable() {
         ? "View"
         : "-",
     ]);
-    doc.setFontSize(18);
-    doc.text("Application Master Table", 14, 18);
+
     autoTable(doc, {
       head: headers,
       body: rows,
-      startY: 28,
+      startY: headerHeight + 8,
       styles: {
         fontSize: 11,
         cellPadding: 3,
@@ -178,9 +256,27 @@ export default function ApplicationMasterTable() {
       alternateRowStyles: {
         fillColor: [240, 245, 255],
       },
-      margin: { left: 14, right: 14 },
+      margin: { left: pageMargin, right: pageMargin },
       tableWidth: "auto",
     });
+
+    // --- FOOTER ---
+    const pageCount =
+      (doc as any).getNumberOfPages?.() ||
+      (doc as any).internal?.getNumberOfPages?.() ||
+      1;
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.text("Unichem Laboratories", pageMargin, pageHeight - 6);
+      doc.text(
+        `Page ${i} of ${pageCount}`,
+        pageWidth - pageMargin - 30,
+        pageHeight - 6
+      );
+    }
+
     doc.save(fileName);
   };
 
@@ -258,7 +354,11 @@ export default function ApplicationMasterTable() {
             type="button"
             style={{ border: "1px solid #0b63ce" }}
           >
-            <span role="img" aria-label="Export PDF" style={{ fontSize: 18, marginRight:6 }}>
+            <span
+              role="img"
+              aria-label="Export PDF"
+              style={{ fontSize: 18, marginRight: 6 }}
+            >
               🗎
             </span>
             PDF
@@ -270,18 +370,18 @@ export default function ApplicationMasterTable() {
       <div className={styles.wrapper}>
         <div className={styles.container}>
           <div className={styles.controls}></div>
-          
-            <div
-          style={{
-            maxHeight: 380,
-            overflowY: "auto",
-            borderRadius: 8,
-            boxShadow: "0 0 4px rgba(0, 0, 0, 0.05)",
-            border: "1px solid #e2e8f0",
-            marginTop: "11px",
-            height: "100",
-          }}
-        >
+
+          <div
+            style={{
+              maxHeight: 340,
+              overflowY: "auto",
+              borderRadius: 8,
+              boxShadow: "0 0 4px rgba(0, 0, 0, 0.05)",
+              border: "1px solid #e2e8f0",
+              marginTop: "11px",
+              height: "100",
+            }}
+          >
             <table className={styles.table}>
               <thead>
                 <tr>
@@ -301,364 +401,499 @@ export default function ApplicationMasterTable() {
                 </tr>
               </thead>
               <tbody>
-                {filteredData.map((app: any, idx: number) => (
-                  <tr
-                    key={app.id || idx}
-                    style={{
-                      background: selectedRow === idx ? "#e6f0fa" : undefined,
-                    }}
-                  >
-                    <td>
-                      <input
-                        className={styles.radioInput}
-                        type="radio"
-                        checked={selectedRow === idx}
-                        onChange={() => setSelectedRow(idx)}
-                        aria-label={`Select ${app.application_hmi_name}`}
-                      />
-                    </td>
-                    <td>{getPlantName(app.plant_location_id)}</td>
-                    <td>{getDepartmentName(app.department_id)}</td>
-                    <td>{app.application_hmi_name}</td>
-                    <td>{app.application_hmi_version}</td>
-                    <td>{app.equipment_instrument_id}</td>
-                    <td>{app.application_hmi_type}</td>
-                    <td>{app.display_name}</td>
-                    <td>
-                      {Array.isArray(app.role_names) &&
-                      app.role_names.length > 0
-                        ? app.role_names.join(", ")
-                        : app.role_id}
-                    </td>
-                    <td>{app.system_name}</td>
-                    <td>{app.multiple_role_access ? "Yes" : "No"}</td>
-                    <td>
-                      <span className={styles.status}>{app.status}</span>
-                    </td>
-                    <td>
-                      {Array.isArray(app.activityLogs) &&
-                      app.activityLogs.length > 0 ? (
+                {paginatedData.map((app: any, idx: number) => {
+                  const globalIdx = (currentPage - 1) * rowsPerPage + idx;
+                  return (
+                    <tr
+                      key={app.id || globalIdx}
+                      style={{
+                        background:
+                          selectedRow === globalIdx ? "#e6f0fa" : undefined,
+                      }}
+                    >
+                      <td>
+                        <input
+                          className={styles.radioInput}
+                          type="radio"
+                          checked={selectedRow === globalIdx}
+                          onChange={() => setSelectedRow(globalIdx)}
+                          aria-label={`Select ${app.application_hmi_name}`}
+                        />
+                      </td>
+                      <td>{getPlantName(app.plant_location_id)}</td>
+                      <td>{getDepartmentName(app.department_id)}</td>
+                      <td>{app.application_hmi_name}</td>
+                      <td>{app.application_hmi_version}</td>
+                      <td>{app.equipment_instrument_id}</td>
+                      <td>{app.application_hmi_type}</td>
+                      <td>{app.display_name}</td>
+                      <td>
+                        {Array.isArray(app.role_names) &&
+                        app.role_names.length > 0
+                          ? app.role_names.join(", ")
+                          : app.role_id}
+                      </td>
+                      <td>{app.system_name}</td>
+                      <td>{app.multiple_role_access ? "Yes" : "No"}</td>
+                      <td>
+                        <span className={styles.status}>{app.status}</span>
+                      </td>
+                      <td>
                         <button
                           className={styles.actionBtn}
                           title="View Activity Logs"
-                          onClick={() => {
-                            setActivityLogsApp(app);
+                          onClick={async () => {
+                            // Fetch activity logs from backend and filter for this application id
+                            try {
+                              const logs = await fetchApplicationActivityLogs();
+                              const filtered = (logs || [])
+                                .filter((log: any) => {
+                                  if (
+                                    log.table_name === "application_master" &&
+                                    String(log.record_id) === String(app.id)
+                                  )
+                                    return true;
+                                  if (
+                                    log.details &&
+                                    typeof log.details === "string"
+                                  ) {
+                                    return (
+                                      log.details.includes(
+                                        `"tableName":"application_master"`
+                                      ) &&
+                                      log.details.includes(
+                                        `"recordId":"${app.id}"`
+                                      )
+                                    );
+                                  }
+                                  return false;
+                                })
+                                // Normalize shape to what the UI expects
+                                .map((r: any) => {
+                                  // parse legacy details if present
+                                  let parsedDetails = null;
+                                  if (
+                                    r.details &&
+                                    typeof r.details === "string"
+                                  ) {
+                                    try {
+                                      parsedDetails = JSON.parse(r.details);
+                                    } catch (e) {
+                                      parsedDetails = null;
+                                    }
+                                  }
+
+                                  const parseMaybeJson = (v: any) => {
+                                    if (!v && v !== "" && v !== 0) return null;
+                                    if (typeof v === "string") {
+                                      try {
+                                        return JSON.parse(v);
+                                      } catch {
+                                        return v;
+                                      }
+                                    }
+                                    return v;
+                                  };
+
+                                  const oldVal = parseMaybeJson(
+                                    r.old_value ||
+                                      (parsedDetails && parsedDetails.old_value)
+                                  );
+                                  const newVal = parseMaybeJson(
+                                    r.new_value ||
+                                      (parsedDetails && parsedDetails.new_value)
+                                  );
+                                  const action =
+                                    r.action ||
+                                    (parsedDetails && parsedDetails.action) ||
+                                    "";
+                                  const approver =
+                                    r.action_performed_by ||
+                                    r.user_id ||
+                                    (parsedDetails && parsedDetails.userId) ||
+                                    (parsedDetails && parsedDetails.approver) ||
+                                    null;
+                                  const dateTime =
+                                    r.date_time_ist ||
+                                    r.timestamp ||
+                                    r.created_at ||
+                                    (parsedDetails && parsedDetails.dateTime) ||
+                                    null;
+                                  const comments =
+                                    r.comments ||
+                                    (parsedDetails && parsedDetails.comments) ||
+                                    (parsedDetails && parsedDetails.reason) ||
+                                    null;
+
+                                  return {
+                                    // UI-friendly fields
+                                    action,
+                                    oldValue: oldVal,
+                                    newValue: newVal,
+                                    approver,
+                                    approvedOrRejectedBy: r.approved_by || null,
+                                    approvalStatus:
+                                      r.approve_status ||
+                                      r.approval_status ||
+                                      null,
+                                    dateTime,
+                                    reason: comments,
+                                    // keep raw row for reference
+                                    _raw: r,
+                                  };
+                                });
+
+                              setActivityLogsApp({
+                                ...app,
+                                activityLogs: filtered,
+                              });
+                            } catch (err) {
+                              setActivityLogsApp({ ...app, activityLogs: [] });
+                            }
                             setShowActivityModal(true);
                           }}
                         >
                           <FaRegClock size={17} />
                         </button>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-            {/* Activity Logs Modal */}
-            {showActivityModal && activityLogsApp && (
+          {/* Pagination controls */}
+          <div className={paginationStyles.pagination} style={{ marginTop: 8 }}>
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className={
+                currentPage === 1
+                  ? paginationStyles.disabledPageBtn
+                  : paginationStyles.pageBtn
+              }
+            >
+              Previous
+            </button>
+            <span
+              className={paginationStyles.pageInfo}
+              style={{ margin: "0 12px" }}
+            >
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className={
+                currentPage === totalPages
+                  ? paginationStyles.disabledPageBtn
+                  : paginationStyles.pageBtn
+              }
+            >
+              Next
+            </button>
+          </div>
+          {/* Activity Logs Modal */}
+          {showActivityModal && activityLogsApp && (
+            <div
+              className={styles.panelOverlay}
+              style={{ zIndex: 2000, background: "rgba(0,0,0,0.18)" }}
+            >
               <div
-                className={styles.panelOverlay}
-                style={{ zIndex: 2000, background: "rgba(0,0,0,0.18)" }}
+                className={styles.panelWrapper}
+                style={{
+                  maxWidth: 1000,
+                  width: "95%",
+                  left: "53%",
+                  transform: "translateX(-50%)",
+                  position: "fixed",
+                  top: 176,
+                  borderRadius: 16,
+                  boxShadow: "0 8px 32px rgba(11,99,206,0.18)",
+                  padding: "24px 18px 18px 18px",
+                  display: "flex",
+                  flexDirection: "column",
+                  background: "#fff",
+                }}
               >
                 <div
-                  className={styles.panelWrapper}
                   style={{
-                    maxWidth: 1000,
-                    width: "95%",
-                    left: "53%",
-                    transform: "translateX(-50%)",
-                    position: "fixed",
-                    top: 176,
-                    borderRadius: 16,
-                    boxShadow: "0 8px 32px rgba(11,99,206,0.18)",
-                    padding: "24px 18px 18px 18px",
                     display: "flex",
-                    flexDirection: "column",
-                    background: "#fff",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 16,
                   }}
                 >
+                  <div style={{ fontWeight: 700, fontSize: 20 }}>
+                    Activity Log
+                  </div>
                   <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: 16,
-                    }}
+                    style={{ display: "flex", alignItems: "center", gap: 8 }}
                   >
-                    <div style={{ fontWeight: 700, fontSize: 20 }}>
-                      Activity Log
-                    </div>
-                    <div
-                      style={{ display: "flex", alignItems: "center", gap: 8 }}
-                    >
-                      <button
-                        className={styles.exportPdfBtn}
-                        onClick={async () => {
-                          const jsPDF = (await import("jspdf")).default;
-                          const autoTable = (await import("jspdf-autotable"))
-                            .default;
-                          const doc = new jsPDF({ orientation: "landscape" });
-                          const today = new Date();
-                          const yyyy = today.getFullYear();
-                          const mm = String(today.getMonth() + 1).padStart(
+                    <button
+                      className={styles.exportPdfBtn}
+                      onClick={async () => {
+                        const jsPDF = (await import("jspdf")).default;
+                        const autoTable = (await import("jspdf-autotable"))
+                          .default;
+                        const doc = new jsPDF({ orientation: "landscape" });
+                        const today = new Date();
+                        const yyyy = today.getFullYear();
+                        const mm = String(today.getMonth() + 1).padStart(
+                          2,
+                          "0"
+                        );
+                        const dd = String(today.getDate()).padStart(2, "0");
+                        const fileName = `activity_log_${yyyy}-${mm}-${dd}.pdf`;
+                        const headers = [
+                          [
+                            "Action",
+                            "Old Value",
+                            "New Value",
+                            "Action Performed By",
+                            "Approved/Rejected By",
+                            "Approval Status",
+                            "Date/Time (IST)",
+                            "Comments",
+                          ],
+                        ];
+                        const allowed = [
+                          "edit",
+                          "update",
+                          "delete",
+                          "add",
+                          "create",
+                        ];
+                        const logs = (
+                          Array.isArray(activityLogsApp.activityLogs)
+                            ? activityLogsApp.activityLogs
+                            : [activityLogsApp.activityLogs]
+                        ).filter((log: any) => {
+                          const actionType = (log.action || "").toLowerCase();
+                          return allowed.some((type) =>
+                            actionType.includes(type)
+                          );
+                        });
+                        const rows = logs.map((log: any) => {
+                          let dateObj = new Date(log.dateTime || log.timestamp);
+                          let istDate = new Date(
+                            dateObj.getTime() + 5.5 * 60 * 60 * 1000
+                          );
+                          let day = String(istDate.getDate()).padStart(2, "0");
+                          let month = String(istDate.getMonth() + 1).padStart(
                             2,
                             "0"
                           );
-                          const dd = String(today.getDate()).padStart(2, "0");
-                          const fileName = `activity_log_${yyyy}-${mm}-${dd}.pdf`;
-                          const headers = [
-                            [
-                              "Action",
-                              "Old Value",
-                              "New Value",
-                              "Action Performed By",
-                              "Approved/Rejected By",
-                              "Approval Status",
-                              "Date/Time (IST)",
-                              "Comments",
-                            ],
+                          let year = String(istDate.getFullYear()).slice(-2);
+                          let hours = String(istDate.getHours()).padStart(
+                            2,
+                            "0"
+                          );
+                          let minutes = String(istDate.getMinutes()).padStart(
+                            2,
+                            "0"
+                          );
+                          let formattedDate = `${day}/${month}/${year} ${hours}:${minutes}`;
+                          return [
+                            log.action || "-",
+                            JSON.stringify(log.oldValue) || "-",
+                            JSON.stringify(log.newValue) || "-",
+                            log.approver || "-",
+                            log.approvedOrRejectedBy || "-",
+                            log.approvalStatus || "-",
+                            log.dateTime || log.timestamp ? formattedDate : "-",
+                            log.reason || log.comment || "-",
                           ];
-                          const allowed = ["edit", "delete", "add"];
-                          const logs = (
-                            Array.isArray(activityLogsApp.activityLogs)
-                              ? activityLogsApp.activityLogs
-                              : [activityLogsApp.activityLogs]
-                          ).filter((log: any) => {
-                            const actionType = (log.action || "").toLowerCase();
-                            return allowed.some((type) =>
-                              actionType.includes(type)
-                            );
-                          });
-                          const rows = logs.map((log: any) => {
-                            let dateObj = new Date(
-                              log.dateTime || log.timestamp
-                            );
-                            let istDate = new Date(
-                              dateObj.getTime() + 5.5 * 60 * 60 * 1000
-                            );
-                            let day = String(istDate.getDate()).padStart(
-                              2,
-                              "0"
-                            );
-                            let month = String(istDate.getMonth() + 1).padStart(
-                              2,
-                              "0"
-                            );
-                            let year = String(istDate.getFullYear()).slice(-2);
-                            let hours = String(istDate.getHours()).padStart(
-                              2,
-                              "0"
-                            );
-                            let minutes = String(istDate.getMinutes()).padStart(
-                              2,
-                              "0"
-                            );
-                            let formattedDate = `${day}/${month}/${year} ${hours}:${minutes}`;
-                            return [
-                              log.action || "-",
-                              JSON.stringify(log.oldValue) || "-",
-                              JSON.stringify(log.newValue) || "-",
-                              log.approver || "-",
-                              log.approvedOrRejectedBy || "-",
-                              log.approvalStatus || "-",
-                              log.dateTime || log.timestamp
-                                ? formattedDate
-                                : "-",
-                              log.reason || log.comment || "-",
-                            ];
-                          });
-                          doc.setFontSize(18);
-                          doc.text("Activity Log", 14, 18);
-                          autoTable(doc, {
-                            head: headers,
-                            body: rows,
-                            startY: 28,
-                            styles: {
-                              fontSize: 11,
-                              cellPadding: 3,
-                              halign: "left",
-                              valign: "middle",
-                            },
-                            headStyles: {
-                              fillColor: [11, 99, 206],
-                              textColor: 255,
-                              fontStyle: "bold",
-                            },
-                            alternateRowStyles: {
-                              fillColor: [240, 245, 255],
-                            },
-                            margin: { left: 14, right: 14 },
-                            tableWidth: "auto",
-                          });
-                          doc.save(fileName);
-                        }}
-                        aria-label="Export activity log to PDF"
-                        type="button"
-                      >
-                        <span
-                          role="img"
-                          aria-label="Export PDF"
-                          style={{ fontSize: 18 }}
-                        >
-                          🗎
-                        </span>
-                        Export PDF
-                      </button>
-                      <button
-                        style={{
-                          background: "#e3e9f7",
-                          border: "none",
-                          borderRadius: 8,
-                          padding: "6px 14px",
-                          cursor: "pointer",
-                          fontWeight: 600,
-                          fontSize: 18,
-                        }}
-                        onClick={() => setShowActivityModal(false)}
-                        aria-label="Close activity log"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </div>
-                  <div
-                    style={{
-                      marginBottom: 12,
-                      fontWeight: 500,
-                      fontSize: 15,
-                      color: "#333",
-                    }}
-                  >
-                    <span>
-                      Application:{" "}
-                      <span style={{ color: "#0b63ce" }}>
-                        {activityLogsApp.application_hmi_name}
-                      </span>
-                    </span>
-                    &nbsp; | &nbsp;
-                    <span>
-                      Version:{" "}
-                      <span style={{ color: "#0b63ce" }}>
-                        {activityLogsApp.application_hmi_version}
-                      </span>
-                    </span>
-                  </div>
-                  <div style={{ marginBottom: 10 }}>
-                    <input
-                      type="text"
-                      placeholder="Filter by Action Performed By"
-                      value={activityLogsApp.approverFilter || ""}
-                      onChange={(e) => {
-                        setActivityLogsApp({
-                          ...activityLogsApp,
-                          approverFilter: e.target.value,
                         });
+                        doc.setFontSize(18);
+                        doc.text("Activity Log", 14, 18);
+                        autoTable(doc, {
+                          head: headers,
+                          body: rows,
+                          startY: 28,
+                          styles: {
+                            fontSize: 11,
+                            cellPadding: 3,
+                            halign: "left",
+                            valign: "middle",
+                          },
+                          headStyles: {
+                            fillColor: [11, 99, 206],
+                            textColor: 255,
+                            fontStyle: "bold",
+                          },
+                          alternateRowStyles: {
+                            fillColor: [240, 245, 255],
+                          },
+                          margin: { left: 14, right: 14 },
+                          tableWidth: "auto",
+                        });
+                        doc.save(fileName);
                       }}
+                      aria-label="Export activity log to PDF"
+                      type="button"
+                    >
+                      <span
+                        role="img"
+                        aria-label="Export PDF"
+                        style={{ fontSize: 18 }}
+                      >
+                        🗎
+                      </span>
+                      Export PDF
+                    </button>
+                    <button
                       style={{
-                        padding: "6px 12px",
-                        borderRadius: 6,
-                        border: "1px solid #ccc",
-                        fontSize: 14,
-                        width: 220,
-                        marginRight: 12,
+                        background: "#e3e9f7",
+                        border: "none",
+                        borderRadius: 8,
+                        padding: "6px 14px",
+                        cursor: "pointer",
+                        fontWeight: 600,
+                        fontSize: 18,
                       }}
-                    />
-                  </div>
-                  <div
-                    style={{
-                      overflowY: "auto",
-                      maxHeight: 350,
-                      minWidth: "100%",
-                      borderRadius: 8,
-                      boxShadow: "0 2px 8px rgba(11,99,206,0.08)",
-                    }}
-                  >
-                    <table className={styles.table} style={{ minWidth: 1100 }}>
-                      <thead>
-                        <tr>
-                          <th>Action</th>
-                          <th>Old Value</th>
-                          <th>New Value</th>
-                          <th>Action Performed By</th>
-                          <th>Approved/Rejected By</th>
-                          <th>Approval Status</th>
-                          <th>Date/Time (IST)</th>
-                          <th>Comments</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(Array.isArray(activityLogsApp.activityLogs)
-                          ? activityLogsApp.activityLogs
-                          : [activityLogsApp.activityLogs]
-                        )
-                          .filter((log: any) => {
-                            const allowed = ["edit", "delete", "add"];
-                            const actionType = (log.action || "").toLowerCase();
-                            return allowed.some((type) =>
-                              actionType.includes(type)
-                            );
-                          })
-                          .filter(
-                            (log: any) =>
-                              !activityLogsApp.approverFilter ||
-                              (log.approver || "")
-                                .toLowerCase()
-                                .includes(
-                                  activityLogsApp.approverFilter.toLowerCase()
-                                )
-                          )
-                          .map((log: any, i: number) => {
-                            let dateObj = new Date(
-                              log.dateTime || log.timestamp
-                            );
-                            let istDate = new Date(
-                              dateObj.getTime() + 5.5 * 60 * 60 * 1000
-                            );
-                            let day = String(istDate.getDate()).padStart(
-                              2,
-                              "0"
-                            );
-                            let month = String(istDate.getMonth() + 1).padStart(
-                              2,
-                              "0"
-                            );
-                            let year = String(istDate.getFullYear()).slice(-2);
-                            let hours = String(istDate.getHours()).padStart(
-                              2,
-                              "0"
-                            );
-                            let minutes = String(istDate.getMinutes()).padStart(
-                              2,
-                              "0"
-                            );
-                            let formattedDate = `${day}/${month}/${year} ${hours}:${minutes}`;
-                            return (
-                              <tr key={i}>
-                                <td>{log.action || "-"}</td>
-                                <td>{JSON.stringify(log.oldValue) || "-"}</td>
-                                <td>{JSON.stringify(log.newValue) || "-"}</td>
-                                <td>{log.approver || "-"}</td>
-                                <td>{log.approvedOrRejectedBy || "-"}</td>
-                                <td>{log.approvalStatus || "-"}</td>
-                                <td>
-                                  {log.dateTime || log.timestamp
-                                    ? formattedDate
-                                    : "-"}
-                                </td>
-                                <td>{log.reason || log.comment || "-"}</td>
-                              </tr>
-                            );
-                          })}
-                      </tbody>
-                    </table>
+                      onClick={() => setShowActivityModal(false)}
+                      aria-label="Close activity log"
+                    >
+                      ×
+                    </button>
                   </div>
                 </div>
+                <div
+                  style={{
+                    marginBottom: 12,
+                    fontWeight: 500,
+                    fontSize: 15,
+                    color: "#333",
+                  }}
+                >
+                  <span>
+                    Application:{" "}
+                    <span style={{ color: "#0b63ce" }}>
+                      {activityLogsApp.application_hmi_name}
+                    </span>
+                  </span>
+                  &nbsp; | &nbsp;
+                  <span>
+                    Version:{" "}
+                    <span style={{ color: "#0b63ce" }}>
+                      {activityLogsApp.application_hmi_version}
+                    </span>
+                  </span>
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <input
+                    type="text"
+                    placeholder="Filter by Action Performed By"
+                    value={activityLogsApp.approverFilter || ""}
+                    onChange={(e) => {
+                      setActivityLogsApp({
+                        ...activityLogsApp,
+                        approverFilter: e.target.value,
+                      });
+                    }}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: 6,
+                      border: "1px solid #ccc",
+                      fontSize: 14,
+                      width: 220,
+                      marginRight: 12,
+                    }}
+                  />
+                </div>
+                <div
+                  style={{
+                    overflowY: "auto",
+                    maxHeight: 350,
+                    minWidth: "100%",
+                    borderRadius: 8,
+                    boxShadow: "0 2px 8px rgba(11,99,206,0.08)",
+                  }}
+                >
+                  <table className={styles.table} style={{ minWidth: 1100 }}>
+                    <thead>
+                      <tr>
+                        <th>Action</th>
+                        <th>Old Value</th>
+                        <th>New Value</th>
+                        <th>Action Performed By</th>
+                        <th>Approved/Rejected By</th>
+                        <th>Approval Status</th>
+                        <th>Date/Time (IST)</th>
+                        <th>Comments</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(Array.isArray(activityLogsApp.activityLogs)
+                        ? activityLogsApp.activityLogs
+                        : [activityLogsApp.activityLogs]
+                      )
+                        .filter((log: any) => {
+                          const allowed = [
+                            "edit",
+                            "update",
+                            "delete",
+                            "add",
+                            "create",
+                          ];
+                          const actionType = (log.action || "").toLowerCase();
+                          return allowed.some((type) =>
+                            actionType.includes(type)
+                          );
+                        })
+                        .filter(
+                          (log: any) =>
+                            !activityLogsApp.approverFilter ||
+                            (log.approver || "")
+                              .toLowerCase()
+                              .includes(
+                                activityLogsApp.approverFilter.toLowerCase()
+                              )
+                        )
+                        .map((log: any, i: number) => {
+                          let dateObj = new Date(log.dateTime || log.timestamp);
+                          let istDate = new Date(
+                            dateObj.getTime() + 5.5 * 60 * 60 * 1000
+                          );
+                          let day = String(istDate.getDate()).padStart(2, "0");
+                          let month = String(istDate.getMonth() + 1).padStart(
+                            2,
+                            "0"
+                          );
+                          let year = String(istDate.getFullYear()).slice(-2);
+                          let hours = String(istDate.getHours()).padStart(
+                            2,
+                            "0"
+                          );
+                          let minutes = String(istDate.getMinutes()).padStart(
+                            2,
+                            "0"
+                          );
+                          let formattedDate = `${day}/${month}/${year} ${hours}:${minutes}`;
+                          return (
+                            <tr key={i}>
+                              <td>{log.action || "-"}</td>
+                              <td>{JSON.stringify(log.oldValue) || "-"}</td>
+                              <td>{JSON.stringify(log.newValue) || "-"}</td>
+                              <td>{log.approver || "-"}</td>
+                              <td>{log.approvedOrRejectedBy || "-"}</td>
+                              <td>{log.approvalStatus || "-"}</td>
+                              <td>
+                                {log.dateTime || log.timestamp
+                                  ? formattedDate
+                                  : "-"}
+                              </td>
+                              <td>{log.reason || log.comment || "-"}</td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            )}
-          
+            </div>
+          )}
         </div>
       </div>
 

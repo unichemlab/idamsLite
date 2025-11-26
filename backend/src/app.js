@@ -21,11 +21,12 @@ const adSyncRoutes = require("./routes/employeeSyncRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const approvalRoutes = require("./routes/approvalRoutes");
 const approvalsRoutes = require("./routes/approvals");
+const rbacRoutes = require("./routes/rbac");
 const os = require("os");
 const serverRoutes = require("./routes/serverRoutes");
 const workflowRoutes = require("./routes/workflowRoutes");
 const plantITSupportRoutes = require("./routes/transaction");
-
+const masterApprovalRoutes = require("./routes/masterApprovalRoutes");
 const app = express();
 
 // Configure CORS to allow both localhost and deployed frontend
@@ -48,6 +49,11 @@ app.use(
   })
 );
 app.use(express.json());
+
+// Request metadata middleware
+const requestMetadata = require("./middleware/requestMeta");
+app.use(requestMetadata);
+
 // -----------------------------
 // Hardcoded AD credentials (for testing)
 // -----------------------------
@@ -77,6 +83,8 @@ app.use("/api/approval", approvalRoutes);
 app.use("/api/task", taskRoutes);
 app.use("/api/plant-itsupport", plantITSupportRoutes);
 app.use("/api/approvals", approvalsRoutes);
+app.use("/api/rbac", rbacRoutes);
+app.use("/api/master-approvals",masterApprovalRoutes);
 // Use AD sync routes
 app.use(adSyncRoutes);
 app.use("/api/workflows", workflowRoutes);

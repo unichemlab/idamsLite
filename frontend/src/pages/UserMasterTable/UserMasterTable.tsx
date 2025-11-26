@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { AbilityContext } from "../../context/AbilityContext";
-import ProfileIconWithLogout from "../PlantMasterTable/ProfileIconWithLogout";
+import ProfileIconWithLogout from "../../components/Common/ProfileIconWithLogout";
 import { useNavigate } from "react-router-dom";
 import styles from "./UserMasterTable.module.css";
+import paginationStyles from "../../styles/Pagination.module.css";
 import { FaEdit, FaTrash } from "react-icons/fa";
 import { FaRegClock } from "react-icons/fa6";
 import { useUserContext } from "../../context/UserContext";
@@ -12,7 +13,10 @@ import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { fetchActivityLog } from "../../utils/api";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
+import unichemLogoBase64 from "../../assets/unichemLogoBase64";
+import login_headTitle2 from "../../assets/login_headTitle2.png";
 
 const UserMasterTable = () => {
   const navigate = useNavigate();
@@ -57,6 +61,17 @@ const UserMasterTable = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [activityLogsUser, setActivityLogsUser] = useState<any>(null);
+
+  // Helper to render values safely (avoid passing objects directly to JSX)
+  const renderLogValue = (val: any) => {
+    try {
+      if (val === null || val === undefined) return "-";
+      if (typeof val === "object") return JSON.stringify(val);
+      return String(val);
+    } catch (e) {
+      return String(val);
+    }
+  };
 
   // Filtering logic state/hooks
   const [filterColumn, setFilterColumn] = useState("employee_name");
@@ -112,15 +127,67 @@ const UserMasterTable = () => {
     currentPage * rowsPerPage
   );
 
-  // PDF Export Handler
-  const handleExportPDF = () => {
+  const loadImage = (url: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.src = url;
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+    });
+  };
+
+  // PDF Export Handler (updated to match RoleMasterTable design)
+  const handleExportPDF = async () => {
     const doc = new jsPDF({ orientation: "landscape" });
     const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
-    const fileName = `UserMasterTable_${yyyy}-${mm}-${dd}.pdf`;
+    const fileName = `UserMaster_${today.toISOString().split("T")[0]}.pdf`;
 
+    // --- HEADER BAR ---
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const pageMargin = 14;
+    const headerHeight = 28;
+    doc.setFillColor(0, 82, 155);
+    doc.rect(0, 0, pageWidth, headerHeight, "F");
+
+    // Logo
+    let logoWidth = 0;
+    let logoHeight = 0;
+    if (login_headTitle2) {
+      try {
+        const img = await loadImage(login_headTitle2);
+        const maxLogoHeight = headerHeight * 0.6;
+        const scale = maxLogoHeight / img.height;
+        logoWidth = img.width * scale;
+        logoHeight = img.height * scale;
+        const logoY = headerHeight / 2 - logoHeight / 2;
+        doc.addImage(img, "PNG", pageMargin, logoY, logoWidth, logoHeight);
+      } catch (e) {
+        console.warn("Logo load failed", e);
+      }
+    }
+
+    // Title + Exported by on the same line
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    const titleX = pageMargin + logoWidth + 10;
+    const titleY = headerHeight / 2 + 5;
+    doc.text("User Master", titleX, titleY);
+
+    doc.setFontSize(9);
+    doc.setTextColor(220, 230, 245);
+    const exportedByName =
+      (currentUser && (currentUser.name || currentUser.username)) ||
+      "Unknown User";
+    const exportedText = `Exported by: ${exportedByName}  On: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
+    const textWidth = doc.getTextWidth(exportedText);
+    doc.text(exportedText, pageWidth - pageMargin - textWidth, titleY);
+
+    doc.setDrawColor(0, 82, 155);
+    doc.setLineWidth(0.5);
+    doc.line(0, headerHeight, pageWidth, headerHeight);
+
+    // --- TABLE ---
     const headers = [
       [
         "User Name",
@@ -135,24 +202,27 @@ const UserMasterTable = () => {
       ],
     ];
 
-    const rows = filteredUsers.map((user: any) => [
-      user.employee_name,
-      user.email,
-      user.employee_code,
-      user.department,
-      user.location,
-      user.designation,
-      user.status,
-      user.company,
-      formatPermissions(user),
+    const rows = filteredUsers.map((u: any) => [
+      u.employee_name ?? "-",
+      u.email ?? "-",
+      u.employee_code ?? "-",
+      // prefer resolved department name where available
+      (() => {
+        if (u.department && typeof u.department === "string")
+          return u.department;
+        return u.department ?? "-";
+      })(),
+      u.location ?? "-",
+      u.designation ?? "-",
+      u.status ?? "-",
+      u.company ?? "-",
+      formatPermissions(u),
     ]);
 
-    doc.setFontSize(18);
-    doc.text("User Master Table", 14, 18);
     autoTable(doc, {
       head: headers,
       body: rows,
-      startY: 28,
+      startY: headerHeight + 8,
       styles: {
         fontSize: 11,
         cellPadding: 3,
@@ -167,9 +237,27 @@ const UserMasterTable = () => {
       alternateRowStyles: {
         fillColor: [240, 245, 255],
       },
-      margin: { left: 14, right: 14 },
+      margin: { left: pageMargin, right: pageMargin },
       tableWidth: "auto",
     });
+
+    // --- FOOTER ---
+    const pageCount =
+      (doc as any).getNumberOfPages?.() ||
+      (doc as any).internal?.getNumberOfPages?.() ||
+      1;
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.text("Unichem Laboratories", pageMargin, pageHeight - 6);
+      doc.text(
+        `Page ${i} of ${pageCount}`,
+        pageWidth - pageMargin - 30,
+        pageHeight - 6
+      );
+    }
+
     doc.save(fileName);
   };
 
@@ -250,7 +338,7 @@ const UserMasterTable = () => {
                 className={styles.actionHeaderRow}
                 style={{ marginLeft: "auto" }}
               >
-                {(isSuperAdmin || ability.can("create", "USER_MASTER")) && (
+                {(isSuperAdmin || ability.can("create:users")) && (
                   <button
                     className={styles.addUserBtn}
                     onClick={() => navigate("/add-user")}
@@ -267,7 +355,7 @@ const UserMasterTable = () => {
                 >
                   🔍 Filter
                 </button>
-                {(isSuperAdmin || ability.can("update", "USER_MASTER")) && (
+                {(isSuperAdmin || ability.can("update:users")) && (
                   <button
                     className={`${styles.btn} ${styles.editBtn}`}
                     disabled={selectedRow === null}
@@ -286,7 +374,7 @@ const UserMasterTable = () => {
                     <FaEdit size={14} /> Edit
                   </button>
                 )}
-                {(isSuperAdmin || ability.can("delete", "USER_MASTER")) && (
+                {(isSuperAdmin || ability.can("delete:users")) && (
                   <button
                     className={`${styles.btn} ${styles.deleteBtn}`}
                     disabled={selectedRow === null}
@@ -519,10 +607,140 @@ const UserMasterTable = () => {
                             <button
                               className={styles.actionBtn}
                               title="View Activity Logs"
-                              onClick={(e) => {
+                              onClick={async (e) => {
                                 e.stopPropagation();
-                                setActivityLogsUser(user);
+                                // Open modal immediately for responsiveness
+                                setActivityLogsUser({
+                                  ...user,
+                                  activityLogs: [],
+                                });
                                 setShowActivityModal(true);
+
+                                try {
+                                  const allLogs = await fetchActivityLog();
+                                  const filtered = (allLogs || [])
+                                    .filter((log: any) => {
+                                      // match canonical table_name/record_id
+                                      if (
+                                        log.table_name === "user_master" &&
+                                        String(log.record_id) ===
+                                          String(user.id)
+                                      )
+                                        return true;
+                                      // legacy details-based rows: check tableName or employee_code/employeeId
+                                      if (
+                                        log.details &&
+                                        typeof log.details === "string"
+                                      ) {
+                                        try {
+                                          const parsed = JSON.parse(
+                                            log.details
+                                          );
+                                          if (
+                                            parsed.tableName ===
+                                              "user_master" &&
+                                            (String(parsed.recordId) ===
+                                              String(user.id) ||
+                                              String(parsed.employee_code) ===
+                                                String(user.employee_code) ||
+                                              String(parsed.employeeId) ===
+                                                String(user.employee_id))
+                                          )
+                                            return true;
+                                        } catch (e) {
+                                          // ignore parse errors
+                                        }
+                                      }
+                                      return false;
+                                    })
+                                    .map((r: any) => {
+                                      // normalize row to UI-friendly fields
+                                      let parsedDetails = null;
+                                      if (
+                                        r.details &&
+                                        typeof r.details === "string"
+                                      ) {
+                                        try {
+                                          parsedDetails = JSON.parse(r.details);
+                                        } catch {
+                                          parsedDetails = null;
+                                        }
+                                      }
+                                      const parseMaybeJson = (v: any) => {
+                                        if (!v && v !== "" && v !== 0)
+                                          return null;
+                                        if (typeof v === "string") {
+                                          try {
+                                            return JSON.parse(v);
+                                          } catch {
+                                            return v;
+                                          }
+                                        }
+                                        return v;
+                                      };
+                                      const oldVal = parseMaybeJson(
+                                        r.old_value ||
+                                          (parsedDetails &&
+                                            parsedDetails.old_value)
+                                      );
+                                      const newVal = parseMaybeJson(
+                                        r.new_value ||
+                                          (parsedDetails &&
+                                            parsedDetails.new_value)
+                                      );
+                                      const action =
+                                        r.action ||
+                                        (parsedDetails &&
+                                          parsedDetails.action) ||
+                                        "";
+                                      const approver =
+                                        r.action_performed_by ||
+                                        r.user_id ||
+                                        (parsedDetails &&
+                                          (parsedDetails.userId ||
+                                            parsedDetails.approver)) ||
+                                        null;
+                                      const dateTime =
+                                        r.date_time_ist ||
+                                        r.timestamp ||
+                                        r.created_at ||
+                                        (parsedDetails &&
+                                          parsedDetails.dateTime) ||
+                                        null;
+                                      const comments =
+                                        r.comments ||
+                                        (parsedDetails &&
+                                          (parsedDetails.comments ||
+                                            parsedDetails.reason)) ||
+                                        null;
+                                      return {
+                                        action,
+                                        oldValue: oldVal,
+                                        newValue: newVal,
+                                        approver,
+                                        approvedOrRejectedBy:
+                                          r.approved_by || null,
+                                        approvalStatus:
+                                          r.approve_status ||
+                                          r.approval_status ||
+                                          null,
+                                        dateTime,
+                                        reason: comments,
+                                        _raw: r,
+                                      };
+                                    });
+
+                                  setActivityLogsUser({
+                                    ...user,
+                                    activityLogs: filtered,
+                                  });
+                                } catch (err) {
+                                  // fallback to empty logs
+                                  setActivityLogsUser({
+                                    ...user,
+                                    activityLogs: [],
+                                  });
+                                }
                               }}
                             >
                               <FaRegClock size={17} />
@@ -534,19 +752,19 @@ const UserMasterTable = () => {
                   </tbody>
                 </table>
 
-                <div className={styles.pagination}>
+                <div className={paginationStyles.pagination}>
                   <button
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
                     className={
                       currentPage === 1
-                        ? styles.disabledPageBtn
-                        : styles.pageBtn
+                        ? paginationStyles.disabledPageBtn
+                        : paginationStyles.pageBtn
                     }
                   >
                     Previous
                   </button>
-                  <span className={styles.pageInfo}>
+                  <span className={paginationStyles.pageInfo}>
                     Page {currentPage} of {totalPages}
                   </span>
                   <button
@@ -556,8 +774,8 @@ const UserMasterTable = () => {
                     disabled={currentPage === totalPages}
                     className={
                       currentPage === totalPages
-                        ? styles.disabledPageBtn
-                        : styles.pageBtn
+                        ? paginationStyles.disabledPageBtn
+                        : paginationStyles.pageBtn
                     }
                   >
                     Next
@@ -606,26 +824,105 @@ const UserMasterTable = () => {
                   >
                     <button
                       className={styles.exportPdfBtn}
-                      onClick={() => {
+                      onClick={async () => {
+                        if (!activityLogsUser) return;
                         const doc = new jsPDF({ orientation: "landscape" });
-                        const headers = [
-                          [
-                            "Action",
-                            "Old Value",
-                            "New Value",
-                            "Action Performed By",
-                            "Approved/Rejected By",
-                            "Approval Status",
-                            "Date/Time (IST)",
-                            "Comments",
-                          ],
+                        const today = new Date();
+                        const yyyy = today.getFullYear();
+                        const mm = String(today.getMonth() + 1).padStart(
+                          2,
+                          "0"
+                        );
+                        const dd = String(today.getDate()).padStart(2, "0");
+                        const fileName = `ActivityLog_${yyyy}-${mm}-${dd}.pdf`;
+
+                        const pageWidth = doc.internal.pageSize.getWidth();
+                        const pageHeight = doc.internal.pageSize.getHeight();
+                        const pageMargin = 14;
+                        const headerHeight = 28;
+
+                        // Header bar
+                        doc.setFillColor(0, 82, 155);
+                        doc.rect(0, 0, pageWidth, headerHeight, "F");
+
+                        // Logo (prefer PNG import, fallback to base64)
+                        let logoWidth = 0;
+                        let logoHeight = 0;
+                        try {
+                          if (login_headTitle2) {
+                            const img = await loadImage(login_headTitle2);
+                            const maxLogoHeight = headerHeight * 0.6;
+                            const scale = maxLogoHeight / img.height;
+                            logoWidth = img.width * scale;
+                            logoHeight = img.height * scale;
+                            const logoY = headerHeight / 2 - logoHeight / 2;
+                            doc.addImage(
+                              img,
+                              "PNG",
+                              pageMargin,
+                              logoY,
+                              logoWidth,
+                              logoHeight
+                            );
+                          } else if (
+                            unichemLogoBase64 &&
+                            unichemLogoBase64.startsWith("data:image")
+                          ) {
+                            logoWidth = 50;
+                            logoHeight = 18;
+                            const logoY = headerHeight / 2 - logoHeight / 2;
+                            doc.addImage(
+                              unichemLogoBase64,
+                              "PNG",
+                              pageMargin,
+                              logoY,
+                              logoWidth,
+                              logoHeight
+                            );
+                          }
+                        } catch (e) {
+                          console.warn("Logo load failed", e);
+                        }
+
+                        // Title + exported by
+                        doc.setFontSize(16);
+                        doc.setTextColor(255, 255, 255);
+                        const titleX = pageMargin + logoWidth + 10;
+                        const titleY = headerHeight / 2 + 5;
+                        doc.text("Activity Log", titleX, titleY);
+
+                        doc.setFontSize(9);
+                        doc.setTextColor(220, 230, 245);
+                        const exportedByName =
+                          (currentUser &&
+                            (currentUser.name || currentUser.username)) ||
+                          "Unknown User";
+                        const exportedText = `Exported by: ${exportedByName}  On: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
+                        const textWidth = doc.getTextWidth(exportedText);
+                        doc.text(
+                          exportedText,
+                          pageWidth - pageMargin - textWidth,
+                          titleY
+                        );
+
+                        doc.setDrawColor(0, 82, 155);
+                        doc.setLineWidth(0.5);
+                        doc.line(0, headerHeight, pageWidth, headerHeight);
+
+                        // Table rows
+                        const allowed = [
+                          "edit",
+                          "update",
+                          "delete",
+                          "add",
+                          "create",
                         ];
-                        const allowed = ["edit", "delete", "add"];
-                        const logs = (
-                          Array.isArray(activityLogsUser.activityLogs)
-                            ? activityLogsUser.activityLogs
-                            : [activityLogsUser.activityLogs]
+                        const rawLogs = Array.isArray(
+                          activityLogsUser.activityLogs
                         )
+                          ? activityLogsUser.activityLogs
+                          : [activityLogsUser.activityLogs];
+                        const logs = rawLogs
                           .filter((log: any) => {
                             const actionType = (log.action || "").toLowerCase();
                             return allowed.some((type) =>
@@ -638,65 +935,97 @@ const UserMasterTable = () => {
                               (log.approver || "")
                                 .toLowerCase()
                                 .includes(
-                                  activityLogsUser.approverFilter.toLowerCase()
+                                  (
+                                    activityLogsUser.approverFilter || ""
+                                  ).toLowerCase()
                                 )
                           );
+
+                        const headers = [
+                          [
+                            "Action",
+                            "Old Value",
+                            "New Value",
+                            "Action Performed By",
+                            "Approval Status",
+                            "Date/Time (IST)",
+                            "Comments",
+                          ],
+                        ];
+
                         const rows = logs.map((log: any) => {
-                          let dateObj = new Date(log.dateTime || log.timestamp);
-                          let istDate = new Date(
+                          let dateObj = new Date(
+                            log.dateTime ||
+                              log.timestamp ||
+                              log.created_at ||
+                              Date.now()
+                          );
+                          if (Number.isNaN(dateObj.getTime()))
+                            dateObj = new Date();
+                          const istDate = new Date(
                             dateObj.getTime() + 5.5 * 60 * 60 * 1000
                           );
-                          let formattedDate = istDate.toLocaleString("en-IN", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "2-digit",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: false,
-                          });
+                          const formattedDate = istDate.toLocaleString();
                           return [
                             log.action || "-",
-                            log.oldValue !== undefined ? log.oldValue : "-",
-                            log.newValue !== undefined ? log.newValue : "-",
-                            log.approver || "-",
-                            log.approvedOrRejectedBy || "-",
-                            log.approvalStatus || "-",
+                            renderLogValue(log.oldValue),
+                            renderLogValue(log.newValue),
+                            log.approver || log.action_performed_by || "-",
+                            log.approve_status || log.approvalStatus || "-",
                             formattedDate,
-                            log.reason || log.comment || "-",
+                            log.reason || log.comments || log.comment || "-",
                           ];
                         });
 
-                        doc.setFontSize(18);
-                        doc.text("Activity Log", 14, 18);
                         autoTable(doc, {
                           head: headers,
                           body: rows,
-                          startY: 28,
+                          startY: headerHeight + 8,
                           styles: {
-                            fontSize: 11,
+                            fontSize: 9,
                             cellPadding: 3,
                             halign: "left",
                             valign: "middle",
+                            textColor: 80,
                           },
                           headStyles: {
                             fillColor: [11, 99, 206],
-                            textColor: 255,
+                            textColor: [255, 255, 255],
                             fontStyle: "bold",
+                            fontSize: 9,
                           },
-                          alternateRowStyles: {
-                            fillColor: [240, 245, 255],
-                          },
-                          margin: { left: 14, right: 14 },
+                          alternateRowStyles: { fillColor: [240, 245, 255] },
+                          margin: { left: pageMargin, right: pageMargin },
                           tableWidth: "auto",
                         });
 
-                        const today = new Date();
-                        const fileName = `activity_log_${today.getFullYear()}-${String(
-                          today.getMonth() + 1
-                        ).padStart(2, "0")}-${String(today.getDate()).padStart(
-                          2,
-                          "0"
-                        )}.pdf`;
+                        // Footer: page count and footers per page
+                        const pageCount =
+                          (doc as any).internal.getNumberOfPages?.() || 1;
+                        doc.setFontSize(8);
+                        doc.setTextColor(100, 100, 100);
+                        for (let i = 1; i <= pageCount; i++) {
+                          doc.setPage(i);
+                          doc.setDrawColor(200, 200, 200);
+                          doc.setLineWidth(0.3);
+                          doc.line(
+                            pageMargin,
+                            pageHeight - 15,
+                            pageWidth - pageMargin,
+                            pageHeight - 15
+                          );
+                          doc.text(
+                            "Unichem Laboratories",
+                            pageMargin,
+                            pageHeight - 10
+                          );
+                          doc.text(
+                            `Page ${i} of ${pageCount}`,
+                            pageWidth - pageMargin - 40,
+                            pageHeight - 10
+                          );
+                        }
+
                         doc.save(fileName);
                       }}
                       aria-label="Export activity log to PDF"
@@ -805,7 +1134,13 @@ const UserMasterTable = () => {
                         : [activityLogsUser.activityLogs]
                       )
                         .filter((log: any) => {
-                          const allowed = ["edit", "delete", "add"];
+                          const allowed = [
+                            "edit",
+                            "update",
+                            "delete",
+                            "add",
+                            "create",
+                          ];
                           const actionType = (log.action || "").toLowerCase();
                           return allowed.some((type) =>
                             actionType.includes(type)
@@ -837,16 +1172,8 @@ const UserMasterTable = () => {
                           return (
                             <tr key={i}>
                               <td>{log.action || "-"}</td>
-                              <td>
-                                {log.oldValue !== undefined
-                                  ? log.oldValue
-                                  : "-"}
-                              </td>
-                              <td>
-                                {log.newValue !== undefined
-                                  ? log.newValue
-                                  : "-"}
-                              </td>
+                              <td>{renderLogValue(log.oldValue)}</td>
+                              <td>{renderLogValue(log.newValue)}</td>
                               <td>{log.approver || "-"}</td>
                               <td>{log.approvedOrRejectedBy || "-"}</td>
                               <td>{log.approvalStatus || "-"}</td>

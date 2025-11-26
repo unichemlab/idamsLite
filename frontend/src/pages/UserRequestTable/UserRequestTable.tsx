@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import styles from "../UserRequestTable/UserRequestTable.module.css";
-import ProfileIconWithLogout from "./ProfileIconWithLogout";
+import ProfileIconWithLogout from "../../components/Common/ProfileIconWithLogout";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import SettingsIcon from "@mui/icons-material/Settings";

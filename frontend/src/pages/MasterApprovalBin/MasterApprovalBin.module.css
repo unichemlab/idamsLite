@@ -1,0 +1,375 @@
+/* frontend/src/pages/ApprovalBin/ApprovalBin.module.css */
+
+/* Filter Bar */
+.filterBar {
+  display: flex;
+  gap: 20px;
+  padding: 20px 24px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  align-items: center;
+}
+
+.filterGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.filterGroup label {
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.filterSelect {
+  padding: 8px 12px;
+  border: 1px solid #cbd5e0;
+  border-radius: 6px;
+  font-size: 14px;
+  min-width: 150px;
+}
+
+.refreshButton,
+.backButton {
+  padding: 8px 16px;
+  background: #0b63ce;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.refreshButton:hover,
+.backButton:hover {
+  background: #084a9e;
+}
+
+/* Table Styles */
+.tableContainer {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table thead {
+  background: #eef4ff;
+}
+
+.table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #2d3748;
+  font-size: 14px;
+  border-bottom: 2px solid #cbd5e0;
+}
+
+.table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 14px;
+}
+
+.table tbody tr:hover {
+  background: #f7fafc;
+}
+
+/* Badges */
+.moduleBadge {
+  display: inline-block;
+  padding: 4px 12px;
+  background: #667eea;
+  color: white;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.actionBadge {
+  display: inline-block;
+  padding: 4px 12px;
+  color: white;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.statusBadge {
+  display: inline-block;
+  padding: 4px 12px;
+  color: white;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Action Buttons */
+.actionButtons {
+  display: flex;
+  gap: 8px;
+}
+
+.viewButton,
+.approveButton,
+.rejectButton {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: opacity 0.2s;
+}
+
+.viewButton {
+  background: #667eea;
+  color: white;
+}
+
+.approveButton {
+  background: #28a745;
+  color: white;
+}
+
+.rejectButton {
+  background: #dc3545;
+  color: white;
+}
+
+.viewButton:hover,
+.approveButton:hover,
+.rejectButton:hover {
+  opacity: 0.85;
+}
+
+/* Loading & Empty States */
+.loading,
+.emptyState {
+  text-align: center;
+  padding: 60px 20px;
+  color: #718096;
+  font-size: 16px;
+}
+
+/* Modal Styles */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modalContent {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 900px;
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.modalHeader h3 {
+  margin: 0;
+  color: #2d3748;
+  font-size: 20px;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  font-size: 32px;
+  color: #718096;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+}
+
+.closeButton:hover {
+  color: #2d3748;
+}
+
+.modalBody {
+  padding: 24px;
+}
+
+.detailsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.detailItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detailItem strong {
+  color: #4a5568;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.detailItem span {
+  color: #2d3748;
+  font-size: 14px;
+}
+
+/* Data Comparison */
+.dataComparison {
+  display: flex;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.dataComparison h4 {
+  margin: 0 0 12px 0;
+  color: #2d3748;
+  font-size: 15px;
+}
+
+.dataComparison pre {
+  background: #f7fafc;
+  padding: 16px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  overflow: auto;
+  font-size: 13px;
+  max-height: 300px;
+}
+
+.compareColumn {
+  flex: 1;
+}
+
+/* Action Section */
+.actionSection {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 2px solid #e2e8f0;
+}
+
+.actionSection label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.commentsTextarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #cbd5e0;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.commentsTextarea:focus {
+  outline: none;
+  border-color: #0b63ce;
+  box-shadow: 0 0 0 3px rgba(11, 99, 206, 0.1);
+}
+
+/* Modal Footer */
+.modalFooter {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding: 20px 24px;
+  border-top: 2px solid #e2e8f0;
+  background: #f7fafc;
+}
+
+.confirmApproveButton,
+.confirmRejectButton,
+.cancelActionButton,
+.closeModalButton {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: opacity 0.2s;
+}
+
+.confirmApproveButton {
+  background: #28a745;
+  color: white;
+}
+
+.confirmRejectButton {
+  background: #dc3545;
+  color: white;
+}
+
+.cancelActionButton {
+  background: #6c757d;
+  color: white;
+}
+
+.closeModalButton {
+  background: #e2e8f0;
+  color: #2d3748;
+}
+
+.confirmApproveButton:hover,
+.confirmRejectButton:hover,
+.cancelActionButton:hover,
+.closeModalButton:hover {
+  opacity: 0.85;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .filterBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .actionButtons {
+    flex-direction: column;
+  }
+
+  .dataComparison {
+    flex-direction: column;
+  }
+
+  .detailsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .modalContent {
+    width: 95%;
+  }
+}

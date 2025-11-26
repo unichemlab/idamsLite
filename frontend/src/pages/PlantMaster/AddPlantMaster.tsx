@@ -18,6 +18,8 @@ const AddPlantMaster: React.FC = () => {
   });
   const { user } = useAuth();
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showApprovalNotice, setShowApprovalNotice] = useState(false);
+  const [approvalMessage, setApprovalMessage] = useState("");
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -36,21 +38,42 @@ const AddPlantMaster: React.FC = () => {
     setShowConfirm(true);
   };
 
-  const handleConfirm = (data: Record<string, string>) => {
-    // Optionally, you can check password here with backend
-    addPlant(form);
-    setShowConfirm(false);
-    navigate("/superadmin");
+  const handleConfirm = async (data: Record<string, string>) => {
+    try {
+      const result = await addPlant(form);
+      setShowConfirm(false);
+
+      // Check if result is an approval response
+      if ("approvalId" in result && result.status === "PENDING_APPROVAL") {
+        setApprovalMessage(
+          `${result.message}\n\nApproval ID: ${result.approvalId}\n\nThe plant will be added after approval.`
+        );
+        setShowApprovalNotice(true);
+      } else {
+        // Direct creation (no approval needed)
+        alert("Plant created successfully!");
+        navigate("/superadmin", { state: { activeTab: "plant" } });
+      }
+    } catch (err: any) {
+      console.error("Error adding plant:", err);
+      alert(`Error: ${err.message || "Failed to add plant"}`);
+    }
   };
 
   const handleCancel = () => {
     setShowConfirm(false);
   };
 
+  const handleApprovalNoticeClose = () => {
+    setShowApprovalNotice(false);
+    navigate("/superadmin", { state: { activeTab: "plant" } });
+  };
+
   // Always show all sidebar items, regardless of user role
   const filteredSidebarConfig = sidebarConfig;
   const location = useLocation();
   const activeTab = location.state?.activeTab || "plant";
+  
   // Sidebar navigation handler: always reset to table view for selected master
   const handleSidebarNav = (key: string) => {
     navigate("/superadmin", { state: { activeTab: key } });
@@ -65,6 +88,82 @@ const AddPlantMaster: React.FC = () => {
           onCancel={handleCancel}
         />
       )}
+
+      {/* Approval Notice Modal */}
+      {showApprovalNotice && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              background: "white",
+              borderRadius: "12px",
+              padding: "32px",
+              maxWidth: "500px",
+              width: "90%",
+              boxShadow: "0 10px 40px rgba(0,0,0,0.2)",
+            }}
+          >
+            <div
+              style={{
+                textAlign: "center",
+                marginBottom: "24px",
+                fontSize: "48px",
+              }}
+            >
+              ⏳
+            </div>
+            <h3
+              style={{
+                margin: "0 0 16px 0",
+                textAlign: "center",
+                color: "#2d3748",
+              }}
+            >
+              Approval Required
+            </h3>
+            <p
+              style={{
+                whiteSpace: "pre-line",
+                color: "#4a5568",
+                lineHeight: "1.6",
+                marginBottom: "24px",
+              }}
+            >
+              {approvalMessage}
+            </p>
+            <div style={{ textAlign: "center" }}>
+              <button
+                onClick={handleApprovalNoticeClose}
+                style={{
+                  padding: "12px 32px",
+                  background: "#0b63ce",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                }}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className={superAdminStyles["main-container"]}>
         {/* Sidebar */}
         <aside className={superAdminStyles.sidebar}>
@@ -75,7 +174,7 @@ const AddPlantMaster: React.FC = () => {
               style={{ width: 250, height: 35 }}
             />
             <br />
-            <span>Unichem Laboratories</span>
+            <span className={superAdminStyles.version}>version-1.0</span>
           </div>
           <nav>
             <div className={superAdminStyles["sidebar-group"]}>OVERVIEW</div>

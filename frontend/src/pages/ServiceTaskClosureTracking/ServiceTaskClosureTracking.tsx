@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import ProfileIconWithLogout from "./ProfileIconWithLogout";
+import ProfileIconWithLogout from "../../components/Common/ProfileIconWithLogout";
 import { useTaskContext } from "./ServiceTaskContext";
 import styles from "./TaskClosureTracking.module.css";
 import NotificationsIcon from "@mui/icons-material/Notifications";

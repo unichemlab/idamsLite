@@ -365,7 +365,7 @@
   /* min-width: 350px; */
   border-radius: 18px;
   padding: 1.5rem 1.5rem 1.5rem 1.5rem;
-  margin-top: 1.5rem;
+  margin-top: 0.5rem;
   transition: box-shadow 0.2s;
 }
 
@@ -430,8 +430,14 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 24px;
   z-index: 1;
+}
+
+.version {
+  font-size: 13px;
+    color: #7a8fa6;
+    margin-top: -7px;
+    padding-left: 138px;
 }
 .logoRow {
   display: flex;
@@ -440,6 +446,9 @@
   font-size: 32px;
   color: #7a8fa6;
   letter-spacing: 2px;
+  display: flex;
+    flex-direction: column;
+    align-items: flex-start;
 }
 .logoI {
   font-family: "Arial Black", Arial, sans-serif;
@@ -467,12 +476,13 @@
   letter-spacing: 1px;
 }
 .logoUam {
-  font-size: 18px;
-  color: #007f86;
-  font-weight: 700;
-  margin-top: 2px;
-  letter-spacing: 1px;
+  font-size: 14px;
+    color: #007f86;
+    font-weight: 700;
+    margin-top: 2px;
+    letter-spacing: 1px;
 }
+
 .logoUamSub {
   font-weight: 400;
   color: #4e6e8e;

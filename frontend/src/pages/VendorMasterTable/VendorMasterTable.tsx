@@ -1,7 +1,8 @@
 import React, { useEffect } from "react";
-import ProfileIconWithLogout from "./ProfileIconWithLogout";
+import ProfileIconWithLogout from "../../components/Common/ProfileIconWithLogout";
 import { useVendorContext } from "../VendorMaster/VendorContext";
 import styles from "../ApplicationMasterTable/ApplicationMasterTable.module.css";
+import paginationStyles from "../../styles/Pagination.module.css";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { FaEdit, FaTrash } from "react-icons/fa";
@@ -10,7 +11,10 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { FaRegClock } from "react-icons/fa6";
 import { useNavigate } from "react-router-dom";
+import { useAbility } from "../../context/AbilityContext";
 import { fetchVendorActivityLogs } from "../../utils/api";
+import login_headTitle2 from "../../assets/login_headTitle2.png";
+import { useAuth } from "../../context/AuthContext";
 
 // Activity logs from backend
 
@@ -19,7 +23,10 @@ const VendorMasterTable: React.FC = () => {
   const [selectedRow, setSelectedRow] = React.useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   const [showActivityModal, setShowActivityModal] = React.useState(false);
-  const [activityLogs, setActivityLogs] = React.useState<any[]>([]);
+  // Pagination state
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const rowsPerPage = 10;
+  // activity logs fetched per-click; we don't keep a global cache here
   const [approverFilter, setApproverFilter] = React.useState("");
   const [activityVendor, setActivityVendor] = React.useState<any>(null);
   // Filter state
@@ -30,6 +37,8 @@ const VendorMasterTable: React.FC = () => {
   const [tempFilterValue, setTempFilterValue] = React.useState(filterValue);
   const popoverRef = React.useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
+  const { can } = useAbility();
+  const { user } = useAuth();
 
   useEffect(() => {
     if (!showFilterPopover) return;
@@ -61,26 +70,86 @@ const VendorMasterTable: React.FC = () => {
     }
   });
 
+  // Reset to first page when filter changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [filterValue]);
+
+  const totalPages = Math.ceil(filteredData.length / rowsPerPage) || 1;
+  const paginatedData = filteredData.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  );
+
+  const loadImage = (url: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.src = url;
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+    });
+  };
+
   // PDF Export Handler for Vendor Table
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     const doc = new jsPDF({ orientation: "landscape" });
     const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
-    const fileName = `VendorMaster_${yyyy}-${mm}-${dd}.pdf`;
-    const headers = [["Vender/OEM Name", "Description", "Status"]];
+    const fileName = `VendorMaster_${today.toISOString().split("T")[0]}.pdf`;
+
+    // --- HEADER BAR ---
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageMargin = 14;
+    const headerHeight = 28;
+    doc.setFillColor(0, 82, 155);
+    doc.rect(0, 0, pageWidth, headerHeight, "F");
+
+    // Logo
+    let logoWidth = 0;
+    let logoHeight = 0;
+    if (login_headTitle2) {
+      try {
+        const img = await loadImage(login_headTitle2);
+        const maxLogoHeight = headerHeight * 0.6;
+        const scale = maxLogoHeight / img.height;
+        logoWidth = img.width * scale;
+        logoHeight = img.height * scale;
+        const logoY = headerHeight / 2 - logoHeight / 2;
+        doc.addImage(img, "PNG", pageMargin, logoY, logoWidth, logoHeight);
+      } catch (e) {
+        console.warn("Logo load failed", e);
+      }
+    }
+
+    // Title + Exported by/date
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    const titleX = pageMargin + logoWidth + 10;
+    const titleY = headerHeight / 2 + 5;
+    doc.text("Vendor Master", titleX, titleY);
+
+    doc.setFontSize(9);
+    doc.setTextColor(220, 230, 245);
+    const exportedByName =
+      (user && (user.name || user.username)) || "Unknown User";
+    const exportedText = `Exported by: ${exportedByName}  On: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
+    const textWidth = doc.getTextWidth(exportedText);
+    doc.text(exportedText, pageWidth - pageMargin - textWidth, titleY);
+
+    doc.setDrawColor(0, 82, 155);
+    doc.setLineWidth(0.5);
+    doc.line(0, headerHeight, pageWidth, headerHeight);
+
+    // --- TABLE ---
     const rows = filteredData.map((vendor) => [
-      vendor.name ?? vendor.name ?? "",
-      vendor.description ?? "",
-      vendor.status ?? "",
+      vendor.name ?? vendor.vendor_name ?? "-",
+      vendor.description ?? "-",
+      vendor.status ?? "-",
     ]);
-    doc.setFontSize(18);
-    doc.text("Vendor Master", 14, 18);
+
     autoTable(doc, {
-      head: headers,
+      head: [["Vendor Name", "Description", "Status"]],
       body: rows,
-      startY: 28,
+      startY: headerHeight + 8,
       styles: {
         fontSize: 11,
         cellPadding: 3,
@@ -92,17 +161,34 @@ const VendorMasterTable: React.FC = () => {
         textColor: 255,
         fontStyle: "bold",
       },
-      alternateRowStyles: {
-        fillColor: [240, 245, 255],
-      },
-      margin: { left: 14, right: 14 },
+      alternateRowStyles: { fillColor: [240, 245, 255] },
+      margin: { left: pageMargin, right: pageMargin },
       tableWidth: "auto",
     });
+
+    // --- FOOTER ---
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const pageCount =
+      (doc as any).getNumberOfPages?.() ||
+      (doc as any).internal?.getNumberOfPages?.() ||
+      1;
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.text("Unichem Laboratories", pageMargin, pageHeight - 6);
+      doc.text(
+        `Page ${i} of ${pageCount}`,
+        pageWidth - pageMargin - 30,
+        pageHeight - 6
+      );
+    }
+
     doc.save(fileName);
   };
 
   // PDF Export Handler for Activity Log
-  const handleExportActivityPDF = () => {
+  const handleExportActivityPDF = async () => {
     if (!activityVendor) return;
     const doc = new jsPDF({ orientation: "landscape" });
     const today = new Date();
@@ -110,6 +196,51 @@ const VendorMasterTable: React.FC = () => {
     const mm = String(today.getMonth() + 1).padStart(2, "0");
     const dd = String(today.getDate()).padStart(2, "0");
     const fileName = `VendorActivityLog_${yyyy}-${mm}-${dd}.pdf`;
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageMargin = 14;
+    const headerHeight = 28;
+
+    // Header
+    doc.setFillColor(0, 82, 155);
+    doc.rect(0, 0, pageWidth, headerHeight, "F");
+
+    // Logo
+    let logoWidth = 0;
+    let logoHeight = 0;
+    if (login_headTitle2) {
+      try {
+        const img = await loadImage(login_headTitle2);
+        const maxLogoHeight = headerHeight * 0.6;
+        const scale = maxLogoHeight / img.height;
+        logoWidth = img.width * scale;
+        logoHeight = img.height * scale;
+        const logoY = headerHeight / 2 - logoHeight / 2;
+        doc.addImage(img, "PNG", pageMargin, logoY, logoWidth, logoHeight);
+      } catch (e) {
+        console.warn("Logo load failed", e);
+      }
+    }
+
+    // Title + exported by
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    const titleX = pageMargin + logoWidth + 10;
+    const titleY = headerHeight / 2 + 5;
+    doc.text("Vendor Activity Log", titleX, titleY);
+
+    doc.setFontSize(9);
+    doc.setTextColor(220, 230, 245);
+    const exportedByName =
+      (user && (user.name || user.username)) || "Unknown User";
+    const exportedText = `Exported by: ${exportedByName}  On: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
+    const textWidth = doc.getTextWidth(exportedText);
+    doc.text(exportedText, pageWidth - pageMargin - textWidth, titleY);
+
+    doc.setDrawColor(0, 82, 155);
+    doc.setLineWidth(0.5);
+    doc.line(0, headerHeight, pageWidth, headerHeight);
+
     const headers = [
       [
         "Action",
@@ -142,12 +273,11 @@ const VendorMasterTable: React.FC = () => {
         log.comments ?? "",
       ];
     });
-    doc.setFontSize(18);
-    doc.text("Vendor Activity Log", 14, 18);
+
     autoTable(doc, {
       head: headers,
       body: rows,
-      startY: 28,
+      startY: headerHeight + 8,
       styles: {
         fontSize: 11,
         cellPadding: 3,
@@ -162,36 +292,27 @@ const VendorMasterTable: React.FC = () => {
       alternateRowStyles: {
         fillColor: [240, 245, 255],
       },
-      margin: { left: 14, right: 14 },
+      margin: { left: pageMargin, right: pageMargin },
       tableWidth: "auto",
     });
+
     doc.save(fileName);
   };
 
-  // Get activity logs for a specific Vendor (by vendor name)
-  const getVendorActivityLogs = (vendorName: string) => {
-    // Filter logs by vendor name (from new/old value JSON)
-    return activityLogs.filter((log) => {
+  // Helper to filter logs by vendor name
+  const filterLogsForVendor = (logs: any[], vendorName: string) => {
+    return logs.filter((log) => {
       try {
         const oldVal = log.old_value ? JSON.parse(log.old_value) : {};
         const newVal = log.new_value ? JSON.parse(log.new_value) : {};
         return (
-          oldVal.vendor_name === vendorName || newVal.vrndor_name === vendorName
+          oldVal.vendor_name === vendorName || newVal.vendor_name === vendorName
         );
       } catch {
         return false;
       }
     });
   };
-
-  // Fetch logs from backend on modal open
-  useEffect(() => {
-    if (showActivityModal) {
-      fetchVendorActivityLogs()
-        .then(setActivityLogs)
-        .catch(() => setActivityLogs([]));
-    }
-  }, [showActivityModal]);
 
   const confirmDelete = async () => {
     if (selectedRow === null) return;
@@ -219,6 +340,12 @@ const VendorMasterTable: React.FC = () => {
           <button
             className={styles.addUserBtn}
             onClick={() => navigate("/vendors/add")}
+            disabled={!can("create:vendors")}
+            title={
+              !can("create:vendors")
+                ? "You don't have permission to add vendors"
+                : ""
+            }
           >
             + Add New
           </button>
@@ -233,17 +360,31 @@ const VendorMasterTable: React.FC = () => {
           <button
             className={`${styles.btn} ${styles.editBtn}`}
             onClick={() => {
-              if (selectedRow !== null) navigate(`/vendors/edit/${selectedRow}`);
+              if (selectedRow !== null)
+                navigate(`/vendors/edit/${selectedRow}`);
             }}
-            disabled={selectedRow === null}
+            disabled={selectedRow === null || !can("update:vendors")}
+            title={
+              selectedRow === null
+                ? "Select a vendor to edit"
+                : !can("update:vendors")
+                ? "You don't have permission to edit vendors"
+                : ""
+            }
           >
             <FaEdit size={14} /> Edit
           </button>
           <button
             className={`${styles.btn} ${styles.deleteBtn}`}
-            disabled={selectedRow === null}
+            disabled={selectedRow === null || !can("delete:vendors")}
             onClick={() => setShowDeleteModal(true)}
-            title="Delete selected vendor"
+            title={
+              selectedRow === null
+                ? "Select a vendor to delete"
+                : !can("delete:vendors")
+                ? "You don't have permission to delete vendors"
+                : ""
+            }
           >
             <FaTrash size={14} /> Delete
           </button>
@@ -341,54 +482,70 @@ const VendorMasterTable: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredData.map((vendor, index) => (
-                <tr
-                  key={index}
-                  onClick={() => setSelectedRow(index)}
-                  style={{
-                    background: selectedRow === index ? "#f0f4ff" : undefined,
-                  }}
-                >
-                  <td>
-                    <input
-                      type="radio"
-                      className={styles.radioInput}
-                      checked={selectedRow === index}
-                      onChange={() => setSelectedRow(index)}
-                    />
-                  </td>
-                  <td>{vendor.name ?? vendor.vendor_name ?? ""}</td>
-                  <td>{vendor.description ?? ""}</td>
-                  <td>
-                    <span
-                      className={
-                        vendor.status === "INACTIVE"
-                          ? styles.statusInactive
-                          : styles.status
-                      }
-                    >
-                      {vendor.status ?? ""}
-                    </span>
-                  </td>
-                  <td>
-                    <span
-                      style={{ cursor: "pointer", color: "#0b63ce" }}
-                      title="View Activity Log"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        setActivityVendor({
-                          name: vendor.name ?? "",
-                          logs: getVendorActivityLogs(vendor.name ?? ""),
-                        });
-                        setApproverFilter("");
-                        setShowActivityModal(true);
-                      }}
-                    >
-                      <FaRegClock size={18} />
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {paginatedData.map((vendor, index) => {
+                const globalIndex = (currentPage - 1) * rowsPerPage + index;
+                return (
+                  <tr
+                    key={globalIndex}
+                    onClick={() => setSelectedRow(globalIndex)}
+                    style={{
+                      background:
+                        selectedRow === globalIndex ? "#f0f4ff" : undefined,
+                    }}
+                  >
+                    <td>
+                      <input
+                        type="radio"
+                        className={styles.radioInput}
+                        checked={selectedRow === globalIndex}
+                        onChange={() => setSelectedRow(globalIndex)}
+                      />
+                    </td>
+                    <td>{vendor.name ?? vendor.vendor_name ?? ""}</td>
+                    <td>{vendor.description ?? ""}</td>
+                    <td>
+                      <span
+                        className={
+                          vendor.status === "INACTIVE"
+                            ? styles.statusInactive
+                            : styles.status
+                        }
+                      >
+                        {vendor.status ?? ""}
+                      </span>
+                    </td>
+                    <td>
+                      <span
+                        style={{ cursor: "pointer", color: "#0b63ce" }}
+                        title="View Activity Log"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          setApproverFilter("");
+                          try {
+                            const logs = await fetchVendorActivityLogs();
+                            const filtered = filterLogsForVendor(
+                              logs,
+                              vendor.name ?? ""
+                            );
+                            setActivityVendor({
+                              name: vendor.name ?? "",
+                              logs: filtered,
+                            });
+                          } catch (err) {
+                            setActivityVendor({
+                              name: vendor.name ?? "",
+                              logs: [],
+                            });
+                          }
+                          setShowActivityModal(true);
+                        }}
+                      >
+                        <FaRegClock size={18} />
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
               <ConfirmDeleteModal
                 open={showDeleteModal}
                 name={
@@ -401,6 +558,37 @@ const VendorMasterTable: React.FC = () => {
               />
             </tbody>
           </table>
+          {/* Pagination controls */}
+          <div className={paginationStyles.pagination} style={{ marginTop: 8 }}>
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className={
+                currentPage === 1
+                  ? paginationStyles.disabledPageBtn
+                  : paginationStyles.pageBtn
+              }
+            >
+              Previous
+            </button>
+            <span
+              className={paginationStyles.pageInfo}
+              style={{ margin: "0 12px" }}
+            >
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className={
+                currentPage === totalPages
+                  ? paginationStyles.disabledPageBtn
+                  : paginationStyles.pageBtn
+              }
+            >
+              Next
+            </button>
+          </div>
         </div>
       </div>
 
@@ -511,7 +699,7 @@ const VendorMasterTable: React.FC = () => {
               <table className={styles.table} style={{ minWidth: 1100 }}>
                 <thead>
                   <tr>
-                    <th>Action</th>
+                    <th>Actions</th>
                     <th>Old Value</th>
                     <th>New Value</th>
                     <th>Action Performed By</th>

@@ -2,18 +2,8 @@ const pool = require("../config/db");
 
 // generate transaction id like AT00000001
 async function generateATID() {
-  const { rows } = await pool.query(`
-    SELECT transaction_id 
-    FROM audit_trail 
-    ORDER BY id DESC 
-    LIMIT 1
-  `);
-
-  if (!rows.length) return "AT00000001";
-
-  const last = rows[0].transaction_id; // "AT00000015"
-  const num = parseInt(last.replace("AT", ""), 10) + 1;
-  return "AT" + num.toString().padStart(8, "0");
+  const { rows } = await pool.query("SELECT nextval('audit_seq') as seq");
+  return "AT" + rows[0].seq.toString().padStart(8, '0');
 }
 
 async function auditLog(
@@ -31,9 +21,7 @@ async function auditLog(
     const device = req.headers["user-agent"];
 
     console.log("AUDIT --- START");
-    console.log("operation:", operation);
-    console.log("entity:", entity_name);
-    console.log("record_id:", record_id);
+    
     console.log("req.user:", req.user);
 
     const user_id = user?.id ?? null;

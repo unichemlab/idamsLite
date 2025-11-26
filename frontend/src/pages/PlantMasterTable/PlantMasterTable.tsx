@@ -1,27 +1,54 @@
 import React, { useEffect } from "react";
-import ProfileIconWithLogout from "./ProfileIconWithLogout";
+import ProfileIconWithLogout from "../../components/Common/ProfileIconWithLogout";
 import { usePlantContext } from "../PlantMaster/PlantContext";
 import styles from "../ApplicationMasterTable/ApplicationMasterTable.module.css";
+import paginationStyles from "../../styles/Pagination.module.css";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { FaEdit, FaTrash } from "react-icons/fa";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import login_headTitle2 from "../../assets/login_headTitle2.png";
 import { FaRegClock } from "react-icons/fa6";
 import { useNavigate } from "react-router-dom";
 import { fetchPlantActivityLogs } from "../../utils/api";
+import { useAbility } from "../../context/AbilityContext";
+import { useAuth } from "../../context/AuthContext";
+
+// ✅ ADD INTERFACE HERE (just below imports)
+export interface ActivityLog {
+  id?: number;
+  sr_no?: number;
+  action?: string;
+  old_value?: string | null;
+  new_value?: string | null;
+  action_performed_by?: string | null;
+  approve_status?: string | null;
+  date_time_ist?: string | null;
+  comments?: string | null;
+}
+
 
 // Activity logs from backend
 
 const PlantMasterTable: React.FC = () => {
   const { plants, deletePlant } = usePlantContext();
-  const [selectedRow, setSelectedRow] = React.useState<number | null>(null);
+  // store selected plant by its DB id (more robust than an index)
+  const [selectedPlantId, setSelectedPlantId] = React.useState<number | null>(
+    null
+  );
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   const [showActivityModal, setShowActivityModal] = React.useState(false);
-  const [activityLogs, setActivityLogs] = React.useState<any[]>([]);
+  // Pagination state
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const rowsPerPage = 10;
+  // activity logs are fetched on-demand and stored in activityPlant.logs
   const [approverFilter, setApproverFilter] = React.useState("");
-  const [activityPlant, setActivityPlant] = React.useState<any>(null);
+  const [activityPlant, setActivityPlant] = React.useState<{
+    name: string;
+    logs: ActivityLog[];
+  } | null>(null);
   // Filter state
   const [showFilterPopover, setShowFilterPopover] = React.useState(false);
   const [filterColumn, setFilterColumn] = React.useState("name");
@@ -30,6 +57,8 @@ const PlantMasterTable: React.FC = () => {
   const [tempFilterValue, setTempFilterValue] = React.useState(filterValue);
   const popoverRef = React.useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
+  const { can } = useAbility();
+  const { user } = useAuth();
 
   useEffect(() => {
     if (!showFilterPopover) return;
@@ -63,49 +92,141 @@ const PlantMasterTable: React.FC = () => {
     }
   });
 
+  // Reset to first page when filter changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [filterValue]);
+
+  const totalPages = Math.ceil(filteredData.length / rowsPerPage) || 1;
+  const paginatedData = filteredData.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  );
+
+  // currently selected plant object (found from filteredData by id)
+  const selectedPlant =
+    selectedPlantId !== null
+      ? filteredData.find((p: any) => p.id === selectedPlantId) || null
+      : null;
+
+  const loadImage = (url: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.src = url;
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+    });
+  };
+
   // PDF Export Handler for Plant Table
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     const doc = new jsPDF({ orientation: "landscape" });
     const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
-    const fileName = `PlantMaster_${yyyy}-${mm}-${dd}.pdf`;
-    const headers = [["Plant Name", "Description", "Location", "Status"]];
+    const fileName = `PlantMaster_${today.toISOString().split("T")[0]}.pdf`;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const pageMargin = 14;
+
+    // ===== HEADER SECTION =====
+    const headerHeight = 28;
+
+    // Blue background bar
+    doc.setFillColor(0, 82, 155);
+    doc.rect(0, 0, pageWidth, headerHeight, "F");
+
+    // Logo
+    let logoWidth = 0;
+    let logoHeight = 0;
+    if (login_headTitle2) {
+      try {
+        const img = await loadImage(login_headTitle2);
+        const maxLogoHeight = headerHeight * 0.6;
+        const scale = maxLogoHeight / img.height;
+        logoWidth = img.width * scale;
+        logoHeight = img.height * scale;
+        const logoY = headerHeight / 2 - logoHeight / 2;
+        doc.addImage(img, "PNG", pageMargin, logoY, logoWidth, logoHeight);
+      } catch (e) {
+        console.warn("Logo load failed", e);
+      }
+    }
+
+    // Title + Exported by on the same line
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    const titleX = pageMargin + logoWidth + 10;
+    const titleY = headerHeight / 2 + 5;
+    doc.text("Plant Master", titleX, titleY);
+
+    doc.setFontSize(9);
+    doc.setTextColor(220, 230, 245);
+    const exportedByName =
+      (user && (user.name || user.username)) || "Unknown User";
+    const exportedText = `Exported by: ${exportedByName}  On: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
+    const textWidth = doc.getTextWidth(exportedText);
+    doc.text(exportedText, pageWidth - pageMargin - textWidth, titleY);
+
+    doc.setDrawColor(0, 82, 155);
+    doc.setLineWidth(0.5);
+    doc.line(0, headerHeight, pageWidth, headerHeight);
+
+    // ===== TABLE SECTION =====
     const rows = filteredData.map((plant) => [
-      plant.name ?? plant.plant_name ?? "",
-      plant.description ?? "",
-      plant.location ?? "",
-      plant.status ?? "",
+      plant.name ?? plant.plant_name ?? "-",
+      plant.description ?? "-",
+      plant.location ?? "-",
+      plant.status ?? "-",
     ]);
-    doc.setFontSize(18);
-    doc.text("Plant Master", 14, 18);
+
     autoTable(doc, {
-      head: headers,
+      head: [["Plant Name", "Description", "Location", "Status"]],
       body: rows,
-      startY: 28,
+      startY: headerHeight + 8,
       styles: {
-        fontSize: 11,
+        fontSize: 9,
         cellPadding: 3,
-        halign: "left",
-        valign: "middle",
+        textColor: 80,
       },
       headStyles: {
         fillColor: [11, 99, 206],
-        textColor: 255,
+        textColor: [255, 255, 255],
         fontStyle: "bold",
+        fontSize: 10,
       },
       alternateRowStyles: {
         fillColor: [240, 245, 255],
       },
-      margin: { left: 14, right: 14 },
-      tableWidth: "auto",
+      margin: { left: pageMargin, right: pageMargin },
     });
+
+    // ===== FOOTER SECTION =====
+    const pageCount = (doc as any).internal.getNumberOfPages?.() || 1;
+
+    // Light separator line above footer
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.line(
+      pageMargin,
+      pageHeight - 15,
+      pageWidth - pageMargin,
+      pageHeight - 15
+    );
+
+    // Footer text
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text("Unichem Laboratories", pageMargin, pageHeight - 10);
+    doc.text(
+      `Page 1 of ${pageCount}`,
+      pageWidth - pageMargin - 25,
+      pageHeight - 10
+    );
+
     doc.save(fileName);
   };
 
   // PDF Export Handler for Activity Log
-  const handleExportActivityPDF = () => {
+  const handleExportActivityPDF = async () => {
     if (!activityPlant) return;
     const doc = new jsPDF({ orientation: "landscape" });
     const today = new Date();
@@ -113,6 +234,55 @@ const PlantMasterTable: React.FC = () => {
     const mm = String(today.getMonth() + 1).padStart(2, "0");
     const dd = String(today.getDate()).padStart(2, "0");
     const fileName = `PlantActivityLog_${yyyy}-${mm}-${dd}.pdf`;
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const pageMargin = 14;
+    const headerHeight = 28;
+
+    // ===== HEADER SECTION =====
+
+    // Blue background bar
+    doc.setFillColor(0, 82, 155);
+    doc.rect(0, 0, pageWidth, headerHeight, "F");
+
+    // Logo
+    let logoWidth = 0;
+    let logoHeight = 0;
+    if (login_headTitle2) {
+      try {
+        const img = await loadImage(login_headTitle2);
+        const maxLogoHeight = headerHeight * 0.6;
+        const scale = maxLogoHeight / img.height;
+        logoWidth = img.width * scale;
+        logoHeight = img.height * scale;
+        const logoY = headerHeight / 2 - logoHeight / 2;
+        doc.addImage(img, "PNG", pageMargin, logoY, logoWidth, logoHeight);
+      } catch (e) {
+        console.warn("Logo load failed", e);
+      }
+    }
+
+    // Title + Exported by on the same line
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    const titleX = pageMargin + logoWidth + 10;
+    const titleY = headerHeight / 2 + 5;
+    doc.text("Plant Activity Log", titleX, titleY);
+
+    doc.setFontSize(9);
+    doc.setTextColor(220, 230, 245);
+    const exportedByName =
+      (user && (user.name || user.username)) || "Unknown User";
+    const exportedText = `Exported by: ${exportedByName}  On: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
+    const textWidth = doc.getTextWidth(exportedText);
+    doc.text(exportedText, pageWidth - pageMargin - textWidth, titleY);
+
+    doc.setDrawColor(0, 82, 155);
+    doc.setLineWidth(0.5);
+    doc.line(0, headerHeight, pageWidth, headerHeight);
+
+    // ===== TABLE SECTION =====
     const headers = [
       [
         "Action",
@@ -130,14 +300,12 @@ const PlantMasterTable: React.FC = () => {
       try {
         oldVal = log.old_value ? JSON.parse(log.old_value) : {};
         newVal = log.new_value ? JSON.parse(log.new_value) : {};
-      } catch {}
+      } catch { }
       return [
         log.action,
-        `${oldVal.plant_name || ""} ${
-          oldVal.description ? `(${oldVal.description})` : ""
+        `${oldVal.plant_name || ""} ${oldVal.description ? `(${oldVal.description})` : ""
         }`,
-        `${newVal.plant_name || ""} ${
-          newVal.description ? `(${newVal.description})` : ""
+        `${newVal.plant_name || ""} ${newVal.description ? `(${newVal.description})` : ""
         }`,
         log.action_performed_by ?? "",
         log.approve_status ?? "",
@@ -145,61 +313,69 @@ const PlantMasterTable: React.FC = () => {
         log.comments ?? "",
       ];
     });
-    doc.setFontSize(18);
-    doc.text("Plant Activity Log", 14, 18);
+
     autoTable(doc, {
       head: headers,
       body: rows,
-      startY: 28,
+      startY: headerHeight + 8,
       styles: {
-        fontSize: 11,
+        fontSize: 8,
         cellPadding: 3,
         halign: "left",
         valign: "middle",
+        textColor: 80,
       },
       headStyles: {
         fillColor: [11, 99, 206],
-        textColor: 255,
+        textColor: [255, 255, 255],
         fontStyle: "bold",
+        fontSize: 9,
       },
       alternateRowStyles: {
         fillColor: [240, 245, 255],
       },
-      margin: { left: 14, right: 14 },
+      margin: { left: pageMargin, right: pageMargin },
       tableWidth: "auto",
     });
+
+    // ===== FOOTER SECTION =====
+    const pageCount = (doc as any).internal.getNumberOfPages?.() || 1;
+
+    // Light separator line above footer
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.line(
+      pageMargin,
+      pageHeight - 15,
+      pageWidth - pageMargin,
+      pageHeight - 15
+    );
+
+    // Footer text
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text("Unichem Laboratories", pageMargin, pageHeight - 10);
+    doc.text(
+      `Page 1 of ${pageCount}`,
+      pageWidth - pageMargin - 25,
+      pageHeight - 10
+    );
+
     doc.save(fileName);
   };
 
-  // Get activity logs for a specific plant (by plant name)
-  const getPlantActivityLogs = (plantName: string) => {
-    // Filter logs by plant name (from new/old value JSON)
-    return activityLogs.filter((log) => {
-      try {
-        const oldVal = log.old_value ? JSON.parse(log.old_value) : {};
-        const newVal = log.new_value ? JSON.parse(log.new_value) : {};
-        return (
-          oldVal.plant_name === plantName || newVal.plant_name === plantName
-        );
-      } catch {
-        return false;
-      }
-    });
-  };
+  // (Previously had a helper to filter activityLogs by plant name. We fetch
+  // logs on-demand when opening the modal to avoid stale/empty data.)
 
-  // Fetch logs from backend on modal open
-  useEffect(() => {
-    if (showActivityModal) {
-      fetchPlantActivityLogs()
-        .then(setActivityLogs)
-        .catch(() => setActivityLogs([]));
-    }
-  }, [showActivityModal]);
+  // Logs are fetched on-demand when opening the modal (see click handler)
 
   const confirmDelete = async () => {
-    if (selectedRow === null) return;
-    await deletePlant(selectedRow);
-    setSelectedRow(null);
+    if (selectedPlantId === null) return;
+    // find index in the original plants array expected by PlantContext.deletePlant
+    const idx = plants.findIndex((p: any) => p.id === selectedPlantId);
+    if (idx === -1) return;
+    await deletePlant(idx);
+    setSelectedPlantId(null);
     setShowDeleteModal(false);
   };
 
@@ -222,6 +398,12 @@ const PlantMasterTable: React.FC = () => {
           <button
             className={styles.addUserBtn}
             onClick={() => navigate("/plants/add")}
+            disabled={!can("create:plants")}
+            title={
+              !can("create:plants")
+                ? "You don't have permission to add plants"
+                : ""
+            }
           >
             + Add New
           </button>
@@ -236,17 +418,45 @@ const PlantMasterTable: React.FC = () => {
           <button
             className={`${styles.btn} ${styles.editBtn}`}
             onClick={() => {
-              if (selectedRow !== null) navigate(`/plants/edit/${selectedRow}`);
+              if (selectedPlant) {
+                const id = selectedPlant.id;
+                if (typeof id === "number") navigate(`/plants/edit/${id}`);
+              }
             }}
-            disabled={selectedRow === null}
+            disabled={
+              selectedPlantId === null ||
+              !(
+                selectedPlant &&
+                can("update", "plants", { plantId: selectedPlant?.id })
+              )
+            }
+            title={
+              selectedPlantId === null
+                ? "Select a plant to edit"
+                : !can("update", "plants", { plantId: selectedPlant?.id })
+                  ? "You don't have permission to edit this plant"
+                  : ""
+            }
           >
             <FaEdit size={14} /> Edit
           </button>
           <button
             className={`${styles.btn} ${styles.deleteBtn}`}
-            disabled={selectedRow === null}
+            disabled={
+              selectedPlantId === null ||
+              !(
+                selectedPlant &&
+                can("delete", "plants", { plantId: selectedPlant?.id })
+              )
+            }
             onClick={() => setShowDeleteModal(true)}
-            title="Delete selected plant"
+            title={
+              selectedPlantId === null
+                ? "Select a plant to delete"
+                : !can("delete", "plants", { plantId: selectedPlant?.id })
+                  ? "You don't have permission to delete this plant"
+                  : ""
+            }
           >
             <FaTrash size={14} /> Delete
           </button>
@@ -286,10 +496,9 @@ const PlantMasterTable: React.FC = () => {
                   <input
                     className={styles.filterInput}
                     type="text"
-                    placeholder={`Enter ${
-                      tempFilterColumn.charAt(0).toUpperCase() +
+                    placeholder={`Enter ${tempFilterColumn.charAt(0).toUpperCase() +
                       tempFilterColumn.slice(1)
-                    }`}
+                      }`}
                     value={tempFilterValue}
                     onChange={(e) => setTempFilterValue(e.target.value)}
                   />
@@ -346,67 +555,137 @@ const PlantMasterTable: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredData.map((plant, index) => (
-                <tr
-                  key={index}
-                  onClick={() => setSelectedRow(index)}
-                  style={{
-                    background: selectedRow === index ? "#f0f4ff" : undefined,
-                  }}
-                >
-                  <td>
-                    <input
-                      type="radio"
-                      className={styles.radioInput}
-                      checked={selectedRow === index}
-                      onChange={() => setSelectedRow(index)}
-                    />
-                  </td>
-                  <td>{plant.name ?? plant.plant_name ?? ""}</td>
-                  <td>{plant.description ?? ""}</td>
-                  <td>{plant.location ?? ""}</td>
-                  <td>
-                    <span
-                      className={
-                        plant.status === "INACTIVE"
-                          ? styles.statusInactive
-                          : styles.status
-                      }
-                    >
-                      {plant.status ?? ""}
-                    </span>
-                  </td>
-                  <td>
-                    <span
-                      style={{ cursor: "pointer", color: "#0b63ce" }}
-                      title="View Activity Log"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        setActivityPlant({
-                          name: plant.name ?? "",
-                          logs: getPlantActivityLogs(plant.name ?? ""),
-                        });
-                        setApproverFilter("");
-                        setShowActivityModal(true);
-                      }}
-                    >
-                      <FaRegClock size={18} />
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {paginatedData.map((plant, index) => {
+                const globalIndex = (currentPage - 1) * rowsPerPage + index;
+                return (
+                  <tr
+                    key={globalIndex}
+                    onClick={() => setSelectedPlantId(plant.id ?? null)}
+                    style={{
+                      background:
+                        selectedPlantId === plant.id ? "#f0f4ff" : undefined,
+                    }}
+                  >
+                    <td>
+                      <input
+                        type="radio"
+                        className={styles.radioInput}
+                        checked={selectedPlantId === plant.id}
+                        onChange={() => setSelectedPlantId(plant.id ?? null)}
+                      />
+                    </td>
+                    <td>{plant.name ?? plant.plant_name ?? ""}</td>
+                    <td>{plant.description ?? ""}</td>
+                    <td>{plant.location ?? ""}</td>
+                    <td>
+                      <span
+                        className={
+                          plant.status === "INACTIVE"
+                            ? styles.statusInactive
+                            : styles.status
+                        }
+                      >
+                        {plant.status ?? ""}
+                      </span>
+                    </td>
+                    <td>
+                      <span
+                        style={{ cursor: "pointer", color: "#0b63ce" }}
+                        title="View Activity Log"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const plantName = plant.name ?? "";
+
+
+                          // Open modal immediately for responsiveness
+                          setApproverFilter("");
+                          setActivityPlant({ name: plantName, logs: [] });
+                          setShowActivityModal(true);
+
+
+                          try {
+                            const allLogs = (await fetchPlantActivityLogs()) as any[];
+
+
+                            // Filter by plant name
+                            const filteredByPlant = (allLogs || []).filter((log: any) => {
+                              try {
+                                const oldVal = log.old_value ? JSON.parse(log.old_value) : {};
+                                const newVal = log.new_value ? JSON.parse(log.new_value) : {};
+                                return oldVal.plant_name === plantName || newVal.plant_name === plantName;
+                              } catch {
+                                return false;
+                              }
+                            }) as ActivityLog[];
+
+
+                            // Deduplicate using Map (faster)
+                            const logMap = new Map<string, ActivityLog>();
+                            filteredByPlant.forEach((log) => {
+                              // Use ID if available, else fallback to unique key string
+                              const key = log.id
+                                ? `id-${log.id}`
+                                : `action-${log.action}-by-${log.action_performed_by}-old-${log.old_value}-new-${log.new_value}`;
+                              if (!logMap.has(key)) logMap.set(key, log);
+                            });
+
+
+                            setActivityPlant({
+                              name: plantName,
+                              logs: Array.from(logMap.values()),
+                            });
+                          } catch (err) {
+                            console.error(err);
+                            setActivityPlant({ name: plantName, logs: [] });
+                          }
+                        }}
+                      >
+                        <FaRegClock size={18} />
+                      </span>
+
+                    </td>
+                  </tr>
+                );
+              })}
               <ConfirmDeleteModal
                 open={showDeleteModal}
-                name={
-                  selectedRow !== null && filteredData[selectedRow]
-                    ? filteredData[selectedRow].name ?? "plant"
-                    : "plant"
-                }
+                name={selectedPlant ? selectedPlant.name ?? "plant" : "plant"}
                 onCancel={() => setShowDeleteModal(false)}
                 onConfirm={confirmDelete}
               />
             </tbody>
           </table>
+          {/* Pagination controls */}
+          <div className={paginationStyles.pagination} style={{ marginTop: 8 }}>
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className={
+                currentPage === 1
+                  ? paginationStyles.disabledPageBtn
+                  : paginationStyles.pageBtn
+              }
+            >
+              Previous
+            </button>
+            <span
+              className={paginationStyles.pageInfo}
+              style={{ margin: "0 12px" }}
+            >
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className={
+                currentPage === totalPages
+                  ? paginationStyles.disabledPageBtn
+                  : paginationStyles.pageBtn
+              }
+            >
+              Next
+            </button>
+          </div>
         </div>
       </div>
 
@@ -431,9 +710,10 @@ const PlantMasterTable: React.FC = () => {
               display: "flex",
               flexDirection: "column",
               background: "#fff",
-              zIndex: "1",
+              zIndex: 2,
             }}
           >
+            {/* Header */}
             <div
               style={{
                 display: "flex",
@@ -450,11 +730,7 @@ const PlantMasterTable: React.FC = () => {
                   aria-label="Export activity log to PDF"
                   type="button"
                 >
-                  <span
-                    role="img"
-                    aria-label="Export PDF"
-                    style={{ fontSize: 18 }}
-                  >
+                  <span role="img" aria-label="Export PDF" style={{ fontSize: 18 }}>
                     🗎
                   </span>
                   Export PDF
@@ -476,6 +752,8 @@ const PlantMasterTable: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {/* Plant Info & Approver Filter */}
             <div
               style={{
                 marginBottom: 12,
@@ -484,10 +762,7 @@ const PlantMasterTable: React.FC = () => {
                 color: "#333",
               }}
             >
-              <span>
-                Plant:{" "}
-                <span style={{ color: "#0b63ce" }}>{activityPlant.name}</span>
-              </span>
+              Plant: <span style={{ color: "#0b63ce" }}>{activityPlant.name}</span>
             </div>
             <div style={{ marginBottom: 10 }}>
               <input
@@ -505,6 +780,8 @@ const PlantMasterTable: React.FC = () => {
                 }}
               />
             </div>
+
+            {/* Activity Table */}
             <div
               style={{
                 overflowY: "auto",
@@ -527,41 +804,48 @@ const PlantMasterTable: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {(activityPlant.logs || []).map((log: any, i: number) => {
-                    let oldVal: any = {};
-                    let newVal: any = {};
-                    try {
-                      oldVal = log.old_value ? JSON.parse(log.old_value) : {};
-                      newVal = log.new_value ? JSON.parse(log.new_value) : {};
-                    } catch {}
-                    return (
-                      <tr key={i}>
-                        <td>{log.action}</td>
-                        <td>
-                          {oldVal.plant_name || ""}{" "}
-                          {oldVal.description ? `(${oldVal.description})` : ""}
-                        </td>
-                        <td>
-                          {newVal.plant_name || ""}{" "}
-                          {newVal.description ? `(${newVal.description})` : ""}
-                        </td>
-                        <td>{log.action_performed_by ?? ""}</td>
-                        <td>{log.approve_status ?? ""}</td>
-                        <td>
-                          {log.date_time_ist
-                            ? new Date(log.date_time_ist).toLocaleString()
-                            : ""}
-                        </td>
-                        <td>{log.comments ?? ""}</td>
-                      </tr>
-                    );
-                  })}
+                  {(activityPlant.logs || [])
+                    .filter((log) => {
+                      const performedBy = String(log.action_performed_by ?? "").toLowerCase();
+                      const filter = approverFilter.toLowerCase();
+                      return performedBy.includes(filter);
+                    })
+                    .map((log, i) => {
+                      let oldVal: any = {};
+                      let newVal: any = {};
+                      try {
+                        oldVal = log.old_value ? JSON.parse(log.old_value) : {};
+                        newVal = log.new_value ? JSON.parse(log.new_value) : {};
+                      } catch { }
+                      return (
+                        <tr key={i}>
+                          <td>{log.action}</td>
+                          <td>
+                            {oldVal.plant_name || ""}{" "}
+                            {oldVal.description ? `(${oldVal.description})` : ""}
+                          </td>
+                          <td>
+                            {newVal.plant_name || ""}{" "}
+                            {newVal.description ? `(${newVal.description})` : ""}
+                          </td>
+                          <td>{log.action_performed_by ?? ""}</td>
+                          <td>{log.approve_status ?? ""}</td>
+                          <td>
+                            {log.date_time_ist
+                              ? new Date(log.date_time_ist).toLocaleString()
+                              : ""}
+                          </td>
+                          <td>{log.comments ?? ""}</td>
+                        </tr>
+                      );
+                    })}
                 </tbody>
               </table>
             </div>
           </div>
         </div>
       )}
+
     </div>
   );
 };

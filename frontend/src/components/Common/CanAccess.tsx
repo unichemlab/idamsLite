@@ -1,46 +1,20 @@
-import React, { ReactNode } from "react";
-import { Navigate} from "react-router-dom";
+// src/components/Common/CanAccess.tsx
+import React from "react";
 import { useAbility } from "../../context/AbilityContext";
-import { useAuth } from "../../context/AuthContext";
 
-interface CanAccessProps {
-  children: ReactNode;
-  action: string;
-  subject: string;
-  redirectTo?: string;
-}
+type Props = {
+  moduleName: string;
+  action: "manage" | "create" | "read" | "update" | "delete";
+  plantId?: number | string;
+  children: React.ReactNode;
+};
 
-/**
- * CASL-powered access control component. Use this to protect routes and components
- * based on user permissions.
- *
- * @example
- * // Protect an approver route
- * <CanAccess action="read" subject="ROLE_MASTER">
- *   <ApproverDashboard />
- * </CanAccess>
- */
-const CanAccess: React.FC<CanAccessProps> = ({
-  children,
-  action,
-  subject,
-  redirectTo = "/",
-}) => {
+const CanAccess: React.FC<Props> = ({ moduleName, action, plantId, children }) => {
   const ability = useAbility();
-  const { user } = useAuth();
-
-
-  if (!user?.id) {
-    // Not logged in → login page
-    return <Navigate to="/" replace />;
+  if (ability.hasPermission(moduleName, action, plantId)) {
+    return <>{children}</>;
   }
-
-  if (!ability.can(action, subject)) {
-    // No permission → redirect (default: home)
-    return <Navigate to={redirectTo} replace />;
-  }
-
-  return <>{children}</>;
+  return null;
 };
 
 export default CanAccess;

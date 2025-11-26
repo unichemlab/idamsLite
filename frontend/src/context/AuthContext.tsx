@@ -1,4 +1,3 @@
-
 import React, {
   createContext,
   useContext,
@@ -7,8 +6,22 @@ import React, {
   useEffect,
   useCallback,
 } from "react";
-import { API_BASE } from "../utils/api";
-import AbilityProvider, { PermissionRow } from "./AbilityContext";
+import { fetchPermissionsAPI, fetchWorkflows, loginAPI,API_BASE } from "../utils/api";
+import AbilityProvider from "./AbilityContext";
+
+// Interface for workflow data
+interface Workflow {
+  id?: number;
+  workflow_id?: number;
+  _id?: number;
+  plant_id: number;
+  approver_1_id: string | null;
+  approver_2_id: string | null;
+  approver_3_id: string | null;
+  approver_4_id: string | null;
+  approver_5_id: string | null;
+  approvers?: any[][];
+}
 
 export interface AuthUser {
   id: number;
@@ -28,6 +41,12 @@ export interface AuthUser {
   // true when this user appears as an approver in any workflow
   isApprover?: boolean;
   isITBin?: boolean;
+  // Role name for easier checks
+  roleName?: string;
+  // User's permissions array
+  permissions?: string[];
+  // Plant IDs where user is approver
+  approverPlants?: number[];
 }
 
 interface AuthContextType {
@@ -36,114 +55,109 @@ interface AuthContextType {
   logout: () => void;
   loading: boolean;
   error: string | null;
+  permissions: string[];
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
+}
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true); // true until localStorage check is done
   const [error, setError] = useState<string | null>(null);
-  const [permissions, setPermissions] = useState<PermissionRow[]>([]);
+  const [permissions, setPermissions] = useState<string[]>([]);
 
-  // fetch permissions from backend
-  async function fetchPermissions(token: string) {
+  // Determine user's landing page
+  const determineInitialRoute = (userData: AuthUser) => {
+    // Check if user is an approver (either through role or permissions)
+    const isApprover =
+      userData.permissions?.includes("approve:requests") ||
+      userData.role_id === 4 ||
+      (Array.isArray(userData.role_id) && userData.role_id.includes(4));
+
+    if (Array.isArray(userData.role_id) && userData.role_id.includes(1)) {
+      return "/home"; // SuperAdmin
+    } else if (isApprover) {
+      return "/approver"; // Approver
+    } else if (
+      Array.isArray(userData.role_id) &&
+      userData.role_id.includes(2)
+    ) {
+      return "/plantadmin"; // Plant IT Admin
+    } else {
+      return "/user"; // Default user route
+    }
+  };
+
+  // fetch permissions from backend (uses centralized helper that injects Authorization)
+  const fetchPermissions = useCallback(async (token?: string) => {
     try {
-      if (!token) {
-        console.warn("fetchPermissions called without token");
-        setPermissions([]);
-        return;
-      }
-      const res = await fetch(`${API_BASE}/api/auth/permissions`, {
-        method: "GET",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        console.warn("Failed to fetch permissions", res.status);
-        setPermissions([]);
-        return;
-      }
-      const data = await res.json();
-      setPermissions(
-        Array.isArray(data.permissions)
-          ? data.permissions
-          : data.permissions || []
-      );
+      const data: any = await fetchPermissionsAPI();
+      const userPermissions = Array.isArray(data.permissions)
+        ? data.permissions
+        : Array.isArray(data.data?.permissions)
+        ? data.data.permissions
+        : [];
+
+      setPermissions(userPermissions);
+
+      return userPermissions;
     } catch (err) {
       console.error("fetchPermissions error", err);
       setPermissions([]);
+      return [];
     }
-  }
+  }, []); // Remove user dependency to prevent circular updates
 
   // Check whether a given user id appears in any workflow approver lists.
   // Uses setUser updater safely to avoid stale closures / unnecessary deps.
   const fetchWorkflowsForUser = useCallback(
     async (userId: number, token?: string) => {
+      if (!userId) {
+        console.warn("fetchWorkflowsForUser called without userId");
+        return false;
+      }
+
       try {
-        const res = await fetch(`${API_BASE}/api/workflows`, {
-          method: "GET",
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        if (!res.ok) return false;
+        // Ask backend to return workflows that include this approver id
+        const workflows = await fetchWorkflows(userId);
+        if (!Array.isArray(workflows)) {
+          console.warn("fetchWorkflows did not return an array");
+          return false;
+        }
 
-        const data = await res.json().catch(() => ({}));
-        const workflows = Array.isArray(data.workflows) ? data.workflows : [];
-
-        const found = workflows.some((wf: any) => {
-          if (!wf || !Array.isArray(wf.approvers)) return false;
-          // wf.approvers is an array of arrays (one array per approver level)
-          return wf.approvers.some((arr: any[]) =>
-            Array.isArray(arr)
-              ? arr.some((u) => u && Number(u.id) === Number(userId))
-              : false
-          );
+        const found = workflows.some((wf: Workflow) => {
+          const approverIds = [
+            wf.approver_1_id,
+            wf.approver_2_id,
+            wf.approver_3_id,
+            wf.approver_4_id,
+            wf.approver_5_id,
+          ];
+          return approverIds.some((id) => id === String(userId));
         });
 
         if (found) {
-          // update user state safely
           setUser((prev) => {
-            if (!prev) return prev;
-            if (prev.isApprover) return prev;
+            if (!prev || prev.isApprover) return prev;
             const updated = { ...prev, isApprover: true };
             try {
               localStorage.setItem("authUser", JSON.stringify(updated));
             } catch (e) {
-              /* ignore localStorage write errors */
+              console.warn("Failed to update localStorage:", e);
             }
             return updated;
           });
         }
 
-        // Step 3: If NOT found in workflow, check user_requests table
-        const userEmail = JSON.parse(localStorage.getItem("authUser") || "{}")?.email;
-        if (!userEmail) return false;
-        console.log("userEmail",userEmail);
-        const res2 = await fetch(
-          `${API_BASE}/api/user-requests/approvers?email=${encodeURIComponent(userEmail)}`,
-          {
-            method: "GET",
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
-          }
-        );
-
-        if (!res2.ok) return false;
-        const data2 = await res2.json();
-
-        const foundInUserRequests = Array.isArray(data2) && data2.length > 0;
-
-        if (foundInUserRequests) {
-          setUser((prev) => {
-            if (!prev) return prev;
-            if (prev.isApprover) return prev;
-            const updated = { ...prev, isApprover: true };
-            try {
-              localStorage.setItem("authUser", JSON.stringify(updated));
-            } catch { }
-            return updated;
-          });
-          return true;
-        }
-
-        return false;
+        return found;
       } catch (err) {
         console.error("fetchWorkflowsForUser error", err);
         return false;
@@ -215,62 +229,124 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   [setUser]
 );
 
-
   // Restore user from localStorage on app load for persistent login
   useEffect(() => {
+    let mounted = true;
+
     (async () => {
       try {
         const stored = localStorage.getItem("authUser");
-        if (stored) {
+        if (stored && mounted) {
           const parsed: AuthUser = JSON.parse(stored);
           setUser(parsed);
 
           const token = localStorage.getItem("token");
           if (token) {
-            // restore permissions quietly
-            fetchPermissions(token).catch((e) =>
-              console.warn("restore perms", e)
-            );
-            // re-check workflows to know if this user is an approver
-            if (parsed && parsed.id) {
-              try {
-                await fetchWorkflowsForUser(parsed.id, token);
-              } catch (e) {
-                console.warn("restore workflows", e);
+            // Try to extract permissions from token payload first (fast, local)
+            let userPermissions: string[] = [];
+            try {
+              const payload = JSON.parse(atob(token.split(".")[1]));
+              if (payload && Array.isArray(payload.permissions)) {
+                userPermissions = payload.permissions;
+                setUser((prev) =>
+                  prev ? { ...prev, permissions: userPermissions } : prev
+                );
+                setPermissions(userPermissions);
+              }
+            } catch (e) {
+              // ignore decode errors and fall back to API
+            }  
+            try {
+              // If we didn't get permissions from token, fetch from API
+              if (!userPermissions || userPermissions.length === 0) {
+                userPermissions = await fetchPermissions(token);
               }
 
+              if (!mounted) return;
+
+              // Then check workflows for approver membership regardless of role id
+              let isApproverFound = false;
               try {
-                await fetchITBinForUser(parsed.id, token);
+                isApproverFound = await fetchWorkflowsForUser(parsed.id, token);
               } catch (e) {
-                console.warn("restore ITBIN", e);
+                console.warn("Error checking workflows on restore:", e);
+              }
+
+              if (!mounted) return;
+
+              if (isApproverFound) {
+                // compute approver plants list for UI convenience
+                try {
+                  const workflows = await fetchWorkflows(parsed.id);
+                  const approverPlants = (workflows || [])
+                    .filter((w) =>
+                      [
+                        w.approver_1_id,
+                        w.approver_2_id,
+                        w.approver_3_id,
+                        w.approver_4_id,
+                        w.approver_5_id,
+                      ].some((id) => id === String(parsed.id))
+                    )
+                    .map((w) => w.plant_id)
+                    .filter((pid) => pid != null);
+
+                  setUser((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          permissions: userPermissions,
+                          isApprover: true,
+                          approverPlants: [...new Set(approverPlants)],
+                        }
+                      : null
+                  );
+                } catch (e) {
+                  // fallback: set isApprover only
+                  setUser((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          permissions: userPermissions,
+                          isApprover: true,
+                        }
+                      : null
+                  );
+                }
+              } else {
+                setUser((prev) =>
+                  prev ? { ...prev, permissions: userPermissions } : null
+                );
+              }
+            } catch (e) {
+              console.warn("Error restoring session:", e);
+              if (mounted) {
+                setError(
+                  "Failed to restore session. Please try logging in again."
+                );
               }
             }
           }
         }
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     })();
+    return () =>
+    { 
+      mounted = false;
+    };
     // fetchWorkflowsForUser is stable via useCallback
-  }, [fetchWorkflowsForUser, fetchITBinForUser]);
+  }, [fetchWorkflowsForUser,fetchITBinForUser,fetchPermissions]);
 
   const login = async (username: string, password: string) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(
-          (data && (data.error || data.message)) || "Login failed"
-        );
-      }
-
-      const data = await res.json();
+      // Use centralized login helper (adds consistent error handling and header behavior)
+      const data: any = await loginAPI({ username, password });
 
       // Validate backend response
       if (!data.user || !data.token) {
@@ -279,13 +355,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // Map backend user fields to frontend AuthUser interface.
       // Accept role_id as number or array.
+      // Map backend role string identifiers to numeric role IDs used in the app
       const roleMap: Record<string, number> = {
         superAdmin: 1,
         plantAdmin: 2,
-        approver: 3,
-        user: 4,
-        vendor: 5,
-        ITBin: 6,
+        approver: 4, // align 'approver' string to role id 4
+        auditReviewer: 3,
+        user: 5,
+        vendor: 6,
       };
 
       let role_id: number | number[] = data.user.role_id;
@@ -330,20 +407,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         token: data.token,
       };
 
+      // Try to extract permissions from the token payload immediately so AbilityProvider
+      // can build rules synchronously without waiting for the /permissions API.
+      try {
+        const payload = JSON.parse(atob(data.token.split(".")[1]));
+        if (payload && Array.isArray(payload.permissions)) {
+          (authUser as any).permissions = payload.permissions;
+          setPermissions(payload.permissions);
+        }
+      } catch (e) {
+        // ignore decode errors
+      }
       setUser(authUser);
       try {
         localStorage.setItem("authUser", JSON.stringify(authUser));
         localStorage.setItem("token", authUser.token);
+
+        // If token didn't include permissions, fetch them from the API and attach.
+        if (
+          !(
+            (authUser as any).permissions &&
+            (authUser as any).permissions.length
+          )
+        ) {
+          const userPermissions = await fetchPermissions(authUser.token);
+          // merge permissions into the stored user so AbilityProvider sees them
+          setUser((prev) =>
+            prev ? { ...prev, permissions: userPermissions } : prev
+          );
+        }
       } catch (e) {
-        /* localStorage may fail in some environments; ignore */
+        console.warn("Error saving auth data or fetching permissions:", e);
+        /* localStorage may fail in some environments; continue anyway */
       }
 
-      // fetch permissions for the logged in user and initialize AbilityProvider
-      fetchPermissions(authUser.token).catch((e) =>
-        console.warn("permissions fetch", e)
-      );
-
-      console.log("fetchuserlogin", authUser);
       // check if user is approver in any workflow and set flag (best-effort)
       // Await this so callers (e.g. Login component) see user.isApprover set
       // before they perform a redirect based on the flag.
@@ -352,14 +449,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } catch (e) {
         console.warn("fetchWorkflowsForUser", e);
       }
-
-      try {
-        await fetchITBinForUser(authUser.id, authUser.token);
-      } catch (e) {
-        console.warn("fetchITBinForUser", e);
-      }
-
+       try {
+                await fetchITBinForUser(authUser.id, authUser.token);
+              } catch (e) {
+                console.warn("restore ITBIN", e);
+              }
       console.log("[AuthContext] User set after login:", authUser);
+
+      // Determine initial route and store it
+      const initialRoute = determineInitialRoute(authUser);
+      try {
+        localStorage.setItem("initialRoute", initialRoute);
+      } catch (e) {
+        console.warn("Error saving initial route:", e);
+      }
     } catch (err: any) {
       setError(err.message || String(err));
       setUser(null);
@@ -372,10 +475,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
     setPermissions([]);
     try {
-      localStorage.removeItem("authUser");
-      localStorage.removeItem("token");
+      // Clear ALL storage to prevent any stale state
+      localStorage.clear();
+      sessionStorage.clear();
+
+      // Force a complete reload and redirect to login
+      window.location.href = "/";
     } catch (e) {
-      // ignore localStorage errors
+      console.warn("Error during logout cleanup:", e);
+      // Even if cleanup fails, redirect to login
+      window.location.href = "/";
     }
   };
 
@@ -385,14 +494,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, error }}>
-      <AbilityProvider permissions={permissions}>{children}</AbilityProvider>
+    <AuthContext.Provider
+      value={{ user, login, logout, loading, error, permissions }}
+    >
+      <AbilityProvider>{children}</AbilityProvider>
     </AuthContext.Provider>
   );
 };
-
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within an AuthProvider");
-  return ctx;
-}

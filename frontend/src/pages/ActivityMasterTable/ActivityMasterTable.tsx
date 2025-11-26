@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import ProfileIconWithLogout from "./ProfileIconWithLogout";
+import ProfileIconWithLogout from "../../components/Common/ProfileIconWithLogout";
 import styles from "../ActivityMasterTable/ActivityMasterTable.module.css";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";

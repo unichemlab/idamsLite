@@ -1,4 +1,11 @@
-import React, { createContext, useState, useEffect, ReactNode } from "react";
+import React, {
+  createContext,
+  useState,
+  useEffect,
+  ReactNode,
+  useContext,
+} from "react";
+
 import {
   fetchPlants,
   addPlantAPI,
@@ -6,54 +13,84 @@ import {
   deletePlantAPI,
 } from "../../utils/api";
 
+// ------------------------
+// Custom Hook
+// ------------------------
 export const usePlantContext = () => {
-  const ctx = React.useContext(PlantContext);
-  if (!ctx)
+  const ctx = useContext(PlantContext);
+  if (!ctx) {
     throw new Error("usePlantContext must be used within PlantProvider");
+  }
   return ctx;
 };
+
+// ------------------------
+// Interfaces
+// ------------------------
 
 export interface Plant {
   id?: number;
   transaction_id?: string;
-  name?: string;
-  plant_name?: string;
+  name?: string;          // Local field
+  plant_name?: string;    // API field
   description?: string;
   location?: string;
   status?: "ACTIVE" | "INACTIVE";
 }
 
-interface PlantContextType {
-  plants: Plant[];
-  addPlant: (plant: Plant) => void;
-  updatePlant: (index: number, updated: Plant) => void;
-  deletePlant: (index: number) => void;
+export interface ApprovalResponse {
+  message: string;
+  approvalId: number;
+  status: "PENDING_APPROVAL";
+  data: any;
 }
 
-// No default plants, will fetch from API
+interface PlantContextType {
+  plants: Plant[];
+  addPlant: (plant: Plant) => Promise<ApprovalResponse | Plant>;
+  updatePlant: (index: number, updated: Plant) => Promise<ApprovalResponse | Plant>;
+  deletePlant: (index: number) => Promise<ApprovalResponse | void>;
+  refreshPlants: () => void;
+}
 
+// ------------------------
+// Context
+// ------------------------
 export const PlantContext = createContext<PlantContextType | undefined>(
   undefined
 );
 
+// ------------------------
+// Provider
+// ------------------------
 export const PlantProvider = ({ children }: { children: ReactNode }) => {
   const [plants, setPlants] = useState<Plant[]>([]);
+
+  // Normalize API → UI
+  const normalizePlants = (data: any[]): Plant[] => {
+    return data.map((p: any) => ({
+      id: p.id,
+      transaction_id: p.transaction_id,
+      name: p.plant_name ?? p.name, // Safe fallback
+      plant_name: p.plant_name,
+      description: p.description,
+      location: p.location,
+      status: p.status,
+    }));
+  };
 
   const fetchAndSetPlants = () => {
     fetchPlants()
       .then((data) => {
-        // Normalize API data to match Plant interface
-        const normalized = data.map((p: any) => ({
-          id: p.id,
-          transaction_id: p.transaction_id,
-          name: p.plant_name, // use plant_name as name
-          description: p.description,
-          location: p.location,
-          status: p.status,
-        }));
-        setPlants(normalized);
+        if (Array.isArray(data)) {
+          setPlants(normalizePlants(data));
+        } else {
+          console.error("Invalid plant API response:", data);
+          setPlants([]);
+        }
       })
       .catch((err) => {
+        console.error("Error fetching plants:", err);
         setPlants([]);
       });
   };
@@ -62,41 +99,87 @@ export const PlantProvider = ({ children }: { children: ReactNode }) => {
     fetchAndSetPlants();
   }, []);
 
-  // Add plant via API
-  const addPlant = async (plant: Plant) => {
-    await addPlantAPI({
+  // ------------------------
+  // Add Plant
+  // ------------------------
+  const addPlant = async (plant: Plant): Promise<ApprovalResponse | Plant> => {
+    const payload = {
       plant_name: plant.name,
       description: plant.description,
       location: plant.location,
       status: plant.status,
-    });
+    };
+
+    const response = await addPlantAPI(payload);
+
+    if (response?.status === "PENDING_APPROVAL") {
+      return response as ApprovalResponse;
+    }
+
     fetchAndSetPlants();
+    return response as Plant;
   };
 
-  // Update plant via API
-  const updatePlant = async (index: number, updated: Plant) => {
+  // ------------------------
+  // Update Plant
+  // ------------------------
+  const updatePlant = async (
+    index: number,
+    updated: Plant
+  ): Promise<ApprovalResponse | Plant> => {
     const plant = plants[index];
-    if (!plant || !plant.id) return;
-    await updatePlantAPI(plant.id, {
+
+    if (!plant?.id) {
+      throw new Error("Plant not found");
+    }
+
+    const payload = {
       plant_name: updated.name,
       description: updated.description,
       location: updated.location,
       status: updated.status,
-    });
+    };
+
+    const response = await updatePlantAPI(plant.id, payload);
+
+    if (response?.status === "PENDING_APPROVAL") {
+      return response as ApprovalResponse;
+    }
+
+    fetchAndSetPlants();
+    return response as Plant;
+  };
+
+  // ------------------------
+  // Delete Plant
+  // ------------------------
+  const deletePlant = async (
+    index: number
+  ): Promise<ApprovalResponse | void> => {
+    const plant = plants[index];
+
+    if (!plant?.id) {
+      throw new Error("Plant not found");
+    }
+
+    const response = await deletePlantAPI(plant.id);
+    
+
+    // if (response?.status === "PENDING_APPROVAL") {
+    //   return response as ApprovalResponse;
+    // }
+
     fetchAndSetPlants();
   };
 
-  // Delete plant via API
-  const deletePlant = async (index: number) => {
-    const plant = plants[index];
-    if (!plant || !plant.id) return;
-    await deletePlantAPI(plant.id);
-    fetchAndSetPlants();
-  };
+  // ------------------------
+  // Refresh
+  // ------------------------
+  const refreshPlants = () => fetchAndSetPlants();
 
   return (
     <PlantContext.Provider
-      value={{ plants, addPlant, updatePlant, deletePlant }}
+      value={{ plants, addPlant, updatePlant, deletePlant, refreshPlants }}
     >
       {children}
     </PlantContext.Provider>

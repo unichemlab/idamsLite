@@ -7,7 +7,7 @@
   color: #fff;
   padding: 14px 24px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-  height: 70px;
+  height: 60px;
 }
 
 .header-title {
@@ -235,4 +235,60 @@
   color: #dc2626;
   margin-top: 40px;
   font-weight: 600;
+}
+
+/* Header adjustments */
+
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start; /* version aligned left under logo */
+}
+
+.version {
+      font-size: 13px;
+    color: #f0f4ff;
+    margin-top: -8px;
+    padding-left: 127px;
+}
+
+.header-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo { height: 25px; width: 200px; }
+.header-title { font-size: 18px; font-weight: 600; }
+
+.header-right { display: flex; gap: 10px; }
+
+.main-content {
+ /* margin-top: 30px; */
+    height: calc(100vh - 30px);
+    overflow-y: auto;
+    /* padding: 26px 20px; */
+}
+
+.addUserBtn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 500;
+  background-color: #fff;
+  color: #0b63ce;
 }

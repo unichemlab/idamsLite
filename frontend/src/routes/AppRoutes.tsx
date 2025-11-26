@@ -15,6 +15,7 @@ import TrackRequest from "../pages/TaskRequest/TrackRequest";
 import Login from "../pages/Login";
 import ApproverDashboard from "../pages/ApproverDashboard";
 import AccessRequestDetails from "../pages/AccessRequestDetails";
+import AccessDenied from "../pages/AccessDenied";
 import RoleMasterTable from "../pages/RoleMasterTable/RoleMasterTable";
 import UserMasterTable from "../pages/UserMasterTable/UserMasterTable";
 import UserRequestTable from "../pages/UserRequestTable/UserRequestTable";
@@ -53,6 +54,10 @@ import AddServerInventory from "../pages/ServerInventoryMaster/AddServerInventor
 import EditServerInventory from "../pages/ServerInventoryMaster/EditServerInventoryMaster";
 import TaskTable from "pages/TaskClosureTracking/TaskClosureTracking";
 import TaskDetailView from "pages/TaskClosureTracking/TaskDetailView";
+import Home from "pages/HomePage/homepageUser";
+import HomePage from "pages/HomePage/HomePage";
+import MasterApprovalBin from "pages/MasterApprovalBin/MasterApprovalBin";
+import MasterApprovalDetails from "pages/MasterApprovalBin/MasterApprovalDetails";
 // Removed unused SystemInventoryMasterTable, AddSystemInventory, EditSystemInventory imports
 // List of allowed routes for matching
 const allowedRoutes = [
@@ -109,8 +114,11 @@ const allowedRoutes = [
   "/approval-workflow/plant-builder",
   "/approval-workflow/corporate-list",
   "/approval-workflow/corporate-builder",
-
-
+  "/admin/roles",
+  "/master-approvals",
+  "/master-approvals/:id",
+  "/home",
+  "/homepage"
 ];
 
 const NotFound = () => (
@@ -209,6 +217,14 @@ console.log(isAllowed);
 <Route path="/approval-workflow/plant-builder" element={<PlantWorkflowBuilder />} />
 <Route path="/approval-workflow/corporate-list" element={<CorporateWorkflowList />} />
 <Route path="/approval-workflow/corporate-builder" element={<CorporateWorkflowBuilder />} />
+{/* Approval Routes */}
+        <Route path="/master-approvals" element={<MasterApprovalBin />} />
+        <Route path="/master-approvals/:id" element={<MasterApprovalDetails />} />
+        <Route path="/home" element={<HomePage />} />
+        <Route path="/homepage" element={<Home />} />
+        
+{/* <Route path="/admin/roles" element={<RolesPage />} /> */}
+
 
       {/* Transaction Master Routes */}
         <Route
@@ -287,6 +303,7 @@ console.log(isAllowed);
           </ProtectedRoute>
         }
       />
+      <Route path="/access-denied" element={<AccessDenied />} />
       <Route
         path="/access-request/:id"
         element={
