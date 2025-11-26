@@ -83,6 +83,9 @@ const Home: React.FC = () => {
                   {user.isITBin && (
                     <span className={styles.userRole}>IT Admin</span>
                   )}
+                  {user.isApprover && (
+                    <span className={styles.userRole}>Approver</span>
+                  )}
                 </div>
 
                 {/* Dropdown Arrow */}
@@ -118,16 +121,16 @@ const Home: React.FC = () => {
                       </div>
                     </div>
 
-                    {user.isITBin && (
+                    {/* {user.isITBin && (
                       <div className={styles.adminBadge}>
                         <FiShield size={14} />
                         <span>IT BIN Administrator</span>
                       </div>
-                    )}
+                    )} */}
                   </div>
 
                   {/* Contact Info */}
-                  <div className={styles.dropdownInfo}>
+                  {/* <div className={styles.dropdownInfo}>
                     {user.email && (
                       <div className={styles.infoItem}>
                         <FiMail size={16} />
@@ -146,17 +149,45 @@ const Home: React.FC = () => {
                         <span>{user.designation}</span>
                       </div>
                     )}
-                  </div>
+                  </div> */}
 
                   {/* Actions */}
                   <div className={styles.dropdownActions}>
                     <button
-                      onClick={() => navigate("/profile")}
+                      onClick={() => navigate("/user-access-management")}
                       className={styles.dropdownButton}
                     >
                       <FiBriefcase size={16} />
-                      <span>My Profile</span>
+                      <span>User Access Management</span>
                     </button>
+                    {user?.isITBin && (
+                      <button
+                        onClick={() => navigate("/task")}
+                        className={styles.dropdownButton}
+                      >
+                        <FiBriefcase size={16} />
+                         <span>Task Closure</span>
+                      </button>
+                    )}
+                     {user?.isApprover && (
+                      <button
+                        onClick={() => navigate("/approver/pending")}
+                        className={styles.dropdownButton}
+                      >
+                        <FiBriefcase size={16} />
+                         <span>Pending Approval</span>
+                      </button>
+                    )}
+                    {user?.isApprover && (
+                      
+                      <button
+                        onClick={() => navigate("/approver/history")}
+                        className={styles.dropdownButton}
+                      >
+                        <FiBriefcase size={16} />
+                         <span>Approval History</span>
+                      </button>
+                    )}
                     <button
                       onClick={handleLogout}
                       className={`${styles.dropdownButton} ${styles.logoutButton}`}

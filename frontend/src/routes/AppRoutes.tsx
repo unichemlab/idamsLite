@@ -58,6 +58,8 @@ import Home from "pages/HomePage/homepageUser";
 import HomePage from "pages/HomePage/HomePage";
 import MasterApprovalBin from "pages/MasterApprovalBin/MasterApprovalBin";
 import MasterApprovalDetails from "pages/MasterApprovalBin/MasterApprovalDetails";
+import PendingApprovalPage from "pages/ApproverDashboard/PendingApproval";
+import ApprovalHistoryPage from "pages/ApproverDashboard/ApprovalHistory";
 // Removed unused SystemInventoryMasterTable, AddSystemInventory, EditSystemInventory imports
 // List of allowed routes for matching
 const allowedRoutes = [
@@ -118,7 +120,9 @@ const allowedRoutes = [
   "/master-approvals",
   "/master-approvals/:id",
   "/home",
-  "/homepage"
+  "/homepage",
+  "/approver/pending",   // Pending approvals page
+  "/approver/history",
 ];
 
 const NotFound = () => (
@@ -303,6 +307,22 @@ console.log(isAllowed);
           </ProtectedRoute>
         }
       />
+      <Route
+  path="/approver/pending"
+  element={
+    <ProtectedRoute>
+      <PendingApprovalPage />
+    </ProtectedRoute>
+  }
+/>
+<Route
+  path="/approver/history"
+  element={
+    <ProtectedRoute>
+      <ApprovalHistoryPage />
+    </ProtectedRoute>
+  }
+/>
       <Route path="/access-denied" element={<AccessDenied />} />
       <Route
         path="/access-request/:id"

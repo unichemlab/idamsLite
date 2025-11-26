@@ -23,7 +23,7 @@ const authorize = (requiredPermissions) => {
       console.log("token_decode",decoded);
       console.log("token_decode",decoded);
       // Extract user info from token
-      const { user_id, role_id, permissions ,itPlants,isITBin,itPlantIds,} = decoded;
+      const { user_id, role_id, permissions ,itPlants,isITBin,itPlantIds} = decoded;
 
       if (!user_id || !role_id) {
         return res.status(401).json({ message: "Invalid token structure" });
