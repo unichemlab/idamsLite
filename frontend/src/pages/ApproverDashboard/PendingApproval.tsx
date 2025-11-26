@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState,useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -7,6 +7,7 @@ import {
   postApprovalAction,
 } from "../../utils/api";
 import styles from "./ApproverHome.module.css";
+import headerStyles from "../HomePage/homepageUser.module.css";
 import tableStyles from "./ApprovalTable.module.css";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
 import {
@@ -69,7 +70,19 @@ const PendingApprovalPage: React.FC = () => {
   const [openRejectDialog, setOpenRejectDialog] = useState(false);
   const [actionComments, setActionComments] = useState("");
   const [actionInProgress, setActionInProgress] = useState(false);
-
+  const [showUserMenu, setShowUserMenu] = useState(false);
+      const menuRef = useRef<HTMLDivElement>(null);
+    
+      // Close menu on outside click
+      useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+          if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+            setShowUserMenu(false);
+          }
+        };
+        if (showUserMenu) document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+      }, [showUserMenu]);
   useEffect(() => {
     fetchRequests();
   }, []);
@@ -248,40 +261,114 @@ const PendingApprovalPage: React.FC = () => {
   return (
     <div className={styles.container}>
       {/* Header */}
-      <header className={styles.header}>
-        <div className={styles.headerLeft}>
-          <img
-            src={login_headTitle2}
-            alt="Company logo"
-            className={styles.logo}
-          />
-          <span className={styles.version}>version-1.0</span>
-        </div>
-        <h1 className={styles.headerTitle}>Pending Approvals</h1>
-        <div className={styles.headerRight}>
-          <div className={styles.userInfo}>
-            <div className={styles.avatar}>
-              {user?.username?.charAt(0).toUpperCase() || "R"}
-            </div>
-            <div className={styles.userDetails}>
-              <span className={styles.userName}>
-                {user?.username || "Rosli Joseph"}
-              </span>
-              <span className={styles.userRole}>Approver</span>
-            </div>
-            <button
-              className={styles.dropdownToggle}
-              onClick={() => setProfileOpen((prev) => !prev)}
-            >
-              ▼
-            </button>
+       <header className={headerStyles["main-header"]}>
+        <div className={headerStyles.navLeft}>
+          <div className={headerStyles.logoWrapper}>
+            <img src={login_headTitle2} alt="Logo" className={headerStyles.logo} />
+            <span className={headerStyles.version}>version-1.0</span>
           </div>
+          <h1 className={headerStyles.title}>Task Clouser</h1>
+        </div>
 
-          {profileOpen && (
-            <div className={styles.dropdownMenu}>
-               <button
+
+        <div className={headerStyles.navRight}>
+          {user && (
+            <div style={{ position: "relative" }} ref={menuRef}>
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className={headerStyles.userButton}
+              >
+                {/* Avatar */}
+                <div className={headerStyles.avatarContainer}>
+                  <div className={headerStyles.avatar}>
+                    {(user.name || user.username || "U")
+                      .charAt(0)
+                      .toUpperCase()}
+                  </div>
+                  <div className={headerStyles.statusDot}></div>
+                </div>
+
+                {/* User Name */}
+                <div className={headerStyles.userInfo}>
+                  <span className={headerStyles.userName}>
+                    {user.name || user.username}
+                  </span>
+                  {user.isITBin && (
+                    <span className={headerStyles.userRole}>IT Admin</span>
+                  )}
+                  {user.isApprover && (
+                    <span className={headerStyles.userRole}>Approver</span>
+                  )}
+                </div>
+
+                {/* Dropdown Arrow */}
+                <FiChevronDown
+                  size={16}
+                  color="#64748b"
+                  style={{
+                    transition: "transform 0.2s",
+                    transform: showUserMenu ? "rotate(180deg)" : "rotate(0deg)",
+                  }}
+                />
+              </button>
+
+              {/* Dropdown Menu */}
+              {showUserMenu && (
+                <div className={headerStyles.dropdownMenu}>
+                  <div className={headerStyles.dropdownHeader}>
+                    <div className={headerStyles.dropdownAvatar}>
+                      <div className={headerStyles.dropdownAvatarCircle}>
+                        {(user.name || user.username || "U")
+                          .charAt(0)
+                          .toUpperCase()}
+                      </div>
+                      <div className={headerStyles.dropdownUserInfo}>
+                        <span className={headerStyles.dropdownUserName}>
+                          {user.name || user.username}
+                        </span>
+                        {user.employee_code && (
+                          <span className={headerStyles.dropdownEmployeeCode}>
+                            {user.employee_code}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* {user.isITBin && (
+                      <div className={styles.adminBadge}>
+                        <FiShield size={14} />
+                        <span>IT BIN Administrator</span>
+                      </div>
+                    )} */}
+                  </div>
+
+                  {/* Contact Info */}
+                  {/* <div className={styles.dropdownInfo}>
+                    {user.email && (
+                      <div className={styles.infoItem}>
+                        <FiMail size={16} />
+                        <span>{user.email}</span>
+                      </div>
+                    )}
+                    {user.location && (
+                      <div className={styles.infoItem}>
+                        <FiMapPin size={16} />
+                        <span>{user.location}</span>
+                      </div>
+                    )}
+                    {user.designation && (
+                      <div className={styles.infoItem}>
+                        <FiBriefcase size={16} />
+                        <span>{user.designation}</span>
+                      </div>
+                    )}
+                  </div> */}
+
+                  {/* Actions */}
+                  <div className={headerStyles.dropdownActions}>
+                    <button
                       onClick={() => navigate("/user-access-management")}
-                      className={styles.dropdownButton}
+                      className={headerStyles.dropdownButton}
                     >
                       <FiBriefcase size={16} />
                       <span>User Access Management</span>
@@ -289,7 +376,7 @@ const PendingApprovalPage: React.FC = () => {
                     {user?.isITBin && (
                       <button
                         onClick={() => navigate("/task")}
-                        className={styles.dropdownButton}
+                        className={headerStyles.dropdownButton}
                       >
                         <FiBriefcase size={16} />
                          <span>Task Closure</span>
@@ -298,7 +385,7 @@ const PendingApprovalPage: React.FC = () => {
                      {user?.isApprover && (
                       <button
                         onClick={() => navigate("/approver/pending")}
-                        className={styles.dropdownButton}
+                        className={headerStyles.dropdownButton}
                       >
                         <FiBriefcase size={16} />
                          <span>Pending Approval</span>
@@ -308,7 +395,7 @@ const PendingApprovalPage: React.FC = () => {
                       
                       <button
                         onClick={() => navigate("/approver/history")}
-                        className={styles.dropdownButton}
+                        className={headerStyles.dropdownButton}
                       >
                         <FiBriefcase size={16} />
                          <span>Approval History</span>
@@ -316,11 +403,14 @@ const PendingApprovalPage: React.FC = () => {
                     )}
                     <button
                       onClick={handleLogout}
-                      className={`${styles.dropdownButton} ${styles.logoutButton}`}
+                      className={`${headerStyles.dropdownButton} ${styles.logoutButton}`}
                     >
                       <FiLogOut size={18} />
                       <span>Logout</span>
                     </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -328,14 +418,7 @@ const PendingApprovalPage: React.FC = () => {
 
       {/* Main Content */}
       <main className={tableStyles.mainContent}>
-        <button
-          className={tableStyles.backButton}
-          onClick={() => navigate("/approver")}
-        >
-          <ArrowBackIcon fontSize="small" /> Back to Home
-        </button>
-
-        <div className={tableStyles.tableContainer}>
+       <div className={tableStyles.tableContainer}>
           <h2 className={tableStyles.tableTitle}>Pending Access Requests</h2>
 
           {loading ? (
