@@ -144,7 +144,7 @@ console.log("formDtaSending",formData);
                     </div>
 
                     <div className={addUserRequestStyles["header-right"]}>
-                        {user?.role_id !== 12 ? (
+                        {user?.role_id === 1 ? (
                             <button
                                 className={addUserRequestStyles["addUserBtn"]}
                                 onClick={() => navigate("/superadmin")}

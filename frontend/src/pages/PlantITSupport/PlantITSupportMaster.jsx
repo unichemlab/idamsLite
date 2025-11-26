@@ -4,7 +4,7 @@ import styles from "./PlantITSupport.module.css";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { FaEdit, FaTrash } from "react-icons/fa";
-import ProfileIconWithLogout from "./ProfileIconWithLogout";
+import ProfileIconWithLogout from "../../components/Common/ProfileIconWithLogout";
 import { API_BASE } from "utils/api";
 
 const TransactionMaster = () => {

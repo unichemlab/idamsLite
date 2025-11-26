@@ -1,14 +1,20 @@
 import React, { useState, useRef, useContext } from "react";
 import ProfileIconWithLogout from "../../pages/PlantMasterTable/ProfileIconWithLogout";
 import styles from "../ApplicationMasterTable/ApplicationMasterTable.module.css";
+import paginationStyles from "../../styles/Pagination.module.css";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { FaEdit, FaTrash } from "react-icons/fa";
+import { FaRegClock } from "react-icons/fa6";
+import { fetchActivityLog } from "../../utils/api";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useNavigate } from "react-router-dom";
 import { SystemContext } from "../SystemInventoryMaster/SystemContext";
+import unichemLogoBase64 from "../../assets/unichemLogoBase64";
+import login_headTitle2 from "../../assets/login_headTitle2.png";
+import { useAuth } from "../../context/AuthContext";
 
 const SystemInventoryMasterTable: React.FC = () => {
   const systemCtx = useContext(SystemContext);
@@ -22,6 +28,18 @@ const SystemInventoryMasterTable: React.FC = () => {
   const [tempFilterValue, setTempFilterValue] = useState(filterValue);
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
+  const [showActivityModal, setShowActivityModal] = useState(false);
+  const [activityLogsSystem, setActivityLogsSystem] = useState<any>(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const rowsPerPage = 10;
+
+  // Reset page and selection when filter changes to avoid out-of-range selections
+  React.useEffect(() => {
+    setCurrentPage(1);
+    setSelectedRow(null);
+  }, [filterValue, filterColumn]);
 
   // Fetch systems from backend
   // Removed direct fetch; data comes from context
@@ -42,17 +60,162 @@ const SystemInventoryMasterTable: React.FC = () => {
     }
   });
 
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / rowsPerPage));
+  const paginatedData = filteredData.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  );
+
+  const { user } = useAuth();
+
+  const loadImage = (url: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.src = url;
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+    });
+  };
+
   // PDF Export Handler
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     const doc = new jsPDF({ orientation: "landscape" });
     const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
-    const fileName = `SystemMaster_${yyyy}-${mm}-${dd}.pdf`;
-    const headers = [[
-      "Plant Location", "User Location", "Building Location", "Department", "Allocated to User Name", "Host Name", "Make", "Model", "Serial No.", "Processor", "RAM (Capacity)", "HDD (Capacity)", "IP Address", "Other Software", "Windows Activated", "OS Version / Service Pack", "Architecture", "Type of Asset", "Category GxP", "GAMP Category", "Instrument/Equipment Name", "Equipment/Instrument ID", "Instrument Owner", "ServiceTag", "Warranty Status", "Warranty End Date", "Connected No. of Equipments", "Application Name", "Application Version", "Application OEM", "Application Vendor", "User Management Applicable", "Application Onboard", "System Process Owner", "Database Version", "Domain/Workgroup", "Connected Through", "Specific VLAN", "IP Address Type", "Date/Time Sync Available", "Antivirus", "Antivirus Version", "Backup Type", "Backup Frequency Days", "Backup Path", "Backup Tool", "Backup Procedure Available", "Folder Deletion Restriction", "Remote Tool Available", "OS Administrator", "System Running With", "Audit Trail Adequacy", "User Roles Availability", "User Roles Challenged", "System Managed By", "Planned Upgrade FY25-26", "EOL/EOS Upgrade Status", "System Current Status", "Purchase PO", "Purchase Vendor Name", "AMC Vendor Name", "Renewal PO", "Warranty Period", "AMC Start Date", "AMC Expiry Date", "SAP Asset No.", "Remarks", "Created On", "Updated On"
-    ]];
+    const fileName = `SystemMaster_${today.toISOString().split("T")[0]}.pdf`;
+
+    // --- HEADER BAR ---
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const pageMargin = 14;
+    const headerHeight = 28;
+    doc.setFillColor(0, 82, 155);
+    doc.rect(0, 0, pageWidth, headerHeight, "F");
+
+    // Logo (prefer PNG import, fallback to base64)
+    let logoWidth = 0;
+    let logoHeight = 0;
+    try {
+      if (login_headTitle2) {
+        const img = await loadImage(login_headTitle2);
+        const maxLogoHeight = headerHeight * 0.6;
+        const scale = maxLogoHeight / img.height;
+        logoWidth = img.width * scale;
+        logoHeight = img.height * scale;
+        const logoY = headerHeight / 2 - logoHeight / 2;
+        doc.addImage(img, "PNG", pageMargin, logoY, logoWidth, logoHeight);
+      } else if (
+        unichemLogoBase64 &&
+        unichemLogoBase64.startsWith("data:image")
+      ) {
+        logoWidth = 50;
+        logoHeight = 18;
+        const logoY = headerHeight / 2 - logoHeight / 2;
+        doc.addImage(
+          unichemLogoBase64,
+          "PNG",
+          pageMargin,
+          logoY,
+          logoWidth,
+          logoHeight
+        );
+      }
+    } catch (e) {
+      console.warn("Logo load failed", e);
+    }
+
+    // Title + Exported by/date
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    const titleX = pageMargin + logoWidth + 10;
+    const titleY = headerHeight / 2 + 5;
+    doc.text("System Master", titleX, titleY);
+
+    doc.setFontSize(9);
+    doc.setTextColor(220, 230, 245);
+    const exportedByName =
+      (user && (user.name || user.username)) || "Unknown User";
+    const exportedText = `Exported by: ${exportedByName}  On: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
+    const textWidth = doc.getTextWidth(exportedText);
+    doc.text(exportedText, pageWidth - pageMargin - textWidth, titleY);
+
+    doc.setDrawColor(0, 82, 155);
+    doc.setLineWidth(0.5);
+    doc.line(0, headerHeight, pageWidth, headerHeight);
+
+    // --- TABLE ---
+    const headers = [
+      [
+        "Plant Location",
+        "User Location",
+        "Building Location",
+        "Department",
+        "Allocated to User Name",
+        "Host Name",
+        "Make",
+        "Model",
+        "Serial No.",
+        "Processor",
+        "RAM (Capacity)",
+        "HDD (Capacity)",
+        "IP Address",
+        "Other Software",
+        "Windows Activated",
+        "OS Version / Service Pack",
+        "Architecture",
+        "Type of Asset",
+        "Category GxP",
+        "GAMP Category",
+        "Instrument/Equipment Name",
+        "Equipment/Instrument ID",
+        "Instrument Owner",
+        "ServiceTag",
+        "Warranty Status",
+        "Warranty End Date",
+        "Connected No. of Equipments",
+        "Application Name",
+        "Application Version",
+        "Application OEM",
+        "Application Vendor",
+        "User Management Applicable",
+        "Application Onboard",
+        "System Process Owner",
+        "Database Version",
+        "Domain/Workgroup",
+        "Connected Through",
+        "Specific VLAN",
+        "IP Address Type",
+        "Date/Time Sync Available",
+        "Antivirus",
+        "Antivirus Version",
+        "Backup Type",
+        "Backup Frequency Days",
+        "Backup Path",
+        "Backup Tool",
+        "Backup Procedure Available",
+        "Folder Deletion Restriction",
+        "Remote Tool Available",
+        "OS Administrator",
+        "System Running With",
+        "Audit Trail Adequacy",
+        "User Roles Availability",
+        "User Roles Challenged",
+        "System Managed By",
+        "Planned Upgrade FY25-26",
+        "EOL/EOS Upgrade Status",
+        "System Current Status",
+        "Purchase PO",
+        "Purchase Vendor Name",
+        "AMC Vendor Name",
+        "Renewal PO",
+        "Warranty Period",
+        "AMC Start Date",
+        "AMC Expiry Date",
+        "SAP Asset No.",
+        "Remarks",
+        "Created On",
+        "Updated On",
+      ],
+    ];
     const rows = filteredData.map((system) => [
       system.plant_location_id ?? "",
       system.user_location ?? "",
@@ -124,12 +287,10 @@ const SystemInventoryMasterTable: React.FC = () => {
       system.created_on ?? "",
       system.updated_on ?? "",
     ]);
-    doc.setFontSize(18);
-    doc.text("System Master", 14, 18);
     autoTable(doc, {
       head: headers,
       body: rows,
-      startY: 28,
+      startY: headerHeight + 8,
       styles: {
         fontSize: 11,
         cellPadding: 3,
@@ -144,9 +305,27 @@ const SystemInventoryMasterTable: React.FC = () => {
       alternateRowStyles: {
         fillColor: [240, 245, 255],
       },
-      margin: { left: 14, right: 14 },
+      margin: { left: pageMargin, right: pageMargin },
       tableWidth: "auto",
     });
+
+    // --- FOOTER ---
+    const pageCount =
+      (doc as any).getNumberOfPages?.() ||
+      (doc as any).internal?.getNumberOfPages?.() ||
+      1;
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.text("Unichem Laboratories", pageMargin, pageHeight - 6);
+      doc.text(
+        `Page ${i} of ${pageCount}`,
+        pageWidth - pageMargin - 30,
+        pageHeight - 6
+      );
+    }
+
     doc.save(fileName);
   };
 
@@ -384,97 +563,218 @@ const SystemInventoryMasterTable: React.FC = () => {
                 <th>Remarks</th>
                 <th>Created On</th>
                 <th>Updated On</th>
+                <th>Activity Log</th>
               </tr>
             </thead>
             <tbody>
-              {filteredData.map((system, index) => (
-                <tr
-                  key={system.id}
-                  onClick={() => setSelectedRow(index)}
-                  style={{
-                    background: selectedRow === index ? "#f0f4ff" : undefined,
-                  }}
-                >
-                  <td>
-                    <input
-                      type="radio"
-                      className={styles.radioInput}
-                      checked={selectedRow === index}
-                      onChange={() => setSelectedRow(index)}
-                    />
-                  </td>
-                  {/* Removed System Name, Status, Description, Transaction ID cells */}
-                  <td>{system.plant_location_id}</td>
-                  <td>{system.user_location}</td>
-                  <td>{system.building_location}</td>
-                  <td>{system.department_id}</td>
-                  <td>{system.allocated_to_user_name}</td>
-                  <td>{system.host_name}</td>
-                  <td>{system.make}</td>
-                  <td>{system.model}</td>
-                  <td>{system.serial_no}</td>
-                  <td>{system.processor}</td>
-                  <td>{system.ram_capacity}</td>
-                  <td>{system.hdd_capacity}</td>
-                  <td>{system.ip_address}</td>
-                  <td>{system.other_software}</td>
-                  <td>{system.windows_activated ? "Yes" : "No"}</td>
-                  <td>{system.os_version_service_pack}</td>
-                  <td>{system.architecture}</td>
-                  <td>{system.type_of_asset}</td>
-                  <td>{system.category_gxp}</td>
-                  <td>{system.gamp_category}</td>
-                  <td>{system.instrument_equipment_name}</td>
-                  <td>{system.equipment_instrument_id}</td>
-                  <td>{system.instrument_owner}</td>
-                  <td>{system.service_tag}</td>
-                  <td>{system.warranty_status}</td>
-                  <td>{system.warranty_end_date}</td>
-                  <td>{system.connected_no_of_equipments}</td>
-                  <td>{system.application_name}</td>
-                  <td>{system.application_version}</td>
-                  <td>{system.application_oem}</td>
-                  <td>{system.application_vendor}</td>
-                  <td>{system.user_management_applicable ? "Yes" : "No"}</td>
-                  <td>{system.application_onboard}</td>
-                  <td>{system.system_process_owner}</td>
-                  <td>{system.database_version}</td>
-                  <td>{system.domain_workgroup}</td>
-                  <td>{system.connected_through}</td>
-                  <td>{system.specific_vlan}</td>
-                  <td>{system.ip_address_type}</td>
-                  <td>{system.date_time_sync_available ? "Yes" : "No"}</td>
-                  <td>{system.antivirus}</td>
-                  <td>{system.antivirus_version}</td>
-                  <td>{system.backup_type}</td>
-                  <td>{system.backup_frequency_days}</td>
-                  <td>{system.backup_path}</td>
-                  <td>{system.backup_tool}</td>
-                  <td>{system.backup_procedure_available ? "Yes" : "No"}</td>
-                  <td>{system.folder_deletion_restriction ? "Yes" : "No"}</td>
-                  <td>{system.remote_tool_available ? "Yes" : "No"}</td>
-                  <td>{system.os_administrator}</td>
-                  <td>{system.system_running_with}</td>
-                  <td>{system.audit_trail_adequacy}</td>
-                  <td>{system.user_roles_availability ? "Yes" : "No"}</td>
-                  <td>{system.user_roles_challenged ? "Yes" : "No"}</td>
-                  <td>{system.system_managed_by}</td>
-                  <td>{system.planned_upgrade_fy2526 ? "Yes" : "No"}</td>
-                  <td>{system.eol_eos_upgrade_status}</td>
-                  <td>{system.system_current_status}</td>
-                  <td>{system.purchase_po}</td>
-                  <td>{system.purchase_vendor_name}</td>
-                  <td>{system.amc_vendor_name}</td>
-                  <td>{system.renewal_po}</td>
-                  <td>{system.warranty_period}</td>
-                  <td>{system.amc_start_date}</td>
-                  <td>{system.amc_expiry_date}</td>
-                  <td>{system.sap_asset_no}</td>
-                  <td>{system.remarks}</td>
-                  <td>{system.created_on}</td>
-                  <td>{system.updated_on}</td>
-                </tr>
-              ))}
+              {paginatedData.map((system, index) => {
+                const globalIdx = (currentPage - 1) * rowsPerPage + index;
+                return (
+                  <tr
+                    key={system.id}
+                    onClick={() => setSelectedRow(globalIdx)}
+                    style={{
+                      background:
+                        selectedRow === globalIdx ? "#f0f4ff" : undefined,
+                    }}
+                  >
+                    <td>
+                      <input
+                        type="radio"
+                        className={styles.radioInput}
+                        checked={selectedRow === globalIdx}
+                        onChange={() => setSelectedRow(globalIdx)}
+                      />
+                    </td>
+                    {/* Removed System Name, Status, Description, Transaction ID cells */}
+                    <td>{system.plant_location_id}</td>
+                    <td>{system.user_location}</td>
+                    <td>{system.building_location}</td>
+                    <td>{system.department_id}</td>
+                    <td>{system.allocated_to_user_name}</td>
+                    <td>{system.host_name}</td>
+                    <td>{system.make}</td>
+                    <td>{system.model}</td>
+                    <td>{system.serial_no}</td>
+                    <td>{system.processor}</td>
+                    <td>{system.ram_capacity}</td>
+                    <td>{system.hdd_capacity}</td>
+                    <td>{system.ip_address}</td>
+                    <td>{system.other_software}</td>
+                    <td>{system.windows_activated ? "Yes" : "No"}</td>
+                    <td>{system.os_version_service_pack}</td>
+                    <td>{system.architecture}</td>
+                    <td>{system.type_of_asset}</td>
+                    <td>{system.category_gxp}</td>
+                    <td>{system.gamp_category}</td>
+                    <td>{system.instrument_equipment_name}</td>
+                    <td>{system.equipment_instrument_id}</td>
+                    <td>{system.instrument_owner}</td>
+                    <td>{system.service_tag}</td>
+                    <td>{system.warranty_status}</td>
+                    <td>{system.warranty_end_date}</td>
+                    <td>{system.connected_no_of_equipments}</td>
+                    <td>{system.application_name}</td>
+                    <td>{system.application_version}</td>
+                    <td>{system.application_oem}</td>
+                    <td>{system.application_vendor}</td>
+                    <td>{system.user_management_applicable ? "Yes" : "No"}</td>
+                    <td>{system.application_onboard}</td>
+                    <td>{system.system_process_owner}</td>
+                    <td>{system.database_version}</td>
+                    <td>{system.domain_workgroup}</td>
+                    <td>{system.connected_through}</td>
+                    <td>{system.specific_vlan}</td>
+                    <td>{system.ip_address_type}</td>
+                    <td>{system.date_time_sync_available ? "Yes" : "No"}</td>
+                    <td>{system.antivirus}</td>
+                    <td>{system.antivirus_version}</td>
+                    <td>{system.backup_type}</td>
+                    <td>{system.backup_frequency_days}</td>
+                    <td>{system.backup_path}</td>
+                    <td>{system.backup_tool}</td>
+                    <td>{system.backup_procedure_available ? "Yes" : "No"}</td>
+                    <td>{system.folder_deletion_restriction ? "Yes" : "No"}</td>
+                    <td>{system.remote_tool_available ? "Yes" : "No"}</td>
+                    <td>{system.os_administrator}</td>
+                    <td>{system.system_running_with}</td>
+                    <td>{system.audit_trail_adequacy}</td>
+                    <td>{system.user_roles_availability ? "Yes" : "No"}</td>
+                    <td>{system.user_roles_challenged ? "Yes" : "No"}</td>
+                    <td>{system.system_managed_by}</td>
+                    <td>{system.planned_upgrade_fy2526 ? "Yes" : "No"}</td>
+                    <td>{system.eol_eos_upgrade_status}</td>
+                    <td>{system.system_current_status}</td>
+                    <td>{system.purchase_po}</td>
+                    <td>{system.purchase_vendor_name}</td>
+                    <td>{system.amc_vendor_name}</td>
+                    <td>{system.renewal_po}</td>
+                    <td>{system.warranty_period}</td>
+                    <td>{system.amc_start_date}</td>
+                    <td>{system.amc_expiry_date}</td>
+                    <td>{system.sap_asset_no}</td>
+                    <td>{system.remarks}</td>
+                    <td>{system.created_on}</td>
+                    <td>{system.updated_on}</td>
+                    <td>
+                      <button
+                        className={styles.actionBtn}
+                        title="View Activity Logs"
+                        onClick={async () => {
+                          try {
+                            const logs = await fetchActivityLog();
+                            const filtered = (logs || [])
+                              .filter((log: any) => {
+                                if (
+                                  log.table_name === "system_master" &&
+                                  String(log.record_id) === String(system.id)
+                                )
+                                  return true;
+                                if (
+                                  log.details &&
+                                  typeof log.details === "string"
+                                ) {
+                                  return (
+                                    log.details.includes(
+                                      '"tableName":"system_master"'
+                                    ) &&
+                                    log.details.includes(
+                                      `"recordId":"${system.id}"`
+                                    )
+                                  );
+                                }
+                                return false;
+                              })
+                              .map((r: any) => {
+                                let parsedDetails = null;
+                                if (
+                                  r.details &&
+                                  typeof r.details === "string"
+                                ) {
+                                  try {
+                                    parsedDetails = JSON.parse(r.details);
+                                  } catch (e) {
+                                    parsedDetails = null;
+                                  }
+                                }
+
+                                const parseMaybeJson = (v: any) => {
+                                  if (v === null || v === undefined)
+                                    return null;
+                                  if (typeof v === "string") {
+                                    try {
+                                      return JSON.parse(v);
+                                    } catch {
+                                      return v;
+                                    }
+                                  }
+                                  return v;
+                                };
+
+                                const oldVal = parseMaybeJson(
+                                  r.old_value ||
+                                    (parsedDetails && parsedDetails.old_value)
+                                );
+                                const newVal = parseMaybeJson(
+                                  r.new_value ||
+                                    (parsedDetails && parsedDetails.new_value)
+                                );
+                                const action =
+                                  r.action ||
+                                  (parsedDetails && parsedDetails.action) ||
+                                  "";
+                                const approver =
+                                  r.action_performed_by ||
+                                  r.user_id ||
+                                  (parsedDetails && parsedDetails.userId) ||
+                                  null;
+                                const dateTime =
+                                  r.date_time_ist ||
+                                  r.timestamp ||
+                                  r.created_at ||
+                                  (parsedDetails && parsedDetails.dateTime) ||
+                                  null;
+                                const comments =
+                                  r.comments ||
+                                  (parsedDetails && parsedDetails.comments) ||
+                                  (parsedDetails && parsedDetails.reason) ||
+                                  null;
+
+                                return {
+                                  action,
+                                  oldValue: oldVal,
+                                  newValue: newVal,
+                                  approver,
+                                  approvedOrRejectedBy: r.approved_by || null,
+                                  approvalStatus:
+                                    r.approve_status ||
+                                    r.approval_status ||
+                                    null,
+                                  dateTime,
+                                  reason: comments,
+                                  _raw: r,
+                                };
+                              });
+
+                            setActivityLogsSystem({
+                              ...system,
+                              activityLogs: filtered,
+                            });
+                          } catch (err) {
+                            setActivityLogsSystem({
+                              ...system,
+                              activityLogs: [],
+                            });
+                          }
+                          setShowActivityModal(true);
+                        }}
+                      >
+                        <FaRegClock size={17} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
               <ConfirmDeleteModal
                 open={showDeleteModal}
                 name={
@@ -488,7 +788,309 @@ const SystemInventoryMasterTable: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination controls */}
+        <div
+          style={{ display: "flex", justifyContent: "center", marginTop: 8 }}
+        >
+          <div className={paginationStyles.pagination}>
+            <button
+              className={paginationStyles.pageBtn}
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              aria-label="Previous page"
+            >
+              Previous
+            </button>
+            <div className={paginationStyles.pageInfo}>
+              Page {currentPage} of {totalPages}
+            </div>
+            <button
+              className={paginationStyles.pageBtn}
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              aria-label="Next page"
+            >
+              Next
+            </button>
+          </div>
+        </div>
       </div>
+
+      {/* Activity Logs Modal */}
+      {showActivityModal && activityLogsSystem && (
+        <div
+          className={styles.panelOverlay}
+          style={{ zIndex: 2000, background: "rgba(0,0,0,0.18)" }}
+        >
+          <div
+            className={styles.panelWrapper}
+            style={{
+              maxWidth: 1000,
+              width: "95%",
+              left: "53%",
+              transform: "translateX(-50%)",
+              position: "fixed",
+              top: 176,
+              borderRadius: 16,
+              boxShadow: "0 8px 32px rgba(11,99,206,0.18)",
+              padding: "24px 18px 18px 18px",
+              display: "flex",
+              flexDirection: "column",
+              background: "#fff",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 16,
+              }}
+            >
+              <div style={{ fontWeight: 700, fontSize: 20 }}>Activity Log</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button
+                  className={styles.exportPdfBtn}
+                  onClick={async () => {
+                    const jsPDF = (await import("jspdf")).default;
+                    const autoTable = (await import("jspdf-autotable")).default;
+                    const doc = new jsPDF({ orientation: "landscape" });
+                    const today = new Date();
+                    const yyyy = today.getFullYear();
+                    const mm = String(today.getMonth() + 1).padStart(2, "0");
+                    const dd = String(today.getDate()).padStart(2, "0");
+                    const fileName = `activity_log_${yyyy}-${mm}-${dd}.pdf`;
+                    const headers = [
+                      [
+                        "Action",
+                        "Old Value",
+                        "New Value",
+                        "Action Performed By",
+                        "Approved/Rejected By",
+                        "Approval Status",
+                        "Date/Time (IST)",
+                        "Comments",
+                      ],
+                    ];
+                    const allowed = [
+                      "edit",
+                      "update",
+                      "delete",
+                      "add",
+                      "create",
+                    ];
+                    const logs = (
+                      Array.isArray(activityLogsSystem.activityLogs)
+                        ? activityLogsSystem.activityLogs
+                        : [activityLogsSystem.activityLogs]
+                    ).filter((log: any) => {
+                      const actionType = (log.action || "").toLowerCase();
+                      return allowed.some((type) => actionType.includes(type));
+                    });
+                    const rows = logs.map((log: any) => {
+                      let dateObj = new Date(log.dateTime || log.timestamp);
+                      let istDate = new Date(
+                        dateObj.getTime() + 5.5 * 60 * 60 * 1000
+                      );
+                      let day = String(istDate.getDate()).padStart(2, "0");
+                      let month = String(istDate.getMonth() + 1).padStart(
+                        2,
+                        "0"
+                      );
+                      let year = String(istDate.getFullYear()).slice(-2);
+                      let hours = String(istDate.getHours()).padStart(2, "0");
+                      let minutes = String(istDate.getMinutes()).padStart(
+                        2,
+                        "0"
+                      );
+                      let formattedDate = `${day}/${month}/${year} ${hours}:${minutes}`;
+                      return [
+                        log.action || "-",
+                        JSON.stringify(log.oldValue) || "-",
+                        JSON.stringify(log.newValue) || "-",
+                        log.approver || "-",
+                        log.approvedOrRejectedBy || "-",
+                        log.approvalStatus || "-",
+                        log.dateTime || log.timestamp ? formattedDate : "-",
+                        log.reason || log.comment || "-",
+                      ];
+                    });
+                    doc.setFontSize(18);
+                    doc.text("Activity Log", 14, 18);
+                    autoTable(doc, {
+                      head: headers,
+                      body: rows,
+                      startY: 28,
+                      styles: {
+                        fontSize: 11,
+                        cellPadding: 3,
+                        halign: "left",
+                        valign: "middle",
+                      },
+                      headStyles: {
+                        fillColor: [11, 99, 206],
+                        textColor: 255,
+                        fontStyle: "bold",
+                      },
+                      alternateRowStyles: { fillColor: [240, 245, 255] },
+                      margin: { left: 14, right: 14 },
+                      tableWidth: "auto",
+                    });
+                    doc.save(fileName);
+                  }}
+                >
+                  <span
+                    role="img"
+                    aria-label="Export PDF"
+                    style={{ fontSize: 18 }}
+                  >
+                    🗎
+                  </span>
+                  Export PDF
+                </button>
+                <button
+                  style={{
+                    background: "#e3e9f7",
+                    border: "none",
+                    borderRadius: 8,
+                    padding: "6px 14px",
+                    cursor: "pointer",
+                    fontWeight: 600,
+                    fontSize: 18,
+                  }}
+                  onClick={() => setShowActivityModal(false)}
+                  aria-label="Close activity log"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+            <div
+              style={{
+                marginBottom: 12,
+                fontWeight: 500,
+                fontSize: 15,
+                color: "#333",
+              }}
+            >
+              <span>
+                System:{" "}
+                <span style={{ color: "#0b63ce" }}>
+                  {activityLogsSystem.system_name ||
+                    activityLogsSystem.host_name ||
+                    "-"}
+                </span>
+              </span>
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <input
+                type="text"
+                placeholder="Filter by Action Performed By"
+                value={activityLogsSystem.approverFilter || ""}
+                onChange={(e) => {
+                  setActivityLogsSystem({
+                    ...activityLogsSystem,
+                    approverFilter: e.target.value,
+                  });
+                }}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 6,
+                  border: "1px solid #ccc",
+                  fontSize: 14,
+                  width: 220,
+                  marginRight: 12,
+                }}
+              />
+            </div>
+            <div
+              style={{
+                overflowY: "auto",
+                maxHeight: 350,
+                minWidth: "100%",
+                borderRadius: 8,
+                boxShadow: "0 2px 8px rgba(11,99,206,0.08)",
+              }}
+            >
+              <table className={styles.table} style={{ minWidth: 1100 }}>
+                <thead>
+                  <tr>
+                    <th>Action</th>
+                    <th>Old Value</th>
+                    <th>New Value</th>
+                    <th>Action Performed By</th>
+                    <th>Approved/Rejected By</th>
+                    <th>Approval Status</th>
+                    <th>Date/Time (IST)</th>
+                    <th>Comments</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(Array.isArray(activityLogsSystem.activityLogs)
+                    ? activityLogsSystem.activityLogs
+                    : [activityLogsSystem.activityLogs]
+                  )
+                    .filter((log: any) => {
+                      const allowed = [
+                        "edit",
+                        "update",
+                        "delete",
+                        "add",
+                        "create",
+                      ];
+                      const actionType = (log.action || "").toLowerCase();
+                      return allowed.some((type) => actionType.includes(type));
+                    })
+                    .filter(
+                      (log: any) =>
+                        !activityLogsSystem.approverFilter ||
+                        (log.approver || "")
+                          .toLowerCase()
+                          .includes(
+                            activityLogsSystem.approverFilter.toLowerCase()
+                          )
+                    )
+                    .map((log: any, i: number) => {
+                      let dateObj = new Date(log.dateTime || log.timestamp);
+                      let istDate = new Date(
+                        dateObj.getTime() + 5.5 * 60 * 60 * 1000
+                      );
+                      let day = String(istDate.getDate()).padStart(2, "0");
+                      let month = String(istDate.getMonth() + 1).padStart(
+                        2,
+                        "0"
+                      );
+                      let year = String(istDate.getFullYear()).slice(-2);
+                      let hours = String(istDate.getHours()).padStart(2, "0");
+                      let minutes = String(istDate.getMinutes()).padStart(
+                        2,
+                        "0"
+                      );
+                      let formattedDate = `${day}/${month}/${year} ${hours}:${minutes}`;
+                      return (
+                        <tr key={i}>
+                          <td>{log.action || "-"}</td>
+                          <td>{JSON.stringify(log.oldValue) || "-"}</td>
+                          <td>{JSON.stringify(log.newValue) || "-"}</td>
+                          <td>{log.approver || "-"}</td>
+                          <td>{log.approvedOrRejectedBy || "-"}</td>
+                          <td>{log.approvalStatus || "-"}</td>
+                          <td>
+                            {log.dateTime || log.timestamp
+                              ? formattedDate
+                              : "-"}
+                          </td>
+                          <td>{log.reason || log.comment || "-"}</td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,65 +1,222 @@
-import React, { useEffect, useState } from "react";
-import { createContext } from "react";
-import { Ability, AbilityBuilder, AbilityClass } from "@casl/ability";
+import React, { useEffect, useState, useContext, createContext } from "react";
+import {
+  Ability,
+  AbilityBuilder,
+  AbilityClass,
+  RawRuleOf,
+  Subject,
+  subject as caslSubject,
+} from "@casl/ability";
+import { useAuth } from "./AuthContext";
 
-// Define the shape of a permission row returned by the backend
-export type PermissionRow = {
-  id?: number;
-  transaction_id?: string;
-  user_id?: number;
-  plant_id?: number;
-  module_id?: string;
-  can_add?: boolean;
-  can_edit?: boolean;
-  can_view?: boolean;
-  can_delete?: boolean;
-  created_on?: string;
-  updated_on?: string;
-};
+export type Permission = string; // "action:subject"
+export type AbilityAction = "manage" | "create" | "read" | "update" | "delete";
 
-type Rules = any[];
+export type AbilitySubject =
+  | "all"
+  | "users"
+  | "roles"
+  | "workflows"
+  | "tasks"
+  | "approvals"
+  | "reports"
+  | "settings"
+  | "plants"
+  | "vendors"
+  | "applications"
+  | "departments"
+  | "servers"
+  | "systems"
+  | "user_requests"
+  | "activity";
 
-const AppAbility = Ability as AbilityClass<Ability>;
+// CASL type
+type AppAbilityType = Ability<[AbilityAction, AbilitySubject | Subject]>;
+type Rules = RawRuleOf<AppAbilityType>[];
 
-export const AbilityContext = createContext(new AppAbility());
+const AppAbility = Ability as AbilityClass<AppAbilityType>;
 
-function buildRulesFromPermissions(permissions: PermissionRow[] = []): Rules {
-  const { can, rules } = new AbilityBuilder(AppAbility);
-  permissions.forEach((p) => {
-    const subject = p.module_id || "all";
-    if (p.can_view) can("read", subject);
-    if (p.can_add) can("create", subject);
-    if (p.can_edit) can("update", subject);
-    if (p.can_delete) can("delete", subject);
-    // You can add more granular rules here e.g., by plant_id
+// Context interface
+interface IAbilityContext {
+  ability: AppAbilityType;
+  can: (
+    permissionOrAction: Permission | AbilityAction,
+    subject?: AbilitySubject | Subject,
+    meta?: Record<string, any>
+  ) => boolean;
+  hasPermission: (
+    moduleName: string,
+    action: AbilityAction,
+    plantId?: number | string
+  ) => boolean;
+  role: string;
+  permissions: Permission[];
+}
+
+// Default Context
+export const AbilityContext = createContext<IAbilityContext>({
+  ability: new AppAbility(),
+  can: () => false,
+  hasPermission: () => false,
+  role: "PlantUser",
+  permissions: [],
+});
+
+// ------------------------------------------------------------
+// BUILD RULES FROM STRING PERMISSIONS
+// ------------------------------------------------------------
+
+function buildRulesFromPermissions(permissions: Permission[] = []): Rules {
+  const { can, rules } = new AbilityBuilder<AppAbilityType>(AppAbility);
+
+  // super admin
+  if (permissions.includes("manage:all")) {
+    can("manage", "all");
+  }
+
+  permissions.forEach((permission) => {
+    try {
+      // JSON encoded structured permissions
+      if (permission.trim().startsWith("{")) {
+        const obj = JSON.parse(permission);
+        if (obj.action && obj.subject) {
+          can(obj.action, obj.subject, obj.conditions || {});
+        }
+        return;
+      }
+
+      const parts = permission.split(":");
+      const action = parts[0] as AbilityAction;
+      const subject = parts[1] as AbilitySubject;
+
+      if (!action || !subject) return;
+
+      if (parts[2]) {
+        const plantId = Number(parts[2]);
+        if (!Number.isNaN(plantId)) {
+          can(action, subject, { plantId });
+        } else {
+          can(action, subject, { scope: parts[2] });
+        }
+      } else {
+        can(action, subject);
+      }
+    } catch (e) {
+      console.warn("Invalid permission entry:", permission, e);
+    }
   });
+
   return rules;
 }
 
-export const AbilityProvider: React.FC<{
-  permissions?: PermissionRow[];
-  children?: React.ReactNode;
-}> = ({ permissions = [], children }) => {
-  const [ability] = useState(() => new AppAbility());
+// ------------------------------------------------------------
+// ROLE MAPPINGS & HIERARCHY
+// ------------------------------------------------------------
+
+const RoleHierarchy: Record<string, number> = {
+  SuperAdmin: 5,
+  PlantITAdmin: 4,
+  Approver: 3,
+  AuditReviewer: 2,
+  PlantUser: 1,
+};
+
+const RoleMap: Record<number, string> = {
+  1: "SuperAdmin",
+  2: "PlantITAdmin",
+  3: "AuditReviewer",
+  4: "Approver",
+  5: "PlantUser",
+};
+
+function getHighestRole(roleIds: number | number[] | undefined): string {
+  const ids = Array.isArray(roleIds) ? roleIds : roleIds ? [roleIds] : [];
+
+  const roleNames = ids.map((id) => RoleMap[id]).filter(Boolean);
+
+  return roleNames.reduce((highest, current) => {
+    return RoleHierarchy[current] > RoleHierarchy[highest]
+      ? current
+      : highest;
+  }, "PlantUser");
+}
+
+// ------------------------------------------------------------
+// PROVIDER
+// ------------------------------------------------------------
+
+export const AbilityProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  const [ability] = useState<AppAbilityType>(() => new AppAbility());
+  const { user } = useAuth();
+  const [role, setRole] = useState<string>("PlantUser");
 
   useEffect(() => {
-    const rules = buildRulesFromPermissions(permissions);
-    ability.update(rules);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(permissions)]);
+    if (user) {
+      const permissions = user.permissions || [];
+      const rules = buildRulesFromPermissions(permissions);
+      ability.update(rules);
+
+      const highestRole = getHighestRole(user.role_id);
+      setRole(highestRole);
+    } else {
+      ability.update([]);
+      setRole("PlantUser");
+    }
+  }, [user, ability]);
+
+  // ------------------------------------------------------------
+  // CONTEXT VALUE
+  // ------------------------------------------------------------
+
+  const contextValue: IAbilityContext = {
+    ability,
+
+    // Unified can() wrapper
+    can: (permOrAction, subject, meta) => {
+      if (typeof permOrAction === "string" && !subject) {
+        const parts = permOrAction.split(":");
+        const action = parts[0] as AbilityAction;
+        const subj = parts[1] as AbilitySubject;
+
+        if (parts[2]) {
+          const plantId = Number(parts[2]);
+          return ability.can(action, caslSubject(subj, { plantId }));
+        }
+
+        return ability.can(action, subj);
+      }
+
+      if (meta && subject && typeof subject === "string") {
+        return ability.can(permOrAction as AbilityAction, caslSubject(subject, meta));
+      }
+
+      return ability.can(permOrAction as AbilityAction, subject as any);
+    },
+
+    // NEW hasPermission() (clean version)
+    hasPermission: (moduleName, action, plantId) => {
+      if (plantId) {
+        return ability.can(
+          action,
+          caslSubject(moduleName as AbilitySubject, { plantId })
+        );
+      }
+      return ability.can(action, moduleName as AbilitySubject);
+    },
+
+    role,
+    permissions: user?.permissions || [],
+  };
 
   return (
-    <AbilityContext.Provider value={ability}>
+    <AbilityContext.Provider value={contextValue}>
       {children}
     </AbilityContext.Provider>
   );
 };
 
-export function useAbility() {
-  const ctx = React.useContext(AbilityContext);
-  if (!ctx)
-    throw new Error("useAbility must be used within an AbilityProvider");
-  return ctx;
-}
+export const useAbility = () => useContext(AbilityContext);
 
 export default AbilityProvider;

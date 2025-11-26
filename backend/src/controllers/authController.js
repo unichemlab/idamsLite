@@ -133,16 +133,250 @@ exports.login = async (req, res) => {
         .filter((n) => !isNaN(n));
     }
     user.role_id = roleIds;
+    // ===============================================
+    // 4. Fetch IT BIN Admin Status & Plant IDs
+    // ===============================================
+    let isITBin = false;
+    let itPlantIds = [];
+    let itPlants = [];
 
     logDebug("User login successful:", { username, roleIds });
 
+     try
+     {
+      // Check if user is an IT BIN admin
+      const itBinQuery = `
+        SELECT 
+          piau.plant_it_admin_id,
+          pia.plant_id,
+          pm.plant_name
+        FROM plant_it_admin_users piau
+        INNER JOIN plant_it_admin pia ON piau.plant_it_admin_id = pia.id
+        INNER JOIN plant_master pm ON pia.plant_id = pm.id
+        WHERE piau.user_id = $1 AND pia.status = 'ACTIVE'
+      `;
+      
+      const itBinResult = await db.query(itBinQuery, [user.id]);
+      
+      if (itBinResult.rows.length > 0) {
+        isITBin = true;
+        itPlantIds = itBinResult.rows.map(row => row.plant_id);
+        itPlants = itBinResult.rows.map(row => ({
+          plant_id: row.plant_id,
+          plant_name: row.plant_name,
+          plant_it_admin_id: row.plant_it_admin_id
+        }));
+        
+        logDebug(`User ${username} is IT BIN admin for plants:`, itPlantIds);
+      }
+     } catch (err) {
+      console.error("[IT BIN CHECK ERROR]", err);
+     }
+
     // ---------------- Generate JWT ----------------
+    // Fetch user permissions
+    // ---------------- Fetch roles dynamically ----------------
+    const roleQuery = `
+      SELECT rm.id, rm.role_name, rm.description, rm.status
+      FROM role_master rm
+      WHERE rm.id = ANY($1)
+    `;
+    const roleResult = await db.query(roleQuery, [roleIds]);
+    user.roles = roleResult.rows.map((role) => ({
+      id: role.id,
+      name: role.role_name,
+      description: role.description,
+      status: role.status,
+    }));
+
+    // ---------------- Fetch approver status dynamically ----------------
+    const approverStatusQuery = `
+      SELECT COUNT(*) > 0 AS is_approver
+      FROM access_log
+      WHERE employee_code = $1
+        AND (approver1_status = 'ACTIVE' OR approver2_status = 'ACTIVE')
+    `;
+    const approverStatusResult = await db.query(approverStatusQuery, [
+      user.employee_code,
+    ]);
+    user.is_approver = approverStatusResult.rows[0]?.is_approver || false;
+
+    logDebug("Roles and approver status fetched:", {
+      roles: user.roles,
+      isApprover: user.is_approver,
+    });
+
+    // ---------------- Dynamic Role Assignment ----------------
+    const dynamicRoleQuery = `
+      SELECT rm.id, rm.role_name
+      FROM role_master rm
+      WHERE rm.id = (
+        SELECT role
+        FROM access_log
+        WHERE employee_code = $1
+        ORDER BY created_on DESC
+        LIMIT 1
+      )
+    `;
+    const dynamicRoleResult = await db.query(dynamicRoleQuery, [
+      user.employee_code,
+    ]);
+    if (dynamicRoleResult.rows.length > 0) {
+      user.role_id = [dynamicRoleResult.rows[0].id];
+      user.roles = [
+        {
+          id: dynamicRoleResult.rows[0].id,
+          name: dynamicRoleResult.rows[0].role_name,
+        },
+      ];
+    } else {
+      logDebug("No dynamic role found for user:", user.employee_code);
+    }
+
+    logDebug("Dynamic role assigned:", {
+      roleId: user.role_id,
+      roles: user.roles,
+    });
+
+    // ---------------- Generate JWT ----------------
+    // Fetch user permissions
+    let permissions = [];
+    try {
+      const userPermsQuery = `
+        SELECT module_id, can_add, can_edit, can_view, can_delete 
+        FROM user_plant_permission 
+        WHERE user_id = $1
+      `;
+      const userPerms = await db.query(userPermsQuery, [user.id]);
+
+      permissions = userPerms.rows.flatMap((p) => {
+        const perms = [];
+        if (p.can_add) perms.push(`create:${p.module_id}`);
+        if (p.can_edit) perms.push(`update:${p.module_id}`);
+        if (p.can_view) perms.push(`read:${p.module_id}`);
+        if (p.can_delete) perms.push(`delete:${p.module_id}`);
+        return perms;
+      });
+       // Extract unique plant IDs from permissions
+      permittedPlantIds = [...new Set(userPerms.rows.map(p => p.plant_id))];
+      
+      logDebug(`User has permissions for plants:`, permittedPlantIds);
+    } catch (err) {
+      console.error("[PERMISSIONS ERROR]", err);
+      // Continue without permissions - they'll be fetched later if needed
+    }
+
+    // Add role-based permissions
+    if (user.role_id.includes(1)) {
+      // SuperAdmin
+      permissions.push("manage:all");
+    }
+
+    // Check if user is an approver in any workflows
+    try {
+      // approval_workflow_master is the table used for workflows in this project.
+      // Columns are approver_1_id ... approver_5_id and values may be comma-separated ids.
+      const approverQuery = `
+        SELECT DISTINCT id
+        FROM approval_workflow_master
+        WHERE (
+          approver_1_id LIKE $1 OR
+          approver_2_id LIKE $1 OR
+          approver_3_id LIKE $1 OR
+          approver_4_id LIKE $1 OR
+          approver_5_id LIKE $1
+        ) AND is_active = true
+        LIMIT 1
+      `;
+      const approverResult = await db.query(approverQuery, [`%${user.id}%`]);
+
+      if (
+        approverResult &&
+        approverResult.rows &&
+        approverResult.rows.length > 0
+      ) {
+        permissions.push("approve:requests");
+        permissions.push("view:approvals");
+        permissions.push("read:workflows");
+        permissions.push("update:workflows");
+        // Add approver role if user is an approver but doesn't have role 4 (Manager)
+        // Do NOT change user's numeric role_id when they are an approver.
+        // Approver is a dynamic permission, not a static role assignment.
+      }
+
+      // Add workflow permissions for superadmins and plant admins
+      if (user.role_id.includes(1) || user.role_id.includes(2)) {
+        permissions.push("read:workflows");
+        permissions.push("create:workflows");
+        permissions.push("update:workflows");
+      }
+    } catch (err) {
+      console.error("[APPROVER CHECK ERROR]", err);
+    }
+
+    // ===============================================
+// 6.1 Add IT BIN Admin Extra Permissions
+// ===============================================
+if (isITBin) {
+  permissions.push("view:tasks");
+  permissions.push("manage:tasks");
+}
+
+
+
+    // ===============================================
+    // 7. Fetch User's Location/Plant Details
+    // ===============================================
+    let userLocation = null;
+    let userPlantName = null;
+    
+    if (user.location) {
+      try {
+        const locationQuery = `
+          SELECT id, plant_name 
+          FROM plant_master 
+          WHERE id = $1
+        `;
+        const locationResult = await db.query(locationQuery, [user.location]);
+        
+        if (locationResult.rows.length > 0) {
+          userLocation = locationResult.rows[0].id;
+          userPlantName = locationResult.rows[0].plant_name;
+        }
+      } catch (err) {
+        console.error("[LOCATION FETCH ERROR]", err);
+      }
+    }
+
     // Ensure we include a reliable user id and username in the token payload.
     // DB rows may have id, user_id or employee_id fields; prefer internal id and employee_id as username.
     const payload = {
       user_id: user.id || user.user_id || null,
       username: user.employee_id || user.username || null,
-      role_id: user.role_id,
+      employee_name: user.employee_name,
+      employee_code: user.employee_code,
+      email: user.email,
+      
+      // Role and permissions
+      role_id: roleIds,
+      permissions,
+      permissions_version: 1, // Increment when permission structure changes
+      // IT BIN Admin info
+      isITBin,
+      itPlants: isITBin ? itPlants : [], // Full plant details for IT BIN admins
+      itPlantIds: isITBin ? itPlantIds : [], // Just IDs for quick checks
+      
+      // User's assigned plant/location
+      location: userLocation,
+      plant_name: userPlantName,
+      department: user.department,
+      designation: user.designation,
+      
+      // Plant access (from permissions)
+      permittedPlantIds,
+      
+      // Metadata
+      loginTime: new Date().toISOString(),
     };
 
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
@@ -156,14 +390,22 @@ exports.login = async (req, res) => {
         username: user.employee_id,
         name: user.employee_name,
         employee_code: user.employee_code,
-        location: user.location,
+         email: user.email,
+        location: userLocation,
+        plant_name: userPlantName,
         department: user.department,
         designation: user.designation,
         reporting_manager: user.reporting_manager ?? "",
         managers_manager: user.managers_manager ?? "",
         role_id: user.role_id,
         status: user.status,
-        email: user.email,
+         // IT BIN info
+        isITBin,
+        itPlants: isITBin ? itPlants : [],
+        
+        // Permissions summary
+        permittedPlantIds,
+        hasApproverAccess: permissions.includes("approve:requests"),
         full_name: user.employee_name,
       },
     });
@@ -216,7 +458,7 @@ exports.getPermissions = async (req, res) => {
     if (!userId && payload.username) {
       // try to map username (employee_id) to internal id
       const userRes = await db.query(
-        "SELECT id FROM user_master WHERE employee_id = $1 LIMIT 1",
+        "SELECT id FROM manage:all WHERE employee_id = $1 LIMIT 1",
         [payload.username]
       );
       if (userRes && userRes.rows && userRes.rows.length)

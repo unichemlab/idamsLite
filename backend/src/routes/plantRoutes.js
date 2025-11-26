@@ -1,11 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const plantController = require("../controllers/plantController");
+const authorize = require("../middleware/authorize");
 
-router.get("/activity-logs", plantController.getPlantActivityLogs);
-router.get("/", plantController.getAllPlants);
-router.post("/", plantController.createPlant);
-router.put("/:id", plantController.updatePlant);
-router.delete("/:id", plantController.deletePlant);
+router.get("/activity-logs",authorize(), plantController.getPlantActivityLogs);
+router.get("/",authorize(), plantController.getAllPlants);
+router.post("/",authorize(), plantController.createPlant);
+router.put("/:id",authorize(), plantController.updatePlant);
+router.delete("/:id",authorize(), plantController.deletePlant);
 
 module.exports = router;

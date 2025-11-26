@@ -4,20 +4,26 @@ import { useNavigate } from "react-router-dom";
 import { fetchDepartmentActivityLogs } from "../../utils/api";
 import { useDepartmentContext } from "../../pages/DepartmentMaster/DepartmentContext";
 import styles from "../ApplicationMasterTable/ApplicationMasterTable.module.css";
+import paginationStyles from "../../styles/Pagination.module.css";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
-import ProfileIconWithLogout from "../PlantMasterTable/ProfileIconWithLogout";
+import ProfileIconWithLogout from "../../components/Common/ProfileIconWithLogout";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { FaEdit } from "react-icons/fa";
+import login_headTitle2 from "../../assets/login_headTitle2.png";
+import { useAuth } from "../../context/AuthContext";
 
 const DepartmentMasterTable: React.FC = () => {
   const { departments, deleteDepartment } = useDepartmentContext();
   const [selectedRow, setSelectedRow] = React.useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   const [showActivityModal, setShowActivityModal] = React.useState(false);
-  const [activityLogs, setActivityLogs] = React.useState<any[]>([]);
+  // Pagination state
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const rowsPerPage = 10;
+  // activity logs are fetched on demand when user clicks the activity icon
   const [activityDepartment, setActivityDepartment] = React.useState<any>(null);
   const [approverFilter, setApproverFilter] = React.useState("");
   const [showFilterPopover, setShowFilterPopover] = React.useState(false);
@@ -27,6 +33,7 @@ const DepartmentMasterTable: React.FC = () => {
   const [tempFilterValue, setTempFilterValue] = React.useState(filterValue);
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   useEffect(() => {
     if (!showFilterPopover) return;
@@ -58,26 +65,92 @@ const DepartmentMasterTable: React.FC = () => {
     }
   });
 
+  // Reset to first page when filter changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [filterValue]);
+
+  const totalPages = Math.ceil(filteredData.length / rowsPerPage) || 1;
+  const paginatedData = filteredData.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  );
+
   // PDF Export Handler for Department Table
-  const handleExportPDF = () => {
+  const loadImage = (url: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.src = url;
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+    });
+  };
+
+  const handleExportPDF = async () => {
     const doc = new jsPDF({ orientation: "landscape" });
     const today = new Date();
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, "0");
     const dd = String(today.getDate()).padStart(2, "0");
     const fileName = `DepartmentMaster_${yyyy}-${mm}-${dd}.pdf`;
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const pageMargin = 14;
+    const headerHeight = 28;
+
+    // Header
+    doc.setFillColor(0, 82, 155);
+    doc.rect(0, 0, pageWidth, headerHeight, "F");
+
+    // Logo
+    let logoWidth = 0;
+    let logoHeight = 0;
+    if (login_headTitle2) {
+      try {
+        const img = await loadImage(login_headTitle2);
+        const maxLogoHeight = headerHeight * 0.6;
+        const scale = maxLogoHeight / img.height;
+        logoWidth = img.width * scale;
+        logoHeight = img.height * scale;
+        const logoY = headerHeight / 2 - logoHeight / 2;
+        doc.addImage(img, "PNG", pageMargin, logoY, logoWidth, logoHeight);
+      } catch (e) {
+        console.warn("Logo load failed", e);
+      }
+    }
+
+    // Title + Exported by
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    const titleX = pageMargin + logoWidth + 10;
+    const titleY = headerHeight / 2 + 5;
+    doc.text("Department Master", titleX, titleY);
+
+    doc.setFontSize(9);
+    doc.setTextColor(220, 230, 245);
+    const exportedByName =
+      (user && (user.name || user.username)) || "Unknown User";
+    const exportedText = `Exported by: ${exportedByName}  On: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
+    const textWidth = doc.getTextWidth(exportedText);
+    doc.text(exportedText, pageWidth - pageMargin - textWidth, titleY);
+
+    doc.setDrawColor(0, 82, 155);
+    doc.setLineWidth(0.5);
+    doc.line(0, headerHeight, pageWidth, headerHeight);
+
+    // Table
     const headers = [["Department Name", "Description", "Status"]];
     const rows = filteredData.map((department) => [
       department.name ?? "",
       department.description ?? "",
       department.status ?? "",
     ]);
-    doc.setFontSize(18);
-    doc.text("Department Master", 14, 18);
+
     autoTable(doc, {
       head: headers,
       body: rows,
-      startY: 28,
+      startY: headerHeight + 8,
       styles: {
         fontSize: 11,
         cellPadding: 3,
@@ -92,14 +165,29 @@ const DepartmentMasterTable: React.FC = () => {
       alternateRowStyles: {
         fillColor: [240, 245, 255],
       },
-      margin: { left: 14, right: 14 },
+      margin: { left: pageMargin, right: pageMargin },
       tableWidth: "auto",
     });
+
+    // Footer
+    const pageCount = (doc as any).internal.getNumberOfPages?.() || 1;
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.text("Unichem Laboratories", pageMargin, pageHeight - 6);
+      doc.text(
+        `Page ${i} of ${pageCount}`,
+        pageWidth - pageMargin - 30,
+        pageHeight - 6
+      );
+    }
+
     doc.save(fileName);
   };
 
   // PDF Export Handler for Activity Log
-  const handleExportActivityPDF = () => {
+  const handleExportActivityPDF = async () => {
     if (!activityDepartment) return;
     const doc = new jsPDF({ orientation: "landscape" });
     const today = new Date();
@@ -107,6 +195,52 @@ const DepartmentMasterTable: React.FC = () => {
     const mm = String(today.getMonth() + 1).padStart(2, "0");
     const dd = String(today.getDate()).padStart(2, "0");
     const fileName = `DepartmentActivityLog_${yyyy}-${mm}-${dd}.pdf`;
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const pageMargin = 14;
+    const headerHeight = 28;
+
+    // Header
+    doc.setFillColor(0, 82, 155);
+    doc.rect(0, 0, pageWidth, headerHeight, "F");
+
+    // Logo
+    let logoWidth = 0;
+    let logoHeight = 0;
+    if (login_headTitle2) {
+      try {
+        const img = await loadImage(login_headTitle2);
+        const maxLogoHeight = headerHeight * 0.6;
+        const scale = maxLogoHeight / img.height;
+        logoWidth = img.width * scale;
+        logoHeight = img.height * scale;
+        const logoY = headerHeight / 2 - logoHeight / 2;
+        doc.addImage(img, "PNG", pageMargin, logoY, logoWidth, logoHeight);
+      } catch (e) {
+        console.warn("Logo load failed", e);
+      }
+    }
+
+    // Title + exported by
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    const titleX = pageMargin + logoWidth + 10;
+    const titleY = headerHeight / 2 + 5;
+    doc.text("Department Activity Log", titleX, titleY);
+
+    doc.setFontSize(9);
+    doc.setTextColor(220, 230, 245);
+    const exportedByName =
+      (user && (user.name || user.username)) || "Unknown User";
+    const exportedText = `Exported by: ${exportedByName}  On: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
+    const textWidth = doc.getTextWidth(exportedText);
+    doc.text(exportedText, pageWidth - pageMargin - textWidth, titleY);
+
+    doc.setDrawColor(0, 82, 155);
+    doc.setLineWidth(0.5);
+    doc.line(0, headerHeight, pageWidth, headerHeight);
+
     const headers = [
       [
         "Action",
@@ -139,12 +273,11 @@ const DepartmentMasterTable: React.FC = () => {
         log.comments ?? "",
       ];
     });
-    doc.setFontSize(18);
-    doc.text("Department Activity Log", 14, 18);
+
     autoTable(doc, {
       head: headers,
       body: rows,
-      startY: 28,
+      startY: headerHeight + 8,
       styles: {
         fontSize: 11,
         cellPadding: 3,
@@ -159,15 +292,30 @@ const DepartmentMasterTable: React.FC = () => {
       alternateRowStyles: {
         fillColor: [240, 245, 255],
       },
-      margin: { left: 14, right: 14 },
+      margin: { left: pageMargin, right: pageMargin },
       tableWidth: "auto",
     });
+
+    // Footer
+    const pageCount = (doc as any).internal.getNumberOfPages?.() || 1;
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.text("Unichem Laboratories", pageMargin, pageHeight - 6);
+      doc.text(
+        `Page ${i} of ${pageCount}`,
+        pageWidth - pageMargin - 30,
+        pageHeight - 6
+      );
+    }
+
     doc.save(fileName);
   };
 
-  // Get activity logs for a specific department (by department name)
-  const getDepartmentActivityLogs = (departmentName: string) => {
-    return activityLogs.filter((log) => {
+  // Helper to filter logs by department name
+  const filterLogsForDepartment = (logs: any[], departmentName: string) => {
+    return logs.filter((log) => {
       try {
         const oldVal = log.old_value ? JSON.parse(log.old_value) : {};
         const newVal = log.new_value ? JSON.parse(log.new_value) : {};
@@ -181,18 +329,11 @@ const DepartmentMasterTable: React.FC = () => {
     });
   };
 
-  // Fetch logs from backend on modal open
-  useEffect(() => {
-    if (showActivityModal) {
-      fetchDepartmentActivityLogs()
-        .then(setActivityLogs)
-        .catch(() => setActivityLogs([]));
-    }
-  }, [showActivityModal]);
-
   const confirmDelete = async () => {
     if (selectedRow === null) return;
-    await deleteDepartment(departments[selectedRow].id);
+    // selectedRow stores index into filteredData (global index), so use filteredData
+    if (!filteredData[selectedRow]) return;
+    await deleteDepartment(filteredData[selectedRow].id);
     setSelectedRow(null);
     setShowDeleteModal(false);
   };
@@ -339,56 +480,70 @@ const DepartmentMasterTable: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredData.map((department, index) => (
-                <tr
-                  key={index}
-                  onClick={() => setSelectedRow(index)}
-                  style={{
-                    background: selectedRow === index ? "#f0f4ff" : undefined,
-                  }}
-                >
-                  <td>
-                    <input
-                      type="radio"
-                      className={styles.radioInput}
-                      checked={selectedRow === index}
-                      onChange={() => setSelectedRow(index)}
-                    />
-                  </td>
-                  <td>{department.name ?? ""}</td>
-                  <td>{department.description ?? ""}</td>
-                  <td>
-                    <span
-                      className={
-                        department.status === "INACTIVE"
-                          ? styles.statusInactive
-                          : styles.status
-                      }
-                    >
-                      {department.status ?? ""}
-                    </span>
-                  </td>
-                  <td>
-                    <span
-                      style={{ cursor: "pointer", color: "#0b63ce" }}
-                      title="View Activity Log"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        setActivityDepartment({
-                          name: department.name ?? "",
-                          logs: getDepartmentActivityLogs(
-                            department.name ?? ""
-                          ),
-                        });
-                        setApproverFilter("");
-                        setShowActivityModal(true);
-                      }}
-                    >
-                      <FaRegClock size={18} />
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {paginatedData.map((department, index) => {
+                const globalIndex = (currentPage - 1) * rowsPerPage + index;
+                return (
+                  <tr
+                    key={globalIndex}
+                    onClick={() => setSelectedRow(globalIndex)}
+                    style={{
+                      background:
+                        selectedRow === globalIndex ? "#f0f4ff" : undefined,
+                    }}
+                  >
+                    <td>
+                      <input
+                        type="radio"
+                        className={styles.radioInput}
+                        checked={selectedRow === globalIndex}
+                        onChange={() => setSelectedRow(globalIndex)}
+                      />
+                    </td>
+                    <td>{department.name ?? ""}</td>
+                    <td>{department.description ?? ""}</td>
+                    <td>
+                      <span
+                        className={
+                          department.status === "INACTIVE"
+                            ? styles.statusInactive
+                            : styles.status
+                        }
+                      >
+                        {department.status ?? ""}
+                      </span>
+                    </td>
+                    <td>
+                      <span
+                        style={{ cursor: "pointer", color: "#0b63ce" }}
+                        title="View Activity Log"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          setApproverFilter("");
+                          try {
+                            const logs = await fetchDepartmentActivityLogs();
+                            const filtered = filterLogsForDepartment(
+                              logs,
+                              department.name ?? ""
+                            );
+                            setActivityDepartment({
+                              name: department.name ?? "",
+                              logs: filtered,
+                            });
+                          } catch (err) {
+                            setActivityDepartment({
+                              name: department.name ?? "",
+                              logs: [],
+                            });
+                          }
+                          setShowActivityModal(true);
+                        }}
+                      >
+                        <FaRegClock size={18} />
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
               <ConfirmDeleteModal
                 open={showDeleteModal}
                 name={
@@ -401,6 +556,37 @@ const DepartmentMasterTable: React.FC = () => {
               />
             </tbody>
           </table>
+          {/* Pagination controls */}
+          <div className={paginationStyles.pagination} style={{ marginTop: 8 }}>
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className={
+                currentPage === 1
+                  ? paginationStyles.disabledPageBtn
+                  : paginationStyles.pageBtn
+              }
+            >
+              Previous
+            </button>
+            <span
+              className={paginationStyles.pageInfo}
+              style={{ margin: "0 12px" }}
+            >
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className={
+                currentPage === totalPages
+                  ? paginationStyles.disabledPageBtn
+                  : paginationStyles.pageBtn
+              }
+            >
+              Next
+            </button>
+          </div>
         </div>
       </div>
 

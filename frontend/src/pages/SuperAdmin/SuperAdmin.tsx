@@ -21,7 +21,11 @@ import {
   Notifications as NotificationsIcon,
   Settings as SettingsIcon,
   Assignment as AssignmentIcon,
+  ExpandMore,
+  ChevronRight,
 } from "@mui/icons-material";
+import { sidebarConfig,SidebarConfigItem } from "../../components/Common/sidebarConfig";
+import { useAbility } from "../../context/AbilityContext";
 // ----- Component -----
 import ServerInventoryMasterTable from "pages/ServerInventoryMasterTable/ServerInventoryMasterTable";
 import PlantMasterTable from "pages/PlantMasterTable/PlantMasterTable";
@@ -29,8 +33,6 @@ import DepartmentMasterTable from "pages/DepartmentMasterTable/DepartmentMasterT
 import VendorMasterTable from "pages/VendorMasterTable/VendorMasterTable";
 import ActivityMasterTable from "pages/ActivityMasterTable/ActivityMasterTable";
 import TaskTable from "pages/TaskClosureTracking/TaskClosureTracking";
-import ITSupport from "pages/PlantITSupport/PlantITSupportMaster";
-import ApprovalWorkflow from "pages/Approvalworkflow/WorkflowBuilder";
 import UserRequestTable from "pages/UserRequestTable/UserRequestTable";
 import RoleMasterTable from "pages/RoleMasterTable/RoleMasterTable";
 import UserMasterTable from "pages/UserMasterTable/UserMasterTable";
@@ -40,17 +42,14 @@ import SystemInventoryMasterTable from "pages/SystemInventoryMasterTable/SystemI
 import AddRoleFormPage from "RoleMaster/AddRoleFormPage";
 import EditRoleFormPage from "RoleMaster/EditRoleFormPage";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
+import HomeView from "../HomePage/HomePage";
+import MasterApprovalBin from "pages/MasterApprovalBin/MasterApprovalBin";
+import MasterApprovalDetails from "pages/MasterApprovalBin/MasterApprovalDetails";
+import PlantSupportBin from "pages/PlantITSupport/PlantITSupportMaster";
 import { useAuth } from "../../context/AuthContext";
 
 // ----- Types -----
 type Role = "superAdmin" | "plantAdmin" | "qaManager" | "user";
-
-type SidebarItem = {
-  key: string;
-  label: string;
-  icon: React.ReactNode;
-  perm: string;
-};
 
 interface DashboardCounts {
   applications: { total: string; active: string; inactive: string };
@@ -81,7 +80,10 @@ const SuperAdmin: React.FC = () => {
     if (location.state?.activeTab) return location.state.activeTab;
     return "dashboard";
   });
-
+// Expanded menus state
+  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(
+    new Set(["masters"])
+  );
   useEffect(() => {
     localStorage.setItem("superadmin_activeTab", activeTab);
   }, [activeTab]);
@@ -90,35 +92,115 @@ const SuperAdmin: React.FC = () => {
     logout();
     navigate("/");
   };
+ 
+// Handle navigation
+  const handleNavigation = (key: string, hasChildren: boolean) => {
+    if (hasChildren) {
+      // Toggle submenu
+      setExpandedMenus((prev) => {
+        const newSet = new Set(prev);
+        if (newSet.has(key)) {
+          newSet.delete(key);
+        } else {
+          newSet.add(key);
+        }
+        return newSet;
+      });
+    } else {
+      // Navigate to page
+      if (!disabledKeys.includes(key)) {
+        setActiveTab(key);
+        localStorage.setItem("superadmin_activeTab", key);
+      }
+    }
+  };
 
-  // ----- Sidebar config -----
-  const sidebarConfig: SidebarItem[] = [
-    { key: "dashboard", label: "Dashboard", icon: <DashboardIcon fontSize="small" />, perm: "dashboard:view" },
-    { key: "plant", label: "Plant Master", icon: <FactoryIcon fontSize="small" />, perm: "plantMaster:view" },
-    { key: "role", label: "Role Master", icon: <SecurityIcon fontSize="small" />, perm: "roleMaster:view" },
-    { key: "vendor", label: "Vendor Information", icon: <ListAltIcon fontSize="small" />, perm: "vendorMaster:view" },
-    { key: "department", label: "Department Master", icon: <SecurityIcon fontSize="small" />, perm: "department:view" },
-    { key: "application", label: "Application Master", icon: <AppsIcon fontSize="small" />, perm: "applicationMaster:view" },
-    { key: "user", label: "User Master", icon: <PersonIcon fontSize="small" />, perm: "userMaster:view" },
-    { key: "request", label: "User Request", icon: <ListAltIcon fontSize="small" />, perm: "userRequest:view" },
-    { key: "task", label: "Task", icon: <ListAltIcon fontSize="small" />, perm: "Task:view" },
-    { key: "activity-logs", label: "Activity Logs", icon: <ListAltIcon fontSize="small" />, perm: "activityMaster:view" },
-    { key: "workflow", label: "Approval Workflow", icon: <AssignmentIcon fontSize="small" />, perm: "workflow:view" },
-    {
-      key: "approval-workflow",
-      label: "Application Workflow",
-      icon: <AssignmentIcon fontSize="small" />,
-      perm: "workflow:view",
-    },
-    { key: "system", label: "System Inventory", icon: <AssignmentIcon fontSize="small" />, perm: "system:view" },
-    { key: "it-support", label: "IT Support", icon: <ListAltIcon fontSize="small" />, perm: "TaskPlantITSupport:view" },
-    {
-      key: "server",
-      label: "Server Inventory",
-      icon: <AssignmentIcon fontSize="small" />,
-      perm: "server:view",
-    },
-  ];
+  // Render menu item (with support for nesting)
+  const renderMenuItem = (item: SidebarConfigItem, level: number = 0) => {
+    const hasChildren = Boolean(item.children && item.children.length > 0);
+    const isExpanded = expandedMenus.has(item.key);
+    const isActive = activeTab === item.key;
+    const isDisabled = disabledKeys.includes(item.key);
+    const isParentOfActive =
+      hasChildren && item.children?.some((child) => child.key === activeTab);
+
+    return (
+      <div key={item.key}>
+        <button
+          className={`${styles["nav-button"]} ${
+            isActive || isParentOfActive ? styles.active : ""
+          }`}
+          onClick={() => !isDisabled && handleNavigation(item.key, hasChildren)}
+          disabled={isDisabled}
+          style={{
+            paddingLeft: `${16 + level * 20}px`,
+            opacity: isDisabled ? 0.5 : 1,
+            cursor: isDisabled ? "not-allowed" : "pointer",
+            fontWeight: isActive || isParentOfActive ? 700 : 400,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {item.icon} {item.label}
+          </span>
+          {hasChildren &&
+            (isExpanded ? (
+              <ExpandMore fontSize="small" />
+            ) : (
+              <ChevronRight fontSize="small" />
+            ))}
+        </button>
+
+        {hasChildren && isExpanded && (
+          <div
+            style={{
+              background: "rgba(255, 255, 255, 0.03)",
+              borderLeft: "2px solid rgba(255, 255, 255, 0.1)",
+              marginLeft: "12px",
+            }}
+          >
+            {item.children?.map((child) => renderMenuItem(child, level + 1))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Use shared sidebarConfig and an ability mapper to translate legacy perm names
+  const ability = useAbility();
+
+  const mapSidebarPermToAbility = (perm?: string) => {
+    if (!perm) return null;
+    // Example: "roleMaster:view" -> action: view -> read, subject: roles
+    const [subjectKey, action] = perm.split(":");
+    const actionMap: Record<string, string> = {
+      view: "read",
+      add: "create",
+      edit: "update",
+      delete: "delete",
+    };
+    const subjectMap: Record<string, string> = {
+      roleMaster: "roles",
+      plantMaster: "plants",
+      vendorMaster: "vendors",
+      department: "departments",
+      applicationMaster: "applications",
+      userMaster: "users",
+      userRequest: "user_requests",
+      activityMaster: "activity",
+      workflow: "workflows",
+      system: "systems",
+      server: "servers",
+      dashboard: "dashboard",
+      Task: "tasks",
+      TaskPlantITSupport :"it_support"
+    };
+    const act = actionMap[action] || action;
+    const subj = subjectMap[subjectKey] || subjectKey;
+    return `${act}:${subj}`;
+  };
 
   // ----- Role mapping for multi-role users -----
   const getRolesFromIds = (roleIds: number[]): Role[] => {
@@ -140,7 +222,7 @@ const SuperAdmin: React.FC = () => {
     );
   };
 
-  // ----- Compute user permissions based on roles -----
+  // ----- Compute user roles for display -----
   const roleIdsArray: number[] = user
     ? Array.isArray(user.role_id)
       ? user.role_id
@@ -148,38 +230,16 @@ const SuperAdmin: React.FC = () => {
       ? [user.role_id]
       : []
     : [];
-
-  console.log("[SuperAdmin] roleIdsArray:", roleIdsArray);
   const userRoles = getRolesFromIds(roleIdsArray);
 
-  console.log("[SuperAdmin] roleIdsArray:", roleIdsArray);
-
-  let userPermissions: string[] = [];
-  if (userRoles.includes("superAdmin")) {
-    userPermissions = sidebarConfig.map((item) => item.perm);
-  } else {
-    const perms: string[] = [];
-    if (userRoles.includes("plantAdmin")) {
-      perms.push(
-        "dashboard:view",
-        "plantMaster:view",
-        "userMaster:view",
-        "workflow:view"
-      );
-    }
-    if (userRoles.includes("qaManager")) {
-      perms.push(
-        "dashboard:view",
-        "roleMaster:view",
-        "applicationMaster:view",
-        "workflow:view"
-      );
-    }
-    userPermissions = Array.from(new Set(perms)); // remove duplicates
-  }
-
+  // Determine disabled keys using ability checks (falls back to role-based SuperAdmin handling)
   const disabledKeys = sidebarConfig
-    .filter((item) => !userPermissions.includes(item.perm))
+    .filter((item) => {
+      const mapped = mapSidebarPermToAbility(item.perm);
+      if (!mapped) return false; // don't disable if unknown
+      // SuperAdmin will have manage:all and ability.can will reflect that
+      return !ability.can(mapped as any);
+    })
     .map((item) => item.key);
 
   // ----- Role Master panel state -----
@@ -206,6 +266,8 @@ const SuperAdmin: React.FC = () => {
   // ----- Render main content -----
   const renderContent = () => {
     switch (activeTab) {
+      case "home":
+        return <HomeView/>;
       case "dashboard":
         return <DashboardView handleLogout={handleLogout} />;
       case "plant":
@@ -221,20 +283,33 @@ const SuperAdmin: React.FC = () => {
             />
           );
         }
-        return <RoleMasterTable onAdd={handleRoleAdd} onEdit={handleRoleEdit} />;
-      case "vendor": return <VendorMasterTable />;
-      case "department": return <DepartmentMasterTable />;
-      case "application": return <ApplicationMasterTable />;
-      case "user": return <UserMasterTable />;
-      case "request": return <UserRequestTable />;
-      case "workflow": return <WorkflowBuilder />;
-      case "approval-workflow": return <ApprovalWorkflow />;
-      case "system": return <SystemInventoryMasterTable />;
-      case "activity-logs": return <ActivityMasterTable />;
-      case "task": return <TaskTable />;
-      case "it-support": return <ITSupport />;
+        return (
+          <RoleMasterTable onAdd={handleRoleAdd} onEdit={handleRoleEdit} />
+        );
+      case "vendor":
+        return <VendorMasterTable />;
+      case "department":
+        return <DepartmentMasterTable />;
+      case "application":
+        return <ApplicationMasterTable />;
+      case "user":
+        return <UserMasterTable />;
+      case "request":
+        return <UserRequestTable />;
+      case "workflow":
+        return <WorkflowBuilder />;
+      case "system":
+        return <SystemInventoryMasterTable />;
+      case "activity-logs":
+        return <ActivityMasterTable />;
+      case "task":
+        return <TaskTable />;
       case "server":
         return <ServerInventoryMasterTable />;
+      case "master-approval":
+        return <MasterApprovalBin />;
+        case "plant-itsupport":
+        return <PlantSupportBin />;
       default:
         return null;
     }
@@ -251,32 +326,11 @@ const SuperAdmin: React.FC = () => {
             style={{ width: 250, height: 35 }}
           />
           <br />
-          <span>Unichem Laboratories</span>
+          <span className={styles.version}>version-1.0</span>
         </div>
         <nav>
           <div className={styles["sidebar-group"]}>OVERVIEW</div>
-          {sidebarConfig.map((item) => (
-            <button
-              key={item.key}
-              className={`${styles["nav-button"]} ${
-                activeTab === item.key ? styles.active : ""
-              }`}
-              onClick={() => {
-                if (!disabledKeys.includes(item.key)) {
-                  setActiveTab(item.key);
-                  localStorage.setItem("superadmin_activeTab", item.key);
-                }
-              }}
-              disabled={disabledKeys.includes(item.key)}
-              style={
-                disabledKeys.includes(item.key)
-                  ? { opacity: 0.5, cursor: "not-allowed" }
-                  : {}
-              }
-            >
-              {item.icon} {item.label}
-            </button>
-          ))}
+          {sidebarConfig.map((item) => renderMenuItem(item))}
           <div className={styles["sidebar-footer"]}>
             <div className={styles["admin-info"]}>
               <div className={styles.avatar}>A</div>

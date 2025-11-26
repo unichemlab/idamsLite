@@ -22,13 +22,11 @@ import {
 } from "@mui/material";
 import login_headTitle2 from "../assets/login_headTitle2.png";
 import { useAuth } from "../context/AuthContext";
-
-/**
- * Self-contained Approver Dashboard
- *
- * - Replace endpoints if backend routes differ
- * - Copies local state for requests and approvalHistory
- */
+import {
+  fetchTasksForApprover,
+  fetchWorkflows,
+  postApprovalAction,
+} from "../utils/api";
 
 // Types
 interface AccessRequest {
@@ -58,7 +56,6 @@ interface ApprovalAction {
 const ApproverDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:4000";
 
   const [activeTab, setActiveTab] = useState<
     "access-requests" | "approved-rejected"
@@ -77,10 +74,6 @@ const ApproverDashboard: React.FC = () => {
   const [actionInProgress, setActionInProgress] = useState(false);
 
   useEffect(() => {
-    // Load requests and approval history regardless of whether `user.id` exists in the
-    // auth object. Backend currently returns all user_requests (with nested tasks),
-    // so frontend will map and display per-task rows. This avoids the dashboard
-    // showing "No requests found" when `user.id` is not present in AuthContext.
     loadRequestsAndHistory();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -92,95 +85,92 @@ const ApproverDashboard: React.FC = () => {
   async function fetchRequests() {
     setLoading(true);
     try {
-      // Approach:
-      // 1) If user is authenticated, fetch workflows where this user is an approver
-      //    -> that returns workflow rows including plant_id
-      // 2) Use the plant_id list to fetch tasks and filter tasks that belong to those plants
-      const token = (user as any)?.token || localStorage.getItem("token");
-      const headers: Record<string, string> = {};
-      if (token) headers.Authorization = `Bearer ${token}`;
-
-      // API base URL fallback to local backend when env not set (avoids dev server returning index.html)
-      const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:4000";
-
-      let plantIds: number[] = [];
-      if ((user as any)?.id) {
-        const wRes = await fetch(
-          `${API_BASE}/api/workflows?approver_id=${encodeURIComponent(
-            (user as any).id
-          )}`,
-          { method: "GET", headers }
-        );
-        if (wRes.ok) {
-          const wdata = await wRes.json();
-          // workflowController returns { workflows }
-          const workflows = wdata.workflows || wdata || [];
-          plantIds = Array.from(
-            new Set(
-              workflows
-                .map((w: any) => Number(w.plant_id))
-                .filter((n: number) => !isNaN(n))
-            )
-          );
-        }
+      if (!user?.id) {
+        setRequests([]);
+        return;
       }
 
-      // Fetch all tasks and filter client-side by plant ids. If there are no plantIds
-      // for the approver, fall back to matching tasks by approver name/id so approver
-      // still sees their items.
-      const tRes = await fetch(`${API_BASE}/api/task`, {
-        method: "GET",
-        headers,
-      });
-      if (!tRes.ok) throw new Error("Failed to fetch tasks");
-      const tasks = await tRes.json();
+      const [tasks, workflowsResponse]: [any, any] = await Promise.all([
+        fetchTasksForApprover(user.id),
+        // ask backend to return only workflows relevant to this approver when possible
+        fetchWorkflows(Number(user.id)),
+      ]);
 
-      // Map tasks rows to AccessRequest and filter by plantIds or approver match
-      const mapped: AccessRequest[] = Array.isArray(tasks)
-        ? tasks
-            .filter((tr: any) => {
-              const loc = tr.location ?? tr.plant_id ?? tr.plantId ?? null;
-              const locNum = loc !== null ? Number(loc) : null;
+      // workflowsResponse can be an object with a 'workflows' property, or an array directly
+      let workflows: any[] = [];
+      const wfResp: any = workflowsResponse;
+      if (Array.isArray(wfResp)) {
+        workflows = wfResp;
+      } else if (
+        wfResp &&
+        typeof wfResp === "object" &&
+        "workflows" in wfResp &&
+        Array.isArray(wfResp.workflows)
+      ) {
+        workflows = wfResp.workflows;
+      }
 
-              // If we have plantIds for this approver, filter by them
-              if (plantIds && plantIds.length > 0) {
-                return locNum !== null && plantIds.includes(locNum);
-              }
-
-              // Otherwise, try to match by approver identity (reports_to, assigned_to, assigned_to_name)
-              const username = (user as any)?.username || "";
-              if (
-                tr.assigned_to &&
-                Number(tr.assigned_to) === Number((user as any)?.id)
+      // workflows may store approver ids as numbers; compare numerically/string-safe
+      // Workflows may come in two shapes:
+      // - legacy: { approver_1_id, approver_2_id, ... }
+      // - modern: { approvers: [ [userObj...], [userObj...], ... ] }
+      const approverPlantIds = workflows
+        .filter((wf: any) => {
+          // modern shape: check approvers arrays for a matching user id
+          if (Array.isArray(wf.approvers) && wf.approvers.length) {
+            return wf.approvers.some((group: any[]) =>
+              group.some(
+                (u: any) =>
+                  String(u?.id || u?.user_id || u?.employee_id) ===
+                  String(user.id)
               )
-                return true;
-              if (
-                tr.assigned_to_name &&
-                typeof tr.assigned_to_name === "string"
-              ) {
-                if (
-                  tr.assigned_to_name
-                    .toLowerCase()
-                    .includes(username.toLowerCase())
-                )
-                  return true;
-              }
-              if (tr.reports_to && typeof tr.reports_to === "string") {
-                if (
-                  tr.reports_to.toLowerCase().includes(username.toLowerCase())
-                )
-                  return true;
-              }
+            );
+          }
 
-              // fallback: include tasks where task_request_transaction_id or requestor matches
-              return false;
+          // fallback to legacy comma-separated fields
+          return [
+            wf.approver_1_id,
+            wf.approver_2_id,
+            wf.approver_3_id,
+            wf.approver_4_id,
+            wf.approver_5_id,
+          ].some((approver) =>
+            String(approver || "")
+              .split(",")
+              .map((s) => s.trim())
+              .includes(String(user.id))
+          );
+        })
+        .map((wf: any) => Number(wf.plant_id));
+
+      console.log("ApproverDashboard approverPlantIds:", approverPlantIds);
+
+      const mapped = Array.isArray(tasks)
+        ? tasks
+            .filter((tr) => {
+              const locNum = Number(tr.location);
+              const isInApproverPlant = approverPlantIds.includes(locNum);
+              const isDirectlyAssigned = tr.reports_to === user.username;
+              // Only show PENDING requests in Access Requests tab
+              const isPending = (tr.task_status || "Pending") === "Pending";
+              return isPending && (isInApproverPlant || isDirectlyAssigned);
             })
-            .map((tr: any) => ({
+            .map((tr) => ({
+              // Ensure a stable, unique id for React list keys. Combine user_request_id and task id/transaction
               id:
+                (tr.user_request_id ? String(tr.user_request_id) + "-" : "") +
+                (tr.task_request_transaction_id ||
+                  tr.transaction_id ||
+                  tr.task_id ||
+                  String(tr.task_id || tr.transaction_id)),
+              // Raw transaction id required by approvals API
+              transaction:
                 tr.task_request_transaction_id ||
                 tr.transaction_id ||
                 tr.task_id ||
                 String(tr.task_id || tr.transaction_id),
+              // Include user_request_id so backend can scope the update to this request
+              user_request_id: tr.user_request_id,
               user: tr.request_name || tr.requestor_name || tr.name || "-",
               approver: tr.reports_to || tr.reportsTo || undefined,
               application:
@@ -199,9 +189,11 @@ const ApproverDashboard: React.FC = () => {
             }))
         : [];
 
+      console.log("ApproverDashboard mapped requests (PENDING only):", mapped);
+
       setRequests(mapped);
     } catch (err) {
-      console.error("[DEBUG] fetchRequests error:", err);
+      console.error("Error fetching requests:", err);
       setRequests([]);
     } finally {
       setLoading(false);
@@ -214,128 +206,116 @@ const ApproverDashboard: React.FC = () => {
       return;
     }
     try {
-      const token = (user as any)?.token || localStorage.getItem("token");
-      const headers: Record<string, string> = {};
-      if (token) headers.Authorization = `Bearer ${token}`;
-      const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:4000";
-      const res = await fetch(
-        `${API_BASE}/api/task?approver_id=${encodeURIComponent(user.id)}`,
-        {
-          method: "GET",
-          headers,
-        }
-      );
-      if (!res.ok) {
-        // allow fallback to empty list
-        throw new Error("Failed to fetch approval history");
-      }
-      const data = await res.json();
+      const data: any = await fetchTasksForApprover(Number(user.id));
       const mapped: ApprovalAction[] = Array.isArray(data)
-        ? data.map((tr: any) => ({
-            approverName:
-              tr.reports_to ||
-              tr.approver_name ||
-              tr.approver ||
-              tr.username ||
-              "-",
-            approverRole: tr.role_name || tr.approver_role || tr.role || "-",
-            plant: tr.plant_name || tr.plant || "-",
-            corporate: tr.corporate_name || "Unichem Corp",
-            action:
-              tr.task_status === "Approved"
-                ? "Approved"
-                : tr.task_status === "Rejected"
-                ? "Rejected"
-                : tr.task_status || "Pending",
-            timestamp: tr.updated_on || tr.created_on || tr.timestamp || "",
-            comments: tr.remarks || tr.comments || "",
-          }))
+        ? data
+            // Filter to show only APPROVED or REJECTED (not Pending)
+            .filter((tr: any) => {
+              const status = tr.task_status || "Pending";
+              return status === "Approved" || status === "Rejected";
+            })
+            .map((tr: any) => {
+              // Determine which approver actually approved/rejected
+              let approverName = "-";
+              let approverAction = tr.task_status || "Pending";
+
+              // Check if Approver2 took the action
+              if (tr.approver2_action && tr.approver2_action !== "Pending") {
+                approverName =
+                  tr.approver2_name || tr.approver2_email || "Approver 2";
+                approverAction = tr.approver2_action;
+              }
+              // Otherwise check Approver1
+              else if (
+                tr.approver1_action &&
+                tr.approver1_action !== "Pending"
+              ) {
+                approverName =
+                  tr.approver1_name || tr.approver1_email || "Approver 1";
+                approverAction = tr.approver1_action;
+              }
+              // Fallback to legacy field
+              else {
+                approverName =
+                  tr.reports_to ||
+                  tr.approver_name ||
+                  tr.approver ||
+                  tr.username ||
+                  "-";
+              }
+
+              return {
+                approverName,
+                approverRole:
+                  tr.role_name || tr.approver_role || tr.role || "-",
+                plant: tr.plant_name || tr.plant || "-",
+                corporate: tr.corporate_name || "Unichem Corp",
+                action: approverAction,
+                timestamp:
+                  tr.approver2_action_timestamp ||
+                  tr.approver1_action_timestamp ||
+                  tr.updated_on ||
+                  tr.created_on ||
+                  tr.timestamp ||
+                  "",
+                comments: tr.remarks || tr.comments || "",
+              };
+            })
         : [];
+      console.log(
+        "ApproverDashboard approval history (APPROVED/REJECTED only):",
+        mapped
+      );
       setApprovalHistory(mapped);
     } catch (err) {
-      console.warn("fetchApprovalHistory error:", err);
+      console.error("Error fetching approval history:", err);
       setApprovalHistory([]);
     }
   }
 
-  // Approve action
   const handleApprove = async () => {
     if (!selectedRequest || !user?.id) return;
     setActionInProgress(true);
     try {
-      // Adjust endpoint if your backend differs
-      const token = (user as any)?.token || localStorage.getItem("token");
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      if (token) headers.Authorization = `Bearer ${token}`;
-      const res = await fetch(
-        `${API_BASE}/api/approvals/${encodeURIComponent(
-          selectedRequest.id
-        )}/approve`,
+      await postApprovalAction(
+        String((selectedRequest as any).transaction),
+        "approve",
         {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            approver_id: user.id,
-            comments: actionComments,
-          }),
+          approver_id: user.id,
+          comments: actionComments,
         }
       );
-      if (!res.ok) {
-        const txt = await res.text().catch(() => "");
-        throw new Error(`Approve failed: ${res.status} ${txt}`);
-      }
-      // refresh lists
       await fetchRequests();
       await fetchApprovalHistory();
       setOpenApproveDialog(false);
       setSelectedRequest(null);
       setActionComments("");
     } catch (err) {
-      console.error("handleApprove error:", err);
-      // you may show a toast/snackbar here
+      // handle error
     } finally {
       setActionInProgress(false);
     }
   };
 
-  // Reject action
   const handleReject = async () => {
     if (!selectedRequest || !user?.id) return;
     setActionInProgress(true);
     try {
-      // Adjust endpoint if your backend differs
-      const token = (user as any)?.token || localStorage.getItem("token");
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      if (token) headers.Authorization = `Bearer ${token}`;
-      const res = await fetch(
-        `${API_BASE}/api/approvals/${encodeURIComponent(
-          selectedRequest.id
-        )}/reject`,
+      await postApprovalAction(
+        String((selectedRequest as any).transaction),
+        "reject",
         {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            approver_id: user.id,
-            comments: actionComments,
-          }),
+          approver_id: user.id,
+          comments: actionComments,
         }
       );
-      if (!res.ok) {
-        const txt = await res.text().catch(() => "");
-        throw new Error(`Reject failed: ${res.status} ${txt}`);
-      }
-      // refresh lists
       await fetchRequests();
       await fetchApprovalHistory();
       setOpenRejectDialog(false);
       setSelectedRequest(null);
       setActionComments("");
     } catch (err) {
-      console.error("handleReject error:", err);
+      // handle error
     } finally {
       setActionInProgress(false);
     }
@@ -351,7 +331,6 @@ const ApproverDashboard: React.FC = () => {
     navigate("/");
   };
 
-  // Internal Access Requests table (simple)
   const AccessRequestsTable: React.FC<{
     requests: AccessRequest[];
     onView: (r: AccessRequest) => void;
@@ -399,7 +378,6 @@ const ApproverDashboard: React.FC = () => {
                           <VisibilityOutlinedIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
-
                       {r.requestStatus === "Pending" && (
                         <>
                           <Tooltip title="Approve">
@@ -412,7 +390,6 @@ const ApproverDashboard: React.FC = () => {
                               <CheckCircleOutlineIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
-
                           <Tooltip title="Reject">
                             <IconButton
                               size="small"
@@ -436,7 +413,6 @@ const ApproverDashboard: React.FC = () => {
     );
   };
 
-  // Internal Approval History table
   const ApprovalHistoryTable: React.FC<{ actions: ApprovalAction[] }> = ({
     actions,
   }) => {
@@ -487,7 +463,6 @@ const ApproverDashboard: React.FC = () => {
   };
 
   const handleViewRequest = (r: AccessRequest) => {
-    // navigate to details page if you have it
     navigate(`/access-request/${encodeURIComponent(r.id)}`, {
       state: { request: r },
     });
@@ -515,12 +490,10 @@ const ApproverDashboard: React.FC = () => {
             style={{ width: 250, height: 35 }}
           />
           <br />
-          <span>Unichem Laboratories</span>
+          <span className={styles.version}>version-1.0</span>
         </div>
-
         <nav>
           <div className={styles["sidebar-group"]}>OVERVIEW</div>
-
           <button
             className={`${styles["nav-button"]} ${
               activeTab === "access-requests" ? styles.active : ""
@@ -529,7 +502,6 @@ const ApproverDashboard: React.FC = () => {
           >
             <ListAltIcon fontSize="small" /> &nbsp; Access Requests
           </button>
-
           <button
             className={`${styles["nav-button"]} ${
               activeTab === "approved-rejected" ? styles.active : ""
@@ -538,7 +510,6 @@ const ApproverDashboard: React.FC = () => {
           >
             <AssignmentIcon fontSize="small" /> &nbsp; Approved/Rejected By
           </button>
-
           <div className={styles["sidebar-footer"]}>
             <div className={styles["admin-info"]}>
               <div className={styles.avatar}>
@@ -551,14 +522,12 @@ const ApproverDashboard: React.FC = () => {
                 </div>
               </div>
             </div>
-
             <button className={styles["logout-button"]} onClick={handleLogout}>
               <LogoutIcon fontSize="small" /> &nbsp; Logout
             </button>
           </div>
         </nav>
       </aside>
-
       <main className={styles["main-content"]}>
         <header className={styles["main-header"]}>
           <h2 className={styles["header-title"]}>Approver Dashboard</h2>
@@ -571,7 +540,6 @@ const ApproverDashboard: React.FC = () => {
             </span>
           </div>
         </header>
-
         <div className={styles.pageContent}>
           {loading ? (
             <div
@@ -599,7 +567,6 @@ const ApproverDashboard: React.FC = () => {
           )}
         </div>
       </main>
-
       {/* Approve dialog */}
       <Dialog
         open={openApproveDialog}
@@ -643,7 +610,6 @@ const ApproverDashboard: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Reject dialog */}
       <Dialog
         open={openRejectDialog}

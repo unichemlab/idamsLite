@@ -1,0 +1,20 @@
+// Canonical RBAC subject names used across frontend and backend
+// Keep this list small and add entries as features are implemented.
+const SUBJECTS = {
+  USER_MASTER: "USER_MASTER",
+  ROLE_MASTER: "ROLE_MASTER",
+  APPLICATION_MASTER: "APPLICATION_MASTER",
+  USER_REQUESTS: "USER_REQUESTS",
+  TASK_CLOSURE: "TASK_CLOSURE",
+  ACCESS_LOG: "ACCESS_LOG",
+  ACTIVITY_LOG: "ACTIVITY_LOG",
+  SYSTEM: "SYSTEM",
+  PLANT: "PLANT",
+  VENDOR: "VENDOR",
+  DEPARTMENT: "DEPARTMENT",
+  SERVER_INVENTORY: "SERVER_INVENTORY",
+  SYSTEM_INVENTORY: "SYSTEM_INVENTORY",
+  APPROVALS: "APPROVALS",
+};
+
+export default SUBJECTS;
