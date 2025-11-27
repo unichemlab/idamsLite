@@ -432,7 +432,7 @@ exports.getUserByEmployeeCode = async (req, res) => {
     const query = `
       SELECT 
       id,
-        employee_employee_name AS name,
+        employee_name AS name,
         employee_code,
         location,
         department,
@@ -452,7 +452,7 @@ exports.getUserByEmployeeCode = async (req, res) => {
 
     res.json({
       id:user.id,
-      employee_name: user.employee_name,
+      name: user.name,
       employee_code: user.employee_code,
       location: user.location,
       department: user.department,

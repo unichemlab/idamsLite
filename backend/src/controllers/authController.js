@@ -366,9 +366,8 @@ if (isITBin) {
       isITBin,
       itPlants: isITBin ? itPlants : [], // Full plant details for IT BIN admins
       itPlantIds: isITBin ? itPlantIds : [], // Just IDs for quick checks
-      
       // User's assigned plant/location
-      location: userLocation,
+      location: user.location,
       plant_name: userPlantName,
       department: user.department,
       designation: user.designation,
@@ -392,7 +391,7 @@ if (isITBin) {
         name: user.employee_name,
         employee_code: user.employee_code,
          email: user.email,
-        location: userLocation,
+        location: user.location,
         plant_name: userPlantName,
         department: user.department,
         designation: user.designation,

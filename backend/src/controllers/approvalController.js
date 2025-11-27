@@ -31,6 +31,7 @@ const getUserRequestWithTasks = async (id) => {
 
   const { rows: taskRows } = await pool.query(
     `SELECT 
+    tr.id,
       tr.transaction_id AS task_id,
       tr.application_equip_id,
       app.display_name AS application_name,
@@ -66,6 +67,7 @@ const getUserRequestWithTasks = async (id) => {
   );
 
   const tasks = taskRows.map((t) => ({
+    id: t.id,
     task_id: t.task_id,
     application_equip_id: t.application_equip_id,
     application_name: t.application_name,
@@ -74,6 +76,7 @@ const getUserRequestWithTasks = async (id) => {
     role_id: t.role,
     role_name: t.role_name,
     location: t.location_name,
+    location_id: t.location,
     reports_to: t.reports_to,
     task_status: t.task_status,
     approver2_emails: t.approver_2_emails,
@@ -99,7 +102,7 @@ exports.handleApproval = async (req, res) => {
     const { request, tasks } = data;
     request.approver2_emails = tasks[0]?.approver2_emails;
     console.log("request", request);
-    console.log("tasks", tasks[0]?.approver2_emails);
+    console.log("tasks", tasks);
 
     // ---------------- VALIDATE TOKEN ----------------
     let validRequestId = verifyToken(token, approverEmail);
@@ -107,7 +110,7 @@ exports.handleApproval = async (req, res) => {
 
     // Check if token exists in DB
     const { rows: tokenRows } = await pool.query(
-      `SELECT * FROM approver2_tokens 
+      `SELECT * FROM approver_tokens 
        WHERE token=$1 
          AND approver_email=$2 
          AND is_valid=TRUE`,
@@ -324,6 +327,7 @@ exports.handleApproval = async (req, res) => {
            WHERE request_id=$1 AND approver_type='approver2'`,
           [id, action]
         );
+        console.log("tasks", tasks);
         // INSERT ACCESS LOG FOR EACH TASK
         for (const task of tasks) {
           await insertAccessLog(
@@ -388,7 +392,7 @@ async function insertAccessLog(
       request.id,
       task.id,
       request.transaction_id,
-      task.transaction_id,
+      task.task_id,
       request.request_for_by,
       request.name,
       request.employee_code,
@@ -402,9 +406,9 @@ async function insertAccessLog(
       request.status,
       task.task_status,
       task.application_equip_id,
-      task.department,
-      task.role,
-      task.location,
+      task.department_id,
+      task.role_id,
+      task.location_id,
       task.reports_to,
       request.approver1_status,
       request.approver2_status,

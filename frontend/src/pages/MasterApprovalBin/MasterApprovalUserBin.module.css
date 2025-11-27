@@ -2,13 +2,13 @@
 
 /* Filter Bar */
 .filterBar {
-      display: flex;
-    gap: 20px;
-    padding: 60px 19px;
-    background: #f8f9fa;
-    border-radius: 8px;
-    margin-bottom: 5px;
-    align-items: center;
+  display: flex;
+  gap: 20px;
+  padding: 74px 24px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  align-items: center;
 }
 
 .filterGroup {

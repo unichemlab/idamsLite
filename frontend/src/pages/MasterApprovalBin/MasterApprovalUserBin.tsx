@@ -1,13 +1,14 @@
 // frontend/src/pages/ApprovalBin/ApprovalBin.tsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect,useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchApprovals, approveApproval, rejectApproval } from "../../utils/api";
-import superAdminStyles from "../SuperAdmin/SuperAdmin.module.css";
+import headerstyles from "../HomePage/homepageUser.module.css";
 import styles from "./MasterApprovalBin.module.css";
-import NotificationsIcon from "@mui/icons-material/Notifications";
-import SettingsIcon from "@mui/icons-material/Settings";
-import ProfileIconWithLogout from "../../components/Common/ProfileIconWithLogout";
+import login_headTitle2 from "../../assets/login_headTitle2.png";
+import { useAuth } from "../../context/AuthContext";
+import { FiChevronDown,FiBriefcase,FiLogOut,} from "react-icons/fi";
+
 interface Approval {
   id: number;
   module: string;
@@ -29,6 +30,7 @@ interface Approval {
 
 const ApprovalBin: React.FC = () => {
   const navigate = useNavigate();
+   const { user, logout } = useAuth();
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState({
@@ -39,7 +41,20 @@ const ApprovalBin: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [modalAction, setModalAction] = useState<"approve" | "reject" | null>(null);
   const [actionComments, setActionComments] = useState("");
-
+   const [showUserMenu, setShowUserMenu] = useState(false);
+   const menuRef = useRef<HTMLDivElement>(null);
+    // Close menu when clicking outside
+    useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+        if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+          setShowUserMenu(false);
+        }
+      };
+  
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+  
   useEffect(() => {
     loadApprovals();
   }, [filter]);
@@ -163,26 +178,180 @@ const ApprovalBin: React.FC = () => {
       );
     }
   };
+   const handleLogout = () => {
+    logout();
+    navigate("/");
+  };
 
   return (
     <div>
       
-        <header className={superAdminStyles["main-header"]}>
-        <h2 className={superAdminStyles["header-title"]}>Admin Approval Bin</h2>
-        <div className={superAdminStyles["header-icons"]}>
-          <span className={superAdminStyles["header-icon"]}>
-            <NotificationsIcon fontSize="small" />
-          </span>
-          <span className={superAdminStyles["header-icon"]}>
-            <SettingsIcon fontSize="small" />
-          </span>
-          <ProfileIconWithLogout />
+        {/* Navbar */}
+      <header className={headerstyles["main-header"]}>
+        <div className={headerstyles.navLeft}>
+          <div className={headerstyles.logoWrapper}>
+            <img src={login_headTitle2} alt="Logo" className={headerstyles.logo} />
+            <span className={headerstyles.version}>version-1.0</span>
+          </div>
+          <h1 className={headerstyles.title}>User Access Management</h1>
+        </div>
+
+
+        <div className={headerstyles.navRight}>
+          {user && (
+            <div style={{ position: "relative" }} ref={menuRef}>
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className={headerstyles.userButton}
+              >
+                {/* Avatar */}
+                <div className={headerstyles.avatarContainer}>
+                  <div className={headerstyles.avatar}>
+                    {(user.name || user.username || "U")
+                      .charAt(0)
+                      .toUpperCase()}
+                  </div>
+                  <div className={headerstyles.statusDot}></div>
+                </div>
+
+                {/* User Name */}
+                <div className={headerstyles.userInfo}>
+                  <span className={headerstyles.userName}>
+                    {user.name || user.username}
+                  </span>
+                  {user.isITBin && (
+                    <span className={headerstyles.userRole}>IT Admin</span>
+                  )}
+                  {user.isApprover && (
+                    <span className={headerstyles.userRole}>Approver</span>
+                  )}
+                </div>
+
+                {/* Dropdown Arrow */}
+                <FiChevronDown
+                  size={16}
+                  color="#64748b"
+                  style={{
+                    transition: "transform 0.2s",
+                    transform: showUserMenu ? "rotate(180deg)" : "rotate(0deg)",
+                  }}
+                />
+              </button>
+
+              {/* Dropdown Menu */}
+              {showUserMenu && (
+                <div className={headerstyles.dropdownMenu}>
+                  <div className={headerstyles.dropdownHeader}>
+                    <div className={headerstyles.dropdownAvatar}>
+                      <div className={headerstyles.dropdownAvatarCircle}>
+                        {(user.name || user.username || "U")
+                          .charAt(0)
+                          .toUpperCase()}
+                      </div>
+                      <div className={headerstyles.dropdownUserInfo}>
+                        <span className={headerstyles.dropdownUserName}>
+                          {user.name || user.username}
+                        </span>
+                        {user.employee_code && (
+                          <span className={headerstyles.dropdownEmployeeCode}>
+                            {user.employee_code}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* {user.isITBin && (
+                      <div className={styles.adminBadge}>
+                        <FiShield size={14} />
+                        <span>IT BIN Administrator</span>
+                      </div>
+                    )} */}
+                  </div>
+
+                  {/* Contact Info */}
+                  {/* <div className={styles.dropdownInfo}>
+                    {user.email && (
+                      <div className={styles.infoItem}>
+                        <FiMail size={16} />
+                        <span>{user.email}</span>
+                      </div>
+                    )}
+                    {user.location && (
+                      <div className={styles.infoItem}>
+                        <FiMapPin size={16} />
+                        <span>{user.location}</span>
+                      </div>
+                    )}
+                    {user.designation && (
+                      <div className={styles.infoItem}>
+                        <FiBriefcase size={16} />
+                        <span>{user.designation}</span>
+                      </div>
+                    )}
+                  </div> */}
+
+                  {/* Actions */}
+                  <div className={headerstyles.dropdownActions}>
+                    <button
+                      onClick={() => navigate("/homepage")}
+                      className={headerstyles.dropdownButton}
+                    >
+                      <FiBriefcase size={16} />
+                      <span>Home</span>
+                    </button>
+                    <button
+                      onClick={() => navigate("/user-access-management")}
+                      className={headerstyles.dropdownButton}
+                    >
+                      <FiBriefcase size={16} />
+                      <span>User Access Management</span>
+                    </button>
+                    {user?.isITBin && (
+                      <button
+                        onClick={() => navigate("/task")}
+                        className={headerstyles.dropdownButton}
+                      >
+                        <FiBriefcase size={16} />
+                         <span>Task Closure</span>
+                      </button>
+                    )}
+                     {user?.isApprover && (
+                      <button
+                        onClick={() => navigate("/approver/pending")}
+                        className={headerstyles.dropdownButton}
+                      >
+                        <FiBriefcase size={16} />
+                         <span>Pending Approval</span>
+                      </button>
+                    )}
+                    {user?.isApprover && (
+                      
+                      <button
+                        onClick={() => navigate("/approver/history")}
+                        className={headerstyles.dropdownButton}
+                      >
+                        <FiBriefcase size={16} />
+                         <span>Approval History</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={handleLogout}
+                      className={`${headerstyles.dropdownButton} ${headerstyles.logoutButton}`}
+                    >
+                      <FiLogOut size={18} />
+                      <span>Logout</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </header>
       
         {/* Filters */}
         <div className={styles.filterBar}>
-         <div className={styles.filterGroup}>
+          <div className={styles.filterGroup}>
             <label>Module:</label>
             <select
               value={filter.module}

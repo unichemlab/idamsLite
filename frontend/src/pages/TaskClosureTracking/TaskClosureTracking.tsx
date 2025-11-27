@@ -264,6 +264,13 @@ const TaskTable: React.FC = () => {
 
                   {/* Actions */}
                   <div className={headerStyles.dropdownActions}>
+                     <button
+                      onClick={() => navigate("/homepage")}
+                      className={styles.dropdownButton}
+                    >
+                      <FiBriefcase size={16} />
+                      <span>Home</span>
+                    </button>
                     <button
                       onClick={() => navigate("/user-access-management")}
                       className={headerStyles.dropdownButton}
