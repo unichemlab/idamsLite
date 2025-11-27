@@ -95,7 +95,7 @@ const AddUserRequest: React.FC = () => {
     vendorCode: [],
     allocatedId: [],
   });
-
+console.log("form data",form);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [bulkRows, setBulkRows] = useState([
     { location: "", department: "", applicationId: "", role: "" },
@@ -121,7 +121,7 @@ const AddUserRequest: React.FC = () => {
 
     try {
       const res = await fetch(
-        `${API_BASE}/api/users/${employeeCode}`
+        `${API_BASE}/api/users/users/${employeeCode}`
       );
       if (!res.ok) throw new Error("User not found");
 
@@ -164,7 +164,7 @@ const AddUserRequest: React.FC = () => {
       }));
     } catch (err) {
       console.error(err);
-      alert("No user found with this Employee Code");
+      //alert("No user found with this Employee Code");
 
       setForm((prev) => ({
         ...prev,
@@ -563,10 +563,10 @@ const AddUserRequest: React.FC = () => {
 
     // Convert to string to satisfy TypeScript
     const approver1_id_str = String(approver1?.employeeCode || "");
-    const approver2_id_str = String(approver2?.employeeCode || "");
+    const approver2_id_str = "";
 
     const approver1_email = approver1?.email || "";
-    const approver2_email = approver2?.email ? [approver2.email] : [];
+    const approver2_email = "";
 
     // =================== Build Tasks ===================
     const tasks: TaskRequest[] = [];
@@ -581,7 +581,7 @@ const AddUserRequest: React.FC = () => {
           reports_to: form.reportsTo,
           task_status: "Pending",
           approver1_id: approver1_id_str,
-          approver2_id: approver2_id_str,
+          approver2_id: '',
         });
       });
     } else {
@@ -593,7 +593,7 @@ const AddUserRequest: React.FC = () => {
         reports_to: form.reportsTo,
         task_status: "Pending",
         approver1_id: approver1_id_str,
-        approver2_id: approver2_id_str,
+        approver2_id: '',
       });
     }
 
@@ -618,7 +618,7 @@ const AddUserRequest: React.FC = () => {
 
     // Approver info
     formData.append("approver1_email", approver1_email);
-    formData.append("approver2_email", approver2_email?.toString() || "");
+    formData.append("approver2_email",  "");
     formData.append("approver1_status", "Pending");
     formData.append("approver2_status", "Pending");
 
@@ -1126,7 +1126,14 @@ const AddUserRequest: React.FC = () => {
 
 
         <div className={styles.navRight}>
+          <button
+              className={addUserRequestStyles["addUserBtn"]}
+              onClick={() => setFilterModalOpen(true)}
+            >
+              Filter User Requests
+            </button>
           {user && (
+            
             <div style={{ position: "relative" }} ref={menuRef}>
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
@@ -1187,39 +1194,17 @@ const AddUserRequest: React.FC = () => {
                         )}
                       </div>
                     </div>
-
-                    {/* {user.isITBin && (
-                      <div className={styles.adminBadge}>
-                        <FiShield size={14} />
-                        <span>IT BIN Administrator</span>
-                      </div>
-                    )} */}
                   </div>
-
-                  {/* Contact Info */}
-                  {/* <div className={styles.dropdownInfo}>
-                    {user.email && (
-                      <div className={styles.infoItem}>
-                        <FiMail size={16} />
-                        <span>{user.email}</span>
-                      </div>
-                    )}
-                    {user.location && (
-                      <div className={styles.infoItem}>
-                        <FiMapPin size={16} />
-                        <span>{user.location}</span>
-                      </div>
-                    )}
-                    {user.designation && (
-                      <div className={styles.infoItem}>
-                        <FiBriefcase size={16} />
-                        <span>{user.designation}</span>
-                      </div>
-                    )}
-                  </div> */}
 
                   {/* Actions */}
                   <div className={styles.dropdownActions}>
+                     <button
+                      onClick={() => navigate("/homepage")}
+                      className={styles.dropdownButton}
+                    >
+                      <FiBriefcase size={16} />
+                      <span>Home</span>
+                    </button>
                     <button
                       onClick={() => navigate("/user-access-management")}
                       className={styles.dropdownButton}

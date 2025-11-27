@@ -28,6 +28,7 @@ export interface AuthUser {
   username: string;
   employee_code: string;
   location: string;
+
   department: string;
   designation: string;
   reporting_manager: string;
@@ -141,10 +142,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
  // Fetch workflows with proper authorization header
       const res = await fetch(`${API_BASE}/api/workflows?approver_id=${userId}`,
-        {method: "GET",
+        {
+          method: "GET",
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         }
       );
+
       if (!res.ok) return false;
 
       const data = await res.json().catch(() => []); console.log("workflow data", data);
@@ -164,7 +167,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return approverIds.some((id) => id === String(userId));
         });
 
-        if (found) {
+       if (found) {
           setUser((prev) => {
             if (!prev || prev.isApprover) return prev;
             const updated = { ...prev, isApprover: true };
@@ -176,9 +179,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             return updated;
           });
         }
- console.log("Approver result:", found);
- console.log("Approver Workflows for user:", workflows);     
-        return found;
+
+        // Step 3: If NOT found in workflow, check user_requests table
+        const userEmail = JSON.parse(localStorage.getItem("authUser") || "{}")?.email;
+        if (!userEmail) return false;
+        console.log("userEmail",userEmail);
+        const res2 = await fetch(
+          `${API_BASE}/api/user-requests/approvers?email=${encodeURIComponent(userEmail)}`,
+          {
+            method: "GET",
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          }
+        );
+
+        if (!res2.ok) return false;
+        const data2 = await res2.json();
+
+        const foundInUserRequests = Array.isArray(data2) && data2.length > 0;
+
+        if (foundInUserRequests) {
+          setUser((prev) => {
+            if (!prev || prev.isApprover) return prev;
+            const updated = { ...prev, isApprover: true };
+            try {
+              localStorage.setItem("authUser", JSON.stringify(updated));
+            } catch { }
+            return updated;
+          });
+          return true;
+        }
+
+        return false;
       } catch (err) {
         console.error("fetchWorkflowsForUser error", err);
         return false;
@@ -411,7 +442,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(null);
         return;
       }
-
+console.log("data details",data);
       const authUser: AuthUser = {
         id: userId,
         username: data.user.username,

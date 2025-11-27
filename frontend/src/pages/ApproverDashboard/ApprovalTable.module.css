@@ -26,10 +26,12 @@
 }
 
 .tableContainer {
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  padding: 32px;
+  background: #fff;
+    padding: 20px 24px;
+    border-radius: 12px;
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.05);
+    margin: 20px;
+    font-family: "Segoe UI", sans-serif;
 }
 
 .tableTitle {
@@ -59,18 +61,19 @@
 }
 
 .table thead {
-  background: linear-gradient(90deg, #1565c0 0%, #42a5f5 100%);
-  color: white;
+  background: #eef5fe;
+  color: #0b2540;
 }
 
 .table th {
-  padding: 16px;
-  text-align: left;
-  font-weight: 600;
-  font-size: 14px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  background: linear-gradient(90deg, #1565c0 0%, #42a5f5 100%) !important;
+      padding: 16px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 10px;
+    /* text-transform: uppercase; */
+    letter-spacing: 0.5px;
+    background: #eef5fe;
+    color: #0b2540;
 }
 
 .table td {

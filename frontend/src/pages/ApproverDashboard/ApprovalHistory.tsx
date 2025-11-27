@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { fetchTasksForApprover } from "../../utils/api";
+import { fetchTasksForApprover,API_BASE } from "../../utils/api";
 import styles from "./ApproverHome.module.css";
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import tableStyles from "./ApprovalTable.module.css";
 import headerStyles from "../HomePage/homepageUser.module.css";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
@@ -26,6 +27,7 @@ import {
 } from "react-icons/fi";
 
 interface ApprovalAction {
+  id: number;
   approverName: string;
   approverRole: string;
   plant: string;
@@ -33,6 +35,17 @@ interface ApprovalAction {
   action: "Approved" | "Rejected" | "Pending" | string;
   timestamp: string;
   comments?: string;
+  tranasaction_id?:string;
+  request_for_by?:string;
+  name?:string;
+  employee_code?:string;
+  employee_location?:string;
+  access_request_type?:string;
+  training_status?:string;
+  training_attachment?:string;
+  application_name: string;
+  department_name: string;
+  role_name: string;
 }
 
 const ApprovalHistoryPage: React.FC = () => {
@@ -41,19 +54,19 @@ const ApprovalHistoryPage: React.FC = () => {
   const [approvalHistory, setApprovalHistory] = useState<ApprovalAction[]>([]);
   const [loading, setLoading] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-   const [showUserMenu, setShowUserMenu] = useState(false);
-    const menuRef = useRef<HTMLDivElement>(null);
-  
-    // Close menu on outside click
-    useEffect(() => {
-      const handleClickOutside = (event: MouseEvent) => {
-        if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-          setShowUserMenu(false);
-        }
-      };
-      if (showUserMenu) document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [showUserMenu]);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false);
+      }
+    };
+    if (showUserMenu) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showUserMenu]);
   useEffect(() => {
     fetchApprovalHistory();
   }, []);
@@ -67,54 +80,69 @@ const ApprovalHistoryPage: React.FC = () => {
     setLoading(true);
     try {
       const data: any = await fetchTasksForApprover(Number(user.id));
+      console.log("Fetched approval history data:", data);
       const mapped: ApprovalAction[] = Array.isArray(data)
         ? data
-            .filter((tr: any) => {
-              const status = tr.task_status || "Pending";
-              return status === "Approved" || status === "Rejected";
-            })
-            .map((tr: any) => {
-              let approverName = "-";
-              let approverAction = tr.task_status || "Pending";
+          .filter((tr: any) => {
+            const status = tr.task_status || "Pending";
+            return status === "Approved" || status === "Rejected";
+          })
+          .map((tr: any) => {
+            
+            let approverName = "-";
+            let approverAction = tr.task_status || "Pending";
 
-              if (tr.approver2_action && tr.approver2_action !== "Pending") {
-                approverName =
-                  tr.approver2_name || tr.approver2_email || "Approver 2";
-                approverAction = tr.approver2_action;
-              } else if (
-                tr.approver1_action &&
-                tr.approver1_action !== "Pending"
-              ) {
-                approverName =
-                  tr.approver1_name || tr.approver1_email || "Approver 1";
-                approverAction = tr.approver1_action;
-              } else {
-                approverName =
-                  tr.reports_to ||
-                  tr.approver_name ||
-                  tr.approver ||
-                  tr.username ||
-                  "-";
-              }
-
-              return {
-                approverName,
-                approverRole:
-                  tr.role_name || tr.approver_role || tr.role || "-",
-                plant: tr.plant_name || tr.plant || "-",
-                corporate: tr.corporate_name || "Unichem Corp",
-                action: approverAction,
-                timestamp:
-                  tr.approver2_action_timestamp ||
-                  tr.approver1_action_timestamp ||
-                  tr.updated_on ||
-                  tr.created_on ||
-                  tr.timestamp ||
-                  "",
-                comments: tr.remarks || tr.comments || "",
-              };
-            })
+            if (tr.approver2_action && tr.approver2_action !== "Pending") {
+              approverName =
+                tr.approver2_name || tr.approver2_email || "Approver 2";
+              approverAction = tr.approver2_action;
+            } else if (
+              tr.approver1_action &&
+              tr.approver1_action !== "Pending"
+            ) {
+              approverName =
+                tr.approver1_name || tr.approver1_email || "Approver 1";
+              approverAction = tr.approver1_action;
+            } else {
+              approverName =
+                tr.reports_to ||
+                tr.approver_name ||
+                tr.approver ||
+                tr.username ||
+                "-";
+            }
+            return {
+              id: tr.user_request_id,
+              tranasaction_id:tr.user_request_transaction_id,
+              request_for_by:tr.request_for_by,
+              name:tr.request_name,
+              employee_code:tr.employee_code,
+              employee_location:tr.employee_location,
+              access_request_type:tr.access_request_type,
+              training_status:tr.training_status,
+              training_attachment:tr.training_attachment,
+              application_name:tr.application_name,
+              department_name:tr.department_name,
+              role_name:tr.role_name,
+              approverName,
+              approverRole:
+                tr.role_name || tr.approver_role || tr.role || "-",
+              plant: tr.plant_name || tr.plant || "-",
+              corporate: tr.corporate_name || "Unichem Corp",
+              action: approverAction,
+              timestamp:
+                tr.approver2_action_timestamp ||
+                tr.approver1_action_timestamp ||
+                tr.updated_on ||
+                tr.created_on ||
+                tr.timestamp ||
+                "",
+              comments: tr.remarks || tr.comments || "",
+            };
+            
+          })
         : [];
+        
       setApprovalHistory(mapped);
     } catch (err) {
       console.error("Error fetching approval history:", err);
@@ -128,17 +156,17 @@ const ApprovalHistoryPage: React.FC = () => {
     logout();
     navigate("/");
   };
-
+console.log("requests details",approvalHistory);
   return (
     <div className={styles.container}>
       {/* Header */}
-         <header className={headerStyles["main-header"]}>
+      <header className={headerStyles["main-header"]}>
         <div className={headerStyles.navLeft}>
           <div className={headerStyles.logoWrapper}>
             <img src={login_headTitle2} alt="Logo" className={headerStyles.logo} />
             <span className={headerStyles.version}>version-1.0</span>
           </div>
-          <h1 className={headerStyles.title}>Task Clouser</h1>
+          <h1 className={headerStyles.title}>Approved & Rejected Requests</h1>
         </div>
 
 
@@ -238,6 +266,13 @@ const ApprovalHistoryPage: React.FC = () => {
                   {/* Actions */}
                   <div className={headerStyles.dropdownActions}>
                     <button
+                      onClick={() => navigate("/homepage")}
+                      className={headerStyles.dropdownButton}
+                    >
+                      <FiBriefcase size={16} />
+                      <span>Home</span>
+                    </button>
+                    <button
                       onClick={() => navigate("/user-access-management")}
                       className={headerStyles.dropdownButton}
                     >
@@ -250,26 +285,26 @@ const ApprovalHistoryPage: React.FC = () => {
                         className={headerStyles.dropdownButton}
                       >
                         <FiBriefcase size={16} />
-                         <span>Task Closure</span>
+                        <span>Task Closure</span>
                       </button>
                     )}
-                     {user?.isApprover && (
+                    {user?.isApprover && (
                       <button
                         onClick={() => navigate("/approver/pending")}
                         className={headerStyles.dropdownButton}
                       >
                         <FiBriefcase size={16} />
-                         <span>Pending Approval</span>
+                        <span>Pending Approval</span>
                       </button>
                     )}
                     {user?.isApprover && (
-                      
+
                       <button
                         onClick={() => navigate("/approver/history")}
                         className={headerStyles.dropdownButton}
                       >
                         <FiBriefcase size={16} />
-                         <span>Approval History</span>
+                        <span>Approval History</span>
                       </button>
                     )}
                     <button
@@ -297,9 +332,6 @@ const ApprovalHistoryPage: React.FC = () => {
         </button> */}
 
         <div className={tableStyles.tableContainer}>
-          <h2 className={tableStyles.tableTitle}>
-            Approved & Rejected Requests
-          </h2>
 
           {loading ? (
             <div className={tableStyles.loadingContainer}>
@@ -310,10 +342,14 @@ const ApprovalHistoryPage: React.FC = () => {
               <table className={tableStyles.table}>
                 <thead>
                   <tr>
-                    <th>Approver</th>
-                    <th>Role</th>
-                    <th>Plant</th>
-                    <th>Corporate</th>
+                    <th>Transaction ID</th>
+                    <th>Request For By</th>
+                    <th>Name</th>
+                    <th>Employee Code</th>
+                    <th>Employee Location</th>
+                    <th>Access Request Type</th>
+                    <th>Training Status</th>
+                    <th>Training Attachment</th>
                     <th>Action</th>
                     <th>Timestamp</th>
                     <th>Comments</th>
@@ -329,10 +365,30 @@ const ApprovalHistoryPage: React.FC = () => {
                   ) : (
                     approvalHistory.map((a, idx) => (
                       <tr key={idx}>
-                        <td>{a.approverName}</td>
-                        <td>{a.approverRole}</td>
-                        <td>{a.plant}</td>
-                        <td>{a.corporate}</td>
+                        <td>{a.tranasaction_id}</td>
+                        <td>{a.request_for_by}</td>
+                        <td>{a.name}</td>
+                        <td>{a.employee_code}</td>
+                         <td>{a.employee_location}</td>
+                        <td>{a.access_request_type}</td>
+                        <td>{a.training_status}</td>
+                        <td>
+                    {a.training_attachment ? (
+                      <a
+                        href={`${API_BASE}/api/user-requests/${a.id}/attachment`}
+                        download={a.training_attachment}
+                        style={{ display: "inline-flex", alignItems: "center" }}
+                        title={`Download ${a.training_attachment}`}
+                      >
+                        <PictureAsPdfIcon
+                          fontSize="small"
+                          style={{ color: "#e53935" }}
+                        />
+                      </a>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
                         <td>
                           <span
                             className={

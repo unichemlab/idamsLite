@@ -258,6 +258,7 @@ exports.getAllTasks = async (req, res) => {
 
     console.log("Executing query with params:", params);
     const { rows } = await client.query(query, params);
+    console.log("Fetched tasks:", rows);
     res.json(rows);
   } catch (err) {
     console.error("❌ Error fetching all tasks:", err);

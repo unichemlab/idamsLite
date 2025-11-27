@@ -154,7 +154,7 @@ export const UserRequestProvider: React.FC<{ children: React.ReactNode }> = ({
     setError(null);
     try {
       const res = await fetch(
-        `${API_BASE}/api/users/${employeeCode}`
+        `${API_BASE}/api/users/users/${employeeCode}`
       );
       if (!res.ok) throw new Error("User not found");
       const data = await res.json();

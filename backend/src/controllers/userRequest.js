@@ -92,7 +92,8 @@ const getUserRequestWithTasks = async (id) => {
   const request = userRows[0];
 
   const { rows: taskRows } = await pool.query(
-    `SELECT tr.transaction_id AS task_id,
+    `SELECT 
+    tr.id,tr.transaction_id AS task_id,
             tr.application_equip_id,
             app.display_name AS application_name,
             tr.department,
@@ -114,6 +115,7 @@ const getUserRequestWithTasks = async (id) => {
   );
 
   const tasks = taskRows.map((t) => ({
+    id: t.id,
     task_id: t.task_id,
     application_equip_id: t.application_equip_id,
     application_name: t.application_name,
@@ -122,6 +124,7 @@ const getUserRequestWithTasks = async (id) => {
     role_id: t.role,
     role_name: t.role_name,
     location: t.location_name,
+    location_id: t.location,
     reports_to: t.reports_to,
     task_status: t.task_status,
   }));

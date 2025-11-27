@@ -60,6 +60,8 @@ import MasterApprovalBin from "pages/MasterApprovalBin/MasterApprovalBin";
 import MasterApprovalDetails from "pages/MasterApprovalBin/MasterApprovalDetails";
 import PendingApprovalPage from "pages/ApproverDashboard/PendingApproval";
 import ApprovalHistoryPage from "pages/ApproverDashboard/ApprovalHistory";
+import MasterApprovalUserDetails from "pages/MasterApprovalBin/MasterApprovalUserDetails";
+import MasterApprovalUserBin from "pages/MasterApprovalBin/MasterApprovalUserBin";
 // Removed unused SystemInventoryMasterTable, AddSystemInventory, EditSystemInventory imports
 // List of allowed routes for matching
 const allowedRoutes = [
@@ -119,6 +121,8 @@ const allowedRoutes = [
   "/admin/roles",
   "/master-approvals",
   "/master-approvals/:id",
+  "/admin-approvals",
+  "/admin-approvals/:id",
   "/home",
   "/homepage",
   "/approver/pending",   // Pending approvals page
@@ -224,6 +228,8 @@ console.log(isAllowed);
 {/* Approval Routes */}
         <Route path="/master-approvals" element={<MasterApprovalBin />} />
         <Route path="/master-approvals/:id" element={<MasterApprovalDetails />} />
+        <Route path="/admin-approvals" element={<MasterApprovalUserBin />} />
+        <Route path="/admin-approvals/:id" element={<MasterApprovalUserDetails />} />
         <Route path="/home" element={<HomePage />} />
         <Route path="/homepage" element={<Home />} />
         

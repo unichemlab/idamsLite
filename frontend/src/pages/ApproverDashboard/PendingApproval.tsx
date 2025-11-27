@@ -1,4 +1,4 @@
-import React, { useEffect, useState,useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -71,18 +71,18 @@ const PendingApprovalPage: React.FC = () => {
   const [actionComments, setActionComments] = useState("");
   const [actionInProgress, setActionInProgress] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-      const menuRef = useRef<HTMLDivElement>(null);
-    
-      // Close menu on outside click
-      useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-          if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-            setShowUserMenu(false);
-          }
-        };
-        if (showUserMenu) document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-      }, [showUserMenu]);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false);
+      }
+    };
+    if (showUserMenu) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showUserMenu]);
   useEffect(() => {
     fetchRequests();
   }, []);
@@ -142,42 +142,42 @@ const PendingApprovalPage: React.FC = () => {
 
       const mapped = Array.isArray(tasks)
         ? tasks
-            .filter((tr) => {
-              const locNum = Number(tr.location);
-              const isInApproverPlant = approverPlantIds.includes(locNum);
-              const isDirectlyAssigned = tr.reports_to === user.username;
-              const isPending = (tr.task_status || "Pending") === "Pending";
-              return isPending && (isInApproverPlant || isDirectlyAssigned);
-            })
-            .map((tr) => ({
-              id:
-                (tr.user_request_id ? String(tr.user_request_id) + "-" : "") +
-                (tr.task_request_transaction_id ||
-                  tr.transaction_id ||
-                  tr.task_id ||
-                  String(tr.task_id || tr.transaction_id)),
-              transaction:
-                tr.task_request_transaction_id ||
+          .filter((tr) => {
+            const locNum = Number(tr.location);
+            const isInApproverPlant = approverPlantIds.includes(locNum);
+            const isDirectlyAssigned = tr.reports_to === user.username;
+            const isPending = (tr.task_status || "Pending") === "Pending";
+            return isPending && (isInApproverPlant || isDirectlyAssigned);
+          })
+          .map((tr) => ({
+            id:
+              (tr.user_request_id ? String(tr.user_request_id) + "-" : "") +
+              (tr.task_request_transaction_id ||
                 tr.transaction_id ||
                 tr.task_id ||
-                String(tr.task_id || tr.transaction_id),
-              user_request_id: tr.user_request_id,
-              user: tr.request_name || tr.requestor_name || tr.name || "-",
-              approver: tr.reports_to || tr.reportsTo || undefined,
-              application:
-                tr.application_name || tr.application || tr.access_request_type,
-              role: tr.role_name || tr.role,
-              requestStatus:
-                tr.task_status ||
-                tr.user_request_status ||
-                tr.status ||
-                "Pending",
-              employeeCode: tr.employee_code,
-              plant: tr.plant_name || tr.plant || tr.location,
-              department: tr.department_name || tr.department,
-              equipmentId: tr.application_equip_id || tr.equipment_id,
-              accessStatus: tr.task_status || tr.access_status,
-            }))
+                String(tr.task_id || tr.transaction_id)),
+            transaction:
+              tr.task_request_transaction_id ||
+              tr.transaction_id ||
+              tr.task_id ||
+              String(tr.task_id || tr.transaction_id),
+            user_request_id: tr.user_request_id,
+            user: tr.request_name || tr.requestor_name || tr.name || "-",
+            approver: tr.reports_to || tr.reportsTo || undefined,
+            application:
+              tr.application_name || tr.application || tr.access_request_type,
+            role: tr.role_name || tr.role,
+            requestStatus:
+              tr.task_status ||
+              tr.user_request_status ||
+              tr.status ||
+              "Pending",
+            employeeCode: tr.employee_code,
+            plant: tr.plant_name || tr.plant || tr.location,
+            department: tr.department_name || tr.department,
+            equipmentId: tr.application_equip_id || tr.equipment_id,
+            accessStatus: tr.task_status || tr.access_status,
+          }))
         : [];
 
       setRequests(mapped);
@@ -257,17 +257,18 @@ const PendingApprovalPage: React.FC = () => {
     setActionComments("");
     setOpenRejectDialog(true);
   };
+  console.log("requests details",requests);
 
   return (
     <div className={styles.container}>
       {/* Header */}
-       <header className={headerStyles["main-header"]}>
+      <header className={headerStyles["main-header"]}>
         <div className={headerStyles.navLeft}>
           <div className={headerStyles.logoWrapper}>
             <img src={login_headTitle2} alt="Logo" className={headerStyles.logo} />
             <span className={headerStyles.version}>version-1.0</span>
           </div>
-          <h1 className={headerStyles.title}>Task Clouser</h1>
+          <h1 className={headerStyles.title}>Pending Access Requests</h1>
         </div>
 
 
@@ -333,39 +334,16 @@ const PendingApprovalPage: React.FC = () => {
                         )}
                       </div>
                     </div>
-
-                    {/* {user.isITBin && (
-                      <div className={styles.adminBadge}>
-                        <FiShield size={14} />
-                        <span>IT BIN Administrator</span>
-                      </div>
-                    )} */}
                   </div>
-
-                  {/* Contact Info */}
-                  {/* <div className={styles.dropdownInfo}>
-                    {user.email && (
-                      <div className={styles.infoItem}>
-                        <FiMail size={16} />
-                        <span>{user.email}</span>
-                      </div>
-                    )}
-                    {user.location && (
-                      <div className={styles.infoItem}>
-                        <FiMapPin size={16} />
-                        <span>{user.location}</span>
-                      </div>
-                    )}
-                    {user.designation && (
-                      <div className={styles.infoItem}>
-                        <FiBriefcase size={16} />
-                        <span>{user.designation}</span>
-                      </div>
-                    )}
-                  </div> */}
-
                   {/* Actions */}
                   <div className={headerStyles.dropdownActions}>
+                    <button
+                      onClick={() => navigate("/homepage")}
+                      className={headerStyles.dropdownButton}
+                    >
+                      <FiBriefcase size={16} />
+                      <span>Home</span>
+                    </button>
                     <button
                       onClick={() => navigate("/user-access-management")}
                       className={headerStyles.dropdownButton}
@@ -379,26 +357,26 @@ const PendingApprovalPage: React.FC = () => {
                         className={headerStyles.dropdownButton}
                       >
                         <FiBriefcase size={16} />
-                         <span>Task Closure</span>
+                        <span>Task Closure</span>
                       </button>
                     )}
-                     {user?.isApprover && (
+                    {user?.isApprover && (
                       <button
                         onClick={() => navigate("/approver/pending")}
                         className={headerStyles.dropdownButton}
                       >
                         <FiBriefcase size={16} />
-                         <span>Pending Approval</span>
+                        <span>Pending Approval</span>
                       </button>
                     )}
                     {user?.isApprover && (
-                      
+
                       <button
                         onClick={() => navigate("/approver/history")}
                         className={headerStyles.dropdownButton}
                       >
                         <FiBriefcase size={16} />
-                         <span>Approval History</span>
+                        <span>Approval History</span>
                       </button>
                     )}
                     <button
@@ -418,9 +396,7 @@ const PendingApprovalPage: React.FC = () => {
 
       {/* Main Content */}
       <main className={tableStyles.mainContent}>
-       <div className={tableStyles.tableContainer}>
-          <h2 className={tableStyles.tableTitle}>Pending Access Requests</h2>
-
+        <div className={tableStyles.tableContainer}>
           {loading ? (
             <div className={tableStyles.loadingContainer}>
               <CircularProgress />
@@ -430,12 +406,16 @@ const PendingApprovalPage: React.FC = () => {
               <table className={tableStyles.table}>
                 <thead>
                   <tr>
-                    <th>Request ID</th>
-                    <th>User</th>
-                    <th>Application</th>
-                    <th>Role</th>
-                    <th>Plant</th>
+                    <th>Transaction ID</th>
+                    <th>Request For By</th>
+                    <th>Name</th>
+                    <th>Employee Code</th>
+                    <th>Employee Location</th>
+                    <th>Access Request Type</th>
+                    <th>Training Status</th>
+                    <th>Training Attachment</th>
                     <th>Status</th>
+                    <th>Tasks</th>
                     <th>Actions</th>
                   </tr>
                 </thead>

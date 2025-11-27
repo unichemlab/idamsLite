@@ -153,6 +153,14 @@ const Home: React.FC = () => {
 
                   {/* Actions */}
                   <div className={styles.dropdownActions}>
+                    
+                    <button
+                      onClick={() => navigate("/homepage")}
+                      className={styles.dropdownButton}
+                    >
+                      <FiBriefcase size={16} />
+                      <span>Home</span>
+                    </button>
                     <button
                       onClick={() => navigate("/user-access-management")}
                       className={styles.dropdownButton}
@@ -210,7 +218,7 @@ const Home: React.FC = () => {
           <div className={styles.welcomeCard}>
             <div className={styles.welcomeContent}>
               <h2 className={styles.welcomeTitle}>
-                Welcome back, {user?.name || user?.username}! 👋
+                Welcome , {user?.name || user?.username}! 👋
               </h2>
               <p className={styles.welcomeText}>
                 Manage your user access requests and approvals efficiently from
