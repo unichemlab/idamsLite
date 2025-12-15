@@ -635,7 +635,7 @@ console.log("form data",form);
     try {
       await addUserRequest(formData); // send FormData to backend
       alert("Request submitted successfully!");
-      navigate("/user-requests");
+      navigate("/user-access-management");
     } catch (err) {
       console.error("Failed to save request:", err);
       alert("Something went wrong while saving the request.");

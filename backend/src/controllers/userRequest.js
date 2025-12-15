@@ -517,6 +517,7 @@ exports.getUserRequestById = async (req, res) => {
               tr.id AS task_id,
               tr.application_equip_id,
               app.display_name AS application_name,
+              tr.transaction_id AS task_request_transaction_id,
               tr.department,
               d.department_name,
               tr.role,
@@ -559,6 +560,7 @@ exports.getUserRequestById = async (req, res) => {
         .filter((r) => r.task_id)
         .map((row) => ({
           task_id: row.task_id,
+          transaction_id: row.task_request_transaction_id,
           application_equip_id: row.application_equip_id,
           application_name: row.application_name,
           department_id: row.department,
@@ -566,6 +568,7 @@ exports.getUserRequestById = async (req, res) => {
           role_id: row.role,
           role_name: row.role_name,
           location: row.location,
+          location_name: row.plant_name,
           reports_to: row.reports_to,
           task_status: row.task_status,
         })),

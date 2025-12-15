@@ -27,7 +27,7 @@ const upload = multer({ storage });
 router.get("/approvers", async (req, res) => {
   const email = req.query.email;
   if (!email) return res.status(400).json({ error: "Email is required" });
-console.log(email);
+console.log("approver email",email);
   try {
     console.log("➡️ [Approvers API] Checking approver email:", email);
     const result = await pool.query(

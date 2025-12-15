@@ -9,6 +9,7 @@ router.get("/", authorize(), taskController.getAllTasks);
 // Get specific task
 router.get("/:id", authorize(["view:tasks", "approver", "admin"]), taskController.getUserTaskRequestById);
 
+
 // Update a task - requires manage:tasks permission or admin role
 router.put("/:id", authorize(["manage:tasks", "admin"]), taskController.updateTask);
 

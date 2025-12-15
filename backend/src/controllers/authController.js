@@ -133,17 +133,17 @@ exports.login = async (req, res) => {
         .filter((n) => !isNaN(n));
     }
     user.role_id = roleIds;
+
+    logDebug("User login successful:", { username, roleIds });
+
     // ===============================================
-    // 4. Fetch IT BIN Admin Status & Plant IDs
+    // Fetch IT BIN Admin Status & Plant IDs
     // ===============================================
     let isITBin = false;
     let itPlantIds = [];
     let itPlants = [];
 
-    logDebug("User login successful:", { username, roleIds });
-
-     try
-     {
+    try {
       // Check if user is an IT BIN admin
       const itBinQuery = `
         SELECT 
@@ -169,12 +169,10 @@ exports.login = async (req, res) => {
         
         logDebug(`User ${username} is IT BIN admin for plants:`, itPlantIds);
       }
-     } catch (err) {
+    } catch (err) {
       console.error("[IT BIN CHECK ERROR]", err);
-     }
+    }
 
-    // ---------------- Generate JWT ----------------
-    // Fetch user permissions
     // ---------------- Fetch roles dynamically ----------------
     const roleQuery = `
       SELECT rm.id, rm.role_name, rm.description, rm.status
@@ -189,21 +187,8 @@ exports.login = async (req, res) => {
       status: role.status,
     }));
 
-    // ---------------- Fetch approver status dynamically ----------------
-    const approverStatusQuery = `
-      SELECT COUNT(*) > 0 AS is_approver
-      FROM access_log
-      WHERE employee_code = $1
-        AND (approver1_status = 'ACTIVE' OR approver2_status = 'ACTIVE')
-    `;
-    const approverStatusResult = await db.query(approverStatusQuery, [
-      user.employee_code,
-    ]);
-    user.is_approver = approverStatusResult.rows[0]?.is_approver || false;
-
-    logDebug("Roles and approver status fetched:", {
+    logDebug("Roles fetched:", {
       roles: user.roles,
-      isApprover: user.is_approver,
     });
 
     // ---------------- Dynamic Role Assignment ----------------
@@ -238,12 +223,13 @@ exports.login = async (req, res) => {
       roles: user.roles,
     });
 
-    // ---------------- Generate JWT ----------------
-    // Fetch user permissions
+    // ---------------- Fetch user permissions ----------------
     let permissions = [];
+    let permittedPlantIds = [];
+    
     try {
       const userPermsQuery = `
-        SELECT module_id, can_add, can_edit, can_view, can_delete 
+        SELECT module_id, plant_id, can_add, can_edit, can_view, can_delete 
         FROM user_plant_permission 
         WHERE user_id = $1
       `;
@@ -257,7 +243,8 @@ exports.login = async (req, res) => {
         if (p.can_delete) perms.push(`delete:${p.module_id}`);
         return perms;
       });
-       // Extract unique plant IDs from permissions
+      
+      // Extract unique plant IDs from permissions
       permittedPlantIds = [...new Set(userPerms.rows.map(p => p.plant_id))];
       
       logDebug(`User has permissions for plants:`, permittedPlantIds);
@@ -272,15 +259,99 @@ exports.login = async (req, res) => {
       permissions.push("manage:all");
     }
 
-    // Check if user is an approver in any workflows
+    // ===============================================
+    // CORRECT APPROVER CHECK - Check both user_requests approver1_email and workflow assignments
+    // ===============================================
+    let isApprover = false;
+    let approverTypes = []; // Track what type of approver the user is
+    let pendingApproval1Count = 0;
+    let pendingApproval2Count = 0;
+        console.log("user info for approver check",user);
     try {
-      // approval_workflow_master is the table used for workflows in this project.
-      // Columns are approver_1_id ... approver_5_id and values may be comma-separated ids.
-      const approverQuery = `
+      // Check 1: Is user Approver 1 in any user_requests records?
+      // Match by email since approver1_email stores the user's email
+      const approver1Query = `
+        SELECT COUNT(*) as count
+        FROM user_requests
+        WHERE LOWER(approver1_email) = LOWER($1)
+          AND approver1_status = 'Pending'
+          AND status NOT IN ('Completed', 'Rejected', 'Cancelled')
+      `;
+      const approver1Result = await db.query(approver1Query, [user.email]);
+
+      if (approver1Result && approver1Result.rows && approver1Result.rows[0]) {
+        const count = parseInt(approver1Result.rows[0].count, 10);
+        if (count > 0) {
+          isApprover = true;
+          approverTypes.push('approver_1');
+          pendingApproval1Count = count;
+          logDebug(`User ${username} is Approver 1 for ${count} user requests`);
+        }
+      }
+
+      // Also check if user has ever been approver1 (not just pending)
+      const approver1HistoryQuery = `
+        SELECT COUNT(*) as count
+        FROM user_requests
+        WHERE LOWER(approver1_email) = LOWER($1)
+        LIMIT 1
+      `;
+      const approver1HistoryResult = await db.query(approver1HistoryQuery, [user.email]);
+      
+      if (approver1HistoryResult && approver1HistoryResult.rows && approver1HistoryResult.rows[0]) {
+        const historyCount = parseInt(approver1HistoryResult.rows[0].count, 10);
+        if (historyCount > 0 && !approverTypes.includes('approver_1')) {
+          isApprover = true;
+          approverTypes.push('approver_1');
+          logDebug(`User ${username} has historical Approver 1 records`);
+        }
+      }
+
+      // Check 2: Is user Approver 2 in any user_requests records?
+      const approver2Query = `
+        SELECT COUNT(*) as count
+        FROM user_requests
+        WHERE LOWER(approver2_email) = LOWER($1)
+          AND approver2_status = 'Pending'
+          AND status NOT IN ('Completed', 'Rejected', 'Cancelled')
+      `;
+      const approver2Result = await db.query(approver2Query, [user.email]);
+
+      if (approver2Result && approver2Result.rows && approver2Result.rows[0]) {
+        const count = parseInt(approver2Result.rows[0].count, 10);
+        if (count > 0) {
+          isApprover = true;
+          if (!approverTypes.includes('workflow_approver')) {
+            approverTypes.push('workflow_approver');
+          }
+          pendingApproval2Count = count;
+          logDebug(`User ${username} is Approver 2 for ${count} user requests`);
+        }
+      }
+
+      // Also check historical approver2 records
+      const approver2HistoryQuery = `
+        SELECT COUNT(*) as count
+        FROM user_requests
+        WHERE LOWER(approver2_email) = LOWER($1)
+        LIMIT 1
+      `;
+      const approver2HistoryResult = await db.query(approver2HistoryQuery, [user.email]);
+      
+      if (approver2HistoryResult && approver2HistoryResult.rows && approver2HistoryResult.rows[0]) {
+        const historyCount = parseInt(approver2HistoryResult.rows[0].count, 10);
+        if (historyCount > 0 && !approverTypes.includes('workflow_approver')) {
+          isApprover = true;
+          approverTypes.push('workflow_approver');
+          logDebug(`User ${username} has historical Approver 2 records`);
+        }
+      }
+
+      // Check 3: Is user assigned in approval_workflow_master? (for other workflows)
+      const workflowApproverQuery = `
         SELECT DISTINCT id
         FROM approval_workflow_master
         WHERE (
-          approver_1_id LIKE $1 OR
           approver_2_id LIKE $1 OR
           approver_3_id LIKE $1 OR
           approver_4_id LIKE $1 OR
@@ -288,20 +359,25 @@ exports.login = async (req, res) => {
         ) AND is_active = true
         LIMIT 1
       `;
-      const approverResult = await db.query(approverQuery, [`%${user.id}%`]);
+      const workflowApproverResult = await db.query(workflowApproverQuery, [`%${user.id}%`]);
 
-      if (
-        approverResult &&
-        approverResult.rows &&
-        approverResult.rows.length > 0
-      ) {
+      if (workflowApproverResult && workflowApproverResult.rows && workflowApproverResult.rows.length > 0) {
+        isApprover = true;
+        if (!approverTypes.includes('workflow_approver')) {
+          approverTypes.push('workflow_approver');
+        }
+        logDebug(`User ${username} is assigned in approval workflows`);
+      }
+
+      // Add approver permissions if user is any type of approver
+      if (isApprover) {
         permissions.push("approve:requests");
         permissions.push("view:approvals");
         permissions.push("read:workflows");
         permissions.push("update:workflows");
-        // Add approver role if user is an approver but doesn't have role 4 (Manager)
-        // Do NOT change user's numeric role_id when they are an approver.
-        // Approver is a dynamic permission, not a static role assignment.
+        
+        logDebug(`User ${username} has approver types:`, approverTypes);
+        logDebug(`Pending approvals - Level 1: ${pendingApproval1Count}, Level 2: ${pendingApproval2Count}`);
       }
 
       // Add workflow permissions for superadmins and plant admins
@@ -315,17 +391,15 @@ exports.login = async (req, res) => {
     }
 
     // ===============================================
-// 6.1 Add IT BIN Admin Extra Permissions
-// ===============================================
-if (isITBin) {
-  permissions.push("view:tasks");
-  permissions.push("manage:tasks");
-}
-
-
+    // Add IT BIN Admin Extra Permissions
+    // ===============================================
+    if (isITBin) {
+      permissions.push("view:tasks");
+      permissions.push("manage:tasks");
+    }
 
     // ===============================================
-    // 7. Fetch User's Location/Plant Details
+    // Fetch User's Location/Plant Details
     // ===============================================
     let userLocation = null;
     let userPlantName = null;
@@ -335,7 +409,7 @@ if (isITBin) {
         const locationQuery = `
           SELECT id, plant_name 
           FROM plant_master 
-          WHERE id = $1
+          WHERE plant_name = $1
         `;
         const locationResult = await db.query(locationQuery, [user.location]);
         
@@ -348,8 +422,9 @@ if (isITBin) {
       }
     }
 
-    // Ensure we include a reliable user id and username in the token payload.
-    // DB rows may have id, user_id or employee_id fields; prefer internal id and employee_id as username.
+    // ===============================================
+    // Generate JWT Token
+    // ===============================================
     const payload = {
       user_id: user.id || user.user_id || null,
       username: user.employee_id || user.username || null,
@@ -361,11 +436,16 @@ if (isITBin) {
       role_id: roleIds,
       permissions,
       permissions_version: 1, // Increment when permission structure changes
-      isApprover:user.is_approver,
+      isApprover: isApprover,
+      approverTypes: approverTypes, // ['approver_1', 'workflow_approver'] or subset
+      pendingApproval1Count: pendingApproval1Count,
+      pendingApproval2Count: pendingApproval2Count,
+      
       // IT BIN Admin info
       isITBin,
       itPlants: isITBin ? itPlants : [], // Full plant details for IT BIN admins
       itPlantIds: isITBin ? itPlantIds : [], // Just IDs for quick checks
+      
       // User's assigned plant/location
       location: user.location,
       plant_name: userPlantName,
@@ -390,7 +470,7 @@ if (isITBin) {
         username: user.employee_id,
         name: user.employee_name,
         employee_code: user.employee_code,
-         email: user.email,
+        email: user.email,
         location: user.location,
         plant_name: userPlantName,
         department: user.department,
@@ -399,8 +479,12 @@ if (isITBin) {
         managers_manager: user.managers_manager ?? "",
         role_id: user.role_id,
         status: user.status,
-        isApprover:user.is_approver,
-         // IT BIN info
+        isApprover: isApprover,
+        approverTypes: approverTypes,
+        pendingApproval1Count: pendingApproval1Count,
+        pendingApproval2Count: pendingApproval2Count,
+        
+        // IT BIN info
         isITBin,
         itPlants: isITBin ? itPlants : [],
         
@@ -427,6 +511,7 @@ exports.getPermissions = async (req, res) => {
       headers: req.headers && { authorization: req.headers.authorization },
       cookies: req.cookies ? Object.keys(req.cookies) : undefined,
     });
+    
     // Extract token from Authorization header or cookie
     const authHeader = req.headers.authorization || req.headers.Authorization;
     let token = null;
@@ -459,7 +544,7 @@ exports.getPermissions = async (req, res) => {
     if (!userId && payload.username) {
       // try to map username (employee_id) to internal id
       const userRes = await db.query(
-        "SELECT id FROM manage:all WHERE employee_id = $1 LIMIT 1",
+        "SELECT id FROM user_master WHERE employee_id = $1 LIMIT 1",
         [payload.username]
       );
       if (userRes && userRes.rows && userRes.rows.length)
@@ -502,3 +587,5 @@ exports.getPermissions = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
+module.exports = exports;

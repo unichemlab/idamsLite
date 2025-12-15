@@ -6,7 +6,7 @@ import React, {
   useEffect,
   useCallback,
 } from "react";
-import { fetchPermissionsAPI, fetchWorkflows, loginAPI,API_BASE } from "../utils/api";
+import { fetchPermissionsAPI, fetchWorkflows, loginAPI, API_BASE } from "../utils/api";
 import AbilityProvider from "./AbilityContext";
 
 // Interface for workflow data
@@ -23,31 +23,37 @@ interface Workflow {
   approvers?: any[][];
 }
 
+// Interface for approver detection result
+interface ApproverDetectionResult {
+  isApprover: boolean;
+  isApprover1: boolean; // From user_requests/task_requests table
+  isWorkflowApprover: boolean; // From approval_workflow_master
+  approverPlants?: number[];
+}
+
 export interface AuthUser {
   id: number;
   username: string;
   employee_code: string;
   location: string;
-
   department: string;
   designation: string;
   reporting_manager: string;
   managers_manager: string;
   name: string;
   email: string;
-  // allow single number or array if backend sometimes returns multiple role ids
   role_id: number | number[];
   status: string;
   token: string;
-  // true when this user appears as an approver in any workflow
   isApprover?: boolean;
+  isApprover1?: boolean; // Approver from user_requests/task_requests
+  isWorkflowApprover?: boolean; // Approver from approval_workflow_master
   isITBin?: boolean;
-  // Role name for easier checks
   roleName?: string;
-  // User's permissions array
   permissions?: string[];
-  // Plant IDs where user is approver
   approverPlants?: number[];
+  itPlants?: any[];
+  itPlantIds?: number[];
 }
 
 interface AuthContextType {
@@ -71,33 +77,30 @@ export function useAuth() {
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(true); // true until localStorage check is done
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [permissions, setPermissions] = useState<string[]>([]);
 
-  // Determine user's landing page
   const determineInitialRoute = (userData: AuthUser) => {
-    // Check if user is an approver (either through role or permissions)
     const isApprover =
       userData.permissions?.includes("approve:requests") ||
       userData.role_id === 4 ||
       (Array.isArray(userData.role_id) && userData.role_id.includes(4));
 
     if (Array.isArray(userData.role_id) && userData.role_id.includes(1)) {
-      return "/home"; // SuperAdmin
+      return "/home";
     } else if (isApprover) {
-      return "/approver"; // Approver
+      return "/approver";
     } else if (
       Array.isArray(userData.role_id) &&
       userData.role_id.includes(2)
     ) {
-      return "/plantadmin"; // Plant IT Admin
+      return "/plantadmin";
     } else {
-      return "/user"; // Default user route
+      return "/user";
     }
   };
 
-  // fetch permissions from backend (uses centralized helper that injects Authorization)
   const fetchPermissions = useCallback(async (token?: string) => {
     try {
       const data: any = await fetchPermissionsAPI();
@@ -106,56 +109,99 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         : Array.isArray(data.data?.permissions)
         ? data.data.permissions
         : [];
-
       setPermissions(userPermissions);
-
       return userPermissions;
     } catch (err) {
       console.error("fetchPermissions error", err);
       setPermissions([]);
       return [];
     }
-  }, []); // Remove user dependency to prevent circular updates
+  }, []);
 
-  // Check whether a given user id appears in any workflow approver lists.
-  // Uses setUser updater safely to avoid stale closures / unnecessary deps.
-  const fetchWorkflowsForUser = useCallback(
-    async (userId: number, token?: string) => {
-      if (!userId) {
-        console.warn("fetchWorkflowsForUser called without userId");
-        return false;
-      }
+  /**
+   * Check if user is Approver 1 (from user_requests and task_requests tables)
+   * Approver 1 is always based on email matching in these tables
+   */
+  const checkApprover1Status = useCallback(
+    async (userEmail: string, token?: string): Promise<boolean> => {
+      const authToken = token || localStorage.getItem("token");
+      const headers: HeadersInit = authToken ? { Authorization: `Bearer ${authToken}` } : {};
+
+      console.log("=== Checking Approver 1 Status ===");
+      console.log("Email:", userEmail);
 
       try {
-        // Ask backend to return workflows that include this approver id
-        // const workflows = await fetchWorkflows(userId);
-        // if (!Array.isArray(workflows)) {
-        //   console.warn("fetchWorkflows did not return an array");
-        //   return false;
-        // }
-        // Get token from parameter or localStorage
-      const authToken = token || localStorage.getItem("token");
-      
-      if (!authToken) {
-        console.warn("No auth token available for fetchWorkflowsForUser");
+        // Check user_requests table for approver1_email
+        const userReqRes = await fetch(
+          `${API_BASE}/api/user-requests/approvers?email=${encodeURIComponent(userEmail)}`,
+          { method: "GET", headers }
+        );
+
+        if (userReqRes.ok) {
+          const userReqData = await userReqRes.json();
+          const foundInUserReq = Array.isArray(userReqData) && userReqData.length > 0;
+
+          if (foundInUserReq) {
+            console.log("✓ Found as Approver1 in user_requests:", userReqData.length, "records");
+            return true;
+          }
+        }
+
+        // Check task_requests table for approver1_email
+        const taskReqRes = await fetch(
+          `${API_BASE}/api/task-requests/approvers?email=${encodeURIComponent(userEmail)}`,
+          { method: "GET", headers }
+        );
+
+        if (taskReqRes.ok) {
+          const taskReqData = await taskReqRes.json();
+          const foundInTaskReq = Array.isArray(taskReqData) && taskReqData.length > 0;
+
+          if (foundInTaskReq) {
+            console.log("✓ Found as Approver1 in task_requests:", taskReqData.length, "records");
+            return true;
+          }
+        }
+
+        console.log("✗ Not found as Approver1 in user_requests or task_requests");
+        return false;
+      } catch (err) {
+        console.error("Error checking Approver1 status:", err);
         return false;
       }
- // Fetch workflows with proper authorization header
-      const res = await fetch(`${API_BASE}/api/workflows?approver_id=${userId}`,
-        {
-          method: "GET",
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
+    },
+    []
+  );
+
+  /**
+   * Check if user is a Workflow Approver (from approval_workflow_master)
+   * These are approvers assigned to specific plants in the workflow
+   */
+  const checkWorkflowApproverStatus = useCallback(
+    async (userId: number, token?: string): Promise<{ found: boolean; plants: number[] }> => {
+      const authToken = token || localStorage.getItem("token");
+      const headers: HeadersInit = authToken ? { Authorization: `Bearer ${authToken}` } : {};
+
+      console.log("=== Checking Workflow Approver Status ===");
+      console.log("User ID:", userId);
+
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/workflows?approver_id=${userId}`,
+          { method: "GET", headers }
+        );
+
+        if (!res.ok) {
+          console.log("✗ Workflow API request failed");
+          return { found: false, plants: [] };
         }
-      );
 
-      if (!res.ok) return false;
+        const data = await res.json();
+        const workflows = Array.isArray(data) ? data : data.workflows || [];
 
-      const data = await res.json().catch(() => []); console.log("workflow data", data);
-      const workflows = Array.isArray(data) ? data : data.workflows || [];
+        console.log("Workflows retrieved:", workflows.length);
 
-      console.log("workflow", workflows);
-
-        const found = workflows.some((wf: Workflow) => {
+        const matchingWorkflows = workflows.filter((wf: Workflow) => {
           const approverIds = [
             wf.approver_1_id,
             wf.approver_2_id,
@@ -163,125 +209,124 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             wf.approver_4_id,
             wf.approver_5_id,
           ];
-          console.log("Checking workflow approvers:", approverIds);
           return approverIds.some((id) => id === String(userId));
         });
 
-       if (found) {
-          setUser((prev) => {
-            if (!prev || prev.isApprover) return prev;
-            const updated = { ...prev, isApprover: true };
-            try {
-              localStorage.setItem("authUser", JSON.stringify(updated));
-            } catch (e) {
-              console.warn("Failed to update localStorage:", e);
-            }
-            return updated;
-          });
+        if (matchingWorkflows.length > 0) {
+          const plants = [
+            ...new Set(
+              matchingWorkflows
+                .map((w: Workflow) => w.plant_id)
+                .filter((pid: number | null | undefined): pid is number => pid != null)
+            ),
+          ] as number[];
+          console.log("✓ Found as Workflow Approver in plants:", plants);
+          return { found: true, plants };
         }
 
-        // Step 3: If NOT found in workflow, check user_requests table
-        const userEmail = JSON.parse(localStorage.getItem("authUser") || "{}")?.email;
-        if (!userEmail) return false;
-        console.log("userEmail",userEmail);
-        const res2 = await fetch(
-          `${API_BASE}/api/user-requests/approvers?email=${encodeURIComponent(userEmail)}`,
-          {
-            method: "GET",
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
-          }
+        console.log("✗ Not found in approval_workflow_master");
+        return { found: false, plants: [] };
+      } catch (err) {
+        console.error("Error checking workflow approver status:", err);
+        return { found: false, plants: [] };
+      }
+    },
+    []
+  );
+
+  /**
+   * Combined approver check - determines both types of approver status
+   */
+  const checkApproverStatus = useCallback(
+    async (userId: number, userEmail: string, token?: string): Promise<ApproverDetectionResult> => {
+      console.log("=== Starting Combined Approver Check ===");
+
+      // Check Approver 1 status (from user_requests/task_requests)
+      const isApprover1 = await checkApprover1Status(userEmail, token);
+
+      // Check Workflow Approver status (from approval_workflow_master)
+      const workflowResult = await checkWorkflowApproverStatus(userId, token);
+
+      const result: ApproverDetectionResult = {
+        isApprover: isApprover1 || workflowResult.found,
+        isApprover1,
+        isWorkflowApprover: workflowResult.found,
+        approverPlants: workflowResult.plants,
+      };
+
+      console.log("=== Approver Check Summary ===");
+      console.log("User ID:", userId);
+      console.log("Email:", userEmail);
+      console.log("Is Approver (any type):", result.isApprover);
+      console.log("Is Approver1 (user_requests/task_requests):", result.isApprover1);
+      console.log("Is Workflow Approver (approval_workflow_master):", result.isWorkflowApprover);
+      console.log("Approver Plants:", result.approverPlants);
+      console.log("==============================");
+
+      return result;
+    },
+    [checkApprover1Status, checkWorkflowApproverStatus]
+  );
+
+  const fetchITBinForUser = useCallback(
+    async (userId: number, token?: string) => {
+      try {
+        const res = await fetch(`${API_BASE}/api/plant-itsupport`, {
+          method: "GET",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) return false;
+
+        const data = await res.json().catch(() => []);
+        const workflows = Array.isArray(data) ? data : [];
+
+        const matched = workflows.filter(
+          (wf: any) =>
+            wf &&
+            Array.isArray(wf.users) &&
+            wf.users.some((u: any) => u && Number(u.user_id) === Number(userId))
         );
 
-        if (!res2.ok) return false;
-        const data2 = await res2.json();
+        const found = matched.length > 0;
 
-        const foundInUserRequests = Array.isArray(data2) && data2.length > 0;
+        if (found) {
+          const plantList = matched.map((wf) => ({
+            plant_id: wf.plant_id,
+            plant_name: wf.plant_name,
+          }));
 
-        if (foundInUserRequests) {
+          const plantIds = plantList.map(p => p.plant_id);
+
           setUser((prev) => {
-            if (!prev || prev.isApprover) return prev;
-            const updated = { ...prev, isApprover: true };
+            if (!prev) return prev;
+
+            const updated = {
+              ...prev,
+              isITBin: true,
+              itPlants: plantList,
+              itPlantIds: plantIds,
+            };
+
             try {
               localStorage.setItem("authUser", JSON.stringify(updated));
-            } catch { }
+            } catch {}
+
             return updated;
           });
-          return true;
         }
 
-        return false;
+        console.log("ITBin result:", found);
+        console.log("ITBin plants:", matched);
+        return { found, plants: matched };
       } catch (err) {
-        console.error("fetchWorkflowsForUser error", err);
+        console.error("fetchITBinForUser error", err);
         return false;
       }
     },
     [setUser]
   );
 
-
-  // Check whether a given user id appears in any workflow approver lists.
-  // Uses setUser updater safely to avoid stale closures / unnecessary deps.
-  const fetchITBinForUser = useCallback(
-  async (userId: number, token?: string) => {
-    try {
-      const res = await fetch(`${API_BASE}/api/plant-itsupport`, {
-        method: "GET",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) return false;
-
-      const data = await res.json().catch(() => []);
-      const workflows = Array.isArray(data) ? data : [];
-
-      console.log("workflow", workflows);
-
-      // find all workflows where this user exists
-      const matched = workflows.filter(
-        (wf: any) =>
-          wf &&
-          Array.isArray(wf.users) &&
-          wf.users.some((u: any) => u && Number(u.user_id) === Number(userId))
-      );
-
-      const found = matched.length > 0;
-
-      if (found) {
-        // extract plant list
-        const plantList = matched.map((wf) => ({
-          plant_id: wf.plant_id,
-          plant_name: wf.plant_name,
-        }));
-
-        setUser((prev) => {
-          if (!prev) return prev;
-
-          // only update if not already stored
-          const updated = {
-            ...prev,
-            isITBin: true,
-            itPlants: plantList,
-          };
-
-          try {
-            localStorage.setItem("authUser", JSON.stringify(updated));
-          } catch {}
-
-          return updated;
-        });
-      }
-
-      console.log("ITBin result:", found);
-      console.log("ITBin plant result:", matched);
-      return { found, plants: matched };
-    } catch (err) {
-      console.error("fetchITBinForUser error", err);
-      return false;
-    }
-  },
-  [setUser]
-);
-
-  // Restore user from localStorage on app load for persistent login
+  // Restore user from localStorage on app load
   useEffect(() => {
     let mounted = true;
 
@@ -294,7 +339,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
           const token = localStorage.getItem("token");
           if (token) {
-            // Try to extract permissions from token payload first (fast, local)
             let userPermissions: string[] = [];
             try {
               const payload = JSON.parse(atob(token.split(".")[1]));
@@ -305,77 +349,69 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 );
                 setPermissions(userPermissions);
               }
-            } catch (e) {
-              // ignore decode errors and fall back to API
-            }  
+            } catch (e) {}
+
             try {
-              // If we didn't get permissions from token, fetch from API
               if (!userPermissions || userPermissions.length === 0) {
                 userPermissions = await fetchPermissions(token);
               }
 
               if (!mounted) return;
 
-              // Then check workflows for approver membership regardless of role id
-              let isApproverFound = false;
-              try {
-                isApproverFound = await fetchWorkflowsForUser(parsed.id, token);
-              } catch (e) {
-                console.warn("Error checking workflows on restore:", e);
-              }
+              // Check both approver types
+              const approverResult = await checkApproverStatus(
+                parsed.id,
+                parsed.email,
+                token
+              );
 
               if (!mounted) return;
 
-              if (isApproverFound) {
-                // compute approver plants list for UI convenience
-                try {
-                  const workflows = await fetchWorkflows(parsed.id);
-                  const approverPlants = (workflows || [])
-                    .filter((w) =>
-                      [
-                        w.approver_1_id,
-                        w.approver_2_id,
-                        w.approver_3_id,
-                        w.approver_4_id,
-                        w.approver_5_id,
-                      ].some((id) => id === String(parsed.id))
-                    )
-                    .map((w) => w.plant_id)
-                    .filter((pid) => pid != null);
+              if (approverResult.isApprover) {
+                setUser((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        permissions: userPermissions,
+                        isApprover: true,
+                        isApprover1: approverResult.isApprover1,
+                        isWorkflowApprover: approverResult.isWorkflowApprover,
+                        approverPlants: approverResult.approverPlants,
+                      }
+                    : null
+                );
 
-                  setUser((prev) =>
-                    prev
-                      ? {
-                          ...prev,
-                          permissions: userPermissions,
-                          isApprover: true,
-                          approverPlants: [...new Set(approverPlants)],
-                        }
-                      : null
-                  );
+                // Update localStorage with approver info
+                try {
+                  const updatedUser = {
+                    ...parsed,
+                    permissions: userPermissions,
+                    isApprover: true,
+                    isApprover1: approverResult.isApprover1,
+                    isWorkflowApprover: approverResult.isWorkflowApprover,
+                    approverPlants: approverResult.approverPlants,
+                  };
+                  localStorage.setItem("authUser", JSON.stringify(updatedUser));
                 } catch (e) {
-                  // fallback: set isApprover only
-                  setUser((prev) =>
-                    prev
-                      ? {
-                          ...prev,
-                          permissions: userPermissions,
-                          isApprover: true,
-                        }
-                      : null
-                  );
+                  console.warn("Error updating localStorage:", e);
                 }
               } else {
                 setUser((prev) =>
                   prev ? { ...prev, permissions: userPermissions } : null
                 );
               }
+
+              // Check IT Bin status
+              if (!mounted) return;
+              try {
+                await fetchITBinForUser(parsed.id, token);
+              } catch (e) {
+                console.warn("Error checking IT Bin status:", e);
+              }
             } catch (e) {
               console.warn("Error restoring session:", e);
               if (mounted) {
-                setError(
-                  "Failed to restore session. Please try logging in again."
-                );
+                setError("Failed to restore session. Please try logging in again.");
               }
             }
           }
@@ -386,32 +422,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       }
     })();
-    return () =>
-    { 
+
+    return () => {
       mounted = false;
     };
-    // fetchWorkflowsForUser is stable via useCallback
-  }, [fetchWorkflowsForUser,fetchITBinForUser,fetchPermissions]);
+  }, [fetchPermissions, checkApproverStatus, fetchITBinForUser]);
 
   const login = async (username: string, password: string) => {
     setLoading(true);
     setError(null);
     try {
-      // Use centralized login helper (adds consistent error handling and header behavior)
       const data: any = await loginAPI({ username, password });
 
-      // Validate backend response
       if (!data.user || !data.token) {
         throw new Error("Invalid login response: missing user or token");
       }
 
-      // Map backend user fields to frontend AuthUser interface.
-      // Accept role_id as number or array.
-      // Map backend role string identifiers to numeric role IDs used in the app
       const roleMap: Record<string, number> = {
         superAdmin: 1,
         plantAdmin: 2,
-        approver: 4, // align 'approver' string to role id 4
+        approver: 4,
         auditReviewer: 3,
         user: 5,
         vendor: 6,
@@ -428,10 +458,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       let status = (data.user.status ?? "").toString();
-      // Normalize status to upper-case ACTIVE
       if (status && status.toLowerCase() === "active") status = "ACTIVE";
 
-      // Try to get user id from multiple possible fields
       const userId =
         (typeof data.user.user_id === "number" && data.user.user_id) ||
         (typeof data.user.id === "number" && data.user.id) ||
@@ -442,7 +470,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(null);
         return;
       }
-console.log("data details",data);
+
+      console.log("Login data details:", data);
+
       const authUser: AuthUser = {
         id: userId,
         username: data.user.username,
@@ -459,23 +489,20 @@ console.log("data details",data);
         token: data.token,
       };
 
-      // Try to extract permissions from the token payload immediately so AbilityProvider
-      // can build rules synchronously without waiting for the /permissions API.
       try {
         const payload = JSON.parse(atob(data.token.split(".")[1]));
         if (payload && Array.isArray(payload.permissions)) {
           (authUser as any).permissions = payload.permissions;
           setPermissions(payload.permissions);
         }
-      } catch (e) {
-        // ignore decode errors
-      }
+      } catch (e) {}
+
       setUser(authUser);
+
       try {
         localStorage.setItem("authUser", JSON.stringify(authUser));
         localStorage.setItem("token", authUser.token);
 
-        // If token didn't include permissions, fetch them from the API and attach.
         if (
           !(
             (authUser as any).permissions &&
@@ -483,32 +510,61 @@ console.log("data details",data);
           )
         ) {
           const userPermissions = await fetchPermissions(authUser.token);
-          // merge permissions into the stored user so AbilityProvider sees them
           setUser((prev) =>
             prev ? { ...prev, permissions: userPermissions } : prev
           );
         }
       } catch (e) {
         console.warn("Error saving auth data or fetching permissions:", e);
-        /* localStorage may fail in some environments; continue anyway */
       }
 
-      // check if user is approver in any workflow and set flag (best-effort)
-      // Await this so callers (e.g. Login component) see user.isApprover set
-      // before they perform a redirect based on the flag.
+      // Check both approver types during login
       try {
-        await fetchWorkflowsForUser(authUser.id, authUser.token);
+        const approverResult = await checkApproverStatus(
+          authUser.id,
+          authUser.email,
+          authUser.token
+        );
+
+        if (approverResult.isApprover) {
+          setUser((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  isApprover: true,
+                  isApprover1: approverResult.isApprover1,
+                  isWorkflowApprover: approverResult.isWorkflowApprover,
+                  approverPlants: approverResult.approverPlants,
+                }
+              : prev
+          );
+
+          // Update localStorage with complete approver info
+          try {
+            const updatedUser = {
+              ...authUser,
+              isApprover: true,
+              isApprover1: approverResult.isApprover1,
+              isWorkflowApprover: approverResult.isWorkflowApprover,
+              approverPlants: approverResult.approverPlants,
+            };
+            localStorage.setItem("authUser", JSON.stringify(updatedUser));
+          } catch (e) {
+            console.warn("Error updating localStorage with approver info:", e);
+          }
+        }
       } catch (e) {
-        console.warn("fetchWorkflowsForUser", e);
+        console.warn("checkApproverStatus error:", e);
       }
-       try {
-                await fetchITBinForUser(authUser.id, authUser.token);
-              } catch (e) {
-                console.warn("restore ITBIN", e);
-              }
+
+      try {
+        await fetchITBinForUser(authUser.id, authUser.token);
+      } catch (e) {
+        console.warn("fetchITBinForUser error:", e);
+      }
+
       console.log("[AuthContext] User set after login:", authUser);
 
-      // Determine initial route and store it
       const initialRoute = determineInitialRoute(authUser);
       try {
         localStorage.setItem("initialRoute", initialRoute);
@@ -527,21 +583,16 @@ console.log("data details",data);
     setUser(null);
     setPermissions([]);
     try {
-      // Clear ALL storage to prevent any stale state
       localStorage.clear();
       sessionStorage.clear();
-
-      // Force a complete reload and redirect to login
       window.location.href = "/";
     } catch (e) {
       console.warn("Error during logout cleanup:", e);
-      // Even if cleanup fails, redirect to login
       window.location.href = "/";
     }
   };
 
   if (loading) {
-    // Optionally, show a spinner or blank screen while restoring auth state
     return null;
   }
 

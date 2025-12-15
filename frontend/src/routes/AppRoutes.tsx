@@ -127,6 +127,7 @@ const allowedRoutes = [
   "/homepage",
   "/approver/pending",   // Pending approvals page
   "/approver/history",
+  "/access-request/:id"
 ];
 
 const NotFound = () => (
