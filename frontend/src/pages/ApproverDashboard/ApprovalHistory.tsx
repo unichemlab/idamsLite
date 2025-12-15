@@ -13,7 +13,24 @@ import {
   FiBriefcase,
   FiLogOut,
 } from "react-icons/fi";
-
+import {
+  IconButton,
+  Tooltip,
+} from "@mui/material";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+interface Task {
+  application_equip_id: string;
+  application_name: string;
+  transaction_id: string;
+  department: string;
+  department_name: string;
+  location_name: string;
+  role_name: string;
+  role: string;
+  location: string;
+  reports_to: string;
+  task_status: string;
+}
 interface ApprovalAction {
   id: number;
   approverName: string;
@@ -38,6 +55,8 @@ interface ApprovalAction {
   myLevel?: 1 | 2; // Which level I acted at
   approver1_status?: string;
   approver2_status?: string;
+  requestor_location?: string;
+  requestor_department?: string;
 }
 
 const ApprovalHistoryPage: React.FC = () => {
@@ -46,8 +65,21 @@ const ApprovalHistoryPage: React.FC = () => {
   const [approvalHistory, setApprovalHistory] = useState<ApprovalAction[]>([]);
   const [loading, setLoading] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [modalTasks, setModalTasks] = useState<Task[] | null>(null);
+   const closeTaskModal = () => setModalTasks(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const openTaskModal = async (id?: number) => {
+    if (!id) return;
 
+    try {
+      const res = await fetch(`${API_BASE}/api/user-requests/${id}`);
+      const data = await res.json();
+      console.log("modal tasks data", data);
+      setModalTasks(data.tasks || []);
+    } catch (error) {
+      console.error("Error loading modal tasks:", error);
+    }
+  };
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -93,6 +125,7 @@ const ApprovalHistoryPage: React.FC = () => {
           // 1. Current user is Approver 1 AND has taken action (Approved or Rejected)
           // 2. Current user is Approver 2 AND has taken action (Approved or Rejected)
           
+          console.log("Evaluating history record for tr:", tr);
           const isApprover1 = tr.approver1_email?.toLowerCase() === user.email?.toLowerCase();
           const isApprover2 = tr.approver2_email?.toLowerCase() === user.email?.toLowerCase();
           
@@ -144,6 +177,8 @@ const ApprovalHistoryPage: React.FC = () => {
             training_attachment: tr.training_attachment,
             application_name: tr.application_name,
             department_name: tr.department_name,
+            requestor_location: tr.plant_name,
+            requestor_department: tr.department_name,
             role_name: tr.role_name,
             approverName: user.name || user.username || "-",
             approverRole: tr.role_name || tr.approver_role || tr.role || "-",
@@ -316,14 +351,13 @@ const ApprovalHistoryPage: React.FC = () => {
                     <th>Name</th>
                     <th>Employee Code</th>
                     <th>Employee Location</th>
+                    <th>Requestor Location</th>
+                    <th>Requestor Department</th>
                     <th>Access Request Type</th>
                     <th>Approval Status</th>
-                    <th>Training Status</th>
-                    <th>Training Attachment</th>
                     <th>My Level</th>
-                    <th>My Action</th>
-                    <th>Timestamp</th>
                     <th>Comments</th>
+                    <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -341,11 +375,13 @@ const ApprovalHistoryPage: React.FC = () => {
                         <td>{a.name}</td>
                         <td>{a.employee_code}</td>
                         <td>{a.employee_location}</td>
+                        <td>{a.requestor_location}</td>
+                        <td>{a.requestor_department}</td>
                         <td>{a.access_request_type}</td>
                         <td>
-                          <div style={{ fontSize: "0.85rem" }}>
+                          <div style={{ fontSize: "0.75rem" }}>
                             <div>
-                              <strong>Approver 1:</strong>{" "}
+                              <strong>A1:</strong>{" "}
                               <span
                                 style={{
                                   color:
@@ -360,7 +396,7 @@ const ApprovalHistoryPage: React.FC = () => {
                               </span>
                             </div>
                             <div>
-                              <strong>Approver 2:</strong>{" "}
+                              <strong>A2:</strong>{" "}
                               <span
                                 style={{
                                   color:
@@ -376,42 +412,24 @@ const ApprovalHistoryPage: React.FC = () => {
                             </div>
                           </div>
                         </td>
-                        <td>{a.training_status}</td>
-                        <td>
-                          {a.training_attachment ? (
-                            <a
-                              href={`${API_BASE}/api/user-requests/${a.id}/attachment`}
-                              download={a.training_attachment}
-                              style={{ display: "inline-flex", alignItems: "center" }}
-                              title={`Download ${a.training_attachment}`}
-                            >
-                              <PictureAsPdfIcon
-                                fontSize="small"
-                                style={{ color: "#e53935" }}
-                              />
-                            </a>
-                          ) : (
-                            "-"
-                          )}
-                        </td>
                         <td>
                           <span style={{ fontWeight: 600 }}>
-                            Approver {a.myLevel}
+                            A{a.myLevel}
                           </span>
                         </td>
-                        <td>
-                          <span
-                            className={
-                              a.action === "Approved"
-                                ? tableStyles.statusApproved
-                                : tableStyles.statusRejected
-                            }
-                          >
-                            {a.action}
-                          </span>
-                        </td>
-                        <td>{new Date(a.timestamp).toLocaleString()}</td>
                         <td>{a.comments || "-"}</td>
+                        <td>
+                          <div className={tableStyles.actionButtons}>
+                            <Tooltip title="View Tasks">
+                              <IconButton
+                                size="small"
+                                onClick={() => openTaskModal(a.id)}
+                              >
+                                <VisibilityOutlinedIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </div>
+                        </td>
                       </tr>
                     ))
                   )}
@@ -421,6 +439,54 @@ const ApprovalHistoryPage: React.FC = () => {
           )}
         </div>
       </main>
+      {modalTasks && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent}>
+            <h3>Task Details</h3>
+            <button className={styles.closeModalBtn} onClick={closeTaskModal}>
+              ×
+            </button>
+            <table className={styles.modalTable}>
+              <thead>
+                <tr>
+                  <th>Transaction ID</th>
+                  <th>Application / Equip ID</th>
+                  <th>Department</th>
+                  <th>Role</th>
+                  <th>Location</th>
+                  <th>Reports To</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {modalTasks.map((task, idx) => (
+                  <tr key={idx}>
+                    <td>{task.transaction_id}</td>
+                    <td>{task.application_name}</td>
+                    <td>{task.department_name}</td>
+                    <td>{task.role_name}</td>
+                    <td>{task.location_name}</td>
+                    <td>{task.reports_to}</td>
+                    <td>
+                      <span
+                        className={`${styles.statusBadge} ${
+                          task.task_status === "Pending"
+                            ? styles.pending
+                            : task.task_status === "Approved"
+                            ? styles.approved
+                            : styles.rejected
+                        }`}
+                      >
+                        {task.task_status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

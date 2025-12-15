@@ -377,7 +377,7 @@ export async function addTaskAPI(task: any): Promise<any> {
 }
 
 export async function updateTaskAPI(id: string, task: any): Promise<any> {
-  return request(`/api/tasks/${id}`, {
+  return request(`/api/task/tasks/${id}`, {
     method: "PUT",
     body: JSON.stringify(task),
   });
