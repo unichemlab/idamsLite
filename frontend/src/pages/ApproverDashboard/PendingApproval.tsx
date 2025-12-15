@@ -85,6 +85,8 @@ interface AccessRequest {
   approver2_status?: string;
   canApprove?: boolean; // New field to track if current user can approve
   approvalLevel?: 1 | 2; // Which level of approval this is
+   requestor_location?: string;
+  requestor_department?: string;
 }
 
 const PendingApprovalPage: React.FC = () => {
@@ -268,6 +270,8 @@ const PendingApprovalPage: React.FC = () => {
             name: tr.request_name,
             employee_code: tr.employee_code,
             employee_location: tr.employee_location,
+             requestor_location: tr.plant_name,
+            requestor_department: tr.department_name,
             access_request_type: tr.access_request_type,
             training_status: tr.training_status,
             training_attachment: tr.training_attachment,
@@ -542,10 +546,10 @@ const PendingApprovalPage: React.FC = () => {
                     <th>Name</th>
                     <th>Employee Code</th>
                     <th>Employee Location</th>
+                    <th>Requestor Location</th>
+                    <th>Requestor Department</th>
                     <th>Access Request Type</th>
                     <th>Approval Status</th>
-                    <th>Training Status</th>
-                    <th>Training Attachment</th>
                     <th>Tasks</th>
                     <th>Actions</th>
                   </tr>
@@ -565,9 +569,11 @@ const PendingApprovalPage: React.FC = () => {
                         <td>{a.name}</td>
                         <td>{a.employee_code}</td>
                         <td>{a.employee_location}</td>
+                         <td>{a.requestor_location}</td>
+                        <td>{a.requestor_department}</td>
                         <td>{a.access_request_type}</td>
                         <td>
-                          <div style={{ fontSize: "0.85rem" }}>
+                          <div style={{ fontSize: "0.75rem" }}>
                             <div>
                               <strong>Approver 1:</strong>{" "}
                               <span
@@ -599,24 +605,6 @@ const PendingApprovalPage: React.FC = () => {
                               </span>
                             </div>
                           </div>
-                        </td>
-                        <td>{a.training_status}</td>
-                        <td>
-                          {a.training_attachment ? (
-                            <a
-                              href={`${API_BASE}/api/user-requests/${a.id}/attachment`}
-                              download={a.training_attachment}
-                              style={{ display: "inline-flex", alignItems: "center" }}
-                              title={`Download ${a.training_attachment}`}
-                            >
-                              <PictureAsPdfIcon
-                                fontSize="small"
-                                style={{ color: "#e53935" }}
-                              />
-                            </a>
-                          ) : (
-                            "-"
-                          )}
                         </td>
                         <td>
                           <div className={tableStyles.actionButtons}>
