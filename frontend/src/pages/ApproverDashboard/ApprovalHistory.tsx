@@ -1,29 +1,17 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { fetchTasksForApprover,API_BASE } from "../../utils/api";
+import { fetchTasksForApprover, API_BASE } from "../../utils/api";
 import styles from "./ApproverHome.module.css";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import tableStyles from "./ApprovalTable.module.css";
 import headerStyles from "../HomePage/homepageUser.module.css";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
 import { CircularProgress } from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import LogoutIcon from "@mui/icons-material/Logout";
 import {
   FiChevronDown,
-  FiMail,
-  FiMapPin,
   FiBriefcase,
   FiLogOut,
-  FiShield,
-  FiUsers,
-  FiCheckCircle,
-  FiClock,
-  FiAlertCircle,
-  FiTrendingUp,
-  FiFileText,
-  FiSettings,
 } from "react-icons/fi";
 
 interface ApprovalAction {
@@ -35,17 +23,21 @@ interface ApprovalAction {
   action: "Approved" | "Rejected" | "Pending" | string;
   timestamp: string;
   comments?: string;
-  tranasaction_id?:string;
-  request_for_by?:string;
-  name?:string;
-  employee_code?:string;
-  employee_location?:string;
-  access_request_type?:string;
-  training_status?:string;
-  training_attachment?:string;
+  tranasaction_id?: string;
+  request_for_by?: string;
+  name?: string;
+  employee_code?: string;
+  employee_location?: string;
+  access_request_type?: string;
+  training_status?: string;
+  training_attachment?: string;
   application_name: string;
   department_name: string;
   role_name: string;
+  myAction?: string; // What action I took
+  myLevel?: 1 | 2; // Which level I acted at
+  approver1_status?: string;
+  approver2_status?: string;
 }
 
 const ApprovalHistoryPage: React.FC = () => {
@@ -53,11 +45,9 @@ const ApprovalHistoryPage: React.FC = () => {
   const { user, logout } = useAuth();
   const [approvalHistory, setApprovalHistory] = useState<ApprovalAction[]>([]);
   const [loading, setLoading] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Close menu on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -67,12 +57,13 @@ const ApprovalHistoryPage: React.FC = () => {
     if (showUserMenu) document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showUserMenu]);
+
   useEffect(() => {
     fetchApprovalHistory();
   }, []);
 
   async function fetchApprovalHistory() {
-    if (!user?.id) {
+    if (!user?.id || !user?.email) {
       setApprovalHistory([]);
       return;
     }
@@ -81,68 +72,94 @@ const ApprovalHistoryPage: React.FC = () => {
     try {
       const data: any = await fetchTasksForApprover(Number(user.id));
       console.log("Fetched approval history data:", data);
-      const mapped: ApprovalAction[] = Array.isArray(data)
-        ? data
-          .filter((tr: any) => {
-            const status = tr.task_status || "Pending";
-            return status === "Approved" || status === "Rejected";
-          })
-          .map((tr: any) => {
-            
-            let approverName = "-";
-            let approverAction = tr.task_status || "Pending";
+      console.log("Current user email:", user.email);
 
-            if (tr.approver2_action && tr.approver2_action !== "Pending") {
-              approverName =
-                tr.approver2_name || tr.approver2_email || "Approver 2";
-              approverAction = tr.approver2_action;
-            } else if (
-              tr.approver1_action &&
-              tr.approver1_action !== "Pending"
-            ) {
-              approverName =
-                tr.approver1_name || tr.approver1_email || "Approver 1";
-              approverAction = tr.approver1_action;
-            } else {
-              approverName =
-                tr.reports_to ||
-                tr.approver_name ||
-                tr.approver ||
-                tr.username ||
-                "-";
-            }
-            return {
-              id: tr.user_request_id,
-              tranasaction_id:tr.user_request_transaction_id,
-              request_for_by:tr.request_for_by,
-              name:tr.request_name,
-              employee_code:tr.employee_code,
-              employee_location:tr.employee_location,
-              access_request_type:tr.access_request_type,
-              training_status:tr.training_status,
-              training_attachment:tr.training_attachment,
-              application_name:tr.application_name,
-              department_name:tr.department_name,
-              role_name:tr.role_name,
-              approverName,
-              approverRole:
-                tr.role_name || tr.approver_role || tr.role || "-",
-              plant: tr.plant_name || tr.plant || "-",
-              corporate: tr.corporate_name || "Unichem Corp",
-              action: approverAction,
-              timestamp:
-                tr.approver2_action_timestamp ||
-                tr.approver1_action_timestamp ||
-                tr.updated_on ||
-                tr.created_on ||
-                tr.timestamp ||
-                "",
-              comments: tr.remarks || tr.comments || "",
-            };
-            
-          })
-        : [];
-        
+      // Group by transaction ID to remove duplicates
+      const tasksByTransaction = new Map<string, any>();
+      
+      if (Array.isArray(data)) {
+        data.forEach((task) => {
+          const txnId = task.user_request_transaction_id;
+          if (!txnId) return;
+          if (!tasksByTransaction.has(txnId)) {
+            tasksByTransaction.set(txnId, task);
+          }
+        });
+      }
+
+      const mapped: ApprovalAction[] = Array.from(tasksByTransaction.values())
+        .filter((tr: any) => {
+          // Show in history if:
+          // 1. Current user is Approver 1 AND has taken action (Approved or Rejected)
+          // 2. Current user is Approver 2 AND has taken action (Approved or Rejected)
+          
+          const isApprover1 = tr.approver1_email?.toLowerCase() === user.email?.toLowerCase();
+          const isApprover2 = tr.approver2_email?.toLowerCase() === user.email?.toLowerCase();
+          
+          const approver1HasActed = tr.approver1_status && tr.approver1_status !== "Pending";
+          const approver2HasActed = tr.approver2_status && tr.approver2_status !== "Pending";
+          
+          console.log(`History filter for ${tr.user_request_transaction_id}:`, {
+            isApprover1,
+            isApprover2,
+            approver1_status: tr.approver1_status,
+            approver2_status: tr.approver2_status,
+            approver1HasActed,
+            approver2HasActed,
+            shouldShow: (isApprover1 && approver1HasActed) || (isApprover2 && approver2HasActed)
+          });
+
+          return (isApprover1 && approver1HasActed) || (isApprover2 && approver2HasActed);
+        })
+        .map((tr: any) => {
+          const isApprover1 = tr.approver1_email?.toLowerCase() === user.email?.toLowerCase();
+          const isApprover2 = tr.approver2_email?.toLowerCase() === user.email?.toLowerCase();
+
+          let myAction = "Pending";
+          let myLevel: 1 | 2 | undefined;
+          let timestamp = "";
+          let comments = "";
+
+          if (isApprover1) {
+            myAction = tr.approver1_status || "Pending";
+            myLevel = 1;
+            timestamp = tr.approver1_action_timestamp || tr.created_on || "";
+            comments = tr.approver1_comments || tr.remarks || "";
+          } else if (isApprover2) {
+            myAction = tr.approver2_status || "Pending";
+            myLevel = 2;
+            timestamp = tr.approver2_action_timestamp || tr.updated_on || "";
+            comments = tr.approver2_comments || tr.remarks || "";
+          }
+
+          return {
+            id: tr.user_request_id,
+            tranasaction_id: tr.user_request_transaction_id,
+            request_for_by: tr.request_for_by,
+            name: tr.request_name,
+            employee_code: tr.employee_code,
+            employee_location: tr.employee_location,
+            access_request_type: tr.access_request_type,
+            training_status: tr.training_status,
+            training_attachment: tr.training_attachment,
+            application_name: tr.application_name,
+            department_name: tr.department_name,
+            role_name: tr.role_name,
+            approverName: user.name || user.username || "-",
+            approverRole: tr.role_name || tr.approver_role || tr.role || "-",
+            plant: tr.plant_name || tr.plant || "-",
+            corporate: tr.corporate_name || "Unichem Corp",
+            action: myAction,
+            myAction,
+            myLevel,
+            timestamp,
+            comments,
+            approver1_status: tr.approver1_status || "Pending",
+            approver2_status: tr.approver2_status || "Pending",
+          };
+        });
+
+      console.log("Mapped history records:", mapped.length);
       setApprovalHistory(mapped);
     } catch (err) {
       console.error("Error fetching approval history:", err);
@@ -156,19 +173,19 @@ const ApprovalHistoryPage: React.FC = () => {
     logout();
     navigate("/");
   };
-console.log("requests details",approvalHistory);
+
+  console.log("Approval history to display:", approvalHistory);
+
   return (
     <div className={styles.container}>
-      {/* Header */}
       <header className={headerStyles["main-header"]}>
         <div className={headerStyles.navLeft}>
           <div className={headerStyles.logoWrapper}>
             <img src={login_headTitle2} alt="Logo" className={headerStyles.logo} />
             <span className={headerStyles.version}>version-1.0</span>
           </div>
-          <h1 className={headerStyles.title}>Approved & Rejected Requests</h1>
+          <h1 className={headerStyles.title}>My Approval History</h1>
         </div>
-
 
         <div className={headerStyles.navRight}>
           {user && (
@@ -177,17 +194,13 @@ console.log("requests details",approvalHistory);
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className={headerStyles.userButton}
               >
-                {/* Avatar */}
                 <div className={headerStyles.avatarContainer}>
                   <div className={headerStyles.avatar}>
-                    {(user.name || user.username || "U")
-                      .charAt(0)
-                      .toUpperCase()}
+                    {(user.name || user.username || "U").charAt(0).toUpperCase()}
                   </div>
                   <div className={headerStyles.statusDot}></div>
                 </div>
 
-                {/* User Name */}
                 <div className={headerStyles.userInfo}>
                   <span className={headerStyles.userName}>
                     {user.name || user.username}
@@ -200,7 +213,6 @@ console.log("requests details",approvalHistory);
                   )}
                 </div>
 
-                {/* Dropdown Arrow */}
                 <FiChevronDown
                   size={16}
                   color="#64748b"
@@ -211,15 +223,12 @@ console.log("requests details",approvalHistory);
                 />
               </button>
 
-              {/* Dropdown Menu */}
               {showUserMenu && (
                 <div className={headerStyles.dropdownMenu}>
                   <div className={headerStyles.dropdownHeader}>
                     <div className={headerStyles.dropdownAvatar}>
                       <div className={headerStyles.dropdownAvatarCircle}>
-                        {(user.name || user.username || "U")
-                          .charAt(0)
-                          .toUpperCase()}
+                        {(user.name || user.username || "U").charAt(0).toUpperCase()}
                       </div>
                       <div className={headerStyles.dropdownUserInfo}>
                         <span className={headerStyles.dropdownUserName}>
@@ -232,38 +241,8 @@ console.log("requests details",approvalHistory);
                         )}
                       </div>
                     </div>
-
-                    {/* {user.isITBin && (
-                      <div className={styles.adminBadge}>
-                        <FiShield size={14} />
-                        <span>IT BIN Administrator</span>
-                      </div>
-                    )} */}
                   </div>
 
-                  {/* Contact Info */}
-                  {/* <div className={styles.dropdownInfo}>
-                    {user.email && (
-                      <div className={styles.infoItem}>
-                        <FiMail size={16} />
-                        <span>{user.email}</span>
-                      </div>
-                    )}
-                    {user.location && (
-                      <div className={styles.infoItem}>
-                        <FiMapPin size={16} />
-                        <span>{user.location}</span>
-                      </div>
-                    )}
-                    {user.designation && (
-                      <div className={styles.infoItem}>
-                        <FiBriefcase size={16} />
-                        <span>{user.designation}</span>
-                      </div>
-                    )}
-                  </div> */}
-
-                  {/* Actions */}
                   <div className={headerStyles.dropdownActions}>
                     <button
                       onClick={() => navigate("/homepage")}
@@ -298,7 +277,6 @@ console.log("requests details",approvalHistory);
                       </button>
                     )}
                     {user?.isApprover && (
-
                       <button
                         onClick={() => navigate("/approver/history")}
                         className={headerStyles.dropdownButton}
@@ -322,17 +300,8 @@ console.log("requests details",approvalHistory);
         </div>
       </header>
 
-      {/* Main Content */}
       <main className={tableStyles.mainContent}>
-        {/* <button
-          className={tableStyles.backButton}
-          onClick={() => navigate("/approver")}
-        >
-          <ArrowBackIcon fontSize="small" /> Back to Home
-        </button> */}
-
         <div className={tableStyles.tableContainer}>
-
           {loading ? (
             <div className={tableStyles.loadingContainer}>
               <CircularProgress />
@@ -342,15 +311,17 @@ console.log("requests details",approvalHistory);
               <table className={tableStyles.table}>
                 <thead>
                   <tr>
-                    <th>Transaction ID</th>
+                    <th>Request ID</th>
                     <th>Request For By</th>
                     <th>Name</th>
                     <th>Employee Code</th>
                     <th>Employee Location</th>
                     <th>Access Request Type</th>
+                    <th>Approval Status</th>
                     <th>Training Status</th>
                     <th>Training Attachment</th>
-                    <th>Action</th>
+                    <th>My Level</th>
+                    <th>My Action</th>
                     <th>Timestamp</th>
                     <th>Comments</th>
                   </tr>
@@ -358,37 +329,76 @@ console.log("requests details",approvalHistory);
                 <tbody>
                   {approvalHistory.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className={tableStyles.emptyState}>
+                      <td colSpan={13} className={tableStyles.emptyState}>
                         No approval history found.
                       </td>
                     </tr>
                   ) : (
-                    approvalHistory.map((a, idx) => (
-                      <tr key={idx}>
+                    approvalHistory.map((a) => (
+                      <tr key={`${a.tranasaction_id}-${a.myLevel}`}>
                         <td>{a.tranasaction_id}</td>
                         <td>{a.request_for_by}</td>
                         <td>{a.name}</td>
                         <td>{a.employee_code}</td>
-                         <td>{a.employee_location}</td>
+                        <td>{a.employee_location}</td>
                         <td>{a.access_request_type}</td>
+                        <td>
+                          <div style={{ fontSize: "0.85rem" }}>
+                            <div>
+                              <strong>Approver 1:</strong>{" "}
+                              <span
+                                style={{
+                                  color:
+                                    a.approver1_status === "Approved"
+                                      ? "#2e7d32"
+                                      : a.approver1_status === "Rejected"
+                                      ? "#d32f2f"
+                                      : "#ed6c02",
+                                }}
+                              >
+                                {a.approver1_status}
+                              </span>
+                            </div>
+                            <div>
+                              <strong>Approver 2:</strong>{" "}
+                              <span
+                                style={{
+                                  color:
+                                    a.approver2_status === "Approved"
+                                      ? "#2e7d32"
+                                      : a.approver2_status === "Rejected"
+                                      ? "#d32f2f"
+                                      : "#ed6c02",
+                                }}
+                              >
+                                {a.approver2_status}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
                         <td>{a.training_status}</td>
                         <td>
-                    {a.training_attachment ? (
-                      <a
-                        href={`${API_BASE}/api/user-requests/${a.id}/attachment`}
-                        download={a.training_attachment}
-                        style={{ display: "inline-flex", alignItems: "center" }}
-                        title={`Download ${a.training_attachment}`}
-                      >
-                        <PictureAsPdfIcon
-                          fontSize="small"
-                          style={{ color: "#e53935" }}
-                        />
-                      </a>
-                    ) : (
-                      "-"
-                    )}
-                  </td>
+                          {a.training_attachment ? (
+                            <a
+                              href={`${API_BASE}/api/user-requests/${a.id}/attachment`}
+                              download={a.training_attachment}
+                              style={{ display: "inline-flex", alignItems: "center" }}
+                              title={`Download ${a.training_attachment}`}
+                            >
+                              <PictureAsPdfIcon
+                                fontSize="small"
+                                style={{ color: "#e53935" }}
+                              />
+                            </a>
+                          ) : (
+                            "-"
+                          )}
+                        </td>
+                        <td>
+                          <span style={{ fontWeight: 600 }}>
+                            Approver {a.myLevel}
+                          </span>
+                        </td>
                         <td>
                           <span
                             className={
@@ -400,7 +410,7 @@ console.log("requests details",approvalHistory);
                             {a.action}
                           </span>
                         </td>
-                        <td>{a.timestamp}</td>
+                        <td>{new Date(a.timestamp).toLocaleString()}</td>
                         <td>{a.comments || "-"}</td>
                       </tr>
                     ))

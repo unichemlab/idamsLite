@@ -94,7 +94,7 @@ exports.handleApproval = async (req, res) => {
     if (!["approve", "reject"].includes(action)) {
       return res.status(400).send("Invalid action type");
     }
-
+console.log("approverID",id, approverEmail, action);
     // Fetch the full request + task data
     const data = await getUserRequestWithTasks(id);
     if (!data) return res.status(404).send("Request not found");
@@ -438,6 +438,7 @@ exports.approveRejectRequest = async (req, res) => {
   }
 
   try {
+    console.log("approverID",id, approverEmail, action);
     const data = await getUserRequestWithTasks(id);
     if (!data) return res.status(404).json({ error: "Request not found" });
 

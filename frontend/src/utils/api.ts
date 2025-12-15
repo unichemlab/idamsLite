@@ -364,6 +364,7 @@ export async function fetchTasksForApprover(
   return request(`/api/task${q}`);
 }
 
+
 export async function fetchTaskById(id: string): Promise<any> {
   return request(`/api/task/${id}`);
 }
@@ -376,7 +377,7 @@ export async function addTaskAPI(task: any): Promise<any> {
 }
 
 export async function updateTaskAPI(id: string, task: any): Promise<any> {
-  return request(`/api/task/tasks/${id}`, {
+  return request(`/api/tasks/${id}`, {
     method: "PUT",
     body: JSON.stringify(task),
   });

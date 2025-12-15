@@ -58,6 +58,8 @@ exports.getAllTasks = async (req, res) => {
 
     // User should be available from authorize middleware
     const user = req.user;
+    console.log("request user", user);
+    
     if (!user) {
       return res.status(401).json({ error: "User not authenticated" });
     }
@@ -70,83 +72,103 @@ exports.getAllTasks = async (req, res) => {
     }
 
     const roleIds = Array.isArray(user.role_id) ? user.role_id : [user.role_id];
-    const isApprover = roleIds.includes(4);
+    const isApprover = user?.isApprover;
     const isSuperAdmin = roleIds.includes(1);
-
-    // Get approver's assigned plants from workflow
-    let approverPlantIds = [];
-    if (isApprover && !isSuperAdmin) {
-      try {
-        const workflowQuery = `
-          SELECT DISTINCT plant_id 
-          FROM approval_workflow_master 
-          WHERE 
-            (approver_1_id LIKE $1 OR
-             approver_2_id LIKE $1 OR
-             approver_3_id LIKE $1 OR
-             approver_4_id LIKE $1 OR
-             approver_5_id LIKE $1)
-            AND is_active = true
-        `;
-        const workflowResult = await client.query(workflowQuery, [
-          `%${user.id}%`,
-        ]);
-        approverPlantIds = workflowResult.rows.map((r) => r.plant_id);
-      } catch (err) {
-        console.error("Error fetching approver plants:", err);
-      }
-    }
 
     // 🧩 Dynamic WHERE clause
     const whereClauses = [];
     const params = [];
 
-    // Filter for approvers - show tasks from their assigned plants based on approval_workflow_master
+    console.log("User info:", {
+      id: user.id,
+      email: user.email,
+      isApprover,
+      isSuperAdmin,
+      isITBin: user?.isITBin,
+      itPlantIds: user?.itPlantIds
+    });
+
+    // ===============================================
+    // APPROVER FILTERS - CORRECTED VERSION
+    // ===============================================
+    console.log("Approver", isApprover);
+    
     if (isApprover && !isSuperAdmin) {
-      // Get plants where this user is an approver from approval workflow
-      const approverResult = await client.query(
-        `
-        SELECT DISTINCT plant_id 
-        FROM approval_workflow_master 
-        WHERE (
-          approver_1_id LIKE $1 OR
-          approver_2_id LIKE $1 OR
-          approver_3_id LIKE $1 OR
-          approver_4_id LIKE $1 OR
-          approver_5_id LIKE $1
-        ) AND is_active = true
-      `,
-        [`%${user.id}%`]
-      );
+      console.log("Applying approver filters for user:", user.id);
+      const approverConditions = [];
 
-      console.log(
-        "User ID:",
-        user.id,
-        "Approver query results:",
-        approverResult.rows
-      );
-
-      if (approverResult.rows.length > 0) {
-        const approverPlants = approverResult.rows
-          .map((row) => row.plant_id)
-          .filter((p) => p != null);
-        // Pass as an array param and use ANY($n::int[])
-        params.push(approverPlants);
-        whereClauses.push(`tr.location = ANY($${params.length}::int[])`);
-        console.log("Approver plants:", approverPlants);
+      // Check 1: Approver by email (for both approver1 and approver2)
+      if (user.email && typeof user.email === 'string' && user.email.trim() !== '') {
+        // Push email FIRST, then use that index
+        params.push(user.email);
+        const emailParamIndex = params.length; // This is now the correct index
+        
+        // All email checks use the SAME parameter
+        approverConditions.push(`ur.approver1_email = $${emailParamIndex}`);
+        approverConditions.push(`tr.approver1_email = $${emailParamIndex}`);
+        approverConditions.push(`ur.approver2_email = $${emailParamIndex}`);
+        approverConditions.push(`tr.approver2_email = $${emailParamIndex}`);
+        
+        console.log("Added email-based approver conditions:", {
+          email: user.email,
+          paramIndex: emailParamIndex,
+          conditionCount: 4
+        });
       } else {
-        // If no plants found but user is an approver, return no results rather than all tasks
+        console.warn("⚠️ User email is missing or invalid:", user.email);
+      }
+
+      // Check 2: Approver from workflow table (by plant assignment)
+      try {
+        const workflowResult = await client.query(
+          `
+            SELECT DISTINCT plant_id 
+            FROM approval_workflow_master
+            WHERE (
+              approver_1_id LIKE $1 OR
+              approver_2_id LIKE $1 OR
+              approver_3_id LIKE $1 OR
+              approver_4_id LIKE $1 OR
+              approver_5_id LIKE $1
+            )
+            AND is_active = true
+          `,
+          [`%${user.id}%`]
+        );
+
+        if (workflowResult.rows.length > 0) {
+          const workflowPlants = workflowResult.rows.map(r => r.plant_id);
+          params.push(workflowPlants);
+          approverConditions.push(`tr.location = ANY($${params.length}::int[])`);
+          console.log("Workflow plants found:", workflowPlants);
+        }
+      } catch (workflowErr) {
+        console.error("Error fetching workflow plants:", workflowErr);
+      }
+
+      // Add all approver conditions with OR logic
+      if (approverConditions.length > 0) {
+        whereClauses.push(`(${approverConditions.join(" OR ")})`);
+        console.log("Final approver conditions:", approverConditions);
+      } else {
+        // If no approver conditions found, return empty results
         whereClauses.push("false");
+        console.warn("⚠️ No approver conditions found - returning empty results");
       }
     }
 
-    // For regular users, only show tasks for user's plant
+    // ===============================================
+    // REGULAR USER FILTERS
+    // ===============================================
+    // For regular users (non-approvers, non-superadmins), only show tasks for their plant
     if (!isSuperAdmin && !isApprover && user.plant_id) {
       params.push(user.plant_id);
       whereClauses.push(`tr.location = $${params.length}`);
     }
 
-    // Additional filters
+    // ===============================================
+    // ADDITIONAL QUERY FILTERS
+    // ===============================================
     if (plant) {
       params.push(plant);
       whereClauses.push(`p.plant_name = $${params.length}`);
@@ -156,9 +178,6 @@ exports.getAllTasks = async (req, res) => {
       params.push(plant_id);
       whereClauses.push(`tr.location = $${params.length}`);
     }
-
-    // Note: For approvers, we already added plant filter above.
-    // Removed hard-coded "Pending" filter to allow frontend to show both pending and completed tasks.
 
     if (transaction_id) {
       params.push(transaction_id);
@@ -174,21 +193,39 @@ exports.getAllTasks = async (req, res) => {
       params.push(access_request_type);
       whereClauses.push(`ur.access_request_type = $${params.length}`);
     }
+
+    // ===============================================
+    // IT BIN ADMIN FILTER
+    // ===============================================
     console.log("user ITBin", user?.isITBin);
-    console.log("user itPlantIds", user.itPlantIds);
-    console.log("user ITBin", user?.isITBin);
-    console.log("user itPlantIds", user.itPlantIds);
-    // Apply restriction based on ITBIN flag
+    console.log("user itPlantIds", user?.itPlantIds);
+    
     if (user?.isITBin && user.itPlantIds?.length > 0) {
       params.push(user.itPlantIds);
       whereClauses.push(`p.id = ANY($${params.length})`);
+      console.log("IT BIN filter applied for plants:", user.itPlantIds);
     }
 
+    // ===============================================
+    // VALIDATE PARAMS BEFORE QUERY
+    // ===============================================
+    if (params.includes(undefined) || params.includes(null)) {
+      console.error("❌ ERROR: params array contains undefined/null values:", params);
+      return res.status(500).json({ 
+        error: "Invalid query parameters",
+        details: "User authentication data is incomplete" 
+      });
+    }
+
+    // ===============================================
+    // BUILD AND EXECUTE QUERY
+    // ===============================================
     const whereSQL = whereClauses.length
       ? `WHERE ${whereClauses.join(" AND ")}`
       : "";
 
     console.log("WHERE clauses:", whereClauses);
+    console.log("Executing query with params:", params);
 
     const query = `
       SELECT DISTINCT
@@ -256,9 +293,9 @@ exports.getAllTasks = async (req, res) => {
       ORDER BY tr.created_on DESC, ur.id;
     `;
 
-    console.log("Executing query with params:", params);
     const { rows } = await client.query(query, params);
-    console.log("Fetched tasks:", rows);
+    console.log(`✅ Fetched ${rows.length} tasks`);
+    
     res.json(rows);
   } catch (err) {
     console.error("❌ Error fetching all tasks:", err);
@@ -396,6 +433,192 @@ exports.getUserTaskRequestById = async (req, res) => {
        WHERE tr.id = $1
        ORDER BY tr.id`,
       [id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "User request not found" });
+    }
+
+    const plantId = rows[0].plant_id;
+    let itAdminGroup = null;
+    let itAdminUsers = [];
+
+    // Step 2: Fetch assignment_it_group from plant_it_admin where status = ACTIVE
+    const itAdminResult = await pool.query(
+      `SELECT id, assignment_it_group
+         FROM plant_it_admin
+        WHERE plant_id = $1 
+          AND status = 'ACTIVE'`,
+      [plantId]
+    );
+
+    if (itAdminResult.rows.length > 0) {
+      const plantItAdmin = itAdminResult.rows[0];
+      itAdminGroup = plantItAdmin;
+
+      // Step 3: Fetch all IT admin user IDs from plant_it_admin_users
+      const adminUsersResult = await pool.query(
+        `SELECT user_id
+           FROM plant_it_admin_users
+          WHERE plant_it_admin_id = $1`,
+        [plantItAdmin.id]
+      );
+
+      const userIds = adminUsersResult.rows.map((row) => row.user_id);
+
+      // Step 4: Fetch user details if user IDs exist
+      if (userIds.length > 0) {
+        const usersQuery = await pool.query(
+          `SELECT id AS user_id, employee_name, employee_code, email, department, location
+             FROM user_master
+            WHERE id = ANY($1::int[])`,
+          [userIds]
+        );
+        itAdminUsers = usersQuery.rows;
+      }
+    }
+
+    // Step 5: Fetch assigned_to user details from user_master
+    let assignedUserDetails = null;
+    const assignedToId = rows[0].assigned_to;
+
+    if (assignedToId) {
+      const assignedUserQuery = await pool.query(
+        `SELECT id AS user_id, employee_name, employee_code, email, department, location
+           FROM user_master
+          WHERE id = $1`,
+        [assignedToId]
+      );
+      assignedUserDetails = assignedUserQuery.rows[0] || null;
+    }
+
+    // Step 6: Structure final response
+    const userRequest = {
+      id: rows[0].user_request_id,
+      request_for_by: rows[0].request_for_by,
+      ritmNumber: rows[0].user_request_transaction_id,
+      name: rows[0].name,
+      employee_code: rows[0].employee_code,
+      request_created_on: rows[0].created_on,
+      employee_location: rows[0].employee_location,
+      access_request_type: rows[0].access_request_type,
+      training_status: rows[0].training_status,
+      training_attachment: rows[0].training_attachment,
+      training_attachment_name: rows[0].training_attachment_name,
+      vendor_name: rows[0].vendor_name,
+      vendor_firm: rows[0].vendor_firm,
+      vendor_code: rows[0].vendor_code,
+      vendor_allocated_id: rows[0].vendor_allocated_id,
+      status: rows[0].user_request_status,
+      tasks: rows
+        .filter((r) => r.task_id)
+        .map((row) => ({
+          task_id: row.task_id,
+          taskNumber: row.task_request_transaction_id,
+          taskNumber: row.task_request_transaction_id,
+          application_equip_id: row.application_equip_id,
+          application_name: row.application_name,
+          department_id: row.department,
+          department_name: row.department_name,
+          plant_name: row.plant_name,
+          role_id: row.role,
+          role_name: row.role_name,
+          location: row.location,
+          reports_to: row.reports_to,
+          task_status: row.task_status,
+          task_created: row.task_created,
+          task_updated: row.task_updated,
+          remarks: row.remarks,
+          // Task Closure info
+          assignment_it_group: row.assignment_group,
+          granted_role: row.role_granted,
+          assigned_to: row.assigned_to,
+          assigned_user: assignedUserDetails,
+          access: row.access,
+        })),
+      it_admin_group: itAdminGroup,
+      it_admin_users: itAdminUsers,
+    };
+  console.log(res.json(userRequest));
+    res.json(userRequest);
+  } catch (err) {
+    console.error("Error in getUserTaskRequestById:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.getUserTaskRequestByEmployeeCOde = async (req, res) => {
+  const { emp_code } = req.params;
+
+  try {
+    // Step 1: Fetch user request + task info + task_closure
+    const { rows } = await pool.query(
+      `SELECT 
+          ur.id AS user_request_id,
+          ur.transaction_id AS user_request_transaction_id,
+          ur.request_for_by,
+          ur.name,
+          ur.employee_code,
+          ur.employee_location,
+          ur.access_request_type,
+          ur.training_status,
+          ur.training_attachment,
+          ur.training_attachment_name,
+          ur.vendor_name,
+          ur.vendor_firm,
+          ur.vendor_code,
+          ur.vendor_allocated_id,
+          ur.status AS user_request_status,
+          ur.approver1_status,
+          ur.approver2_status,
+          ur.created_on,
+          tr.id AS task_id,
+          tr.transaction_id AS task_request_transaction_id,
+          tr.application_equip_id,
+          tr.created_on AS task_created,
+          tr.updated_on AS task_updated,
+          app.display_name AS application_name,
+          tr.department,
+          d.department_name,
+          tr.role,
+          r.role_name AS role_name,
+          p.id AS plant_id,
+          p.plant_name AS plant_name,
+          tr.location,
+          tr.reports_to,
+          tr.task_status,
+          tr.remarks,
+
+         -- 🧩 Task Closure info (if exists)
+          tc.assignment_group,
+          tc.role_granted,
+          tc.access,
+          tc.assigned_to,
+          tc.status,
+          tc.from_date,
+          tc.to_date,
+          tc.updated_on,
+
+          -- 🧩 Assigned User info (from user_master)
+          um.employee_name AS assigned_to_name,
+          um.email AS closure_assigned_to_email,
+          um.department AS closure_assigned_to_department,
+          um.location AS closure_assigned_to_location
+
+       FROM task_requests tr
+       LEFT JOIN user_requests ur ON tr.user_request_id = ur.id
+       LEFT JOIN department_master d ON tr.department = d.id
+       LEFT JOIN role_master r ON tr.role = r.id
+       LEFT JOIN plant_master p ON tr.location = p.id
+       LEFT JOIN application_master app ON tr.application_equip_id = app.id
+       LEFT JOIN task_closure tc 
+              ON tc.ritm_number = ur.transaction_id 
+             AND tc.task_number = tr.transaction_id
+       LEFT JOIN user_master um 
+        ON tc.assigned_to = um.id
+       WHERE tr.approver1_id = $1
+       ORDER BY tr.id`,
+      [emp_code]
     );
 
     if (rows.length === 0) {

@@ -28,30 +28,31 @@ interface TaskLog {
   task_status: string;
   user_request_status: string;
   plant_name?: string;
-  created_on: string;
+  user_request_created_on: string;
   assignment_group: string;
   role_granted: string;
   access: string;
   assigned_to_name: string;
+  approver1_status?: string;
+  approver2_status?: string;
 }
 
 const TaskTable: React.FC = () => {
   const { loading, error } = useTaskContext();
   const [taskLogs, setTaskLogs] = useState<TaskLog[]>([]);
-  //const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const [expandedRequests, setExpandedRequests] = useState<string[]>([]);
   const [filterColumn] = useState<keyof TaskLog>("application_name");
   const [filterValue] = useState("");
-  //const [tempFilterColumn, setTempFilterColumn] = useState<keyof TaskLog>(filterColumn);
-  // const [tempFilterValue, setTempFilterValue] = useState(filterValue);
   const [showFilterPopover, setShowFilterPopover] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 10;
   const navigate = useNavigate();
   const popoverRef = useRef<HTMLDivElement | null>(null);
   
-   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const { user, logout } = useAuth();
 
   // Close menu on outside click
   useEffect(() => {
@@ -64,7 +65,6 @@ const TaskTable: React.FC = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showUserMenu]);
 
-  const { user, logout } = useAuth();
   useEffect(() => {
     fetchTaskLog()
       .then(setTaskLogs)
@@ -81,6 +81,61 @@ const TaskTable: React.FC = () => {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [showFilterPopover]);
+
+  // Helper function to determine task display status based on approval logic
+  const getTaskDisplayStatus = (task: TaskLog) => {
+    const approver1Status = task.approver1_status || "Pending";
+    const approver2Status = task.approver2_status || "Pending";
+    const taskStatus = task.task_status || "Pending";
+
+    // If task is already completed, always show as completed
+    if (taskStatus === "Completed" || taskStatus === "Closed") {
+      return {
+        displayStatus: "Completed",
+        canComplete: false, // Already completed, view only
+        statusColor: "#16a34a", // Green
+        reason: "Task Already Completed"
+      };
+    }
+
+    // Case 1: Approver 1 Rejected → Always Rejected
+    if (approver1Status === "Rejected") {
+      return {
+        displayStatus: "Rejected",
+        canComplete: false,
+        statusColor: "#dc2626", // Red
+        reason: "Approver 1 Rejected"
+      };
+    }
+
+    // Case 2: Approver 1 Approved, Approver 2 Rejected → Rejected
+    if (approver1Status === "Approved" && approver2Status === "Rejected") {
+      return {
+        displayStatus: "Rejected",
+        canComplete: false,
+        statusColor: "#dc2626", // Red
+        reason: "Approver 2 Rejected"
+      };
+    }
+
+    // Case 3: Both Approved → Can Complete
+    if (approver1Status === "Approved" && approver2Status === "Approved") {
+      return {
+        displayStatus: taskStatus === "Pending" ? "Pending Completion" : taskStatus,
+        canComplete: true,
+        statusColor: "#2563eb", // Blue - ready to complete
+        reason: "Both Approved"
+      };
+    }
+
+    // Case 4: Still in approval workflow → Show as Pending Approval
+    return {
+      displayStatus: "Pending Approval",
+      canComplete: false,
+      statusColor: "#f59e0b", // Orange
+      reason: "Awaiting Approvals"
+    };
+  };
 
   const filteredLogs = taskLogs.filter((log) => {
     const value = (log[filterColumn] ?? "").toString().toLowerCase();
@@ -108,11 +163,11 @@ const TaskTable: React.FC = () => {
         : [...prev, requestId]
     );
   };
+
   const handleLogout = () => {
     logout();
     navigate("/");
   };
-
 
   const handleExportPDF = () => {
     if (!filteredLogs.length) return;
@@ -158,169 +213,131 @@ const TaskTable: React.FC = () => {
   return (
     <div className={styles["main-container"]}>
       <main className={styles["main-content"]}>
-       
         <header className={headerStyles["main-header"]}>
-        <div className={headerStyles.navLeft}>
-          <div className={headerStyles.logoWrapper}>
-            <img src={login_headTitle2} alt="Logo" className={headerStyles.logo} />
-            <span className={headerStyles.version}>version-1.0</span>
+          <div className={headerStyles.navLeft}>
+            <div className={headerStyles.logoWrapper}>
+              <img src={login_headTitle2} alt="Logo" className={headerStyles.logo} />
+              <span className={headerStyles.version}>version-1.0</span>
+            </div>
+            <h1 className={headerStyles.title}>Task Closure</h1>
           </div>
-          <h1 className={headerStyles.title}>Task Clouser</h1>
-        </div>
 
-
-        <div className={headerStyles.navRight}>
-          {user && (
-            <div style={{ position: "relative" }} ref={menuRef}>
-              <button
-                onClick={() => setShowUserMenu(!showUserMenu)}
-                className={headerStyles.userButton}
-              >
-                {/* Avatar */}
-                <div className={headerStyles.avatarContainer}>
-                  <div className={headerStyles.avatar}>
-                    {(user.name || user.username || "U")
-                      .charAt(0)
-                      .toUpperCase()}
+          <div className={headerStyles.navRight}>
+            {user && (
+              <div style={{ position: "relative" }} ref={menuRef}>
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className={headerStyles.userButton}
+                >
+                  <div className={headerStyles.avatarContainer}>
+                    <div className={headerStyles.avatar}>
+                      {(user.name || user.username || "U")
+                        .charAt(0)
+                        .toUpperCase()}
+                    </div>
+                    <div className={headerStyles.statusDot}></div>
                   </div>
-                  <div className={headerStyles.statusDot}></div>
-                </div>
 
-                {/* User Name */}
-                <div className={headerStyles.userInfo}>
-                  <span className={headerStyles.userName}>
-                    {user.name || user.username}
-                  </span>
-                  {user.isITBin && (
-                    <span className={headerStyles.userRole}>IT Admin</span>
-                  )}
-                  {user.isApprover && (
-                    <span className={headerStyles.userRole}>Approver</span>
-                  )}
-                </div>
+                  <div className={headerStyles.userInfo}>
+                    <span className={headerStyles.userName}>
+                      {user.name || user.username}
+                    </span>
+                    {user.isITBin && (
+                      <span className={headerStyles.userRole}>IT Admin</span>
+                    )}
+                    {user.isApprover && (
+                      <span className={headerStyles.userRole}>Approver</span>
+                    )}
+                  </div>
 
-                {/* Dropdown Arrow */}
-                <FiChevronDown
-                  size={16}
-                  color="#64748b"
-                  style={{
-                    transition: "transform 0.2s",
-                    transform: showUserMenu ? "rotate(180deg)" : "rotate(0deg)",
-                  }}
-                />
-              </button>
+                  <FiChevronDown
+                    size={16}
+                    color="#64748b"
+                    style={{
+                      transition: "transform 0.2s",
+                      transform: showUserMenu ? "rotate(180deg)" : "rotate(0deg)",
+                    }}
+                  />
+                </button>
 
-              {/* Dropdown Menu */}
-              {showUserMenu && (
-                <div className={headerStyles.dropdownMenu}>
-                  <div className={headerStyles.dropdownHeader}>
-                    <div className={headerStyles.dropdownAvatar}>
-                      <div className={headerStyles.dropdownAvatarCircle}>
-                        {(user.name || user.username || "U")
-                          .charAt(0)
-                          .toUpperCase()}
-                      </div>
-                      <div className={headerStyles.dropdownUserInfo}>
-                        <span className={headerStyles.dropdownUserName}>
-                          {user.name || user.username}
-                        </span>
-                        {user.employee_code && (
-                          <span className={headerStyles.dropdownEmployeeCode}>
-                            {user.employee_code}
+                {showUserMenu && (
+                  <div className={headerStyles.dropdownMenu}>
+                    <div className={headerStyles.dropdownHeader}>
+                      <div className={headerStyles.dropdownAvatar}>
+                        <div className={headerStyles.dropdownAvatarCircle}>
+                          {(user.name || user.username || "U")
+                            .charAt(0)
+                            .toUpperCase()}
+                        </div>
+                        <div className={headerStyles.dropdownUserInfo}>
+                          <span className={headerStyles.dropdownUserName}>
+                            {user.name || user.username}
                           </span>
-                        )}
+                          {user.employee_code && (
+                            <span className={headerStyles.dropdownEmployeeCode}>
+                              {user.employee_code}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    {/* {user.isITBin && (
-                      <div className={styles.adminBadge}>
-                        <FiShield size={14} />
-                        <span>IT BIN Administrator</span>
-                      </div>
-                    )} */}
+                    <div className={headerStyles.dropdownActions}>
+                      <button
+                        onClick={() => navigate("/homepage")}
+                        className={headerStyles.dropdownButton}
+                      >
+                        <FiBriefcase size={16} />
+                        <span>Home</span>
+                      </button>
+                      <button
+                        onClick={() => navigate("/user-access-management")}
+                        className={headerStyles.dropdownButton}
+                      >
+                        <FiBriefcase size={16} />
+                        <span>User Access Management</span>
+                      </button>
+                      {user?.isITBin && (
+                        <button
+                          onClick={() => navigate("/task")}
+                          className={headerStyles.dropdownButton}
+                        >
+                          <FiBriefcase size={16} />
+                          <span>Task Closure</span>
+                        </button>
+                      )}
+                      {user?.isApprover && (
+                        <button
+                          onClick={() => navigate("/approver/pending")}
+                          className={headerStyles.dropdownButton}
+                        >
+                          <FiBriefcase size={16} />
+                          <span>Pending Approval</span>
+                        </button>
+                      )}
+                      {user?.isApprover && (
+                        <button
+                          onClick={() => navigate("/approver/history")}
+                          className={headerStyles.dropdownButton}
+                        >
+                          <FiBriefcase size={16} />
+                          <span>Approval History</span>
+                        </button>
+                      )}
+                      <button
+                        onClick={handleLogout}
+                        className={`${headerStyles.dropdownButton} ${styles.logoutButton}`}
+                      >
+                        <FiLogOut size={18} />
+                        <span>Logout</span>
+                      </button>
+                    </div>
                   </div>
-
-                  {/* Contact Info */}
-                  {/* <div className={styles.dropdownInfo}>
-                    {user.email && (
-                      <div className={styles.infoItem}>
-                        <FiMail size={16} />
-                        <span>{user.email}</span>
-                      </div>
-                    )}
-                    {user.location && (
-                      <div className={styles.infoItem}>
-                        <FiMapPin size={16} />
-                        <span>{user.location}</span>
-                      </div>
-                    )}
-                    {user.designation && (
-                      <div className={styles.infoItem}>
-                        <FiBriefcase size={16} />
-                        <span>{user.designation}</span>
-                      </div>
-                    )}
-                  </div> */}
-
-                  {/* Actions */}
-                  <div className={headerStyles.dropdownActions}>
-                     <button
-                      onClick={() => navigate("/homepage")}
-                      className={styles.dropdownButton}
-                    >
-                      <FiBriefcase size={16} />
-                      <span>Home</span>
-                    </button>
-                    <button
-                      onClick={() => navigate("/user-access-management")}
-                      className={headerStyles.dropdownButton}
-                    >
-                      <FiBriefcase size={16} />
-                      <span>User Access Management</span>
-                    </button>
-                    {user?.isITBin && (
-                      <button
-                        onClick={() => navigate("/task")}
-                        className={headerStyles.dropdownButton}
-                      >
-                        <FiBriefcase size={16} />
-                         <span>Task Closure</span>
-                      </button>
-                    )}
-                     {user?.isApprover && (
-                      <button
-                        onClick={() => navigate("/approver/pending")}
-                        className={headerStyles.dropdownButton}
-                      >
-                        <FiBriefcase size={16} />
-                         <span>Pending Approval</span>
-                      </button>
-                    )}
-                    {user?.isApprover && (
-                      
-                      <button
-                        onClick={() => navigate("/approver/history")}
-                        className={headerStyles.dropdownButton}
-                      >
-                        <FiBriefcase size={16} />
-                         <span>Approval History</span>
-                      </button>
-                    )}
-                    <button
-                      onClick={handleLogout}
-                      className={`${headerStyles.dropdownButton} ${styles.logoutButton}`}
-                    >
-                      <FiLogOut size={18} />
-                      <span>Logout</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </header>
-
+                )}
+              </div>
+            )}
+          </div>
+        </header>
 
         <div className={styles.headerTopRow}>
           <div className={styles.controls}>
@@ -357,6 +374,7 @@ const TaskTable: React.FC = () => {
                   <th>Access Request Type</th>
                   <th>Request Date</th>
                   <th>Assignment IT group</th>
+                  <th>Approval Status</th>
                   <th>Status</th>
                   <th>Tasks</th>
                 </tr>
@@ -364,7 +382,9 @@ const TaskTable: React.FC = () => {
               <tbody>
                 {paginatedRequests.map((requestId) => {
                   const tasks = groupedLogs[requestId];
-                  console.log("groupedLogs", tasks);
+                  const firstTask = tasks[0];
+                  const statusInfo = getTaskDisplayStatus(firstTask);
+
                   return (
                     <React.Fragment key={requestId}>
                       <tr
@@ -379,78 +399,171 @@ const TaskTable: React.FC = () => {
                           )}
                         </td>
                         <td style={{ fontWeight: "bold" }}>{requestId}</td>
-                        <td>{tasks[0]?.plant_name}</td>
-                        <td>{tasks[0]?.department_name}</td>
-                        <td>{tasks[0]?.name} ({tasks[0]?.employee_code})</td>
-                        <td>{tasks[0]?.access_request_type}</td>
-                        <td>{new Date(tasks[0]?.created_on).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", })}</td>
-                        <td>{tasks[0]?.assignment_group}</td>
-                        <td>{tasks[0]?.user_request_status}</td>
+                        <td>{firstTask?.plant_name}</td>
+                        <td>{firstTask?.department_name}</td>
+                        <td>{firstTask?.name} ({firstTask?.employee_code})</td>
+                        <td>{firstTask?.access_request_type}</td>
+                        <td>
+                          {new Date(firstTask?.user_request_created_on).toLocaleDateString(
+                            "en-GB",
+                            { day: "2-digit", month: "short", year: "numeric" }
+                          )}
+                        </td>
+                        <td>{firstTask?.assignment_group}</td>
+                        <td>
+                          <div style={{ fontSize: "0.75rem", lineHeight: 1.2 }}>
+                            <div>
+                              <strong>A1:</strong>{" "}
+                              <span
+                                style={{
+                                  color:
+                                    firstTask.approver1_status === "Approved"
+                                      ? "#16a34a"
+                                      : firstTask.approver1_status === "Rejected"
+                                      ? "#dc2626"
+                                      : "#f59e0b",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {firstTask.approver1_status || "Pending"}
+                              </span>
+                            </div>
+                            <div>
+                              <strong>A2:</strong>{" "}
+                              <span
+                                style={{
+                                  color:
+                                    firstTask.approver2_status === "Approved"
+                                      ? "#16a34a"
+                                      : firstTask.approver2_status === "Rejected"
+                                      ? "#dc2626"
+                                      : "#f59e0b",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {firstTask.approver2_status || "Pending"}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <span
+                            style={{
+                              backgroundColor: statusInfo.statusColor,
+                              color: "#fff",
+                              padding: "4px 8px",
+                              borderRadius: 4,
+                              fontSize: "0.75rem",
+                              fontWeight: 600,
+                              display: "inline-block",
+                            }}
+                          >
+                            {statusInfo.displayStatus}
+                          </span>
+                        </td>
                         <td>{tasks.length} task(s)</td>
                       </tr>
 
-                      {expandedRequests.includes(requestId) && tasks &&
-                        tasks.length > 0 && (
-                          <tr>
-                            <td colSpan={12} style={{ padding: 0 }}>
-                              <div style={{ overflowX: "auto" }}>
-                                <table
-                                  className={styles.subTable}
-                                >
-                                  <thead>
-                                    <tr>
-                                      <th>Task Transaction ID</th>
-                                      <th>Application / Equip ID</th>
-                                      <th>Department</th>
-                                      <th>Location</th>
-                                      <th>Requestor Role</th>
-                                      <th>Granted Role</th>
-                                      <th>Access</th>
-                                      <th>Assigned To</th>
-                                      <th>Status</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {tasks.map((task, tIdx) => (
+                      {expandedRequests.includes(requestId) && tasks && tasks.length > 0 && (
+                        <tr>
+                          <td colSpan={11} style={{ padding: 0 }}>
+                            <div style={{ overflowX: "auto" }}>
+                              <table className={styles.subTable}>
+                                <thead>
+                                  <tr>
+                                    <th>Task Transaction ID</th>
+                                    <th>Application / Equip ID</th>
+                                    <th>Department</th>
+                                    <th>Location</th>
+                                    <th>Requestor Role</th>
+                                    <th>Granted Role</th>
+                                    <th>Access</th>
+                                    <th>Assigned To</th>
+                                    <th>Status</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {tasks.map((task, tIdx) => {
+                                    const taskStatus = getTaskDisplayStatus(task);
+                                    return (
                                       <tr key={tIdx}>
                                         <td>
                                           <a
-                                            target="_blank" rel="noreferrer"
+                                            target="_blank"
+                                            rel="noreferrer"
                                             href={
-                                              task.task_status === "Closed"
-                                                ? `/task-detail/${task.task_id}` // 👈 go to TaskDetailView
-                                                : `/task/${task.task_id}`        // 👈 go to normal task view
+                                              taskStatus.canComplete
+                                                ? `/task/${task.task_id}` // Can complete
+                                                : `/task-detail/${task.task_id}` // View only (rejected, pending approval, or already completed)
                                             }
                                             style={{
                                               color: "#2563eb",
                                               textDecoration: "none",
                                               fontWeight: 600,
                                             }}
+                                            title={
+                                              taskStatus.displayStatus === "Completed"
+                                                ? "View completed task details"
+                                                : taskStatus.canComplete
+                                                ? "Click to complete task"
+                                                : `View only - ${taskStatus.reason}`
+                                            }
                                           >
                                             {task.task_request_transaction_id || "-"}
+                                            {!taskStatus.canComplete && taskStatus.displayStatus !== "Completed" && (
+                                              <span
+                                                style={{
+                                                  marginLeft: 4,
+                                                  fontSize: "0.7rem",
+                                                  color: "#dc2626",
+                                                }}
+                                              >
+                                                🔒
+                                              </span>
+                                            )}
+                                            {taskStatus.displayStatus === "Completed" && (
+                                              <span
+                                                style={{
+                                                  marginLeft: 4,
+                                                  fontSize: "0.7rem",
+                                                  color: "#16a34a",
+                                                }}
+                                              >
+                                                ✓
+                                              </span>
+                                            )}
                                           </a>
                                         </td>
-
-                                        <td>
-                                          {task.application_name || "-"}
-                                        </td>
+                                        <td>{task.application_name || "-"}</td>
                                         <td>{task.department_name || "-"}</td>
                                         <td>{task.plant_name || "-"}</td>
                                         <td>{task.role_name || "-"}</td>
                                         <td>{task.role_granted || "-"}</td>
                                         <td>{task.access}</td>
                                         <td>{task.assigned_to_name}</td>
-                                        <td>{task.task_status || "-"}</td>
+                                        <td>
+                                          <span
+                                            style={{
+                                              backgroundColor: taskStatus.statusColor,
+                                              color: "#fff",
+                                              padding: "2px 6px",
+                                              borderRadius: 3,
+                                              fontSize: "0.7rem",
+                                              fontWeight: 600,
+                                            }}
+                                          >
+                                            {taskStatus.displayStatus}
+                                          </span>
+                                        </td>
                                       </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </td>
-                          </tr>
-                        )
-                      }
-
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
                     </React.Fragment>
                   );
                 })}
@@ -458,11 +571,11 @@ const TaskTable: React.FC = () => {
             </table>
           </div>
 
-          {/* Pagination */}
+          {/* Pagination - keeping original code */}
           <div
             style={{
               marginTop: 20,
-              paddingBottom: 24, // 👈 Add this line
+              paddingBottom: 24,
               display: "flex",
               justifyContent: "center",
               alignItems: "center",
@@ -472,7 +585,6 @@ const TaskTable: React.FC = () => {
               fontSize: 14,
             }}
           >
-            {/* First */}
             <button
               onClick={() => setCurrentPage(1)}
               disabled={currentPage === 1}
@@ -489,7 +601,6 @@ const TaskTable: React.FC = () => {
               {"<<"}
             </button>
 
-            {/* Prev */}
             <button
               onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
               disabled={currentPage === 1}
@@ -506,7 +617,6 @@ const TaskTable: React.FC = () => {
               Prev
             </button>
 
-            {/* Page Numbers (Dynamic max 5 pages) */}
             {(() => {
               const pageButtons = [];
               const maxPagesToShow = 5;
@@ -593,7 +703,6 @@ const TaskTable: React.FC = () => {
               return pageButtons;
             })()}
 
-            {/* Next */}
             <button
               onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
               disabled={currentPage === totalPages || totalPages === 0}
@@ -613,7 +722,6 @@ const TaskTable: React.FC = () => {
               Next
             </button>
 
-            {/* Last */}
             <button
               onClick={() => setCurrentPage(totalPages)}
               disabled={currentPage === totalPages || totalPages === 0}
