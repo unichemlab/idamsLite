@@ -636,6 +636,7 @@ console.log("form data",form);
       await addUserRequest(formData); // send FormData to backend
       alert("Request submitted successfully!");
       navigate("/user-access-management");
+      window.location.reload();
     } catch (err) {
       console.error("Failed to save request:", err);
       alert("Something went wrong while saving the request.");
@@ -833,7 +834,14 @@ console.log("form data",form);
       setFilterRoles([]);
     }
   }, [filter.applicationId]);
-
+useEffect(() => {
+  if (filterModalOpen && user?.employee_code) {
+    setFilter((prev) => ({
+      ...prev,
+      employeeCode: user.employee_code,
+    }));
+  }
+}, [filterModalOpen, user]);
   const handleLogout = () => {
     logout();
     navigate("/");
@@ -1121,7 +1129,7 @@ console.log("form data",form);
             <img src={login_headTitle2} alt="Logo" className={styles.logo} />
             <span className={styles.version}>version-1.0</span>
           </div>
-          <h1 className={styles.title}>User Access Management</h1>
+          <h1 className={styles.title}>User Request Management</h1>
         </div>
 
 
@@ -1210,7 +1218,7 @@ console.log("form data",form);
                       className={styles.dropdownButton}
                     >
                       <FiBriefcase size={16} />
-                      <span>User Access Management</span>
+                      <span>User Request Management</span>
                     </button>
                     {user?.isITBin && (
                       <button

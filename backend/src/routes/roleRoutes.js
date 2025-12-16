@@ -3,7 +3,7 @@ const router = express.Router();
 const roleController = require("../controllers/roleController");
 const authorize = require("../middleware/authorize");
 
-router.get("/", authorize("read:roles"), roleController.getAllRoles);
+router.get("/", roleController.getAllRoles);
 // Activity logs for role master
 router.get(
   "/activity-logs",

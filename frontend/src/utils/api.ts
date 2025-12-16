@@ -431,8 +431,24 @@ export async function postApprovalAction(
 // Access Log API
 // ========================================
 
-export async function fetchAccessLogs(): Promise<any[]> {
-  return request("/api/access-logs");
+export async function fetchAccessLogs(params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  value?: string;
+}) {
+  const query = new URLSearchParams();
+
+  if (params?.page) query.append("page", String(params.page));
+  if (params?.limit) query.append("limit", String(params.limit));
+  if (params?.search) query.append("search", params.search);
+  if (params?.value) query.append("value", params.value);
+
+  return request(`/api/access-logs?${query.toString()}`);
+}
+
+export async function fetchActivityLogs(ritm: string) {
+  return request(`/api/access-logs/${ritm}/activity`);
 }
 
 export async function addAccessLogAPI(accessLog: any): Promise<any> {

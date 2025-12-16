@@ -59,6 +59,7 @@ import HomePage from "pages/HomePage/HomePage";
 import MasterApprovalBin from "pages/MasterApprovalBin/MasterApprovalBin";
 import MasterApprovalDetails from "pages/MasterApprovalBin/MasterApprovalDetails";
 import PendingApprovalPage from "pages/ApproverDashboard/PendingApproval";
+import AccessLogPage from "pages/AccessLogTable/AccessLogTable";
 import ApprovalHistoryPage from "pages/ApproverDashboard/ApprovalHistory";
 import MasterApprovalUserDetails from "pages/MasterApprovalBin/MasterApprovalUserDetails";
 import MasterApprovalUserBin from "pages/MasterApprovalBin/MasterApprovalUserBin";
@@ -127,7 +128,8 @@ const allowedRoutes = [
   "/homepage",
   "/approver/pending",   // Pending approvals page
   "/approver/history",
-  "/access-request/:id"
+  "/access-request/:id",
+  "/access-log"
 ];
 
 const NotFound = () => (
@@ -319,6 +321,14 @@ console.log(isAllowed);
   element={
     <ProtectedRoute>
       <PendingApprovalPage />
+    </ProtectedRoute>
+  }
+/>
+<Route
+  path="/access-log"
+  element={
+    <ProtectedRoute>
+      <AccessLogPage />
     </ProtectedRoute>
   }
 />
