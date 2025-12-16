@@ -357,7 +357,7 @@ const ApprovalHistoryPage: React.FC = () => {
                     <th>Approval Status</th>
                     <th>My Level</th>
                     <th>Comments</th>
-                    <th>Action</th>
+                    <th>Task</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -379,7 +379,7 @@ const ApprovalHistoryPage: React.FC = () => {
                         <td>{a.requestor_department}</td>
                         <td>{a.access_request_type}</td>
                         <td>
-                          <div style={{ fontSize: "0.75rem" }}>
+                          <div style={{ fontSize: "0.65rem" }}>
                             <div>
                               <strong>A1:</strong>{" "}
                               <span

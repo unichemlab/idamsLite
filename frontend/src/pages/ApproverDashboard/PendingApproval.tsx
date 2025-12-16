@@ -22,22 +22,22 @@ import {
   TextField,
   IconButton,
   Tooltip,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography,
+  Chip,
   CircularProgress,
+  Box
 } from "@mui/material";
 import {
   FiChevronDown,
-  FiMail,
-  FiMapPin,
   FiBriefcase,
   FiLogOut,
-  FiShield,
-  FiUsers,
-  FiCheckCircle,
-  FiClock,
-  FiAlertCircle,
-  FiTrendingUp,
-  FiFileText,
-  FiSettings,
 } from "react-icons/fi";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
@@ -85,7 +85,7 @@ interface AccessRequest {
   approver2_status?: string;
   canApprove?: boolean; // New field to track if current user can approve
   approvalLevel?: 1 | 2; // Which level of approval this is
-   requestor_location?: string;
+  requestor_location?: string;
   requestor_department?: string;
 }
 
@@ -96,6 +96,12 @@ const PendingApprovalPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [modalTasks, setModalTasks] = useState<Task[] | null>(null);
+  const [approveTasks, setApproveTasks] = useState<Task[]>([]);
+  const [approveTasksLoading, setApproveTasksLoading] = useState(false);
+
+  const [rejectTasks, setRejectTasks] = useState<Task[]>([]);
+  const [rejectTasksLoading, setRejectTasksLoading] = useState(false);
+
   const [selectedRequest, setSelectedRequest] = useState<AccessRequest | null>(
     null
   );
@@ -132,7 +138,7 @@ const PendingApprovalPage: React.FC = () => {
 
       // Fetch tasks - backend already filters for approvers
       const tasks = await fetchTasksForApprover(user.id);
-      
+
       console.log("Raw tasks from backend:", tasks);
       console.log("Total tasks fetched:", Array.isArray(tasks) ? tasks.length : 0);
       console.log("Current user email:", user.email);
@@ -141,7 +147,7 @@ const PendingApprovalPage: React.FC = () => {
       // GROUP BY TRANSACTION ID AND REMOVE DUPLICATES
       // ============================================
       const tasksByTransaction = new Map<string, any>();
-      
+
       if (Array.isArray(tasks)) {
         tasks.forEach((task) => {
           const txnId = task.user_request_transaction_id;
@@ -177,16 +183,16 @@ const PendingApprovalPage: React.FC = () => {
           const approver2Status = tr.approver2_status || "Pending";
           const approver1Rejected = approver1Status === "Rejected";
           const approver2HasActed = approver2Status !== "Pending";
-          
+
           // Additional filtering for current user's perspective
           const isApprover1 = tr.approver1_email?.toLowerCase() === user.email?.toLowerCase();
           const approver1HasActed = approver1Status !== "Pending";
-          
+
           // If current user is Approver 1 and has already acted, don't show
           if (isApprover1 && approver1HasActed) {
             return false;
           }
-          
+
           // If current user is NOT Approver 1 (potential Approver 2)
           if (!isApprover1) {
             // Only show if Approver 1 has approved AND no one from pool acted yet
@@ -194,7 +200,7 @@ const PendingApprovalPage: React.FC = () => {
               return false;
             }
           }
-          
+
           console.log(`Task ${tr.user_request_transaction_id}:`, {
             task_status: tr.task_status,
             user_request_status: tr.user_request_status,
@@ -209,7 +215,7 @@ const PendingApprovalPage: React.FC = () => {
             isApprover1,
             approver1HasActed,
           });
-          
+
           // Show only if:
           // - Both task and user request are pending
           // - AND Approver 1 has NOT rejected (if rejected, workflow stops)
@@ -224,7 +230,7 @@ const PendingApprovalPage: React.FC = () => {
           // Determine approval level and permissions
           const isApprover1 = tr.approver1_email?.toLowerCase() === user.email?.toLowerCase();
           const isApprover2 = !isApprover1; // If not Approver 1, treat as potential Approver 2
-          
+
           const approver1Status = tr.approver1_status || "Pending";
           const approver2Status = tr.approver2_status || "Pending";
 
@@ -234,7 +240,7 @@ const PendingApprovalPage: React.FC = () => {
           // Logic: 
           // - Approver 1 can approve ONLY if their status is Pending
           // - Approver 2 can approve if Approver 1 has approved and no one acted yet
-          
+
           if (isApprover1 && approver1Status === "Pending") {
             canApprove = true;
             approvalLevel = 1;
@@ -270,7 +276,7 @@ const PendingApprovalPage: React.FC = () => {
             name: tr.request_name,
             employee_code: tr.employee_code,
             employee_location: tr.employee_location,
-             requestor_location: tr.plant_name,
+            requestor_location: tr.plant_name,
             requestor_department: tr.department_name,
             access_request_type: tr.access_request_type,
             training_status: tr.training_status,
@@ -300,7 +306,7 @@ const PendingApprovalPage: React.FC = () => {
 
       console.log("Mapped pending requests:", mapped.length);
       console.log("Sample request:", mapped[0]);
-      
+
       setRequests(mapped);
     } catch (err) {
       console.error("Error fetching requests:", err);
@@ -375,6 +381,42 @@ const PendingApprovalPage: React.FC = () => {
   };
 
   const closeTaskModal = () => setModalTasks(null);
+  const loadApproveTasks = async (requestId: number) => {
+    setApproveTasksLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/user-requests/${requestId}`);
+      const data = await res.json();
+      setApproveTasks(data.tasks || []);
+    } catch (e) {
+      setApproveTasks([]);
+    } finally {
+      setApproveTasksLoading(false);
+    }
+  };
+
+  const loadRejectTasks = async (requestId: number) => {
+    setRejectTasksLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/user-requests/${requestId}`);
+      const data = await res.json();
+      setRejectTasks(data.tasks || []);
+    } catch (e) {
+      setRejectTasks([]);
+    } finally {
+      setRejectTasksLoading(false);
+    }
+  };
+
+  const closeApproveDialog = () => {
+    setOpenApproveDialog(false);
+    setApproveTasks([]);
+  };
+
+  const closeRejectDialog = () => {
+    setOpenRejectDialog(false);
+    setRejectTasks([]);
+  };
+
 
   const handleViewRequest = (r: AccessRequest) => {
     navigate(`/access-request/${encodeURIComponent(r.id)}`, {
@@ -382,17 +424,121 @@ const PendingApprovalPage: React.FC = () => {
     });
   };
 
-  const onApproveClick = (r: AccessRequest) => {
+  const onApproveClick = async (r: AccessRequest) => {
     setSelectedRequest(r);
     setActionComments("");
+    await loadApproveTasks(r.id);
     setOpenApproveDialog(true);
   };
 
-  const onRejectClick = (r: AccessRequest) => {
+  const onRejectClick = async (r: AccessRequest) => {
     setSelectedRequest(r);
     setActionComments("");
+    await loadRejectTasks(r.id);
     setOpenRejectDialog(true);
   };
+
+
+  const renderTaskTable = (
+    tasks: Task[] = [],
+    loading: boolean = false
+  ) => {
+    if (loading) {
+      return (
+        <Box sx={{ textAlign: "center", py: 2 }}>
+          <CircularProgress size={22} />
+        </Box>
+      );
+    }
+
+    if (!tasks.length) {
+      return (
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ py: 1 }}
+        >
+          No task details available
+        </Typography>
+      );
+    }
+
+    return (
+      <>
+        <Typography
+          variant="subtitle2"
+          sx={{ mb: 0.5, fontWeight: 600 }}
+        >
+          Task Details
+        </Typography>
+
+        <Paper variant="outlined" sx={{ mb: 1.5 }}>
+          <TableContainer
+            sx={{
+              maxHeight: tasks.length > 3 ? 180 : "auto",
+              overflowY: tasks.length > 3 ? "auto" : "visible"
+            }}
+          >
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow sx={{ backgroundColor: "#f3f6f9" }}>
+                  <TableCell sx={{ fontWeight: 600 }}>
+                    Transaction ID
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>
+                    Application
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>
+                    Department
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>
+                    Role
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>
+                    Location
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>
+                    Status
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+
+              <TableBody>
+                {tasks.map((task, idx) => (
+                  <TableRow key={idx} hover>
+                    <TableCell sx={{ py: 0.75 }}>
+                      {task.transaction_id}
+                    </TableCell>
+                    <TableCell sx={{ py: 0.75 }}>
+                      {task.application_name}
+                    </TableCell>
+                    <TableCell sx={{ py: 0.75 }}>
+                      {task.department_name}
+                    </TableCell>
+                    <TableCell sx={{ py: 0.75 }}>
+                      {task.role_name}
+                    </TableCell>
+                    <TableCell sx={{ py: 0.75 }}>
+                      {task.location_name}
+                    </TableCell>
+                    <TableCell sx={{ py: 0.75 }}>
+                      <Chip
+                        label={task.task_status}
+                        size="small"
+                        color="warning"
+                        variant="outlined"
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      </>
+    );
+  };
+
 
   console.log("Final requests to display:", requests);
 
@@ -569,36 +715,36 @@ const PendingApprovalPage: React.FC = () => {
                         <td>{a.name}</td>
                         <td>{a.employee_code}</td>
                         <td>{a.employee_location}</td>
-                         <td>{a.requestor_location}</td>
+                        <td>{a.requestor_location}</td>
                         <td>{a.requestor_department}</td>
                         <td>{a.access_request_type}</td>
                         <td>
-                          <div style={{ fontSize: "0.75rem" }}>
+                          <div style={{ fontSize: "0.67rem" }}>
                             <div>
-                              <strong>Approver 1:</strong>{" "}
+                              <strong>A1:</strong>{" "}
                               <span
                                 style={{
                                   color:
                                     a.approver1_status === "Approved"
                                       ? "#2e7d32"
                                       : a.approver1_status === "Rejected"
-                                      ? "#d32f2f"
-                                      : "#ed6c02",
+                                        ? "#d32f2f"
+                                        : "#ed6c02",
                                 }}
                               >
                                 {a.approver1_status || "Pending"}
                               </span>
                             </div>
                             <div>
-                              <strong>Approver 2:</strong>{" "}
+                              <strong>A2:</strong>{" "}
                               <span
                                 style={{
                                   color:
                                     a.approver2_status === "Approved"
                                       ? "#2e7d32"
                                       : a.approver2_status === "Rejected"
-                                      ? "#d32f2f"
-                                      : "#ed6c02",
+                                        ? "#d32f2f"
+                                        : "#ed6c02",
                                 }}
                               >
                                 {a.approver2_status || "Pending"}
@@ -668,26 +814,37 @@ const PendingApprovalPage: React.FC = () => {
         </div>
       </main>
 
+
       {/* Approve Dialog */}
       <Dialog
         open={openApproveDialog}
-        onClose={() => setOpenApproveDialog(false)}
+        onClose={closeApproveDialog}
         fullWidth
-        maxWidth="sm"
+        maxWidth="md"
       >
         <DialogTitle>
           Approve Request - Level {selectedRequest?.approvalLevel}
         </DialogTitle>
-        <DialogContent>
-          <div style={{ marginBottom: 12 }}>
-            <strong>Request ID:</strong> {selectedRequest?.tranasaction_id || "-"}
-          </div>
-          <div style={{ marginBottom: 12 }}>
-            <strong>Name:</strong> {selectedRequest?.name || "-"}
-          </div>
-          <div style={{ marginBottom: 12 }}>
-            <strong>Employee Code:</strong> {selectedRequest?.employee_code || "-"}
-          </div>
+
+        <DialogContent dividers>
+          {/* Header info */}
+          <Box
+            sx={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 2,
+              fontSize: "0.85rem",
+              mb: 2
+            }}
+          >
+            <Typography><strong>ID:</strong> {selectedRequest?.tranasaction_id}</Typography>
+            <Typography><strong>Name:</strong> {selectedRequest?.name}</Typography>
+            <Typography><strong>Emp Code:</strong> {selectedRequest?.employee_code}</Typography>
+          </Box>
+
+          {/* ✅ Task table */}
+          {renderTaskTable(approveTasks, approveTasksLoading)}
+          {/* Comments */}
           <TextField
             label="Comments (optional)"
             fullWidth
@@ -695,14 +852,11 @@ const PendingApprovalPage: React.FC = () => {
             rows={4}
             value={actionComments}
             onChange={(e) => setActionComments(e.target.value)}
-            variant="outlined"
           />
         </DialogContent>
+
         <DialogActions>
-          <Button
-            onClick={() => setOpenApproveDialog(false)}
-            disabled={actionInProgress}
-          >
+          <Button onClick={closeApproveDialog} disabled={actionInProgress}>
             Cancel
           </Button>
           <Button
@@ -720,26 +874,40 @@ const PendingApprovalPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
+
+      {/* Reject Dialog */}
       {/* Reject Dialog */}
       <Dialog
         open={openRejectDialog}
-        onClose={() => setOpenRejectDialog(false)}
+        onClose={closeRejectDialog}
         fullWidth
-        maxWidth="sm"
+        maxWidth="md"
       >
         <DialogTitle>
           Reject Request - Level {selectedRequest?.approvalLevel}
         </DialogTitle>
-        <DialogContent>
-          <div style={{ marginBottom: 12 }}>
-            <strong>Request ID:</strong> {selectedRequest?.tranasaction_id || "-"}
-          </div>
-          <div style={{ marginBottom: 12 }}>
-            <strong>Name:</strong> {selectedRequest?.name || "-"}
-          </div>
-          <div style={{ marginBottom: 12 }}>
-            <strong>Employee Code:</strong> {selectedRequest?.employee_code || "-"}
-          </div>
+
+        <DialogContent dividers>
+          {/* Header info */}
+          <Box
+            sx={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 2,
+              fontSize: "0.85rem",
+              mb: 2
+            }}
+          >
+            <Typography><strong>ID:</strong> {selectedRequest?.tranasaction_id}</Typography>
+            <Typography><strong>Name:</strong> {selectedRequest?.name}</Typography>
+            <Typography><strong>Emp Code:</strong> {selectedRequest?.employee_code}</Typography>
+          </Box>
+
+          {/* ✅ Task table */}
+          {renderTaskTable(rejectTasks, rejectTasksLoading)}
+
+
+          {/* Rejection reason */}
           <TextField
             label="Reason for rejection"
             fullWidth
@@ -747,15 +915,12 @@ const PendingApprovalPage: React.FC = () => {
             rows={4}
             value={actionComments}
             onChange={(e) => setActionComments(e.target.value)}
-            variant="outlined"
             required
           />
         </DialogContent>
+
         <DialogActions>
-          <Button
-            onClick={() => setOpenRejectDialog(false)}
-            disabled={actionInProgress}
-          >
+          <Button onClick={closeRejectDialog} disabled={actionInProgress}>
             Cancel
           </Button>
           <Button
@@ -772,6 +937,7 @@ const PendingApprovalPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
 
       {modalTasks && (
         <div className={styles.modalOverlay}>
@@ -803,13 +969,12 @@ const PendingApprovalPage: React.FC = () => {
                     <td>{task.reports_to}</td>
                     <td>
                       <span
-                        className={`${styles.statusBadge} ${
-                          task.task_status === "Pending"
+                        className={`${styles.statusBadge} ${task.task_status === "Pending"
                             ? styles.pending
                             : task.task_status === "Approved"
-                            ? styles.approved
-                            : styles.rejected
-                        }`}
+                              ? styles.approved
+                              : styles.rejected
+                          }`}
                       >
                         {task.task_status}
                       </span>
