@@ -102,7 +102,7 @@ const ReviewSubmit: React.FC = () => {
   return (
     <div className={styles.container}>
       <h1 className={styles.title}>PharmaCorp</h1>
-      <p className={styles.subtitle}>User Access Management System</p>
+      <p className={styles.subtitle}>User Request Management System</p>
       <div style={{ marginBottom: "2rem" , marginTop: "4rem", borderBottom: "1px solid #ccc" }}>
         <Stepper
           steps={formSteps.map((s: { title: string }) => s.title)}

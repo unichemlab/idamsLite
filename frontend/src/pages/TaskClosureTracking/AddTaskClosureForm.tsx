@@ -252,7 +252,7 @@ console.log("formDtaSending",formData);
                       className={headerStyles.dropdownButton}
                     >
                       <FiBriefcase size={16} />
-                      <span>User Access Management</span>
+                      <span>User Request Management</span>
                     </button>
                     {user?.isITBin && (
                       <button

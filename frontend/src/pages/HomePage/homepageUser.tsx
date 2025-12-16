@@ -166,7 +166,7 @@ const Home: React.FC = () => {
                       className={styles.dropdownButton}
                     >
                       <FiBriefcase size={16} />
-                      <span>User Access Management</span>
+                      <span>User Request Management</span>
                     </button>
                     {user?.isITBin && (
                       <button
@@ -236,7 +236,7 @@ const Home: React.FC = () => {
                 className={styles.primaryButton}
               >
                 <FiUsers size={20} />
-                iDams Lite User Access Request
+                iDams Lite User Request Managment
               </button>
             </div>
             <div className={styles.welcomeIllustration}>

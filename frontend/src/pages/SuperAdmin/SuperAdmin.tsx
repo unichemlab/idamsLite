@@ -44,6 +44,7 @@ import EditRoleFormPage from "RoleMaster/EditRoleFormPage";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
 import HomeView from "../HomePage/HomePage";
 import MasterApprovalBin from "pages/MasterApprovalBin/MasterApprovalBin";
+import AccessLog from "pages/AccessLogTable/AccessLogTable";
 import MasterApprovalDetails from "pages/MasterApprovalBin/MasterApprovalDetails";
 import PlantSupportBin from "pages/PlantITSupport/PlantITSupportMaster";
 import { useAuth } from "../../context/AuthContext";
@@ -187,6 +188,7 @@ const SuperAdmin: React.FC = () => {
       vendorMaster: "vendors",
       department: "departments",
       applicationMaster: "applications",
+      accessLog: "access_logs",
       userMaster: "users",
       userRequest: "user_requests",
       activityMaster: "activity",
@@ -292,6 +294,8 @@ const SuperAdmin: React.FC = () => {
         return <DepartmentMasterTable />;
       case "application":
         return <ApplicationMasterTable />;
+        case "access-log":
+        return <AccessLog />;
       case "user":
         return <UserMasterTable />;
       case "request":

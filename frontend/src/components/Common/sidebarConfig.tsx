@@ -49,6 +49,12 @@ export const sidebarConfig: SidebarConfigItem[] = [
     perm: "dashboard:view",
   },
   {
+    key: "access-log",
+    label: "Access Logs",
+    icon: <ListAltIcon fontSize="small" />,
+    perm: "accessLog:view",
+  },
+  {
     key: "workflow",
     label: "Approval Workflow",
     icon: <AccountTreeIcon fontSize="small" />,

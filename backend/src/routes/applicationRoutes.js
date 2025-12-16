@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const applicationController = require("../controllers/applicationController");
+const authorize = require("../middleware/authorize");
 // Activity logs for applications
 router.get("/activity-logs", applicationController.getApplicationActivityLogs);
 
