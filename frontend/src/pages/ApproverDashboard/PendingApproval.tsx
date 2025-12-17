@@ -10,7 +10,7 @@ import {
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import styles from "./ApproverHome.module.css";
 import headerStyles from "../HomePage/homepageUser.module.css";
-import tableStyles from "./ApprovalTable.module.css";
+//import styles from "./ApprovalTable.module.css";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
 
 import {
@@ -676,15 +676,15 @@ const PendingApprovalPage: React.FC = () => {
       </header>
 
       {/* Main Content */}
-      <main className={tableStyles.mainContent}>
-        <div className={tableStyles.tableContainer}>
+      <main className={styles.mainContent}>
+        <div className={styles.tableContainer}>
           {loading ? (
-            <div className={tableStyles.loadingContainer}>
+            <div className={styles.loadingContainer}>
               <CircularProgress />
             </div>
           ) : (
-            <div className={tableStyles.tableWrapper}>
-              <table className={tableStyles.table}>
+            <div className={styles.tableWrapper}>
+              <table className={styles.table}>
                 <thead>
                   <tr>
                     <th>Request ID</th>
@@ -703,7 +703,7 @@ const PendingApprovalPage: React.FC = () => {
                 <tbody>
                   {requests.length === 0 ? (
                     <tr>
-                      <td colSpan={11} className={tableStyles.emptyState}>
+                      <td colSpan={11} className={styles.emptyState}>
                         No pending requests found.
                       </td>
                     </tr>
@@ -753,7 +753,7 @@ const PendingApprovalPage: React.FC = () => {
                           </div>
                         </td>
                         <td>
-                          <div className={tableStyles.actionButtons}>
+                          <div className={styles.actionButtons}>
                             <Tooltip title="View Tasks">
                               <IconButton
                                 size="small"
@@ -765,7 +765,7 @@ const PendingApprovalPage: React.FC = () => {
                           </div>
                         </td>
                         <td>
-                          <div className={tableStyles.actionButtons}>
+                          <div className={styles.actionButtons}>
                             {a.canApprove ? (
                               <>
                                 <Tooltip title={`Approve (Level ${a.approvalLevel})`}>

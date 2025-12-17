@@ -11,16 +11,60 @@ import { useDebounce } from "../../hooks/useDebounce";
 
 interface AccessLog {
   id: number;
+  user_request_id: number;
+  task_id: number | null;
   ritm_transaction_id: string;
+  task_transaction_id: string | null;
+
+  request_for_by: string;
   name: string;
   employee_code: string;
+  employee_location: string;
+
   access_request_type: string;
+  training_status: string;
+
+  vendor_firm: string | null;
+  vendor_code: string | null;
+  vendor_name: string | null;
+  vendor_allocated_id: number | null;
+
   user_request_status: string;
   task_status: string;
+
+  application_equip_id: number | null;
+  application_name?: string;
+
+  department: number | null;
+  department_name?: string;
+
+  role: number | null;
+  role_name?: string;
+
+  location: number | null;
+  location_name?: string;
+
+  reports_to: string | null;
+
   approver1_status: string;
   approver2_status: string;
+  approver1_email: string | null;
+  approver2_email: string | null;
+  approver1_name: string | null;
+  approver2_name: string | null;
+  approver1_action: string | null;
+  approver2_action: string | null;
+  approver1_timestamp: string | null;
+  approver2_timestamp: string | null;
+  approver1_comments: string | null;
+  approver2_comments: string | null;
+
   created_on: string;
+  updated_on: string;
+  completed_at: string | null;
+  remarks: string | null;
 }
+
 
 interface ActivityLog {
   id: number;
@@ -67,14 +111,14 @@ const AccessLogTable: React.FC = () => {
         setLoading(true);
 
         const result = await fetchAccessLogs({
-          page: currentPage,
-          limit: rowsPerPage,
-          search: filterColumn,
-          value: debouncedFilterValue,
-        });
+  page: currentPage,
+  limit: rowsPerPage,
+  search: filterColumn,
+  value: debouncedFilterValue,
+});
 
-        setAccessLogs(result.data || []);
-        setTotalRecords(result.total || 0);
+setAccessLogs(Array.isArray(result) ? result : []);
+setTotalRecords(Array.isArray(result) ? result.length : 0);
       } catch (err) {
         console.error("Failed to fetch access logs", err);
         setError("Failed to load access logs");
@@ -243,14 +287,18 @@ const AccessLogTable: React.FC = () => {
       </header>
 
       {/* Actions */}
-      <div className={styles.actionHeaderRow}>
-        <button onClick={() => setShowFilterPopover(!showFilterPopover)}>
-          🔍 Filter
-        </button>
-        <button onClick={handleExportPDF}>
-          <FileText size={18} /> PDF
-        </button>
-      </div>
+      <div className={styles.headerTopRow}>
+        <div className={styles.controls}>
+          <button
+            onClick={() => setShowFilterPopover(!showFilterPopover)}
+            style={{ marginRight: 12, padding: "6px 12px", borderRadius: 6 }}
+          >
+            Filter
+          </button>
+          <button onClick={handleExportPDF} className={styles.exportPdfBtn}>
+            🗎 Export PDF
+          </button>
+        
 
       {/* Filter Popover */}
       {showFilterPopover && (
@@ -268,66 +316,263 @@ const AccessLogTable: React.FC = () => {
           />
         </div>
       )}
-
+</div>
+</div>
       {/* Table */}
       <div className={styles.container}>
-        <table className={styles.table}>
+        <div
+          style={{
+            maxHeight: 350,
+            overflowY: "auto",
+            borderRadius: 8,
+            boxShadow: "0 0 4px rgba(0, 0, 0, 0.05)",
+            border: "1px solid #e2e8f0",
+            marginTop: "11px",
+            height: "100",
+          }}
+        >
+        <table className={styles.table} style={{ minWidth: 1200 }}>
           <thead>
-            <tr>
-              <th></th>
-              <th>RITM</th>
-              <th>Name</th>
-              <th>Emp Code</th>
-              <th>Type</th>
-              <th>Request</th>
-              <th>Task</th>
-              <th>Approver 1</th>
-              <th>Approver 2</th>
-              <th>Activity</th>
-            </tr>
-          </thead>
-          <tbody>
-            {accessLogs.map((log) => (
-              <tr key={log.id}>
-                <td>
-                  <input
-                    type="radio"
-                    checked={selectedLogId === log.id}
-                    onChange={() => setSelectedLogId(log.id)}
-                  />
-                </td>
-                <td>{log.ritm_transaction_id}</td>
-                <td>{log.name}</td>
-                <td>{log.employee_code}</td>
-                <td>{log.access_request_type}</td>
-                <td>{log.user_request_status}</td>
-                <td>{log.task_status}</td>
-                <td>{log.approver1_status}</td>
-                <td>{log.approver2_status}</td>
-                <td>
-                  <Clock
-                    size={18}
-                    style={{ cursor: "pointer", color: "#0b63ce" }}
-                    onClick={() => handleActivityClick(log)}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+  <tr>
+    <th>RITM</th>
+    <th>Task</th>
+    <th>Request For</th>
+    <th>Name</th>
+    <th>Emp Code</th>
+    <th>Emp Location</th>
+    <th>Access Type</th>
+    <th>Application</th>
+    <th>Department</th>
+    <th>Role</th>
+    <th>Plant</th>
 
-        {/* Pagination */}
-        <div className={styles.pagination}>
-          <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>
-            Previous
-          </button>
-          <span>
-            Page {currentPage} of {totalPages}
-          </span>
-          <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}>
-            Next
-          </button>
+    <th>Reports To</th>
+
+    <th>Req Status</th>
+    <th>Task Status</th>
+
+    <th>Appr 1</th>
+    <th>Appr 2</th>
+
+    <th>Created</th>
+    <th>Completed</th>
+  </tr>
+</thead>
+
+          <tbody>
+  {accessLogs.map((log) => (
+    <tr key={log.id}>
+      <td>{log.ritm_transaction_id}</td>
+      <td>{log.task_transaction_id ?? "-"}</td>
+      <td>{log.request_for_by}</td>
+      <td>{log.name}</td>
+      <td>{log.employee_code}</td>
+      <td>{log.employee_location}</td>
+      <td>{log.access_request_type}</td>
+      <td>{log.application_name ?? log.application_equip_id ?? "-"}</td>
+      <td>{log.department_name ?? log.department ?? "-"}</td>
+      <td>{log.role_name ?? log.role ?? "-"}</td>
+      <td>{log.location_name ?? log.location ?? "-"}</td>
+
+      <td>{log.reports_to ?? "-"}</td>
+
+      <td>{log.user_request_status}</td>
+      <td>{log.task_status}</td>
+
+      <td>{log.approver1_status}</td>
+      <td>{log.approver2_status}</td>
+
+      <td>
+        {log.created_on
+          ? new Date(log.created_on.replace(" ", "T")).toLocaleString("en-GB")
+          : "--"}
+      </td>
+      <td>
+        {log.completed_at
+          ? new Date(log.completed_at.replace(" ", "T")).toLocaleString("en-GB")
+          : "--"}
+      </td>
+    </tr>
+  ))}
+</tbody>
+
+        </table>
         </div>
+        {/* Pagination */}
+        <div
+            style={{
+              marginTop: 20,
+              paddingBottom: 24, // 👈 Add this line
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: 6,
+              flexWrap: "wrap",
+              fontFamily: "Segoe UI, Roboto, sans-serif",
+              fontSize: 14,
+            }}
+          >
+            {/* First */}
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 6,
+                border: "1px solid #d0d5dd",
+                backgroundColor: currentPage === 1 ? "#f9fafb" : "#ffffff",
+                color: currentPage === 1 ? "#cbd5e1" : "#344054",
+                cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                minWidth: 40,
+              }}
+            >
+              {"<<"}
+            </button>
+
+            {/* Prev */}
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+              disabled={currentPage === 1}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 6,
+                border: "1px solid #d0d5dd",
+                backgroundColor: currentPage === 1 ? "#f9fafb" : "#ffffff",
+                color: currentPage === 1 ? "#cbd5e1" : "#344054",
+                cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                minWidth: 40,
+              }}
+            >
+              Prev
+            </button>
+
+            {/* Page Numbers (Dynamic max 5 pages) */}
+            {(() => {
+              const pageButtons = [];
+              const maxPagesToShow = 5;
+              let start = Math.max(1, currentPage - 2);
+              let end = Math.min(totalPages, start + maxPagesToShow - 1);
+              if (end - start < maxPagesToShow - 1) {
+                start = Math.max(1, end - maxPagesToShow + 1);
+              }
+
+              if (start > 1) {
+                pageButtons.push(
+                  <button
+                    key={1}
+                    onClick={() => setCurrentPage(1)}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 6,
+                      border: "1px solid #d0d5dd",
+                      backgroundColor: currentPage === 1 ? "#007bff" : "#ffffff",
+                      color: currentPage === 1 ? "#fff" : "#344054",
+                      cursor: "pointer",
+                      minWidth: 40,
+                    }}
+                  >
+                    1
+                  </button>
+                );
+                if (start > 2) {
+                  pageButtons.push(
+                    <span key="ellipsis-left" style={{ padding: "6px 10px", color: "#999" }}>
+                      ...
+                    </span>
+                  );
+                }
+              }
+
+              for (let i = start; i <= end; i++) {
+                pageButtons.push(
+                  <button
+                    key={i}
+                    onClick={() => setCurrentPage(i)}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 6,
+                      border: i === currentPage ? "1px solid #007bff" : "1px solid #d0d5dd",
+                      backgroundColor: i === currentPage ? "#007bff" : "#ffffff",
+                      color: i === currentPage ? "#fff" : "#344054",
+                      cursor: "pointer",
+                      minWidth: 40,
+                    }}
+                  >
+                    {i}
+                  </button>
+                );
+              }
+
+              if (end < totalPages) {
+                if (end < totalPages - 1) {
+                  pageButtons.push(
+                    <span key="ellipsis-right" style={{ padding: "6px 10px", color: "#999" }}>
+                      ...
+                    </span>
+                  );
+                }
+                pageButtons.push(
+                  <button
+                    key={totalPages}
+                    onClick={() => setCurrentPage(totalPages)}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 6,
+                      border: currentPage === totalPages ? "1px solid #007bff" : "1px solid #d0d5dd",
+                      backgroundColor: currentPage === totalPages ? "#007bff" : "#ffffff",
+                      color: currentPage === totalPages ? "#fff" : "#344054",
+                      cursor: "pointer",
+                      minWidth: 40,
+                    }}
+                  >
+                    {totalPages}
+                  </button>
+                );
+              }
+
+              return pageButtons;
+            })()}
+
+            {/* Next */}
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+              disabled={currentPage === totalPages || totalPages === 0}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 6,
+                border: "1px solid #d0d5dd",
+                backgroundColor:
+                  currentPage === totalPages || totalPages === 0 ? "#f9fafb" : "#ffffff",
+                color:
+                  currentPage === totalPages || totalPages === 0 ? "#cbd5e1" : "#344054",
+                cursor:
+                  currentPage === totalPages || totalPages === 0 ? "not-allowed" : "pointer",
+                minWidth: 40,
+              }}
+            >
+              Next
+            </button>
+
+            {/* Last */}
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages || totalPages === 0}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 6,
+                border: "1px solid #d0d5dd",
+                backgroundColor:
+                  currentPage === totalPages || totalPages === 0 ? "#f9fafb" : "#ffffff",
+                color:
+                  currentPage === totalPages || totalPages === 0 ? "#cbd5e1" : "#344054",
+                cursor:
+                  currentPage === totalPages || totalPages === 0 ? "not-allowed" : "pointer",
+                minWidth: 40,
+              }}
+            >
+              {">>"}
+            </button>
+          </div>
       </div>
 
       {/* Activity Modal */}
