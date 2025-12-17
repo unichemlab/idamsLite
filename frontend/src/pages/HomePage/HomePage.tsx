@@ -46,6 +46,7 @@ import { useAuth } from "../../context/AuthContext";
 import DashboardView from "../SuperAdmin/SuperAdmin";
 import MasterApprovalBin from "pages/MasterApprovalBin/MasterApprovalBin";
 import PlantSupportBin from "pages/PlantITSupport/PlantITSupportMaster";
+import AccessLogTable from "pages/AccessLogTable/AccessLogTable";
 // ----- Types -----
 type Role = "superAdmin" | "plantAdmin" | "qaManager" | "user";
 
@@ -285,6 +286,8 @@ const HomePage: React.FC = () => {
         return <SystemInventoryMasterTable />;
       case "activity-logs":
         return <ActivityMasterTable />;
+        case "access-log":
+        return <AccessLogTable />;
       case "task":
         return <TaskTable />;
       case "server":

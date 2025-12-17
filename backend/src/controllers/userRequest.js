@@ -317,7 +317,7 @@ exports.createUserRequest = async (req, res) => {
     for (const task of tasks) {
       // Determine approver details - either from task or from workflow
       const approver1Id = task.approver1_id || approverDetails?.approver_1_id;
-      const approver2Id = task.approver2_id || approverDetails?.approver_2_id;
+      const approver2Id = task.approver2_id || parseInt(approverDetails?.approver_2_id.split(",")[0], 10);
       const approver1Name =
         task.approver1_name || approverDetails?.approver1_name;
       const approver2Name =
@@ -392,6 +392,7 @@ exports.createUserRequest = async (req, res) => {
     }
 
     res.status(201).json({
+      userTransactionId: userRequest.transaction_id,
       userRequest: user_request,
       tasks: task_request,
     });
@@ -696,6 +697,8 @@ exports.searchUserRequests = async (req, res) => {
               ur.vendor_code,
               ur.vendor_allocated_id,
               ur.status AS user_request_status,
+              ur.approver1_status,
+              ur.approver2_status,
               ur.created_on,
               tr.id AS task_id,
               tr.transaction_id AS task_request_transaction_id,
@@ -718,7 +721,7 @@ exports.searchUserRequests = async (req, res) => {
        LEFT JOIN application_master app ON tr.application_equip_id = app.id
       ${whereClause}
       
-      ORDER BY ur.created_on DESC
+    ORDER BY ur.id DESC
       `,
       values
     );
@@ -742,6 +745,8 @@ exports.searchUserRequests = async (req, res) => {
           vendor_code: row.vendor_code,
           vendor_allocated_id: row.vendor_allocated_id,
           status: row.user_request_status,
+          approver1_status: row.approver1_status,
+          approver2_status: row.approver2_status,
           created_on: row.created_on,
           tasks: [],
         };

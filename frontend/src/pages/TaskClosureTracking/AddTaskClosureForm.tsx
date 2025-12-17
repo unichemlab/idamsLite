@@ -132,7 +132,7 @@ console.log("formDtaSending",formData);
   task_data: formData
 }); // <-- ✅ use updateTaskAPI instead of addTaskAPI
     alert("✅ Task closure saved successfully!");
-    navigate("/task-closure-tracking");
+    navigate("/task");
   } catch (err) {
     console.error("Error saving task:", err);
     alert("❌ Failed to save task closure.");

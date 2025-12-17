@@ -8,18 +8,8 @@ import {
 } from "./UserRequestContext";
 import {
   FiChevronDown,
-  FiMail,
-  FiMapPin,
   FiBriefcase,
   FiLogOut,
-  FiShield,
-  FiUsers,
-  FiCheckCircle,
-  FiClock,
-  FiAlertCircle,
-  FiTrendingUp,
-  FiFileText,
-  FiSettings,
 } from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
 import { fetchPlants } from "../../utils/api";
@@ -32,19 +22,19 @@ export const API_BASE =
   process.env.REACT_APP_API_URL || "http://localhost:4000";
 const AddUserRequest: React.FC = () => {
   const [showUserMenu, setShowUserMenu] = useState(false);
-    const menuRef = useRef<HTMLDivElement>(null);
-  
-    // Close menu when clicking outside
-    useEffect(() => {
-      const handleClickOutside = (event: MouseEvent) => {
-        if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-          setShowUserMenu(false);
-        }
-      };
-  
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
   const { addUserRequest } = useUserRequestContext();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -95,7 +85,7 @@ const AddUserRequest: React.FC = () => {
     vendorCode: [],
     allocatedId: [],
   });
-console.log("form data",form);
+  console.log("form data", form);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [bulkRows, setBulkRows] = useState([
     { location: "", department: "", applicationId: "", role: "" },
@@ -435,8 +425,8 @@ console.log("form data",form);
       const textContent = `Transaction ID: ${req.transaction_id || "-"
         } | Name: ${req.name || "-"} | Employee Code: ${req.employeeCode || "-"
         } | Location: ${req.tasks?.[0]?.location || "-"} | Department: ${req.tasks?.[0]?.department || "-"
-        } | Access Type: ${req.accessType || "-"}
-    | Approver 1: ${"Pending"} | Approver 2: ${"Pending"} | Status: ${"Pending"}`;
+        } | Access Type: ${req.accessType || "-"} | Approver 1: ${req.approver1_status || "Pending"} 
+    | Approver 2: ${req.approver2_status || "Pending"} | Status: ${req.status || "Pending"}`;
       const textLines = doc.splitTextToSize(
         textContent,
         pageWidth - 2 * pageMargin - 4
@@ -618,7 +608,7 @@ console.log("form data",form);
 
     // Approver info
     formData.append("approver1_email", approver1_email);
-    formData.append("approver2_email",  "");
+    formData.append("approver2_email", "");
     formData.append("approver1_status", "Pending");
     formData.append("approver2_status", "Pending");
 
@@ -633,10 +623,12 @@ console.log("form data",form);
     console.log("Submitting FormData:", Object.fromEntries(formData.entries()));
 
     try {
-      await addUserRequest(formData); // send FormData to backend
+      const response = await addUserRequest(formData); // send FormData to backend
+    
       alert("Request submitted successfully!");
-      navigate("/user-access-management");
-      window.location.reload();
+      window.location.href = "/user-access-management";
+      // navigate("/user-access-management");
+      // window.location.reload();
     } catch (err) {
       console.error("Failed to save request:", err);
       alert("Something went wrong while saving the request.");
@@ -834,14 +826,14 @@ console.log("form data",form);
       setFilterRoles([]);
     }
   }, [filter.applicationId]);
-useEffect(() => {
-  if (filterModalOpen && user?.employee_code) {
-    setFilter((prev) => ({
-      ...prev,
-      employeeCode: user.employee_code,
-    }));
-  }
-}, [filterModalOpen, user]);
+  useEffect(() => {
+    if (filterModalOpen && user?.employee_code) {
+      setFilter((prev) => ({
+        ...prev,
+        employeeCode: user.employee_code,
+      }));
+    }
+  }, [filterModalOpen, user]);
   const handleLogout = () => {
     logout();
     navigate("/");
@@ -1025,6 +1017,7 @@ useEffect(() => {
                       <th>Access Type</th>
                       <th>Approver 1</th>
                       <th>Approver 2</th>
+                      <th>Created On</th>
                       <th>Status</th>
                       <th>Task</th>
                     </tr>
@@ -1040,8 +1033,18 @@ useEffect(() => {
                             <td>{r.tasks?.[0]?.location}</td>
                             <td>{r.tasks?.[0]?.department || "—"}</td>
                             <td>{r.accessType || "—"}</td>
-                            <td>{"Pending"}</td>
-                            <td>{"Pending"}</td>
+                            <td>{r.approver1_status}</td>
+                            <td>{r.approver2_status}</td>
+                            <td>
+                              {r.created_on
+                                ? new Date(r.created_on).toLocaleDateString("en-GB", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                })
+                                : "-"}
+                            </td>
+
                             <td>{r.status}</td>
                             <td>
                               <button
@@ -1124,144 +1127,155 @@ useEffect(() => {
       )}
       <main className={addUserRequestStyles["main-content"]}>
         <header className={styles["main-header"]}>
-        <div className={styles.navLeft}>
-          <div className={styles.logoWrapper}>
-            <img src={login_headTitle2} alt="Logo" className={styles.logo} />
-            <span className={styles.version}>version-1.0</span>
+          <div className={styles.navLeft}>
+            <div className={styles.logoWrapper}>
+              <img src={login_headTitle2} alt="Logo" className={styles.logo} />
+              <span className={styles.version}>version-1.0</span>
+            </div>
+            <h1 className={styles.title}>User Request Management</h1>
           </div>
-          <h1 className={styles.title}>User Request Management</h1>
-        </div>
 
 
-        <div className={styles.navRight}>
-          <button
+          <div className={styles.navRight}>
+            <button
               className={addUserRequestStyles["addUserBtn"]}
-              onClick={() => setFilterModalOpen(true)}
+              onClick={() => {
+                setFilter({
+                  plant_location: "",
+                  department: "",
+                  applicationId: "",
+                  transactionId: "",
+                  employeeCode: user?.employee_code || "",
+                });
+
+                setFilterModalOpen(true);
+              }}
             >
               Filter User Requests
             </button>
-          {user && (
-            
-            <div style={{ position: "relative" }} ref={menuRef}>
-              <button
-                onClick={() => setShowUserMenu(!showUserMenu)}
-                className={styles.userButton}
-              >
-                {/* Avatar */}
-                <div className={styles.avatarContainer}>
-                  <div className={styles.avatar}>
-                    {(user.name || user.username || "U")
-                      .charAt(0)
-                      .toUpperCase()}
+
+            {user && (
+
+              <div style={{ position: "relative" }} ref={menuRef}>
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className={styles.userButton}
+                >
+                  {/* Avatar */}
+                  <div className={styles.avatarContainer}>
+                    <div className={styles.avatar}>
+                      {(user.name || user.username || "U")
+                        .charAt(0)
+                        .toUpperCase()}
+                    </div>
+                    <div className={styles.statusDot}></div>
                   </div>
-                  <div className={styles.statusDot}></div>
-                </div>
 
-                {/* User Name */}
-                <div className={styles.userInfo}>
-                  <span className={styles.userName}>
-                    {user.name || user.username}
-                  </span>
-                  {user.isITBin && (
-                    <span className={styles.userRole}>IT Admin</span>
-                  )}
-                  {user.isApprover && (
-                    <span className={styles.userRole}>Approver</span>
-                  )}
-                </div>
+                  {/* User Name */}
+                  <div className={styles.userInfo}>
+                    <span className={styles.userName}>
+                      {user.name || user.username}
+                    </span>
+                    {user.isITBin && (
+                      <span className={styles.userRole}>IT Admin</span>
+                    )}
+                    {user.isApprover && (
+                      <span className={styles.userRole}>Approver</span>
+                    )}
+                  </div>
 
-                {/* Dropdown Arrow */}
-                <FiChevronDown
-                  size={16}
-                  color="#64748b"
-                  style={{
-                    transition: "transform 0.2s",
-                    transform: showUserMenu ? "rotate(180deg)" : "rotate(0deg)",
-                  }}
-                />
-              </button>
+                  {/* Dropdown Arrow */}
+                  <FiChevronDown
+                    size={16}
+                    color="#64748b"
+                    style={{
+                      transition: "transform 0.2s",
+                      transform: showUserMenu ? "rotate(180deg)" : "rotate(0deg)",
+                    }}
+                  />
+                </button>
 
-              {/* Dropdown Menu */}
-              {showUserMenu && (
-                <div className={styles.dropdownMenu}>
-                  <div className={styles.dropdownHeader}>
-                    <div className={styles.dropdownAvatar}>
-                      <div className={styles.dropdownAvatarCircle}>
-                        {(user.name || user.username || "U")
-                          .charAt(0)
-                          .toUpperCase()}
-                      </div>
-                      <div className={styles.dropdownUserInfo}>
-                        <span className={styles.dropdownUserName}>
-                          {user.name || user.username}
-                        </span>
-                        {user.employee_code && (
-                          <span className={styles.dropdownEmployeeCode}>
-                            {user.employee_code}
+                {/* Dropdown Menu */}
+                {showUserMenu && (
+                  <div className={styles.dropdownMenu}>
+                    <div className={styles.dropdownHeader}>
+                      <div className={styles.dropdownAvatar}>
+                        <div className={styles.dropdownAvatarCircle}>
+                          {(user.name || user.username || "U")
+                            .charAt(0)
+                            .toUpperCase()}
+                        </div>
+                        <div className={styles.dropdownUserInfo}>
+                          <span className={styles.dropdownUserName}>
+                            {user.name || user.username}
                           </span>
-                        )}
+                          {user.employee_code && (
+                            <span className={styles.dropdownEmployeeCode}>
+                              {user.employee_code}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Actions */}
-                  <div className={styles.dropdownActions}>
-                     <button
-                      onClick={() => navigate("/homepage")}
-                      className={styles.dropdownButton}
-                    >
-                      <FiBriefcase size={16} />
-                      <span>Home</span>
-                    </button>
-                    <button
-                      onClick={() => navigate("/user-access-management")}
-                      className={styles.dropdownButton}
-                    >
-                      <FiBriefcase size={16} />
-                      <span>User Request Management</span>
-                    </button>
-                    {user?.isITBin && (
+                    {/* Actions */}
+                    <div className={styles.dropdownActions}>
                       <button
-                        onClick={() => navigate("/task")}
+                        onClick={() => navigate("/homepage")}
                         className={styles.dropdownButton}
                       >
                         <FiBriefcase size={16} />
-                         <span>Task Closure</span>
+                        <span>Home</span>
                       </button>
-                    )}
-                     {user?.isApprover && (
                       <button
-                        onClick={() => navigate("/approver/pending")}
+                        onClick={() => navigate("/user-access-management")}
                         className={styles.dropdownButton}
                       >
                         <FiBriefcase size={16} />
-                         <span>Pending Approval</span>
+                        <span>User Request Management</span>
                       </button>
-                    )}
-                    {user?.isApprover && (
-                      
+                      {user?.isITBin && (
+                        <button
+                          onClick={() => navigate("/task")}
+                          className={styles.dropdownButton}
+                        >
+                          <FiBriefcase size={16} />
+                          <span>Task Closure</span>
+                        </button>
+                      )}
+                      {user?.isApprover && (
+                        <button
+                          onClick={() => navigate("/approver/pending")}
+                          className={styles.dropdownButton}
+                        >
+                          <FiBriefcase size={16} />
+                          <span>Pending Approval</span>
+                        </button>
+                      )}
+                      {user?.isApprover && (
+
+                        <button
+                          onClick={() => navigate("/approver/history")}
+                          className={styles.dropdownButton}
+                        >
+                          <FiBriefcase size={16} />
+                          <span>Approval History</span>
+                        </button>
+                      )}
                       <button
-                        onClick={() => navigate("/approver/history")}
-                        className={styles.dropdownButton}
+                        onClick={handleLogout}
+                        className={`${styles.dropdownButton} ${styles.logoutButton}`}
                       >
-                        <FiBriefcase size={16} />
-                         <span>Approval History</span>
+                        <FiLogOut size={18} />
+                        <span>Logout</span>
                       </button>
-                    )}
-                    <button
-                      onClick={handleLogout}
-                      className={`${styles.dropdownButton} ${styles.logoutButton}`}
-                    >
-                      <FiLogOut size={18} />
-                      <span>Logout</span>
-                    </button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </header>
+                )}
+              </div>
+            )}
+          </div>
+        </header>
         {/* ===================== Original Form JSX ===================== */}
         <div className={addUserRequestStyles.container}>
           <form
