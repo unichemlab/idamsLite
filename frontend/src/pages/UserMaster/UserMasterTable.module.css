@@ -1,0 +1,651 @@
+/* Search box styles */
+.headerRowFlex {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+.searchForm {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border-radius: 30px;
+  box-shadow: 0 2px 8px rgba(11, 99, 206, 0.1);
+  padding: 0 10px 0 18px;
+  height: 48px;
+  min-width: 270px;
+  max-width: 340px;
+  margin-right: 18px;
+}
+.searchInput {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 1.1rem;
+  color: #444;
+  flex: 1;
+  height: 44px;
+}
+.searchInput::placeholder {
+  color: #b6c6e3;
+  font-size: 1.1rem;
+}
+.searchBtn {
+  background: #a14b8c;
+  border: none;
+  border-radius: 50%;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 8px;
+  box-shadow: 0 2px 8px rgba(161, 75, 140, 0.1);
+  cursor: pointer;
+  transition: background 0.18s;
+}
+.searchBtn:hover {
+  background: #7c2d6a;
+}
+/* Pagination styles for UserMasterTable */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin: 18px 0 0 0;
+  padding-bottom: 18px;
+}
+.pageBtn {
+  padding: 7px 18px;
+  border-radius: 6px;
+  border: 1px solid #0b63ce;
+  background: #fff;
+  color: #0b63ce;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border 0.2s;
+}
+.pageBtn:hover {
+  background: #0b63ce;
+  color: #fff;
+}
+.disabledPageBtn {
+  padding: 7px 18px;
+  border-radius: 6px;
+  border: 1px solid #dbeafe;
+  background: #f8f9fa;
+  color: #b6c6e3;
+  font-weight: 600;
+  cursor: not-allowed;
+}
+.pageInfo {
+  font-weight: 500;
+  font-size: 15px;
+  color: #333;
+}
+/* Activity Log Modal Styles */
+.activityOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.18);
+  z-index: 2000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 60px;
+}
+.activityModal {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(11, 99, 206, 0.18);
+  max-width: 600px;
+  width: 95vw;
+  min-width: 320px;
+  padding: 24px 18px 18px 18px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.activityHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.activityTitle {
+  font-weight: 700;
+  font-size: 20px;
+}
+.activityCloseBtn {
+  background: #e3e9f7;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 18px;
+  transition: background 0.2s;
+}
+.activityCloseBtn:hover {
+  background: #dbeafe;
+}
+.activityUserInfo {
+  margin-bottom: 12px;
+  font-weight: 500;
+  font-size: 15px;
+  color: #333;
+}
+.activityTableWrapper {
+  overflow-y: auto;
+  max-height: 350px;
+  min-width: 100%;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(11, 99, 206, 0.08);
+}
+/* Filter popover styles */
+
+/* Export to PDF button styles */
+
+.exportPdfBtn {
+  background: #fff;
+  color: #0b63ce;
+  border: 1px solid #0b63ce;
+  border-radius: 6px;
+  padding: 8px 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  box-shadow: 0 2px 8px rgba(11, 99, 206, 0.08);
+  transition: background 0.2s, color 0.2s, border 0.2s;
+  display: flex;
+  align-items: center;
+
+  height: 35px;
+}
+.exportPdfBtn:hover {
+  background: #0b63ce;
+  color: #fff;
+  border-color: #084a9e;
+}
+.exportPdfBtn:active {
+  background: #084a9e;
+  color: #fff;
+  border-color: #084a9e;
+}
+
+.filterPopover {
+  position: absolute;
+  top: 148px;
+  right: 344px;
+  height: 230px;
+  z-index: 1000;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px 0 rgba(11, 99, 206, 0.18);
+  min-width: 320px;
+  padding: 0;
+  animation: fadeIn 0.2s;
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.filterPopoverHeader {
+  padding: 16px 24px 8px 24px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #0b63ce;
+  border-bottom: 1px solid #f0f0f0;
+}
+.filterPopoverBody {
+  padding: 16px 24px 8px 24px;
+}
+.filterFieldRow {
+  display: flex;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.filterLabel {
+  min-width: 70px;
+  font-size: 1rem;
+  color: #333;
+  margin-right: 12px;
+}
+.applyBtn {
+  background: #0b63ce;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 20px;
+  font-size: 1rem;
+  font-weight: 600;
+  margin-right: 50px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.applyBtn:hover {
+  background: #084a9e;
+}
+.clearBtn {
+  background: #f8f9fa;
+  color: #0b63ce;
+  border: 1px solid #dbeafe;
+  border-radius: 6px;
+  padding: 8px 20px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.clearBtn:hover {
+  background: #e3e9f7;
+  color: #084a9e;
+}
+/* Side panel overlay for Add/Edit user */
+.panelOverlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 999;
+  background: rgba(0, 0, 0, 0.02); /* subtle overlay */
+  display: flex;
+  justify-content: flex-end;
+}
+
+.panelWrapper {
+  height: 50vh;
+  width: 400px;
+  background: #fff;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.08);
+  overflow-y: auto;
+  position: relative;
+}
+.container {
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.header h2 {
+  font-size: 24px;
+  margin-bottom: 4px;
+}
+
+.header p {
+  font-size: 14px;
+  color: #777;
+}
+
+.addUser {
+  background-color: #0b63ce;
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.controls input {
+  width: 250px;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+.controlButtons button {
+  margin-left: 10px;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.userTable {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
+  height: 100%;
+}
+
+.userTable th {
+  padding: 14px;
+  text-align: left;
+  font-weight: bold;
+  font-size: 14px;
+  border-bottom: 1px solid #ddd;
+}
+
+.userTable td {
+  padding: 12px;
+  border-top: 1px solid #eee;
+  font-size: 14px;
+}
+
+.radioInput {
+  outline: none;
+  box-shadow: none;
+}
+.radioInput:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.plantBadge {
+  background-color: #e1ecf4;
+  color: #0366d6;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  margin-right: 4px;
+  display: inline-block;
+}
+
+.activeBadge {
+  background-color: #e6f4ea;
+  color: #1a8738;
+  font-weight: bold;
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  display: inline-block;
+}
+
+.inactiveBadge {
+  background-color: #ffeaea;
+  color: #e11d48;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.actionBtn,
+.actionBtnDelete {
+  border: none;
+  background: #e7f4f1;
+  padding: 6px;
+  margin-right: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.actionBtnDelete {
+  background: #fce1e1;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 16px;
+  font-size: 13px;
+  color: #666;
+}
+
+.pagination button {
+  margin-left: 6px;
+  padding: 4px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+}
+
+.activePage {
+  background-color: #0b63ce;
+  color: white;
+}
+
+.main-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(90deg, #1565c0 0%, #42a5f5 100%);
+  color: #fff;
+  padding: 12px 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  height: 60px;
+}
+
+.header-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.header-icons {
+  display: flex;
+  gap: 20px;
+}
+
+.header-icon {
+  font-size: 20px;
+  color: #fff;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.header-icon:hover {
+  color: #007bff;
+}
+
+.yesBadge {
+  background-color: #d4edda;
+  color: #155724;
+  padding: 4px 10px;
+  border-radius: 14px;
+  font-size: 12px;
+  display: inline-block;
+}
+
+.noBadge {
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 4px 10px;
+  border-radius: 14px;
+  font-size: 12px;
+  display: inline-block;
+}
+
+.activityLog {
+  font-size: 12px;
+  line-height: 1.4;
+  color: #333;
+}
+
+.filterDropdown {
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+}
+
+.filterInput {
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+  min-width: 180px;
+}
+
+.radioInput {
+  accent-color: #0b63ce;
+  width: 14px;
+  height: 14px;
+}
+.radioInput:focus {
+  outline: 2px solid #77b1f8;
+}
+
+.editBtn {
+  background-color: #e2e3e5;
+  color: #212529;
+}
+.editBtn:hover,
+.editBtn:focus {
+  background-color: #212529;
+  color: #e2e3e5;
+}
+
+/* Delete button: muted/red gray */
+.deleteBtn {
+  background: #ef5350;
+  color: #fff;
+}
+.deleteBtn:hover,
+.deleteBtn:focus {
+  background: #bc3c2c;
+  color: #fff;
+}
+
+.filterBtn {
+  background: linear-gradient(90deg, #1565c0 0%, #42a5f5 100%);
+  color: #fff;
+  border: none;
+  padding: 7px 13px;
+  border-radius: 8px;
+  border: none;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.filterBtn:hover {
+  background: #005fbb;
+  color: #fff;
+}
+
+.addUserBtn {
+  background-color: #24bb6a;
+  color: #fff;
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: none;
+  font-weight: 500;
+  cursor: pointer;
+  font-size: 14px;
+  box-shadow: 0 1px 2px rgba(90, 96, 120, 0.07);
+  transition: background 0.18s;
+}
+.addUserBtn:hover {
+  background-color: #198754;
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  font-size: 14px;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(90, 96, 120, 0.08);
+}
+
+.exportPdfBtn span {
+  margin-right: 6px;
+}
+
+.headerTopRow {
+  background: #eef5fe;
+  padding: 16px 24px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  border-bottom: 1px solid #e3e3e3;
+}
+
+.actionHeaderRow {
+  display: flex;
+  gap: 18px;
+
+  align-items: center;
+}
+
+.filterPopoverFooter {
+  text-align: center;
+}
+
+.tableUser {
+  max-height: 60vh;
+  overflow-y: auto;
+  overflow-x: auto;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-top: -5px;
+  background: #fff;
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: #b6c6e3 #f4f7fb; /* Firefox */
+}
+
+/* Chrome, Edge, Safari */
+.tableUser::-webkit-scrollbar {
+  width: 8px;
+  background: #f4f7fb;
+  border-radius: 8px;
+}
+.tableUser::-webkit-scrollbar-thumb {
+  background: #b6c6e3;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+.tableUser::-webkit-scrollbar-thumb:hover {
+  background: #7fa1d6;
+}
+
+.userTable th {
+  position: sticky;
+  top: 0;
+  background: #eef5fe;
+  z-index: 2;
+  box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.04);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.06);
+  height: 100%;
+}

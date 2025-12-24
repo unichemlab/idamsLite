@@ -704,6 +704,12 @@ exports.searchUserRequests = async (req, res) => {
               tr.transaction_id AS task_request_transaction_id,
               tr.application_equip_id,
               app.display_name AS application_name,
+              tr.approver1_comments,
+              tr.approver2_comments,
+              tr.approver1_action_timestamp,
+              tr.approver2_action_timestamp,
+              tr.approver1_action,
+              tr.approver2_action,
               tr.department,
               d.department_name,
               tr.role,
@@ -712,7 +718,9 @@ exports.searchUserRequests = async (req, res) => {
               tr.location,
               tr.reports_to,
               tr.task_status,
-              tr.remarks
+              tr.remarks,
+              tr.approver1_comments,
+              tr.approver2_comments
        FROM user_requests ur
        LEFT JOIN task_requests tr ON ur.id = tr.user_request_id
        LEFT JOIN department_master d ON tr.department = d.id
@@ -765,6 +773,13 @@ exports.searchUserRequests = async (req, res) => {
           location: row.plant_name,
           reports_to: row.reports_to,
           task_status: row.task_status,
+          remarks: row.remarks,
+          approver1_comments: row.approver1_comments,
+          approver2_comments: row.approver2_comments,
+          approver1_action: row.approver1_action,
+          approver2_action: row.approver2_action,
+          approver1_action_timestamp: row.approver1_action_timestamp,
+          approver2_action_timestamp: row.approver2_action_timestamp,
         });
       }
     }

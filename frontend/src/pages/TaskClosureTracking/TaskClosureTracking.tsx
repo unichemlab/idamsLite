@@ -13,6 +13,7 @@ import login_headTitle2 from "../../assets/login_headTitle2.png";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { fetchTaskLog } from "../../utils/api";
+import AppMenu from "../../components/AppMenu";
 
 interface TaskLog {
   task_id: number;
@@ -283,47 +284,7 @@ const TaskTable: React.FC = () => {
                     </div>
 
                     <div className={headerStyles.dropdownActions}>
-                      <button
-                        onClick={() => navigate("/homepage")}
-                        className={headerStyles.dropdownButton}
-                      >
-                        <FiBriefcase size={16} />
-                        <span>Home</span>
-                      </button>
-                      <button
-                        onClick={() => navigate("/user-access-management")}
-                        className={headerStyles.dropdownButton}
-                      >
-                        <FiBriefcase size={16} />
-                        <span>User Request Management</span>
-                      </button>
-                      {user?.isITBin && (
-                        <button
-                          onClick={() => navigate("/task")}
-                          className={headerStyles.dropdownButton}
-                        >
-                          <FiBriefcase size={16} />
-                          <span>Task Closure</span>
-                        </button>
-                      )}
-                      {user?.isApprover && (
-                        <button
-                          onClick={() => navigate("/approver/pending")}
-                          className={headerStyles.dropdownButton}
-                        >
-                          <FiBriefcase size={16} />
-                          <span>Pending Approval</span>
-                        </button>
-                      )}
-                      {user?.isApprover && (
-                        <button
-                          onClick={() => navigate("/approver/history")}
-                          className={headerStyles.dropdownButton}
-                        >
-                          <FiBriefcase size={16} />
-                          <span>Approval History</span>
-                        </button>
-                      )}
+                      <AppMenu />
                       <button
                         onClick={handleLogout}
                         className={`${headerStyles.dropdownButton} ${styles.logoutButton}`}
@@ -384,7 +345,7 @@ const TaskTable: React.FC = () => {
                   const tasks = groupedLogs[requestId];
                   const firstTask = tasks[0];
                   const statusInfo = getTaskDisplayStatus(firstTask);
-
+console.log('Rendering requestId:', requestId, 'with tasks:', tasks);
                   return (
                     <React.Fragment key={requestId}>
                       <tr
@@ -441,7 +402,7 @@ const TaskTable: React.FC = () => {
                                   fontWeight: 600,
                                 }}
                               >
-                                {firstTask.approver2_status || "Pending"}
+                                 {firstTask.approver1_status === "Rejected" ?'N/A':firstTask.approver2_status || "Pending"}
                               </span>
                             </div>
                           </div>

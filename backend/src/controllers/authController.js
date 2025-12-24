@@ -155,9 +155,9 @@ exports.login = async (req, res) => {
         INNER JOIN plant_master pm ON pia.plant_id = pm.id
         WHERE piau.user_id = $1 AND pia.status = 'ACTIVE'
       `;
-      
+
       const itBinResult = await db.query(itBinQuery, [user.id]);
-      
+
       if (itBinResult.rows.length > 0) {
         isITBin = true;
         itPlantIds = itBinResult.rows.map(row => row.plant_id);
@@ -166,7 +166,7 @@ exports.login = async (req, res) => {
           plant_name: row.plant_name,
           plant_it_admin_id: row.plant_it_admin_id
         }));
-        
+
         logDebug(`User ${username} is IT BIN admin for plants:`, itPlantIds);
       }
     } catch (err) {
@@ -225,17 +225,32 @@ exports.login = async (req, res) => {
 
     // ---------------- Fetch user permissions ----------------
     let permissions = [];
+    let plantPermissions = [];
     let permittedPlantIds = [];
-    
+
     try {
       const userPermsQuery = `
-        SELECT module_id, plant_id, can_add, can_edit, can_view, can_delete 
-        FROM user_plant_permission 
-        WHERE user_id = $1
-      `;
-      const userPerms = await db.query(userPermsQuery, [user.id]);
+    SELECT module_id, plant_id, can_add, can_edit, can_view, can_delete
+    FROM user_plant_permission
+    WHERE user_id = $1
+  `;
 
-      permissions = userPerms.rows.flatMap((p) => {
+      const { rows } = await db.query(userPermsQuery, [user.id]);
+
+      // 1️⃣ Structured permissions (plant-wise)
+      plantPermissions = rows.map(p => ({
+        moduleId: p.module_id,
+        plantId: p.plant_id,
+        actions: {
+          create: p.can_add,
+          update: p.can_edit,
+          read: p.can_view,
+          delete: p.can_delete
+        }
+      }));
+
+      // 2️⃣ Flattened permissions (NO plant_id here)
+      permissions = rows.flatMap(p => {
         const perms = [];
         if (p.can_add) perms.push(`create:${p.module_id}`);
         if (p.can_edit) perms.push(`update:${p.module_id}`);
@@ -243,15 +258,19 @@ exports.login = async (req, res) => {
         if (p.can_delete) perms.push(`delete:${p.module_id}`);
         return perms;
       });
-      
-      // Extract unique plant IDs from permissions
-      permittedPlantIds = [...new Set(userPerms.rows.map(p => p.plant_id))];
-      
-      logDebug(`User has permissions for plants:`, permittedPlantIds);
+
+      // 3️⃣ Unique plant IDs
+      permittedPlantIds = [...new Set(rows.map(p => p.plant_id))];
+
+      logDebug("Permitted plants:", permittedPlantIds);
+
     } catch (err) {
       console.error("[PERMISSIONS ERROR]", err);
-      // Continue without permissions - they'll be fetched later if needed
+      permissions = [];
+      plantPermissions = [];
+      permittedPlantIds = [];
     }
+
 
     // Add role-based permissions
     if (user.role_id.includes(1)) {
@@ -266,7 +285,7 @@ exports.login = async (req, res) => {
     let approverTypes = []; // Track what type of approver the user is
     let pendingApproval1Count = 0;
     let pendingApproval2Count = 0;
-        console.log("user info for approver check",user);
+    console.log("user info for approver check", user);
     try {
       // Check 1: Is user Approver 1 in any user_requests records?
       // Match by email since approver1_email stores the user's email
@@ -297,7 +316,7 @@ exports.login = async (req, res) => {
         LIMIT 1
       `;
       const approver1HistoryResult = await db.query(approver1HistoryQuery, [user.email]);
-      
+
       if (approver1HistoryResult && approver1HistoryResult.rows && approver1HistoryResult.rows[0]) {
         const historyCount = parseInt(approver1HistoryResult.rows[0].count, 10);
         if (historyCount > 0 && !approverTypes.includes('approver_1')) {
@@ -337,7 +356,7 @@ exports.login = async (req, res) => {
         LIMIT 1
       `;
       const approver2HistoryResult = await db.query(approver2HistoryQuery, [user.email]);
-      
+
       if (approver2HistoryResult && approver2HistoryResult.rows && approver2HistoryResult.rows[0]) {
         const historyCount = parseInt(approver2HistoryResult.rows[0].count, 10);
         if (historyCount > 0 && !approverTypes.includes('workflow_approver')) {
@@ -375,7 +394,7 @@ exports.login = async (req, res) => {
         permissions.push("view:approvals");
         permissions.push("read:workflows");
         permissions.push("update:workflows");
-        
+
         logDebug(`User ${username} has approver types:`, approverTypes);
         logDebug(`Pending approvals - Level 1: ${pendingApproval1Count}, Level 2: ${pendingApproval2Count}`);
       }
@@ -403,7 +422,7 @@ exports.login = async (req, res) => {
     // ===============================================
     let userLocation = null;
     let userPlantName = null;
-    
+
     if (user.location) {
       try {
         const locationQuery = `
@@ -412,7 +431,7 @@ exports.login = async (req, res) => {
           WHERE plant_name = $1
         `;
         const locationResult = await db.query(locationQuery, [user.location]);
-        
+
         if (locationResult.rows.length > 0) {
           userLocation = locationResult.rows[0].id;
           userPlantName = locationResult.rows[0].plant_name;
@@ -431,30 +450,28 @@ exports.login = async (req, res) => {
       employee_name: user.employee_name,
       employee_code: user.employee_code,
       email: user.email,
-      
+
       // Role and permissions
       role_id: roleIds,
-      permissions,
-      permissions_version: 1, // Increment when permission structure changes
+      permissions,            // flat (menu / feature)
+      plantPermissions,       // structured (logic)
+      permittedPlantIds,      // quick filtering
+      permissions_version: 2, // bump version
       isApprover: isApprover,
       approverTypes: approverTypes, // ['approver_1', 'workflow_approver'] or subset
       pendingApproval1Count: pendingApproval1Count,
       pendingApproval2Count: pendingApproval2Count,
-      
+
       // IT BIN Admin info
       isITBin,
       itPlants: isITBin ? itPlants : [], // Full plant details for IT BIN admins
       itPlantIds: isITBin ? itPlantIds : [], // Just IDs for quick checks
-      
+
       // User's assigned plant/location
       location: user.location,
       plant_name: userPlantName,
       department: user.department,
       designation: user.designation,
-      
-      // Plant access (from permissions)
-      permittedPlantIds,
-      
       // Metadata
       loginTime: new Date().toISOString(),
     };
@@ -483,11 +500,11 @@ exports.login = async (req, res) => {
         approverTypes: approverTypes,
         pendingApproval1Count: pendingApproval1Count,
         pendingApproval2Count: pendingApproval2Count,
-        
+
         // IT BIN info
         isITBin,
         itPlants: isITBin ? itPlants : [],
-        
+
         // Permissions summary
         permittedPlantIds,
         hasApproverAccess: permissions.includes("approve:requests"),
@@ -511,7 +528,7 @@ exports.getPermissions = async (req, res) => {
       headers: req.headers && { authorization: req.headers.authorization },
       cookies: req.cookies ? Object.keys(req.cookies) : undefined,
     });
-    
+
     // Extract token from Authorization header or cookie
     const authHeader = req.headers.authorization || req.headers.Authorization;
     let token = null;
@@ -562,12 +579,6 @@ exports.getPermissions = async (req, res) => {
 
     // Try to fetch from admin_plant_permission, fallback to user_plant_permission
     let permissions = [];
-    try {
-      const q = `SELECT id, transaction_id, user_id, plant_id, module_id, can_add, can_edit, can_view, can_delete, created_on, updated_on
-                 FROM admin_plant_permission WHERE user_id = $1 ORDER BY id`;
-      const { rows } = await db.query(q, [userId]);
-      permissions = rows || [];
-    } catch (err) {
       // Table might not exist or query failed; try alternative table
       try {
         const q2 = `SELECT id, transaction_id, user_id, plant_id, module_id, can_add, can_edit, can_view, can_delete, created_on, updated_on
@@ -579,9 +590,12 @@ exports.getPermissions = async (req, res) => {
         console.error("[PERMISSIONS FETCH ERROR]", err, err2);
         return res.json({ permissions: [] });
       }
-    }
+    
+return res.json({
+  plantPermissions: permissions,
+  permittedPlantIds: [...new Set(permissions.map(p => p.plant_id))]
+});
 
-    return res.json({ permissions });
   } catch (err) {
     console.error("[GET PERMISSIONS ERROR]", err);
     return res.status(500).json({ message: "Server error" });

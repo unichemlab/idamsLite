@@ -8,6 +8,9 @@ import ReviewSubmit from "../pages/ReviewSubmit/ReviewSubmit";
 import ApplicationMasterTable from "../pages/ApplicationMasterTable/ApplicationMasterTable";
 import AddApplicationFormPage from "../pages/ApplicationMasterTable/AddApplicationFormPage";
 import EditApplicationFormPage from "../pages/ApplicationMasterTable/EditApplicationFormPage";
+import ApplicationMaster from "../pages/ApplicationMaster/ApplicationMasterTable";
+import AddApplicationForm from "../pages/ApplicationMaster/AddApplicationFormPage";
+import EditApplicationForm from "../pages/ApplicationMaster/EditApplicationFormPage";
 import GenerateCredentials from "../pages/GenerateCredentials/GenerateCredentials";
 import AddUserRequest from "pages/UserRequest/UserRequestForm";
 import AddServiceRequest from "pages/ServiceRequest/ServiceRequestForm";
@@ -29,6 +32,9 @@ import ActivityMasterTable from "../pages/ActivityMasterTable/ActivityMasterTabl
 import PlantITSupportMaster from "../pages/PlantITSupport/PlantITSupportMaster";
 import EditPlantITSupportMaster from "../pages/PlantITSupport/EditAddPlantITSupportMaster";
 import AddPlantITSupportMaster from "../pages/PlantITSupport/AddPlantITSupportMaster";
+import TaskClosureBINMaster from "../pages/TaskClosureBin/PlantITSupportMaster";
+import EditTaskClosureBINMaster from "../pages/TaskClosureBin/EditAddPlantITSupportMaster";
+import AddTaskClosureBINMaster from "../pages/TaskClosureBin/AddPlantITSupportMaster";
 import WorkflowBuilder from "../pages/Approvalworkflow/WorkflowBuilder";
 import PlantWorkflowList from "../pages/Approvalworkflow/PlantWorkflowList";
 import PlantWorkflowBuilder from "../pages/Approvalworkflow/PlantWorkflowBuilder";
@@ -38,11 +44,41 @@ import SuperAdmin from "../pages/SuperAdmin/SuperAdmin";
 import PlantMasterTable from "../pages/PlantMasterTable/PlantMasterTable";
 import AddPlantMaster from "../pages/PlantMaster/AddPlantMaster";
 import EditPlantMaster from "../pages/PlantMaster/EditPlantMaster";
+/**************new master************* */
+import DashboardMain from "../pages/Dashboard/dashboard";
+import AccessLog from "../pages/AccessLog/AccessLogTable";
+import PlantMasterUserTable from "../pages/Plant/PlantMasterTable";
+import AddPlantMasterUser from "../pages/Plant/AddPlantMaster";
+import EditPlantMasterUser from "../pages/Plant/EditPlantMaster";
+import UserMaster from "../pages/UserMaster/UserMasterTable";
+import AddUserMasterUser from "../pages/UserMaster/AddUserFormPage";
+import EditUserMasterUser from "../pages/UserMaster/EditUserFormPage";
+import RoleMaster from "../pages/RoleMasterUser/RoleMasterTable";
+import AddRoleMasterUser from "../pages/RoleMasterUser/AddRoleFormPage";
+import EditRoleMasterUser from "../pages/RoleMasterUser/EditRoleFormPage";
+import ServerInventoryMasterUser from "../pages/ServerInventorymasterUser/ServerInventoryMasterTable";
+import AddServerInventoryUser from "../pages/ServerInventorymasterUser/AddServerInventoryMaster";
+import EditServerInventoryUser from "../pages/ServerInventorymasterUser/EditServerInventoryMaster";
+import SystemInventoryMasterTableUser from "../pages/SystemInventoryMasterUser/SystemInventoryMasterTable";
+import AddSystemInventoryUser from "../pages/SystemInventoryMasterUser/AddSystemInventory";
+import EditSystemInventoryUser from "../pages/SystemInventoryMasterUser/EditSystemInventory";
+import VendorInformation from "../pages/VendorMasterInformation/VendorMasterTable";
+import AddVendorInformation from "../pages/VendorMasterInformation/AddVendorMaster";
+import EditVendorInformation from "../pages/VendorMasterInformation/EditVendorMaster";
+import ActivityLog from "../pages/ActivityMaster/ActivityMasterTable";
+import AdminApprovalBin from "pages/MasterDataApprovalBin/MasterApprovalBin";
+import AdminApprovalDetails from "pages/MasterDataApprovalBin/MasterApprovalDetails";
+import ApprovalWorkflow from "pages/ApprovalworkflowUser/WorkflowBuilder";
+
+
+/****************************************** */
 import AddVendorMaster from "../pages/VendorMaster/AddVendorMaster";
 import EditVendorMaster from "../pages/VendorMaster/EditVendorMaster";
 import ProtectedRoute from "../components/Common/ProtectedRoute";
 import DepartmentMasterTable from "pages/DepartmentMasterTable/DepartmentMasterTable";
-import DepartmentTable from "pages/DepartmentTable/DepartmentTable";
+import DepartmentTable from "pages/DepartmentTable/DepartmentMasterTable";
+import AddDeptTableFormPage from "pages/DepartmentTable/AddDeptFormPage";
+import EditDeptTableFormPage from "pages/DepartmentTable/EditDeptFormPage";
 import AddTaskClosureForm from "../pages/TaskClosureTracking/AddTaskClosureForm";
 import AddDeptFormPage from "pages/DepartmentMaster/AddDeptFormPage";
 import EditDeptFormPage from "pages/DepartmentMaster/EditDeptFormPage";
@@ -63,6 +99,7 @@ import AccessLogPage from "pages/AccessLogTable/AccessLogTable";
 import ApprovalHistoryPage from "pages/ApproverDashboard/ApprovalHistory";
 import MasterApprovalUserDetails from "pages/MasterApprovalBin/MasterApprovalUserDetails";
 import MasterApprovalUserBin from "pages/MasterApprovalBin/MasterApprovalUserBin";
+import { Dashboard } from "@mui/icons-material";
 // Removed unused SystemInventoryMasterTable, AddSystemInventory, EditSystemInventory imports
 // List of allowed routes for matching
 const allowedRoutes = [
@@ -88,7 +125,6 @@ const allowedRoutes = [
   "/departments",
   "/departments/add",
   "/departments/edit/:id",
-  "/department-table",
   "/roles",
   "/roles/add",
   "/roles/edit/:id",
@@ -129,7 +165,42 @@ const allowedRoutes = [
   "/approver/pending",   // Pending approvals page
   "/approver/history",
   "/access-request/:id",
-  "/access-log"
+  "/access-log",
+  /*********************New url for master ************************ */
+  "/dashboard",
+  "/plant-master",
+  "/plant-master/add",
+  "/plant-master/edit/:id",
+   "/application-masters",
+  "/add-application-masters",
+  "/edit-application-masters/:idx",
+  "/task-closure-bin",
+  "/task-closure-bin/add",
+  "/task-closure-bin/edit/:id",
+   "/department-master",
+   "/department-master/add",
+   "/department-master/edit/:id",
+   "/user-master",
+   "/user-master/add",
+   "/user-master/edit/:id",
+   "/role-master",
+   "/role-master/add",
+   "/role-master/edit/:id",
+   "/server-master",
+   "/server-master/add",
+   "/server-master/edit/:id",
+   "/system-master",
+   "/system-master/add",
+   "/system-master/edit/:id",
+   "/vendor-information",
+   "/vendor-information/add",
+   "/vendor-information/edit/:id",
+   "/access-logs",
+   "/activity-log",
+   "/admin-approval",
+   "/admin-approval/:id",
+    "/approval-workflows"
+  /********************************************************* */
 ];
 
 const NotFound = () => (
@@ -166,7 +237,11 @@ console.log(isAllowed);
     const params = useParams();
     return <EditRoleFormPage roleId={Number(params.id)} />;
   }
-
+    function EditRoleFormPageWrapperUser()
+    {
+      const params = useParams();
+    return <EditRoleMasterUser roleId={Number(params.id)} />;
+    }
   return (
     <Routes>
       {/* User Flow */}
@@ -410,14 +485,6 @@ console.log(isAllowed);
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/department-table"
-        element={
-          <ProtectedRoute>
-            <DepartmentTable />
-          </ProtectedRoute>
-        }
-      />
 
       {/* Role Master */}
       <Route
@@ -564,7 +631,275 @@ console.log(isAllowed);
           </ProtectedRoute>
         }
       />
+{/*********New Master Page**************** */}
+<Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <DashboardMain/>
+          </ProtectedRoute>
+        }
+      />
+<Route
+        path="/plant-master"
+        element={
+          <ProtectedRoute>
+            <PlantMasterUserTable />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/plant-master/add"
+        element={
+          <ProtectedRoute>
+            <AddPlantMasterUser />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/plant-master/edit/:id"
+        element={
+          <ProtectedRoute>
+            <EditPlantMasterUser />
+          </ProtectedRoute>
+        }
+      />
+<Route
+        path="/application-masters"
+        element={
+          <ProtectedRoute>
+            <ApplicationMaster />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/add-application-masters"
+        element={
+          <ProtectedRoute>
+            <AddApplicationForm />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/edit-application-masters/:idx"
+        element={
+          <ProtectedRoute>
+            <EditApplicationForm />
+          </ProtectedRoute>
+        }
+      />
+      {/* Transaction Master Routes */}
+        <Route
+          path="/task-closure-bin"
+          element={
+            <ProtectedRoute>
+              <TaskClosureBINMaster />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/task-closure-bin/add"
+          element={
+            <ProtectedRoute>
+              <AddTaskClosureBINMaster />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/task-closure-bin/edit/:id"
+          element={
+            <ProtectedRoute>
+              <EditTaskClosureBINMaster />
+            </ProtectedRoute>
+          }
+        />
+        {/* Department Master */}
+      <Route
+        path="/department-master"
+        element={
+          <ProtectedRoute>
+            <DepartmentTable />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/department-master/add"
+        element={
+          <ProtectedRoute>
+            <AddDeptTableFormPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/departments/edit/:id"
+        element={
+          <ProtectedRoute>
+            <EditDeptTableFormPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/user-master"
+        element={
+          <ProtectedRoute>
+            <UserMaster />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/user-master/add"
+        element={
+          <ProtectedRoute>
+            <AddUserMasterUser />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/user-master/edit/:id"
+        element={
+          <ProtectedRoute>
+            <EditUserMasterUser />
+          </ProtectedRoute>
+        }
+      />
 
+      <Route
+        path="/role-master"
+        element={
+          <ProtectedRoute>
+            <RoleMaster />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/role-master/add"
+        element={
+          <ProtectedRoute>
+            <AddRoleMasterUser />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/role-master/edit/:id"
+        element={
+          <ProtectedRoute>
+            <EditRoleFormPageWrapperUser />
+          </ProtectedRoute>
+        }
+      />
+       <Route
+        path="/server-master"
+        element={
+          <ProtectedRoute>
+            <ServerInventoryMasterUser />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/server-master/add"
+        element={
+          <ProtectedRoute>
+            <AddServerInventoryUser />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/server-master/edit/:id"
+        element={
+          <ProtectedRoute>
+            <EditServerInventoryUser />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/system-master"
+        element={
+          <ProtectedRoute>
+            <SystemInventoryMasterTableUser />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/system-master/add"
+        element={
+          <ProtectedRoute>
+            <AddSystemInventoryUser />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/system-master/edit/:id"
+        element={
+          <ProtectedRoute>
+            <EditSystemInventoryUser />
+          </ProtectedRoute>
+        }
+      />
+       <Route
+        path="/vendor-information"
+        element={
+          <ProtectedRoute>
+            <VendorInformation />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/vendor-information/add"
+        element={
+          <ProtectedRoute>
+            <AddVendorInformation />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/vendor-information/edit/:id"
+        element={
+          <ProtectedRoute>
+            <EditVendorInformation />
+          </ProtectedRoute>
+        }
+      />
+       <Route
+        path="/access-logs"
+        element={
+          <ProtectedRoute>
+            <AccessLog />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/activity-log"
+        element={
+          <ProtectedRoute>
+            <ActivityLog />
+          </ProtectedRoute>
+        }
+      />
+       <Route
+        path="/admin-approval"
+        element={
+          <ProtectedRoute>
+            <AdminApprovalBin />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin-approval/:id"
+        element={
+          <ProtectedRoute>
+            <AdminApprovalDetails />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/approval-workflows"
+        element={
+          <ProtectedRoute>
+            <ApprovalWorkflow />
+          </ProtectedRoute>
+        }
+      />
+{/*************************************************************************************** */}
       {/* Catch-all route for 404 */}
       <Route path="*" element={<NotFound />} />
     </Routes>

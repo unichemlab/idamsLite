@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { fetchTasksForApprover, API_BASE } from "../../utils/api";
+import { fetchTasksForApprover, API_BASE,renderApprovalStatus } from "../../utils/api";
 import styles from "./ApproverHome.module.css";
-import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import tableStyles from "./ApprovalTable.module.css";
 import headerStyles from "../HomePage/homepageUser.module.css";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
+import AppMenu from "../../components/AppMenu";
 import { CircularProgress } from "@mui/material";
 import {
   FiChevronDown,
@@ -57,6 +57,9 @@ interface ApprovalAction {
   approver2_status?: string;
   requestor_location?: string;
   requestor_department?: string;
+  user_request_created_on?: string;
+  approver1_action_timestamp?: string;
+  approver2_action_timestamp?: string;
 }
 
 const ApprovalHistoryPage: React.FC = () => {
@@ -179,6 +182,9 @@ const ApprovalHistoryPage: React.FC = () => {
             department_name: tr.department_name,
             requestor_location: tr.plant_name,
             requestor_department: tr.department_name,
+            created_on: tr.created_on || "",
+            approver1_action_timestamp: tr.approver1_action_timestamp,
+            approver2_action_timestamp: tr.approver2_action_timestamp,
             role_name: tr.role_name,
             approverName: user.name || user.username || "-",
             approverRole: tr.role_name || tr.approver_role || tr.role || "-",
@@ -208,6 +214,7 @@ const ApprovalHistoryPage: React.FC = () => {
     logout();
     navigate("/");
   };
+
 
   console.log("Approval history to display:", approvalHistory);
 
@@ -279,47 +286,7 @@ const ApprovalHistoryPage: React.FC = () => {
                   </div>
 
                   <div className={headerStyles.dropdownActions}>
-                    <button
-                      onClick={() => navigate("/homepage")}
-                      className={headerStyles.dropdownButton}
-                    >
-                      <FiBriefcase size={16} />
-                      <span>Home</span>
-                    </button>
-                    <button
-                      onClick={() => navigate("/user-access-management")}
-                      className={headerStyles.dropdownButton}
-                    >
-                      <FiBriefcase size={16} />
-                      <span>User Request Management</span>
-                    </button>
-                    {user?.isITBin && (
-                      <button
-                        onClick={() => navigate("/task")}
-                        className={headerStyles.dropdownButton}
-                      >
-                        <FiBriefcase size={16} />
-                        <span>Task Closure</span>
-                      </button>
-                    )}
-                    {user?.isApprover && (
-                      <button
-                        onClick={() => navigate("/approver/pending")}
-                        className={headerStyles.dropdownButton}
-                      >
-                        <FiBriefcase size={16} />
-                        <span>Pending Approval</span>
-                      </button>
-                    )}
-                    {user?.isApprover && (
-                      <button
-                        onClick={() => navigate("/approver/history")}
-                        className={headerStyles.dropdownButton}
-                      >
-                        <FiBriefcase size={16} />
-                        <span>Approval History</span>
-                      </button>
-                    )}
+                    <AppMenu />
                     <button
                       onClick={handleLogout}
                       className={`${headerStyles.dropdownButton} ${styles.logoutButton}`}
@@ -392,7 +359,8 @@ const ApprovalHistoryPage: React.FC = () => {
                                       : "#ed6c02",
                                 }}
                               >
-                                {a.approver1_status}
+                               {renderApprovalStatus( a.approver1_status, a.approver1_action_timestamp)}
+
                               </span>
                             </div>
                             <div>
@@ -407,7 +375,9 @@ const ApprovalHistoryPage: React.FC = () => {
                                       : "#ed6c02",
                                 }}
                               >
-                                {a.approver2_status}
+                               {renderApprovalStatus(a.approver2_status,a.approver2_action_timestamp,a.approver1_status === "Rejected")}
+
+
                               </span>
                             </div>
                           </div>

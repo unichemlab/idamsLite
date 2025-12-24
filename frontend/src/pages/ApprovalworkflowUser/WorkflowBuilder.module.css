@@ -1,0 +1,218 @@
+/* ================= FIX MAIN PAGE LAYOUT ================= */
+.container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: linear-gradient(120deg, #f6faff, #eef4ff);
+}
+
+.content {
+  flex: 1 1;
+    overflow-y: auto;
+    padding: 62px 24px;
+}
+
+/* ================= FIX CARD ROW ================= */
+.cardRow {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+/* ================= SELECT CORPORATE / PLANT ================= */
+.detailsCard {
+  margin-bottom: 14px;
+}
+
+/* ================= APPROVER SECTION FIX ================= */
+.approverLevelsRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+  align-items: flex-start;
+}
+
+/* ================= APPROVER CARD ================= */
+.approverCard {
+  background: #ffffff;
+  border-radius: 12px;
+  border-left: 5px solid #1976d2;
+  padding: 14px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  width: 100%;
+  max-width: 100%;
+}
+
+/* ================= REMOVE FLOATING PLUS ================= */
+.addApproverBtnWrap {
+  align-items: center;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+/* ================= FIX SAVE BUTTON ================= */
+.actionsRow {
+  position: sticky;
+  bottom: 0;
+  background: #f6faff;
+  padding: 12px 0;
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid #dde6f3;
+  z-index: 10;
+}
+
+/* ================= BADGES ================= */
+.badgesWrap {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.badgeAbbrev {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #e3f2fd;
+  color: #174ea6;
+  font-weight: 700;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ================= RESPONSIVE ================= */
+@media (max-width: 1024px) {
+  .approverLevelsRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .cardRow {
+    flex-direction: column;
+  }
+
+  .content {
+    padding: 12px;
+  }
+}
+
+/* ================= ROOT CONTAINER ================= */
+.container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(120deg, #f6faff, #eef4ff);
+}
+
+/* ================= CENTERED CONTENT ================= */
+.content {
+ flex: 1 1;
+    overflow-y: auto;
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 71px 20px 90px;
+}
+
+/* ================= WORKFLOW TYPE CARDS ================= */
+.cardRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+/* ================= DETAILS CARD ================= */
+.detailsCard {
+  margin-bottom: 16px;
+}
+
+/* ================= APPROVER GRID ================= */
+.approverLevelsRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 16px;
+  align-items: flex-start;
+}
+
+/* ================= APPROVER CARD ================= */
+.approverCard {
+  background: #ffffff;
+  border-radius: 12px;
+  border-left: 5px solid #1976d2;
+  padding: 14px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+/* ================= ADD LEVEL BUTTON ================= */
+.addApproverBtnWrap {
+  align-items: center;
+  justify-content: center;
+}
+
+/* ================= STICKY SAVE BUTTON ================= */
+.actionsRow {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+
+  background: #ffffff;
+  border-top: 1px solid #dde6f3;
+
+  padding: 12px 24px;
+  display: flex;
+  justify-content: center;
+  z-index: 20;
+}
+
+.actionsRow button {
+  min-width: 180px;
+}
+
+/* ================= BADGES ================= */
+.badgesWrap {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.badgeAbbrev {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #e3f2fd;
+  color: #174ea6;
+  font-weight: 700;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ================= RESPONSIVE ================= */
+@media (max-width: 1024px) {
+  .content {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .cardRow {
+    grid-template-columns: 1fr;
+  }
+
+  .approverLevelsRow {
+    grid-template-columns: 1fr;
+  }
+
+  .content {
+    padding: 12px 12px 100px;
+  }
+}
+

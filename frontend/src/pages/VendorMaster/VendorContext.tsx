@@ -18,6 +18,7 @@ export interface Vendor {
   transaction_id?: string;
   name?: string;
   vendor_name?: string;
+  vendor_code?: string;
   description?: string;
   status?: "ACTIVE" | "INACTIVE";
 }
@@ -46,6 +47,7 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
           id: p.id,
           transaction_id: p.transaction_id,
           name: p.vendor_name, // use vendor_name as name
+          code: p.vendor_code, // use vendor_code as code
           description: p.description,
           status: p.status,
         }));

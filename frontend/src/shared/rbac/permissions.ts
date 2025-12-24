@@ -3,6 +3,18 @@ export interface Permission {
   subject: string;
 }
 
+export interface PlantPermission {
+  moduleId: string;
+  plantId: number;
+  actions: {
+    create: boolean;
+    read: boolean;
+    update: boolean;
+    delete: boolean;
+  };
+}
+
+
 // Define canonical permission format strings
 export const createPermission = (
   action: Permission["action"],

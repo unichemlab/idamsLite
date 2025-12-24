@@ -624,7 +624,7 @@ select option {
 .modalContent {
   background: #fff;
   border-radius: 12px;
-  padding: 24px;
+  padding: 10px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.2);
   max-height: 80vh;
   overflow-y: auto;
@@ -766,16 +766,20 @@ select option {
 .modalBox table th {
   background-color: #1E3A8A;
   color: #fff;
-  padding: 10px;
+  padding: 5px;
   text-align: left;
   position: sticky;
   top: 0;
   z-index: 2;
+  font-weight: 600;
+    font-size: 10px;
+    border-bottom: 1px solid #ddd;
 }
 
 .modalBox table td {
-  padding: 10px;
+  padding: 5px;
   border-bottom: 1px solid #ddd;
+      font-size: 10px;
 }
 
 .modalBox table tr:nth-child(even) {
@@ -1061,7 +1065,7 @@ select option {
   justify-content: space-between;
   align-items: center;
   border-bottom: 2px solid #eaeaea;
-  padding-bottom: 10px;
+  padding-bottom: 5px;
 }
 
 .modalHeader h2 {
@@ -1134,21 +1138,21 @@ select option {
   }
 }
 .viewTaskBtn {
-  background-color: #0b63ce; /* corporate blue */
-  color: #fff;
-  font-weight: 600;
-  padding: 12px 9px;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 12px;
-  min-width: 120px;
-  text-align: center;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
+      background-color: #0b63ce;
+    color: #fff;
+    font-weight: 600;
+    padding: 9px 9px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 9px;
+    min-width: 80px;
+    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
 }
 
 .viewTaskBtn:hover {
@@ -1179,13 +1183,13 @@ select option {
 }
 
 .modalBox {
-  width: 100%;              /* take full width */
-  height: 100%;             /* take full height */
-  background: #ffffff;      /* white modal background */
-  overflow-y: auto;         /* allow scrolling inside */
-  border-radius: 0;         /* no rounded corners, full screen */
-  padding: 30px;            /* spacing inside */
-  box-shadow: none;         /* remove shadow since it’s full screen */
+    width: 100%;
+    height: 100%;
+    background: #ffffff;
+    overflow-y: auto;
+    padding: 10px;
+    box-shadow: none;
+    border-radius: 13px;         /* remove shadow since it’s full screen */
 }
 
 /* Prevent page scroll */

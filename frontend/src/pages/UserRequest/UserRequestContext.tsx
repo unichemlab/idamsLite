@@ -22,6 +22,13 @@ export type TaskRequest = {
   task_status: string;
   approver1_id: string;
   approver2_id: string;
+  remarks?: string;
+  approver1_action?: string;
+  approver2_action?: string;
+  approver1_comments?: string;
+  approver2_comments?: string;
+  approver1_action_timestamp?: string;
+  approver2_action_timestamp?: string;
 };
 
 export type Manager = {
@@ -58,8 +65,8 @@ export type UserRequest = {
   approver2_status: string;
   status?: "Pending" | "Approved" | "Rejected";
   vendorName: string[];
-  vendorFirm: string[];
-  vendorCode: string[];
+  vendorFirm: string;
+  vendorCode: string;
   allocatedId: string[];
   bulkEntries?: {
     location: string;
@@ -113,8 +120,8 @@ export const UserRequestProvider: React.FC<{ children: React.ReactNode }> = ({
     approver1_status: "",
     approver2_status: "",
     vendorName: [],
-    vendorFirm: [],
-    vendorCode: [],
+    vendorFirm: "",
+    vendorCode: "",
     allocatedId: [],
     status: "Pending",
     tasks: [],
