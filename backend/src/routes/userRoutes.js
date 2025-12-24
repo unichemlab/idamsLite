@@ -24,6 +24,7 @@ router.put(
 router.get("/users/:employeeCode", userController.getUserByEmployeeCode);
 router.get('/department', userController.getUserByDepartment);
 router.get('/department/:department', userController.getUserByDepartment);
+router.get("/users/:id", userController.getUsersById);
 router.get("/approvers", async (req, res) => {
   const email = req.query.email;
   if (!email) return res.status(400).json({ error: "Email is required" });
@@ -41,5 +42,7 @@ router.get("/approvers", async (req, res) => {
     res.status(500).json({ error: err });
   }
 });
+
+
 
 module.exports = router;

@@ -1,5 +1,7 @@
 // utils/api.ts - Fixed TypeScript version
 
+import { PlantPermission } from "shared/rbac/permissions";
+import { MenuItem } from "../config/masterModules";
 // Centralized API base
 // Uses REACT_APP_API_URL from .env.local or .env.production
 // Example: REACT_APP_API_URL=https://lucky-hope-production.up.railway.app
@@ -734,3 +736,150 @@ export const cancelApproval = async (id: number): Promise<any> => {
     method: "DELETE",
   });
 };
+
+export const formatDateTime = (dateStr: string) =>
+  new Date(dateStr).toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).replace(",", "");
+
+export const getRelativeTime = (dateStr: string) => {
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  const hrs = Math.floor(mins / 60);
+  const days = Math.floor(hrs / 24);
+
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  if (hrs < 24) return `${hrs} hr${hrs > 1 ? "s" : ""} ago`;
+  return `${days} day${days > 1 ? "s" : ""} ago`;
+};
+
+export const getStatusStyle = (status?: string) => {
+  switch (status) {
+    case "Approved":
+      return { bg: "#16a34a", color: "#fff" };
+    case "Rejected":
+      return { bg: "#dc2626", color: "#fff" };
+    case "Pending":
+      return { bg: "#f59e0b", color: "#fff" };
+    default:
+      return { bg: "#94a3b8", color: "#fff" }; // N/A
+  }
+};
+
+export const renderApprovalStatus = (
+  status?: string,
+  timestamp?: string,
+  isNA = false
+) => {
+  if (isNA) return "N/A";
+
+  if ((status === "Approved" || status === "Rejected") && timestamp) {
+    return `${status}–${formatDateTime(timestamp)}`;
+  }
+
+  return status || "Pending";
+};
+
+
+export const canShowMenu = (menu: any, user: any): boolean => {
+  if (!user) return false;
+
+  // 🔥 SUPER ADMIN → SEE EVERYTHING
+  const isSuperAdmin =
+    user.role_id === 1 ||
+    (Array.isArray(user.role_id) && user.role_id.includes(1));
+
+  if (isSuperAdmin) return true;
+
+  // 🔒 Condition
+  if (menu.condition && !menu.condition(user)) return false;
+
+  // 🔐 Permission
+  if (menu.permission) {
+    return Array.isArray(user.permissions)
+      ? user.permissions.includes(menu.permission)
+      : false;
+  }
+
+  return true;
+};
+
+
+
+
+
+export const hasModulePermission = (
+  permissions: string[],
+  action: "create" | "read" | "update" | "delete",
+  module: string
+) => permissions.includes(`${action}:${module}`);
+
+export const hasPlantPermission = (
+  plantPermissions: PlantPermission[],
+  plantId: number,
+  module: string,
+  action: "create" | "read" | "update" | "delete"
+) => {
+  return plantPermissions.some(
+    p =>
+      p.plantId === plantId &&
+      p.moduleId === module &&
+      p.actions[action]
+  );
+};
+
+
+export const MASTER_PERMISSIONS = {
+  plant: "read:plant_master",
+  role: "read:role_master",
+  application: "read:application_master",
+  workflow: "read:approval_workflow",
+  dashboard:" read:dashboard",
+  reviewer:" read:"
+};
+
+
+export const getRolePriority = (user: any) => {
+  if (user?.role_id === 1) return "SUPER_ADMIN";
+  if (user?.isApprover) return "APPROVER";
+  if (user?.isITBin) return "IT";
+  return "USER";
+};
+
+export const sortMenuByRole = (menu: MenuItem[], user: any) => {
+  const role = getRolePriority(user);
+
+  const priorityMap: Record<string, string[]> = {
+    SUPER_ADMIN: ["Master", "Approval", "Task Closure"],
+    APPROVER: ["Approval", "Pending Approval", "Approval History"],
+    IT: ["Task Closure", "Task Closure Bin", "Master"],
+    USER: ["Home", "User Request Management"],
+  };
+
+  const priority = priorityMap[role] || [];
+
+  return [...menu].sort((a, b) => {
+    const ai = priority.indexOf(a.label);
+    const bi = priority.indexOf(b.label);
+    if (ai === -1 && bi === -1) return 0;
+    if (ai === -1) return 1;
+    if (bi === -1) return -1;
+    return ai - bi;
+  });
+};
+export const fetchUserById = async (id: number) => {
+  try {
+    return await request(`/api/users/${id}`);
+  } catch {
+    return null; // IMPORTANT: do not throw
+  }
+};
+
+
+

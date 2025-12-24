@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import Select from "react-select";
 import { useNavigate } from "react-router-dom";
 import {
   useUserRequestContext,
@@ -12,12 +13,13 @@ import {
   FiLogOut,
 } from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
-import { fetchPlants } from "../../utils/api";
+import { fetchPlants, fetchVendors } from "../../utils/api";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
 import addUserRequestStyles from "./AddUserRequest.module.css";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import styles from "../../pages/HomePage/homepageUser.module.css";
+import AppMenu from "../../components/AppMenu";
 export const API_BASE =
   process.env.REACT_APP_API_URL || "http://localhost:4000";
 const AddUserRequest: React.FC = () => {
@@ -81,8 +83,8 @@ const AddUserRequest: React.FC = () => {
     approver2_status: "Pending",
     status: "Pending",
     vendorName: [],
-    vendorFirm: [],
-    vendorCode: [],
+    vendorFirm: "",
+    vendorCode: "",
     allocatedId: [],
   });
   console.log("form data", form);
@@ -94,6 +96,18 @@ const AddUserRequest: React.FC = () => {
   const [plants, setPlants] = useState<{ id: number; plant_name: string }[]>(
     []
   );
+  const [vendorFirms, setVendorFirm] = useState<{ id: number; vendor_name: string; vendor_code: string }[]>(
+    []
+  );
+  const vendorFirmOptions = vendorFirms.map(v => ({
+    label: v.vendor_name,
+    value: v.vendor_name,
+    vendorCode: v.vendor_code, // keep code here
+  }));
+  // State for expandable comments
+  const [expandedComments, setExpandedComments] = useState<{
+    [key: string]: { a1: boolean; a2: boolean };
+  }>({});
   const [departments, setDepartments] = useState<
     { id: number; department_name: string }[]
   >([]);
@@ -101,6 +115,25 @@ const AddUserRequest: React.FC = () => {
   const [applications, setApplications] = useState<
     { id: string; name: string }[]
   >([]);
+
+  // ===================== Helper Functions =====================
+  const truncateText = (text: string | undefined, wordLimit: number = 12): string => {
+    if (!text) return "----";
+    const words = text.split(' ');
+    if (words.length <= wordLimit) return text;
+    return words.slice(0, wordLimit).join(' ') + '...';
+  };
+
+  const toggleComment = (transactionId: string, approver: 'a1' | 'a2') => {
+    setExpandedComments(prev => ({
+      ...prev,
+      [transactionId]: {
+        ...prev[transactionId],
+        [approver]: !prev[transactionId]?.[approver]
+      }
+    }));
+  };
+
 
   // ===================== Form Handlers =====================
 
@@ -175,11 +208,11 @@ const AddUserRequest: React.FC = () => {
     const { name, value } = e.target;
 
     if (name === "request_for_by") {
-      if (value === "Self") {
+      if (value === "Self" || value === "Vendor / OEM") {
         // Autofill from logged-in user
         setForm((prev) => ({
           ...prev,
-          request_for_by: "Self",
+          request_for_by: value as "Self" | "Vendor / OEM",
           name: user?.name || "",
           employeeCode: user?.employee_code || "",
           location: user?.location || "",
@@ -188,7 +221,7 @@ const AddUserRequest: React.FC = () => {
         // Clear fields for Others/Vendor
         setForm((prev) => ({
           ...prev,
-          request_for_by: value as "Others" | "Vendor / OEM",
+          request_for_by: value as "Others",
           name: "",
           employeeCode: "",
           location: "",
@@ -624,7 +657,7 @@ const AddUserRequest: React.FC = () => {
 
     try {
       const response = await addUserRequest(formData); // send FormData to backend
-    
+
       alert("Request submitted successfully!");
       window.location.href = "/user-access-management";
       // navigate("/user-access-management");
@@ -755,18 +788,14 @@ const AddUserRequest: React.FC = () => {
     }
   }, [form.plant_location, form.department]);
   useEffect(() => {
-    if (form.vendorName.length > 0) {
-      fetch(`/api/vendors/${form.vendorName}`)
-        .then((res) => res.json())
-        .then((data) =>
-          setForm((prev) => ({
-            ...prev,
-            vendorFirm: data.firm,
-            vendorCode: data.code,
-          }))
-        );
-    }
-  }, [form.vendorName]);
+
+    fetchVendors()
+      .then((data) =>
+        setVendorFirm(
+          data.map((p: any) => ({ id: p.id, vendor_name: p.vendor_name, vendor_code: p.vendor_code }))
+        )
+      ).catch(() => setVendorFirm([]));
+  }, []);
 
   // Fetch departments when plant changes
   useEffect(() => {
@@ -834,6 +863,17 @@ const AddUserRequest: React.FC = () => {
       }));
     }
   }, [filterModalOpen, user]);
+
+  useEffect(() => {
+  if (form.request_for_by !== "Vendor / OEM") {
+    setForm(prev => ({
+      ...prev,
+      vendorFirm: "",
+      vendorCode: "",
+      vendorName: [],
+    }));
+  }
+}, [form.request_for_by]);
   const handleLogout = () => {
     logout();
     navigate("/");
@@ -1005,7 +1045,14 @@ const AddUserRequest: React.FC = () => {
             </div>
 
             <div className={addUserRequestStyles.modalContent}>
-              <div style={{ overflowX: "auto" }}>
+              <div style={{
+                maxHeight: 400,
+                overflowY: "auto",
+                border: "1px solid #e2e8f0",
+                borderRadius: 8,
+                boxShadow: "0 0 4px rgba(0,0,0,0.05)",
+              }}>
+
                 <table className={addUserRequestStyles.table}>
                   <thead>
                     <tr>
@@ -1015,64 +1062,193 @@ const AddUserRequest: React.FC = () => {
                       <th>Location</th>
                       <th>Department</th>
                       <th>Access Type</th>
-                      <th>Approver 1</th>
-                      <th>Approver 2</th>
+                      <th>Approver status & Comment</th>
                       <th>Created On</th>
                       <th>Status</th>
                       <th>Task</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filterResults.length > 0 ? (
-                      filterResults.map((r, idx) => (
+                    {filterResults.length === 0 ? (
+                      <tr>
+                        <td colSpan={11} className={styles.emptyState}>
+                          No pending requests found.
+                        </td>
+                      </tr>
+                    ) : (
+                      filterResults.map((a, idx) => (
                         <React.Fragment key={idx}>
                           <tr>
-                            <td>{r.transaction_id}</td>
-                            <td>{r.name}</td>
-                            <td>{r.employeeCode}</td>
-                            <td>{r.tasks?.[0]?.location}</td>
-                            <td>{r.tasks?.[0]?.department || "—"}</td>
-                            <td>{r.accessType || "—"}</td>
-                            <td>{r.approver1_status}</td>
-                            <td>{r.approver2_status}</td>
+                            <td>{a.transaction_id}</td>
+                            <td>{a.name}</td>
+                            <td>{a.employeeCode}</td>
+                            <td>{a.tasks?.[0]?.location}</td>
+                            <td>{a.tasks?.[0]?.department || "—"}</td>
+                            <td>{a.accessType || "—"}</td>
+
                             <td>
-                              {r.created_on
-                                ? new Date(r.created_on).toLocaleDateString("en-GB", {
+                              <div style={{ fontSize: "0.55rem", lineHeight: '1.5', minWidth: '250px' }}>
+                                {/* Approver 1 */}
+                                <div style={{
+                                  marginBottom: '8px',
+                                  padding: '8px',
+                                  backgroundColor: '#f5f9ff',
+                                  borderRadius: '6px',
+                                  border: '1px solid #e3f2fd'
+                                }}>
+                                  <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    marginBottom: '5px'
+                                  }}>
+                                    <strong style={{ fontSize: '0.7rem', color: '#1565c0', fontWeight: 600 }}>A1</strong>
+                                    <span style={{
+                                      fontSize: '0.65rem',
+                                      padding: '2px 8px',
+                                      borderRadius: '12px',
+                                      fontWeight: 500,
+                                      backgroundColor: a.approver1_status === "Approved" ? "#2e7d32" :
+                                        a.approver1_status === "Rejected" ? "#d32f2f" : "#ed6c02",
+                                      color: '#fff'
+                                    }}>
+                                      {a.approver1_status || "Pending"}
+                                    </span>
+                                  </div>
+                                  <div style={{
+                                    fontSize: '0.7rem',
+                                    color: '#424242',
+                                    wordBreak: 'break-word',
+                                    lineHeight: '1.4'
+                                  }}>
+                                    {expandedComments[a.transaction_id || idx.toString()]?.a1
+                                      ? a.tasks?.[0]?.approver1_comments || "----"
+                                      : truncateText(a.tasks?.[0]?.approver1_comments, 12)}
+                                  </div>
+                                  {a.tasks?.[0]?.approver1_comments &&
+                                    a.tasks[0].approver1_comments.split(' ').length > 12 && (
+                                      <button
+                                        onClick={() => toggleComment(a.transaction_id || idx.toString(), 'a1')}
+                                        style={{
+                                          marginTop: '5px',
+                                          fontSize: '0.65rem',
+                                          color: '#1976d2',
+                                          background: 'none',
+                                          border: 'none',
+                                          cursor: 'pointer',
+                                          padding: '0',
+                                          textDecoration: 'underline',
+                                          fontWeight: 500
+                                        }}
+                                      >
+                                        {expandedComments[a.transaction_id || idx.toString()]?.a1 ? 'Show less' : 'Show more'}
+                                      </button>
+                                    )}
+                                </div>
+
+                                {/* Approver 2 */}
+                                <div style={{
+                                  padding: '8px',
+                                  backgroundColor: '#f1f8f4',
+                                  borderRadius: '6px',
+                                  border: '1px solid #e8f5e9'
+                                }}>
+                                  <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    marginBottom: '5px'
+                                  }}>
+                                    <strong style={{ fontSize: '0.7rem', color: '#2e7d32', fontWeight: 600 }}>A2</strong>
+                                    <span style={{
+                                      fontSize: '0.65rem',
+                                      padding: '2px 8px',
+                                      borderRadius: '12px',
+                                      fontWeight: 500,
+                                      backgroundColor: a.approver2_status === "Approved" ? "#2e7d32" :
+                                        a.approver2_status === "Rejected" ? "#d32f2f" : "#ed6c02",
+                                      color: '#fff'
+                                    }}>
+                                      {a.approver1_status === "Rejected" ? 'N/A' : a.approver2_status || "Pending"}
+                                    </span>
+                                  </div>
+                                  <div style={{
+                                    fontSize: '0.7rem',
+                                    color: '#424242',
+                                    wordBreak: 'break-word',
+                                    lineHeight: '1.4'
+                                  }}>
+                                    {a.approver1_status === "Rejected" ? 'N/A' : (
+                                      expandedComments[a.transaction_id || idx.toString()]?.a2
+                                        ? a.tasks?.[0]?.approver2_comments || "----"
+                                        : truncateText(a.tasks?.[0]?.approver2_comments, 12)
+                                    )}
+                                  </div>
+                                  {a.approver1_status !== "Rejected" &&
+                                    a.tasks?.[0]?.approver2_comments &&
+                                    a.tasks[0].approver2_comments.split(' ').length > 12 && (
+                                      <button
+                                        onClick={() => toggleComment(a.transaction_id || idx.toString(), 'a2')}
+                                        style={{
+                                          marginTop: '5px',
+                                          fontSize: '0.65rem',
+                                          color: '#2e7d32',
+                                          background: 'none',
+                                          border: 'none',
+                                          cursor: 'pointer',
+                                          padding: '0',
+                                          textDecoration: 'underline',
+                                          fontWeight: 500
+                                        }}
+                                      >
+                                        {expandedComments[a.transaction_id || idx.toString()]?.a2 ? 'Show less' : 'Show more'}
+                                      </button>
+                                    )}
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              {a.created_on
+                                ? new Date(a.created_on).toLocaleDateString("en-GB", {
                                   day: "2-digit",
                                   month: "short",
                                   year: "numeric",
                                 })
                                 : "-"}
                             </td>
-
-                            <td>{r.status}</td>
+                            <td>{a.status}</td>
                             <td>
                               <button
                                 className={addUserRequestStyles.viewTaskBtn}
                                 onClick={() =>
                                   toggleRowExpansion(
-                                    r.transaction_id || idx.toString()
+                                    a.transaction_id || idx.toString()
                                   )
                                 }
                               >
                                 {expandedRows.includes(
-                                  r.transaction_id || idx.toString()
+                                  a.transaction_id || idx.toString()
                                 )
                                   ? "Hide Tasks"
-                                  : `View Tasks (${r.tasks?.length || 0})`}
+                                  : `View Tasks (${a.tasks?.length || 0})`}
                               </button>
                             </td>
                           </tr>
 
-                          {/* Collapsible task rows */}
                           {expandedRows.includes(
-                            r.transaction_id || idx.toString()
+                            a.transaction_id || idx.toString()
                           ) &&
-                            r.tasks &&
-                            r.tasks.length > 0 && (
+                            a.tasks &&
+                            a.tasks.length > 0 && (
                               <tr>
-                                <td colSpan={10} style={{ padding: 0 }}>
-                                  <div style={{ overflowX: "auto" }}>
+                                <td colSpan={12} style={{ padding: 0 }}>
+                                  <div style={{
+                                    maxHeight: 400,
+                                    overflowY: "auto",
+                                    border: "1px solid #e2e8f0",
+                                    borderRadius: 8,
+                                    boxShadow: "0 0 4px rgba(0,0,0,0.05)",
+                                  }}>
                                     <table
                                       className={addUserRequestStyles.subTable}
                                     >
@@ -1085,10 +1261,11 @@ const AddUserRequest: React.FC = () => {
                                           <th>Requestor Role</th>
                                           <th>Granted Role</th>
                                           <th>Status</th>
+                                          <th>Comment</th>
                                         </tr>
                                       </thead>
                                       <tbody>
-                                        {r.tasks.map((task, tIdx) => (
+                                        {a.tasks.map((task, tIdx) => (
                                           <tr key={tIdx}>
                                             <td>
                                               {task.transaction_id || "-"}
@@ -1101,6 +1278,7 @@ const AddUserRequest: React.FC = () => {
                                             <td>{task.role || "-"}</td>
                                             <td>{task.role || "-"}</td>
                                             <td>{task.task_status || "-"}</td>
+                                            <td>{task.remarks || "-"}</td>
                                           </tr>
                                         ))}
                                       </tbody>
@@ -1111,12 +1289,6 @@ const AddUserRequest: React.FC = () => {
                             )}
                         </React.Fragment>
                       ))
-                    ) : (
-                      <tr>
-                        <td colSpan={8} style={{ textAlign: "center" }}>
-                          No records found
-                        </td>
-                      </tr>
                     )}
                   </tbody>
                 </table>
@@ -1220,48 +1392,7 @@ const AddUserRequest: React.FC = () => {
 
                     {/* Actions */}
                     <div className={styles.dropdownActions}>
-                      <button
-                        onClick={() => navigate("/homepage")}
-                        className={styles.dropdownButton}
-                      >
-                        <FiBriefcase size={16} />
-                        <span>Home</span>
-                      </button>
-                      <button
-                        onClick={() => navigate("/user-access-management")}
-                        className={styles.dropdownButton}
-                      >
-                        <FiBriefcase size={16} />
-                        <span>User Request Management</span>
-                      </button>
-                      {user?.isITBin && (
-                        <button
-                          onClick={() => navigate("/task")}
-                          className={styles.dropdownButton}
-                        >
-                          <FiBriefcase size={16} />
-                          <span>Task Closure</span>
-                        </button>
-                      )}
-                      {user?.isApprover && (
-                        <button
-                          onClick={() => navigate("/approver/pending")}
-                          className={styles.dropdownButton}
-                        >
-                          <FiBriefcase size={16} />
-                          <span>Pending Approval</span>
-                        </button>
-                      )}
-                      {user?.isApprover && (
-
-                        <button
-                          onClick={() => navigate("/approver/history")}
-                          className={styles.dropdownButton}
-                        >
-                          <FiBriefcase size={16} />
-                          <span>Approval History</span>
-                        </button>
-                      )}
+                      <AppMenu />
                       <button
                         onClick={handleLogout}
                         className={`${styles.dropdownButton} ${styles.logoutButton}`}
@@ -1443,25 +1574,38 @@ const AddUserRequest: React.FC = () => {
                         Vendor Name <span style={{ color: "red" }}>*</span>
                       </label>
                     </div>
+
                     <div className={addUserRequestStyles.formGroup}>
-                      <input
-                        name="vendorFirm"
-                        value={form.vendorFirm}
-                        onChange={handleChange}
-                        required
+                      <Select
+                        classNamePrefix="react-select"
+                        placeholder="Search Vendor Firm"
+                        options={vendorFirmOptions}
+                        value={vendorFirmOptions.find(
+                          opt => opt.value === form.vendorFirm
+                        )}
+                        onChange={(selected) => {
+                          setForm(prev => ({
+                            ...prev,
+                            vendorFirm: selected?.value || "",
+                            vendorCode: selected?.vendorCode || "",
+                          }));
+                        }}
+                        isClearable
                       />
                       <label htmlFor="vendorFirm">
                         Vendor Firm <span style={{ color: "red" }}>*</span>
                       </label>
                     </div>
+
                     <div className={addUserRequestStyles.formGroup}>
                       <input
                         name="vendorCode"
                         value={form.vendorCode}
-                        onChange={handleChange}
+                        readOnly
                       />
                       <label htmlFor="vendorCode">Vendor Code</label>
                     </div>
+
                   </div>
                 </div>
               )}

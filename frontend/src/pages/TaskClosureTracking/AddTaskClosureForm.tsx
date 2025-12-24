@@ -6,7 +6,7 @@ import addUserRequestStyles from "./AddTaskClosureTracking.module.css";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
 import headerStyles from "../../pages/HomePage/homepageUser.module.css";
 import { FiUser,FiSettings,FiLogOut,FiChevronDown,FiMapPin,FiMail,FiBriefcase,FiShield } from "react-icons/fi";
-
+import AppMenu from "../../components/AppMenu";
 const TaskClosureForm = () => {
     const [formData, setFormData] = useState<any>({
         requestBy: "",
@@ -247,41 +247,7 @@ console.log("formDtaSending",formData);
 
                   {/* Actions */}
                   <div className={headerStyles.dropdownActions}>
-                    <button
-                      onClick={() => navigate("/user-access-management")}
-                      className={headerStyles.dropdownButton}
-                    >
-                      <FiBriefcase size={16} />
-                      <span>User Request Management</span>
-                    </button>
-                    {user?.isITBin && (
-                      <button
-                        onClick={() => navigate("/task")}
-                        className={headerStyles.dropdownButton}
-                      >
-                        <FiBriefcase size={16} />
-                         <span>Task Closure</span>
-                      </button>
-                    )}
-                     {user?.isApprover && (
-                      <button
-                        onClick={() => navigate("/approver/pending")}
-                        className={headerStyles.dropdownButton}
-                      >
-                        <FiBriefcase size={16} />
-                         <span>Pending Approval</span>
-                      </button>
-                    )}
-                    {user?.isApprover && (
-                      
-                      <button
-                        onClick={() => navigate("/approver/history")}
-                        className={headerStyles.dropdownButton}
-                      >
-                        <FiBriefcase size={16} />
-                         <span>Approval History</span>
-                      </button>
-                    )}
+                    <AppMenu />
                     <button
                       onClick={handleLogout}
                       className={`${headerStyles.dropdownButton} ${headerStyles.logoutButton}`}

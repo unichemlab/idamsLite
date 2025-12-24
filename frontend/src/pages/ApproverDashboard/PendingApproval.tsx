@@ -3,13 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import {
   fetchTasksForApprover,
-  fetchWorkflows,
+  renderApprovalStatus,
   postApprovalAction,
   API_BASE
 } from "../../utils/api";
-import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
+import AppMenu from "../../components/AppMenu";
 import styles from "./ApproverHome.module.css";
 import headerStyles from "../HomePage/homepageUser.module.css";
+import tableStyles from "./ApprovalTable.module.css";
 //import styles from "./ApprovalTable.module.css";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
 
@@ -34,16 +35,10 @@ import {
   CircularProgress,
   Box
 } from "@mui/material";
-import {
-  FiChevronDown,
-  FiBriefcase,
-  FiLogOut,
-} from "react-icons/fi";
+import {FiChevronDown,FiLogOut} from "react-icons/fi";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import LogoutIcon from "@mui/icons-material/Logout";
 import LockIcon from "@mui/icons-material/Lock";
 
 interface Task {
@@ -87,6 +82,9 @@ interface AccessRequest {
   approvalLevel?: 1 | 2; // Which level of approval this is
   requestor_location?: string;
   requestor_department?: string;
+  user_request_created_on?: string;
+  approver1_action_timestamp?: string;
+  approver2_action_timestamp?: string;
 }
 
 const PendingApprovalPage: React.FC = () => {
@@ -94,7 +92,6 @@ const PendingApprovalPage: React.FC = () => {
   const { user, logout } = useAuth();
   const [requests, setRequests] = useState<AccessRequest[]>([]);
   const [loading, setLoading] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
   const [modalTasks, setModalTasks] = useState<Task[] | null>(null);
   const [approveTasks, setApproveTasks] = useState<Task[]>([]);
   const [approveTasksLoading, setApproveTasksLoading] = useState(false);
@@ -158,7 +155,7 @@ const PendingApprovalPage: React.FC = () => {
             tasksByTransaction.set(txnId, task);
           } else {
             // If we have seen it, keep the one with more info or merge
-            const existing = tasksByTransaction.get(txnId);
+             tasksByTransaction.get(txnId);
             // You can add merge logic here if needed
             // For now, we'll keep the first one
           }
@@ -289,11 +286,14 @@ const PendingApprovalPage: React.FC = () => {
             plant: tr.plant_name || tr.plant || "-",
             corporate: tr.corporate_name || "Unichem Corp",
             action: approverAction,
+            user_request_created_on: tr.user_request_created_on || "",
+             approver1_action_timestamp: tr.approver1_action_timestamp,
+            approver2_action_timestamp: tr.approver2_action_timestamp,
             timestamp:
               tr.approver2_action_timestamp ||
               tr.approver1_action_timestamp ||
               tr.updated_on ||
-              tr.created_on ||
+              tr.user_request_created_on ||
               tr.timestamp ||
               "",
             comments: tr.remarks || tr.comments || "",
@@ -418,11 +418,11 @@ const PendingApprovalPage: React.FC = () => {
   };
 
 
-  const handleViewRequest = (r: AccessRequest) => {
-    navigate(`/access-request/${encodeURIComponent(r.id)}`, {
-      state: { request: r },
-    });
-  };
+  // const handleViewRequest = (r: AccessRequest) => {
+  //   navigate(`/access-request/${encodeURIComponent(r.id)}`, {
+  //     state: { request: r },
+  //   });
+  // };
 
   const onApproveClick = async (r: AccessRequest) => {
     setSelectedRequest(r);
@@ -619,47 +619,7 @@ const PendingApprovalPage: React.FC = () => {
                   </div>
                   {/* Actions */}
                   <div className={headerStyles.dropdownActions}>
-                    <button
-                      onClick={() => navigate("/homepage")}
-                      className={headerStyles.dropdownButton}
-                    >
-                      <FiBriefcase size={16} />
-                      <span>Home</span>
-                    </button>
-                    <button
-                      onClick={() => navigate("/user-access-management")}
-                      className={headerStyles.dropdownButton}
-                    >
-                      <FiBriefcase size={16} />
-                      <span>User Request Management</span>
-                    </button>
-                    {user?.isITBin && (
-                      <button
-                        onClick={() => navigate("/task")}
-                        className={headerStyles.dropdownButton}
-                      >
-                        <FiBriefcase size={16} />
-                        <span>Task Closure</span>
-                      </button>
-                    )}
-                    {user?.isApprover && (
-                      <button
-                        onClick={() => navigate("/approver/pending")}
-                        className={headerStyles.dropdownButton}
-                      >
-                        <FiBriefcase size={16} />
-                        <span>Pending Approval</span>
-                      </button>
-                    )}
-                    {user?.isApprover && (
-                      <button
-                        onClick={() => navigate("/approver/history")}
-                        className={headerStyles.dropdownButton}
-                      >
-                        <FiBriefcase size={16} />
-                        <span>Approval History</span>
-                      </button>
-                    )}
+                    <AppMenu />
                     <button
                       onClick={handleLogout}
                       className={`${headerStyles.dropdownButton} ${styles.logoutButton}`}
@@ -676,15 +636,15 @@ const PendingApprovalPage: React.FC = () => {
       </header>
 
       {/* Main Content */}
-      <main className={styles.mainContent}>
-        <div className={styles.tableContainer}>
+      <main className={tableStyles.mainContent}>
+        <div className={tableStyles.tableContainer}>
           {loading ? (
-            <div className={styles.loadingContainer}>
+            <div className={tableStyles.loadingContainer}>
               <CircularProgress />
             </div>
           ) : (
-            <div className={styles.tableWrapper}>
-              <table className={styles.table}>
+            <div className={tableStyles.tableWrapper}>
+              <table className={tableStyles.table}>
                 <thead>
                   <tr>
                     <th>Request ID</th>
@@ -696,6 +656,7 @@ const PendingApprovalPage: React.FC = () => {
                     <th>Requestor Department</th>
                     <th>Access Request Type</th>
                     <th>Approval Status</th>
+                    <th>Created on</th>
                     <th>Tasks</th>
                     <th>Actions</th>
                   </tr>
@@ -703,7 +664,7 @@ const PendingApprovalPage: React.FC = () => {
                 <tbody>
                   {requests.length === 0 ? (
                     <tr>
-                      <td colSpan={11} className={styles.emptyState}>
+                      <td colSpan={13} className={tableStyles.emptyState}>
                         No pending requests found.
                       </td>
                     </tr>
@@ -732,7 +693,7 @@ const PendingApprovalPage: React.FC = () => {
                                         : "#ed6c02",
                                 }}
                               >
-                                {a.approver1_status || "Pending"}
+                               {renderApprovalStatus( a.approver1_status, a.approver1_action_timestamp)}
                               </span>
                             </div>
                             <div>
@@ -747,13 +708,22 @@ const PendingApprovalPage: React.FC = () => {
                                         : "#ed6c02",
                                 }}
                               >
-                                {a.approver2_status || "Pending"}
+                                 {renderApprovalStatus(a.approver2_status,a.approver2_action_timestamp,a.approver1_status === "Rejected")}
                               </span>
                             </div>
                           </div>
                         </td>
                         <td>
-                          <div className={styles.actionButtons}>
+                              {a.user_request_created_on
+                                ? new Date(a.user_request_created_on).toLocaleDateString("en-GB", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                })
+                                : "-"}
+                            </td>
+                        <td>
+                          <div className={tableStyles.actionButtons}>
                             <Tooltip title="View Tasks">
                               <IconButton
                                 size="small"

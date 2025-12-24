@@ -10,6 +10,17 @@ import { fetchPermissionsAPI, fetchWorkflows, loginAPI, API_BASE } from "../util
 import AbilityProvider from "./AbilityContext";
 
 // Interface for workflow data
+
+interface PlantPermission {
+  moduleId: string;
+  plantId: number;
+  actions: {
+    create: boolean;
+    update: boolean;
+    read: boolean;
+    delete: boolean;
+  };
+}
 interface Workflow {
   id?: number;
   workflow_id?: number;
@@ -80,7 +91,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [permissions, setPermissions] = useState<string[]>([]);
-
+  const [plantPermissions, setPlantPermissions] = useState<PlantPermission[]>([]);
+  const [permittedPlantIds, setPermittedPlantIds] = useState<number[]>([]);
   const determineInitialRoute = (userData: AuthUser) => {
     const isApprover =
       userData.permissions?.includes("approve:requests") ||
@@ -101,22 +113,44 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const fetchPermissions = useCallback(async (token?: string) => {
-    try {
-      const data: any = await fetchPermissionsAPI();
-      const userPermissions = Array.isArray(data.permissions)
-        ? data.permissions
-        : Array.isArray(data.data?.permissions)
-        ? data.data.permissions
-        : [];
-      setPermissions(userPermissions);
-      return userPermissions;
-    } catch (err) {
-      console.error("fetchPermissions error", err);
-      setPermissions([]);
-      return [];
+  const normalizePermissions = (permissions: any): string[] => {
+    if (Array.isArray(permissions)) return permissions;
+
+    if (permissions && typeof permissions === "object") {
+      return Object.values(permissions);
     }
-  }, []);
+
+    return [];
+  };
+
+  /**
+   * Fetches plant-wise user permissions from the User Permissions API.
+   * This API returns the permissions assigned to the user via the
+   * User Master after the user details are edited or updated.
+   */
+
+  const fetchPermissions = useCallback(async (): Promise<string[]> => {
+  try {
+    const data: any = await fetchPermissionsAPI();
+    console.log("Fetched permissions:", data);
+
+    const normalized = normalizePermissions(data?.permissions);
+
+    setPermissions(normalized);
+    setPlantPermissions(data?.plantPermissions || []);
+    setPermittedPlantIds(data?.permittedPlantIds || []);
+
+    return normalized; // ✅ ALWAYS array
+  } catch (err) {
+    console.error("fetchPermissions error", err);
+    setPermissions([]);
+    setPlantPermissions([]);
+    setPermittedPlantIds([]);
+    return []; // ✅ NEVER null
+  }
+}, []);
+
+
 
   /**
    * Check if user is Approver 1 (from user_requests and task_requests tables)
@@ -309,7 +343,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
             try {
               localStorage.setItem("authUser", JSON.stringify(updated));
-            } catch {}
+            } catch { }
 
             return updated;
           });
@@ -335,25 +369,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const stored = localStorage.getItem("authUser");
         if (stored && mounted) {
           const parsed: AuthUser = JSON.parse(stored);
-          setUser(parsed);
+
+          const normalizedPermissions = normalizePermissions(parsed.permissions);
+
+          setUser({
+            ...parsed,
+            permissions: normalizedPermissions,
+          });
+          setPermissions(normalizedPermissions);
 
           const token = localStorage.getItem("token");
           if (token) {
             let userPermissions: string[] = [];
             try {
               const payload = JSON.parse(atob(token.split(".")[1]));
-              if (payload && Array.isArray(payload.permissions)) {
-                userPermissions = payload.permissions;
+              if (payload?.permissions) {
+                userPermissions = normalizePermissions(payload.permissions);
+                setPermissions(userPermissions);
                 setUser((prev) =>
                   prev ? { ...prev, permissions: userPermissions } : prev
                 );
-                setPermissions(userPermissions);
               }
-            } catch (e) {}
+
+            } catch (e) { }
 
             try {
               if (!userPermissions || userPermissions.length === 0) {
-                userPermissions = await fetchPermissions(token);
+                userPermissions = await fetchPermissions();
               }
 
               if (!mounted) return;
@@ -371,13 +413,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 setUser((prev) =>
                   prev
                     ? {
-                        ...prev,
-                        permissions: userPermissions,
-                        isApprover: true,
-                        isApprover1: approverResult.isApprover1,
-                        isWorkflowApprover: approverResult.isWorkflowApprover,
-                        approverPlants: approverResult.approverPlants,
-                      }
+                      ...prev,
+                      permissions: userPermissions,
+                      isApprover: true,
+                      isApprover1: approverResult.isApprover1,
+                      isWorkflowApprover: approverResult.isWorkflowApprover,
+                      approverPlants: approverResult.approverPlants,
+                    }
                     : null
                 );
 
@@ -492,10 +534,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       try {
         const payload = JSON.parse(atob(data.token.split(".")[1]));
         if (payload && Array.isArray(payload.permissions)) {
-          (authUser as any).permissions = payload.permissions;
-          setPermissions(payload.permissions);
+          const normalized = normalizePermissions(payload.permissions);
+          (authUser as any).permissions = normalized;
+          setPermissions(normalized);
         }
-      } catch (e) {}
+      } catch (e) { }
 
       setUser(authUser);
 
@@ -509,7 +552,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             (authUser as any).permissions.length
           )
         ) {
-          const userPermissions = await fetchPermissions(authUser.token);
+          const userPermissions = await fetchPermissions();
           setUser((prev) =>
             prev ? { ...prev, permissions: userPermissions } : prev
           );
@@ -530,12 +573,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser((prev) =>
             prev
               ? {
-                  ...prev,
-                  isApprover: true,
-                  isApprover1: approverResult.isApprover1,
-                  isWorkflowApprover: approverResult.isWorkflowApprover,
-                  approverPlants: approverResult.approverPlants,
-                }
+                ...prev,
+                isApprover: true,
+                isApprover1: approverResult.isApprover1,
+                isWorkflowApprover: approverResult.isWorkflowApprover,
+                approverPlants: approverResult.approverPlants,
+              }
               : prev
           );
 

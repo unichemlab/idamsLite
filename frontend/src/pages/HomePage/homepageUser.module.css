@@ -618,3 +618,125 @@
     z-index: 1000;
 }
 
+.sidebar {
+  width: 280px;
+  height: 55vh;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #e5e7eb;
+}
+
+/* SCROLL AREA */
+.menuScroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+/* MAIN MENU ITEM */
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  color: #111827;
+  cursor: pointer;
+}
+
+.menuItem:hover {
+  background: #e0f2fe;
+}
+
+/* GROUP */
+.menuGroup {
+  margin-bottom: 6px;
+}
+
+.menuHeader {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.menuHeader:hover {
+  background: #e0f2fe;
+}
+
+.menuLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* SUB MENU */
+.subMenu {
+  margin-left: 28px;
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.subMenuItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.subMenuItem:hover {
+  background: #f1f5f9;
+}
+
+/* ACTIVE */
+.active {
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+/* LOGOUT */
+.logout {
+  padding: 12px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.logoutBtn {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  background: #fee2e2;
+  color: #991b1b;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.logoutBtn:hover {
+  background: #fecaca;
+}
+
+
+
+
+
+

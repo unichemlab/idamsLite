@@ -29,8 +29,8 @@ interface UserRequest {
   accessType?: string;
   trainingStatus?: "Yes" | "No";
   attachmentName?: string;
-  vendorFirm?: string[];
-  vendorCode?: string[];
+  vendorFirm?: string;
+  vendorCode?: string;
   vendorName?: string[];
   allocatedId?: string[];
   status?: string;
@@ -66,8 +66,8 @@ const UserRequestTable: React.FC = () => {
           accessType: req.access_request_type,
           trainingStatus: req.training_status,
           attachmentName: req.training_attachment_name,
-          vendorFirm: req.vendor_firm ? [req.vendor_firm] : [],
-          vendorCode: req.vendor_code ? [req.vendor_code] : [],
+          vendorFirm: req.vendor_firm ? req.vendor_firm:"",
+          vendorCode: req.vendor_code ? req.vendor_code : "",
           vendorName: req.vendor_name ? [req.vendor_name] : [],
           allocatedId: req.vendor_allocated_id ? [req.vendor_allocated_id] : [],
           status: req.status,
@@ -139,8 +139,8 @@ const UserRequestTable: React.FC = () => {
             req.accessType || "-",
             req.trainingStatus || "-",
             req.attachmentName ? `Download ${req.attachmentName}` : "-",
-            req.vendorFirm?.join(", ") || "-",
-            req.vendorCode?.join(", ") || "-",
+            req.vendorFirm|| "-",
+            req.vendorCode|| "-",
             req.vendorName?.join(", ") || "-",
             req.allocatedId?.join(", ") || "-",
             req.status || "-",
@@ -358,8 +358,8 @@ const UserRequestTable: React.FC = () => {
                     )}
                   </td>
 
-                  <td>{req.vendorFirm?.join(", ") || "-"}</td>
-                  <td>{req.vendorCode?.join(", ") || "-"}</td>
+                  <td>{req.vendorFirm || "-"}</td>
+                  <td>{req.vendorCode || "-"}</td>
                   <td>{req.vendorName?.join(", ") || "-"}</td>
                   <td>{req.allocatedId?.join(", ") || "-"}</td>
                   <td>

@@ -131,7 +131,7 @@ const Login: React.FC = () => {
     let target = "/homepage";
 
    if (roleIds.includes(1)) {
-      target = "/home";
+      target = "/homepage";
     } else  {
       target = "/homepage";
     }

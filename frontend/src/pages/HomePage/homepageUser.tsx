@@ -3,23 +3,10 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import {
-  FiChevronDown,
-  FiMail,
-  FiMapPin,
-  FiBriefcase,
-  FiLogOut,
-  FiShield,
-  FiUsers,
-  FiCheckCircle,
-  FiClock,
-  FiAlertCircle,
-  FiTrendingUp,
-  FiFileText,
-  FiSettings,
-} from "react-icons/fi";
+import { FiChevronDown, FiLogOut, FiUsers, FiTrendingUp } from "react-icons/fi";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
 import styles from "./homepageUser.module.css";
+import AppMenu from "../../components/AppMenu";
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -43,7 +30,7 @@ const Home: React.FC = () => {
     logout();
     navigate("/");
   };
-
+  console.log("User data on HomePage:", user);
 
   return (
     <div className={styles.container}>
@@ -153,49 +140,9 @@ const Home: React.FC = () => {
 
                   {/* Actions */}
                   <div className={styles.dropdownActions}>
-                    
-                    <button
-                      onClick={() => navigate("/homepage")}
-                      className={styles.dropdownButton}
-                    >
-                      <FiBriefcase size={16} />
-                      <span>Home</span>
-                    </button>
-                    <button
-                      onClick={() => navigate("/user-access-management")}
-                      className={styles.dropdownButton}
-                    >
-                      <FiBriefcase size={16} />
-                      <span>User Request Management</span>
-                    </button>
-                    {user?.isITBin && (
-                      <button
-                        onClick={() => navigate("/task")}
-                        className={styles.dropdownButton}
-                      >
-                        <FiBriefcase size={16} />
-                         <span>Task Closure</span>
-                      </button>
-                    )}
-                     {user?.isApprover && (
-                      <button
-                        onClick={() => navigate("/approver/pending")}
-                        className={styles.dropdownButton}
-                      >
-                        <FiBriefcase size={16} />
-                         <span>Pending Approval</span>
-                      </button>
-                    )}
-                    {user?.isApprover && (
-                      
-                      <button
-                        onClick={() => navigate("/approver/history")}
-                        className={styles.dropdownButton}
-                      >
-                        <FiBriefcase size={16} />
-                         <span>Approval History</span>
-                      </button>
-                    )}
+
+                     {/* 🔥 GOVERNED MENU */}
+<AppMenu />
                     <button
                       onClick={handleLogout}
                       className={`${styles.dropdownButton} ${styles.logoutButton}`}

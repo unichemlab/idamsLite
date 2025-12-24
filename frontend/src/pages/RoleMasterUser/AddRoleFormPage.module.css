@@ -1,0 +1,520 @@
+/* Comment Box Styling */
+.commentBox {
+  margin: 1.2rem 0 1.5rem 0;
+  display: flex;
+  flex-direction: column;
+}
+.commentBox label {
+  font-weight: 500;
+  color: #2563eb;
+  margin-bottom: 0.4rem;
+}
+.commentBox textarea {
+  min-height: 60px;
+  padding: 0.7rem 1rem;
+  border-radius: 8px;
+  border: 1.5px solid #e0f7fa;
+  background: #f7fcfd;
+  font-size: 1rem;
+  font-family: "Segoe UI", "Arial", sans-serif;
+  resize: vertical;
+  box-shadow: 0 1px 4px rgba(90, 201, 216, 0.07);
+  transition: border 0.2s, box-shadow 0.2s;
+}
+.commentBox textarea:focus {
+  border: 1.5px solid #5ac9d8;
+  box-shadow: 0 2px 8px rgba(90, 201, 216, 0.13);
+}
+.main-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(90deg, #1565c0 0%, #42a5f5 100%);
+  color: #fff;
+  padding: 12px 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  height: 60px;
+}
+.header-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: #fff;
+}
+.header-icons {
+  display: flex;
+  gap: 20px;
+}
+.header-icon {
+  font-size: 20px;
+  color: #fff;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+.header-icon:hover {
+  color: #007bff;
+}
+
+/* Top row: Filter left, Add Role right */
+.headerTopRow {
+  background: #eef5fe;
+  padding: 16px 24px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  border-bottom: 1px solid #e3e3e3;
+}
+.addUserBtn {
+  background-color:#24bb6a;
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: none;
+  font-weight: 500;
+  cursor: pointer;
+  font-size: 14px;
+  box-shadow: 0 1px 2px rgba(90,96,120,.07);
+  transition: background 0.18s;
+}
+.addUserBtn:hover {
+  background-color:#198754;
+}
+.filterBtn {
+ background-color:#2563eb;
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: none;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+ 
+}
+
+.roleTableContainer {
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.06);
+  margin: 25px;
+  overflow: hidden;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+thead {
+  background: #eef5fe;
+}
+thead th {
+  padding: 14px;
+  text-align: left;
+  font-weight: bold;
+  font-size: 14px;
+  border-bottom: 1px solid #ddd;
+}
+tbody td {
+  padding: 14px;
+  border-bottom: 1px solid #eee;
+  font-size: 14px;
+}
+
+
+
+.status {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-block;
+}
+/* ACTIVE - green badge */
+.status.active {
+  background-color: #e6f4ea;
+  color: #198754;
+}
+/* INACTIVE - red badge */
+.status.inactive {
+  background-color: #ffeaea;
+  color: #e74c3c;
+}
+
+
+
+.icon {
+  color: #343a40;
+  font-size: 16px;
+  cursor: pointer;
+}
+.inlineMenu {
+  display: flex;
+  gap: 8px;
+}
+.btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  font-size: 14px;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(90,96,120,.08);
+}
+.btn span {
+  margin-right: 4px;
+}
+.gray { background-color: #6c757d; color: #fff; }
+.red { background-color: #dc3545; color: #fff; }
+.blue { background-color: #2563eb; color: #fff; }
+
+.roleForm .formGroup {
+  margin-bottom: 18px;
+}
+.roleForm label {
+  font-size: 15px;
+  font-weight: 500;
+  color: #274b79;
+  margin-bottom: 5px;
+  display: block;
+}
+.roleForm input,
+.roleForm select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #b4c2db;
+  border-radius: 5px;
+  font-size: 14px;
+  margin-top: 2px;
+}
+.formActions {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+.saveBtn {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 8px 28px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.saveBtn:hover {
+  background: #1747b6;
+}
+.cancelBtn {
+  background: #e5e7eb;
+  color: #374151;
+  border: none;
+  border-radius: 7px;
+  padding: 8px 20px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.cancelBtn:hover {
+  background: #ced7e1;
+}
+
+
+.advancedFilterOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+}
+.advancedFilterPanel {
+  position: absolute;
+  top: 110px;
+  left: 12%;
+  transform: translateX(-50%);
+  background: #fff;
+  border: 1px solid #e3e3e3;
+  border-radius: 12px;
+  padding: 32px 32px 28px 32px;
+  box-shadow: 0 8px 32px rgba(28,40,74,.18);
+  z-index: 1400;
+  min-width: 320px;
+  width: 340px;
+  max-width: 98vw;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  animation: filterFadeIn 0.23s ease;
+}
+
+
+@keyframes filterFadeIn {
+  from { opacity: 0; transform: translateY(-18px) scale(.98) translateX(-50%);}
+  to { opacity: 1; transform: translateY(0) scale(1) translateX(-50%);}
+}
+
+
+.advancedFilterHeader {
+display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 19px;
+  font-weight: 600;
+  color: #2563EB;
+  margin-bottom: 8px;
+  letter-spacing: 0.2px;
+}
+.advancedFilterRow {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-bottom: 4px;
+}
+
+.advancedFilterRow label {
+  font-size: 15px;
+  color: #274b79;
+  margin-bottom: 2px;
+  font-weight: 500;
+  display: block;
+}
+
+.advancedFilterRow select,
+.advancedFilterRow input {
+  padding: 9px 12px;
+  border: 1px solid #d0dae8;
+  border-radius: 6px;
+  font-size: 15px;
+  outline: none;
+  transition: border 0.15s;
+}
+
+.advancedFilterRow select:focus,
+.advancedFilterRow input:focus {
+  border-color: #2563eb;
+}
+
+.advancedFilterBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(30,47,61,0.11);
+  z-index: 1300;
+}
+
+/* Icon for Activity Log column */
+.activityLogIcon {
+  color: #1d3557;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #eef5fe;
+  padding: 5px 7px;
+  font-size: 18px;
+  transition: background .16s, color .18s;
+  cursor: pointer;
+}
+.activityLogIcon:hover, .activityLogIcon:focus {
+  background: #cde7ff;
+  color: #1565c0;
+  outline: none;
+}
+
+/* Modal for Activity Logs */
+.activityLogModalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1800;
+}
+.activityLogModalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(56,70,98,0.15);
+  z-index: 1800;
+}
+.activityLogModal {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 330px;
+  max-width: 94vw;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(28,40,74,.15);
+  z-index: 1810;
+  display: flex;
+  flex-direction: column;
+  max-height: 65vh;
+  overflow: hidden;
+}
+.activityLogModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  font-size: 18px;
+  font-weight: 600;
+  background: #eef5fe;
+  border-bottom: 1px solid #e3e3e3;
+}
+.activityLogModalClose {
+  background: none;
+  border: none;
+  color: #7a869a;
+  font-size: 21px;
+  cursor: pointer;
+  transition: color .17s;
+}
+.activityLogModalClose:hover {
+  color: #e74c3c;
+}
+.activityLogModalBody {
+  padding: 22px 24px 18px 24px;
+  color: #426485;
+  font-size: 15px;
+  max-height: 275px;
+  overflow-y: auto;
+}
+.activityLogContent {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 15px;
+}
+
+
+.filterBtn, .addUserBtn, .btn {
+  font-weight: 500;
+  border-radius: 7px;
+  border: none;
+  font-size: 15px;
+  cursor: pointer;
+  padding: 8px 22px;
+  box-shadow: 0 1px 2px rgba(90,96,120,.08);
+  transition: background 0.19s, color 0.19s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+
+.filterBtn:hover {
+  background:#1747b6;
+  color: #fff;
+}
+
+.actionHeaderRow {
+  display: flex;
+  gap: 18px;
+
+  align-items: center;
+}
+
+
+.advancedFilterPanel .filterActions {
+  display: flex;
+  gap: 12px;
+  margin-top: 14px;
+  justify-content: flex-end;
+}
+
+.advancedFilterPanel .saveBtn {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 9px 32px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.18s;
+  box-shadow: 0 1px 4px rgba(90,96,120,.07);
+}
+
+.advancedFilterPanel .saveBtn:disabled {
+  background: #8bb5fa;
+  cursor: not-allowed;
+}
+
+.advancedFilterPanel .saveBtn:hover {
+  background: #1747b6;
+}
+
+.advancedFilterPanel .cancelBtn {
+  background: #f2f4f6;
+  color: #274b79;
+  border: none;
+  border-radius: 7px;
+  padding: 9px 24px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+
+.advancedFilterPanel .cancelBtn:hover {
+  background: #dedfe4;
+}
+
+.advancedFilterHeader button {
+  background: none;
+  border: none;
+  color: #8c9ab6;
+  font-size: 23px;
+  cursor: pointer;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  transition: color .17s, background .14s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.advancedFilterHeader button:hover {
+  color: #e74c3c;
+  background: #f6c1c1;
+}
+
+@media (max-width: 600px) {
+  .advancedFilterPanel {
+    min-width: 96vw;
+    left: 2vw;
+    padding: 18px 10px;
+  }
+}
+
+
+/* Edit button: blue accent */
+.editBtn {
+  background: #4c8bf5;
+  color: #fff;
+}
+.editBtn:hover, .editBtn:focus {
+  background:#2768c6;
+  color: #fff;
+}
+
+/* Delete button: muted/red gray */
+.deleteBtn {
+  background: #ef5350;
+  color: #fff;
+}
+.deleteBtn:hover, .deleteBtn:focus {
+  background: #bc3c2c;
+  color: #fff;
+}
+
+.container {
+  background: linear-gradient(120deg, #f6faff 0%, #eef4ff 100%);
+  border-radius: 18px;
+  box-shadow: 0 8px 32px rgba(37, 99, 235, 0.14);
+  padding: 32px 20px;
+  max-width: 985px;
+  margin: 42px ;
+  font-family: "Inter", "Segoe UI", Arial, sans-serif;
+  min-height: 70vh;
+  display: flex;
+  flex-direction: column;
+}

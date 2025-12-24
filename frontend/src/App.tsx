@@ -10,6 +10,7 @@ import { UserProvider } from "./context/UserContext";
 import { ApplicationsProvider } from "./context/ApplicationsContext";
 import { ApproverProvider } from "./context/ApproverContext";
 import { PlantProvider } from "pages/PlantMaster/PlantContext";
+import { PlantProviderUser } from "pages/Plant/PlantContext";
 import { VendorProvider } from "pages/VendorMaster/VendorContext";
 import { ActivityLogProvider } from "pages/ActivityMasterTable/ActivityLogContext";
 import { SystemProvider } from "pages/SystemInventoryMaster/SystemContext";
@@ -30,6 +31,7 @@ const App: React.FC = () => {
     <ApproverProvider>
       <AuthProvider>
         <PlantProvider>
+          <PlantProviderUser>
           <UserRequestProvider>
             <ActivityLogProvider>
               <TaskProvider>
@@ -60,6 +62,7 @@ const App: React.FC = () => {
                 </TaskProvider>
                 </ActivityLogProvider>
           </UserRequestProvider>
+          </PlantProviderUser>
         </PlantProvider>
       </AuthProvider>
     </ApproverProvider>

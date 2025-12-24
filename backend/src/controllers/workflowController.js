@@ -261,22 +261,47 @@ exports.createWorkflow = async (req, res) => {
     const approver_5_id_str = Array.isArray(approver_5_id)
       ? approver_5_id.join(",")
       : approver_5_id || null;
+if (workflow_type === "CORPORATE" && !corporate_type) {
+  return res.status(400).json({ error: "corporate_type is required" });
+}
+    const q = `
+  INSERT INTO approval_workflow_master (
+    transaction_id,
+    workflow_type,
+    plant_id,
+    department_id,
+    approver_1_id,
+    approver_2_id,
+    approver_3_id,
+    approver_4_id,
+    approver_5_id,
+    max_approvers,
+    is_active,
+    corporate_type,
+    created_on,
+    updated_on
+  )
+  VALUES (
+    $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NOW(),NOW()
+  )
+  RETURNING *
+`;
 
-    const q = `INSERT INTO approval_workflow_master (transaction_id, workflow_type, plant_id, department_id, approver_1_id, approver_2_id, approver_3_id, approver_4_id, approver_5_id, max_approvers, is_active,corporate_type, created_on, updated_on) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW(),NOW()) RETURNING *`;
     const params = [
-      transaction_id,
-      workflow_type,
-      plant_id,
-      department_id,
-      approver_1_id_str,
-      approver_2_id_str,
-      approver_3_id_str,
-      approver_4_id_str,
-      approver_5_id_str,
-      max_approvers || 0,
-      corporate_type,
-      is_active === undefined ? true : is_active,
-    ];
+  transaction_id,
+  workflow_type,
+  plant_id,
+  department_id,
+  approver_1_id_str,
+  approver_2_id_str,
+  approver_3_id_str,
+  approver_4_id_str,
+  approver_5_id_str,
+  max_approvers || 0,
+  is_active === undefined ? true : is_active,
+  corporate_type || null
+];
+
     console.log("[WORKFLOW CREATE] SQL:", q);
     console.log("[WORKFLOW CREATE] PARAMS:", params);
     const { rows } = await db.query(q, params);
@@ -325,22 +350,41 @@ exports.updateWorkflow = async (req, res) => {
       ? approver_5_id.join(",")
       : approver_5_id || null;
 
-    const q = `UPDATE approval_workflow_master SET transaction_id=$1, workflow_type=$2, plant_id=$3, department_id=$4, approver_1_id=$5, approver_2_id=$6, approver_3_id=$7, approver_4_id=$8, approver_5_id=$9, max_approvers=$10, is_active=$11,corporate_type=$13, updated_on=NOW() WHERE id=$12 RETURNING *`;
+    const q = `
+  UPDATE approval_workflow_master SET
+    transaction_id = $1,
+    workflow_type   = $2,
+    plant_id        = $3,
+    department_id   = $4,
+    approver_1_id   = $5,
+    approver_2_id   = $6,
+    approver_3_id   = $7,
+    approver_4_id   = $8,
+    approver_5_id   = $9,
+    max_approvers   = $10,
+    is_active       = $11,
+    corporate_type  = $12,
+    updated_on      = NOW()
+  WHERE id = $13
+  RETURNING *
+`;
+
     const params = [
-      transaction_id,
-      workflow_type,
-      plant_id,
-      department_id,
-      approver_1_id_str,
-      approver_2_id_str,
-      approver_3_id_str,
-      approver_4_id_str,
-      approver_5_id_str,
-      max_approvers || 0,
-      is_active === undefined ? true : is_active,
-      id,
-      corporate_type
-    ];
+  transaction_id,
+  workflow_type,
+  plant_id,
+  department_id,
+  approver_1_id_str,
+  approver_2_id_str,
+  approver_3_id_str,
+  approver_4_id_str,
+  approver_5_id_str,
+  max_approvers || 0,
+  is_active === undefined ? true : is_active,
+  corporate_type || null,
+  id
+];
+
     console.log("[WORKFLOW UPDATE] SQL:", q);
     console.log("[WORKFLOW UPDATE] PARAMS:", params);
     const { rows } = await db.query(q, params);

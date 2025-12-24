@@ -1,0 +1,57 @@
+/* Slide-in panel for Add/Edit role */
+.slidePanelOverlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1200;
+}
+.slidePanelOverlay.open {
+  pointer-events: all;
+}
+.slidePanel {
+  position: fixed;
+  top: 0;
+  right: -420px;
+  width: 400px;
+  height: 100%;
+  background: #fff;
+  box-shadow: -2px 0 16px rgba(0,0,0,0.13);
+  transition: right 0.35s cubic-bezier(.7,.2,.22,1);
+  z-index: 1210;
+  display: flex;
+  flex-direction: column;
+}
+.slidePanelOverlay.open .slidePanel {
+  right: 0;
+}
+.slidePanelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #eef5fe;
+  font-size: 17px;
+  color: #2563eb;
+}
+.slidePanelClose {
+  background: none;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  color: #888;
+}
+.slidePanelClose:hover {
+  color: #e74c3c;
+}
+.slidePanelBody {
+  padding: 24px 24px 16px 24px;
+  flex: 1;
+  overflow-y: auto;
+}
+.slidePanelBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(30,47,61,0.13);
+  z-index: 1200;
+  pointer-events: all;
+}
