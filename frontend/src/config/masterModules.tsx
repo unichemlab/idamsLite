@@ -28,6 +28,7 @@ export const MENU_CONFIG: MenuItem[] = [
     label: "Dashboard",
     route: "/dashboard",
     icon: FiGrid,
+    permission: "read:dashboard",
   },
   {
     label: "Activity Logs",
@@ -52,15 +53,16 @@ export const MENU_CONFIG: MenuItem[] = [
   {
     label: "Approval",
     icon: FiClock,
-    condition: (user) => user?.isApprover,
     children: [
       {
         label: "Pending Approval",
         route: "/approver/pending",
+        condition: (user) => user?.isApprover,
       },
       {
         label: "Approval History",
         route: "/approver/history",
+        condition: (user) => user?.isApprover,
       },
     ],
   },

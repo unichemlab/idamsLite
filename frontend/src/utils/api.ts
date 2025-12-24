@@ -790,17 +790,19 @@ export const renderApprovalStatus = (
 export const canShowMenu = (menu: any, user: any): boolean => {
   if (!user) return false;
 
-  // 🔥 SUPER ADMIN → SEE EVERYTHING
+  // 🔒 CONDITION (ALWAYS FIRST)
+  if (menu.condition && !menu.condition(user)) {
+    return false;
+  }
+
+  // 🔥 SUPER ADMIN → bypass PERMISSIONS only
   const isSuperAdmin =
     user.role_id === 1 ||
     (Array.isArray(user.role_id) && user.role_id.includes(1));
 
   if (isSuperAdmin) return true;
 
-  // 🔒 Condition
-  if (menu.condition && !menu.condition(user)) return false;
-
-  // 🔐 Permission
+  // 🔐 PERMISSION
   if (menu.permission) {
     return Array.isArray(user.permissions)
       ? user.permissions.includes(menu.permission)
@@ -810,8 +812,24 @@ export const canShowMenu = (menu: any, user: any): boolean => {
   return true;
 };
 
+export const hasPermission = (
+  user: any,
+  permission?: string
+): boolean => {
+  if (!permission) return true;
+  if (!user) return false;
 
+  // 🔥 SuperAdmin override
+  const isSuperAdmin =
+    user.role_id === 1 ||
+    (Array.isArray(user.role_id) && user.role_id.includes(1));
 
+  if (isSuperAdmin) return true;
+
+  return Array.isArray(user.permissions)
+    ? user.permissions.includes(permission)
+    : false;
+};
 
 
 export const hasModulePermission = (

@@ -10,7 +10,7 @@ import { useApplications } from "../../context/ApplicationsContext";
 import { useDepartmentContext } from "../DepartmentMaster/DepartmentContext";
 import { usePlantContext } from "../PlantMaster/PlantContext";
 import { useAuth } from "../../context/AuthContext";
-import { fetchApplicationActivityLogs } from "../../utils/api";
+import { fetchApplicationActivityLogs,hasPermission } from "../../utils/api";
 
 export default function ApplicationMasterTable() {
   const [showActivityModal, setShowActivityModal] = React.useState(false);
@@ -219,14 +219,15 @@ export default function ApplicationMasterTable() {
       <div className={styles.contentArea}>
         <div className={styles.controlPanel}>
           <div className={styles.actionRow}>
+            {hasPermission(user, "create:application_master") &&(
             <button className={styles.addBtn} onClick={() => navigate("/add-application-masters")}>
               + Add New Application
             </button>
-            
+            )}
             <button className={styles.filterBtn} onClick={() => setShowFilterPopover((prev) => !prev)}>
               🔍 Filter
             </button>
-            
+            {hasPermission(user, "update:application_master") &&(
             <button
               className={styles.editBtn}
               disabled={selectedRow === null}
@@ -240,11 +241,12 @@ export default function ApplicationMasterTable() {
             >
               <FaEdit size={14} /> Edit
             </button>
-            
+            )}
+            {hasPermission(user, "delete:application_master") &&(
             <button className={styles.deleteBtn} disabled={selectedRow === null} onClick={handleDelete}>
               <FaTrash size={14} /> Delete
             </button>
-            
+            )}
             <button className={styles.exportBtn} onClick={handleExportPDF}>
               📄 Export PDF
             </button>
