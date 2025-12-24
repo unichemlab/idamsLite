@@ -233,7 +233,7 @@ const MasterApprovalBin: React.FC = () => {
                 onChange={(e) => setFilter({ ...filter, status: e.target.value })}
                 className={styles.filterSelect}
               >
-                <option value="all">All Status</option>
+                <option value="">Select Status</option>
                 <option value="PENDING">Pending</option>
                 <option value="APPROVED">Approved</option>
                 <option value="REJECTED">Rejected</option>
