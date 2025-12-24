@@ -4,7 +4,33 @@ import { fetchApprovals, approveApproval, rejectApproval } from "../../utils/api
 import styles from "./MasterApprovalBin.module.css";
 import plantStyles from "../Plant/PlantMasterTable.module.css";
 import AppHeader from "../../components/Common/AppHeader";
-
+import paginationStyles from "../../styles/Pagination.module.css";
+import { FiChevronDown, FiLogOut } from "react-icons/fi";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import LockIcon from "@mui/icons-material/Lock";
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  TextField,
+  IconButton,
+  Tooltip,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography,
+  Chip,
+  CircularProgress,
+  Box
+} from "@mui/material";
 interface Approval {
   id: number;
   module: string;
@@ -36,7 +62,8 @@ const MasterApprovalBin: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [modalAction, setModalAction] = useState<"approve" | "reject" | null>(null);
   const [actionComments, setActionComments] = useState("");
-
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 10;
   useEffect(() => {
     loadApprovals();
   }, [filter]);
@@ -56,6 +83,13 @@ const MasterApprovalBin: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const totalPages = Math.max(1, Math.ceil(approvals.length / rowsPerPage));
+  const pageData = approvals.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  );
+
 
   const handleViewDetails = (approval: Approval) => {
     navigate(`/admin-approval/${approval.id}`);
@@ -134,31 +168,32 @@ const MasterApprovalBin: React.FC = () => {
   const renderDataComparison = (approval: Approval) => {
     if (approval.action === "create") {
       return (
-        <div className={styles.dataComparison}>
-          <div className={styles.compareColumn}>
-            <h4>New Data:</h4>
+        <div className={styles.dataCompareGrid}>
+         <div className={styles.dataBlock}>
+            <h4>New Data</h4>
             <pre>{JSON.stringify(approval.new_value, null, 2)}</pre>
           </div>
         </div>
       );
     } else if (approval.action === "delete") {
       return (
-        <div className={styles.dataComparison}>
-          <div className={styles.compareColumn}>
-            <h4>Data to be Deleted:</h4>
+        <div className={styles.dataCompareGrid}>
+          <div className={styles.dataBlock}>
+            <h4>Old Data</h4>
             <pre>{JSON.stringify(approval.old_value, null, 2)}</pre>
           </div>
-        </div>
+          </div>
       );
     } else {
       return (
-        <div className={styles.dataComparison}>
-          <div className={styles.compareColumn}>
-            <h4>Old Data:</h4>
+        <div className={styles.dataCompareGrid}>
+          <div className={styles.dataBlock}>
+            <h4>Old Data</h4>
             <pre>{JSON.stringify(approval.old_value, null, 2)}</pre>
           </div>
-          <div className={styles.compareColumn}>
-            <h4>New Data:</h4>
+
+          <div className={styles.dataBlock}>
+            <h4>New Data</h4>
             <pre>{JSON.stringify(approval.new_value, null, 2)}</pre>
           </div>
         </div>
@@ -217,89 +252,106 @@ const MasterApprovalBin: React.FC = () => {
             <span className={plantStyles.recordCount}>{approvals.length} Records</span>
           </div>
 
-          {loading ? (
+          {/* / {loading ? (
             <div className={styles.loading}>Loading approvals...</div>
           ) : approvals.length === 0 ? (
             <div className={styles.emptyState}>
               <p>No approvals found</p>
             </div>
-          ) : (
-            <div className={plantStyles.tableContainer}>
-              <table className={plantStyles.table}>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Module</th>
-                    <th>Action</th>
-                    <th>Requested By</th>
-                    <th>Requested On</th>
-                    <th>Status</th>
-                    <th style={{ textAlign: 'center' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {approvals.map((approval) => (
-                    <tr key={approval.id}>
-                      <td>{approval.id}</td>
-                      <td>
-                        <span className={styles.moduleBadge}>
-                          {approval.module.toUpperCase()}
-                        </span>
-                      </td>
-                      <td>
-                        <span
-                          className={styles.actionBadge}
-                          style={{
-                            backgroundColor: getActionBadgeColor(approval.action),
-                          }}
-                        >
-                          {approval.action.toUpperCase()}
-                        </span>
-                      </td>
-                      <td>{approval.requested_by_username}</td>
-                      <td>{formatDate(approval.created_at)}</td>
-                      <td>
-                        <span
-                          className={styles.statusBadge}
-                          style={{
-                            backgroundColor: getStatusBadgeColor(approval.status),
-                          }}
-                        >
-                          {approval.status}
-                        </span>
-                      </td>
-                      <td>
-                        <div className={styles.actionButtons}>
-                          <button
+          ) : ( */}
+          <div className={plantStyles.tableContainer}>
+            <table className={plantStyles.table}>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Module</th>
+                  <th>Action</th>
+                  <th>Requested By</th>
+                  <th>Requested On</th>
+                  <th>Status</th>
+                  <th style={{ textAlign: 'center' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {approvals.map((approval) => (
+                  <tr key={approval.id}>
+                    <td>{approval.id}</td>
+                    <td>{approval.module.toUpperCase()}</td>
+                    <td>{approval.action.toUpperCase()}</td>
+                    <td>{approval.requested_by_username}</td>
+                    <td>{formatDate(approval.created_at)}</td>
+                    <td>{approval.status}</td>
+                    <td>
+                      <div className={styles.actionButtons}>
+                        <Tooltip title="View Details">
+                          <IconButton
+                            size="small"
                             onClick={() => handleViewDetails(approval)}
-                            className={styles.viewButton}
                           >
-                            👁️ View
-                          </button>
-                          {approval.status === "PENDING" && (
-                            <>
-                              <button
+                            <VisibilityOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        {approval.status === "PENDING" && (
+                          <>
+                            <Tooltip title={`Approve`}>
+                              <IconButton
+                                size="small"
+                                color="success"
                                 onClick={() => handleApproveClick(approval)}
-                                className={styles.approveButton}
                               >
-                                ✅ Approve
-                              </button>
-                              <button
+                                <CheckCircleOutlineIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title={`Reject`}>
+                              <IconButton
+                                size="small"
+                                color="error"
                                 onClick={() => handleRejectClick(approval)}
-                                className={styles.rejectButton}
                               >
-                                ❌ Reject
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                                <CancelOutlinedIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className={paginationStyles.pagination}>
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className={
+                currentPage === 1
+                  ? paginationStyles.disabledPageBtn
+                  : paginationStyles.pageBtn
+              }
+            >
+              Previous
+            </button>
+
+            <span className={paginationStyles.pageInfo}>
+              Page {currentPage} of {totalPages}
+            </span>
+
+            <button
+              onClick={() =>
+                setCurrentPage((p) => Math.min(totalPages, p + 1))
+              }
+              disabled={currentPage === totalPages}
+              className={
+                currentPage === totalPages
+                  ? paginationStyles.disabledPageBtn
+                  : paginationStyles.pageBtn
+              }
+            >
+              Next
+            </button>
+          </div>
+
         </div>
       </div>
 

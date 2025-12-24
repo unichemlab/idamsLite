@@ -216,7 +216,7 @@ const MasterApprovalDetails: React.FC = () => {
             <div className={styles.errorIcon}>⚠️</div>
             <h2>Unable to Load Approval</h2>
             <p>{error || "Approval not found"}</p>
-            <button onClick={() => navigate("/master-approvals")} className={styles.backButton}>
+            <button onClick={() => navigate("/admin-approval")} className={styles.backButton}>
               ← Back to Approvals
             </button>
           </div>
@@ -232,7 +232,7 @@ const MasterApprovalDetails: React.FC = () => {
       <div className={plantStyles.contentArea}>
         {/* Action Bar */}
         <div className={styles.topActionBar}>
-          <button onClick={() => navigate("/master-approvals")} className={styles.backButton}>
+          <button onClick={() => navigate("/admin-approval")} className={styles.backButton}>
             ← Back to List
           </button>
           {approval.status === "PENDING" && (

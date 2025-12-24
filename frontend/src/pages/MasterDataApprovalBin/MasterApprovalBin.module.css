@@ -210,19 +210,19 @@
 }
 
 .modalHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 24px 32px;
-  border-bottom: 2px solid #e0e7ef;
-  background: linear-gradient(to bottom, #fafbfc 0%, #ffffff 100%);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2px 32px;
+    border-bottom: 2px solid #e0e7ef;
+    background: linear-gradient(to bottom, #fafbfc 0%, #ffffff 100%);
 }
 
 .modalHeader h3 {
-  margin: 0;
-  color: #1e293b;
-  font-size: 22px;
-  font-weight: 600;
+ margin: 0;
+    color: #1e293b;
+    font-size: 17px;
+    font-weight: 600;
 }
 
 .closeButton {
@@ -248,7 +248,7 @@
 }
 
 .modalBody {
-  padding: 32px;
+  padding: 15px;
 }
 
 .detailsGrid {
@@ -466,5 +466,185 @@
   .cancelActionButton {
     width: 100%;
     justify-content: center;
+  }
+}
+/* ================= MODAL OVERLAY ================= */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+/* ================= MODAL CONTAINER ================= */
+.modalContent {
+  background: #ffffff;
+  width: 880px;
+  max-width: 95vw;
+  max-height: 90vh;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+/* ================= HEADER ================= */
+.modalHeader {
+  padding: 14px 20px;
+  border-bottom: 1px solid #e3eaf4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modalHeader h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  color: #555;
+}
+
+/* ================= BODY ================= */
+.modalBody {
+  padding: 16px 20px;
+  overflow-y: auto;
+}
+
+/* ================= DETAILS GRID ================= */
+.detailsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px 20px;
+  background: #f8fbff;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid #e1e9f6;
+  margin-bottom: 14px;
+}
+
+.detailItem {
+  display: flex;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.detailItem strong {
+  color: #4b5f7c;
+  min-width: 110px;
+}
+
+/* ================= DATA COMPARISON ================= */
+.dataCompareGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.dataBlock {
+  border: 1px solid #e3eaf4;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fafcff;
+}
+
+.dataBlock h4 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.dataBlock pre {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  max-height: 160px;
+  overflow: auto;
+  background: #f1f5fb;
+  padding: 8px;
+  border-radius: 6px;
+}
+
+/* ================= ACTION SECTION ================= */
+.actionSection {
+  margin-top: 10px;
+}
+
+.actionSection label {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  display: block;
+}
+
+.commentsTextarea {
+  width: 100%;
+  resize: none;
+  padding: 8px 10px;
+  font-size: 13px;
+  border-radius: 6px;
+  border: 1px solid #cfd9ea;
+}
+
+/* ================= FOOTER ================= */
+.modalFooter {
+  padding: 12px 20px;
+  border-top: 1px solid #e3eaf4;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  background: #ffffff;
+}
+
+.confirmApproveButton {
+  background: #16a34a;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.confirmRejectButton {
+  background: #ef4444;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.cancelActionButton {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* ================= RESPONSIVE ================= */
+@media (max-width: 768px) {
+  .modalContent {
+    width: 95vw;
+  }
+
+  .detailsGrid,
+  .dataCompareGrid {
+    grid-template-columns: 1fr;
   }
 }
