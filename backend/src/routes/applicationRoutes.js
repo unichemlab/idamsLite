@@ -1,63 +1,103 @@
+// backend/routes/applicationRoutes.js
 const express = require("express");
 const router = express.Router();
 const applicationController = require("../controllers/applicationController");
-const authorize = require("../middleware/authorize");
-// Activity logs for applications
-router.get("/activity-logs", applicationController.getApplicationActivityLogs);
+const  authorize  = require("../middleware/authorize");
+const { requirePermission } = require("../middleware/permissionMiddleware");
+
+// Helper function to fetch application record
+const fetchApplicationRecord = async (id) => {
+  const db = require("../config/db");
+  const result = await db.query(
+    "SELECT * FROM application_master WHERE id = $1",
+    [id]
+  );
+  return result.rows[0] || null;
+};
 
 /**
- * @swagger
- * tags:
- *   name: Applications
- *   description: Application master management
- */
-
-/**
- * @swagger
- * /api/applications:
- *   get:
- *     summary: Get all applications
- *     tags: [Applications]
- *     responses:
- *       200:
- *         description: List of all applications
- */
-router.get("/", applicationController.getAllApplications);
-
-/**
- * @swagger
- * /api/applications:
- *   get:
- *     summary: Get role , department, applications_id according to plant id
- *     tags: [Applications]
- *     responses:
- *       200:
- *         description: Get role , department, applications_id
- */
-router.get("/:id", applicationController.getDepartmentByPlantId);
-
-/**
- * @swagger
- * /api/applications:
- *   get:
- *     summary: Get role , applications_id according to plant id
- *     tags: [Applications]
- *     responses:
- *       200:
- *         description: Get role , applications_id
+ * GET /api/applications
+ * Get all applications (filtered by user's plant access)
+ * Permission: read:application_master
  */
 router.get(
-  "/:id/:dept_id",
-  applicationController.getRoleApplicationIDByPlantIdandDepartment
+  "/",
+  authorize("read:application_master"),
+  applicationController.getAllApplications
 );
 
-// Add Application
-router.post("/", applicationController.addApplication);
+/**
+ * POST /api/applications
+ * Create new application
+ * Permission: create:application_master (checked for specific plant)
+ */
+router.post(
+  "/",
+  authorize("create:application_master", {
+    checkPlantInBody: true
+  }),
+  applicationController.addApplication
+);
 
-// Edit Application
-router.put("/:id", applicationController.editApplication);
+/**
+ * PUT /api/applications/:id
+ * Update application
+ * Permission: update:application_master (checked for specific plant)
+ */
+router.put(
+  "/:id",
+  authorize("update:application_master", {
+    checkPlantInRecord: true,
+    fetchRecord: fetchApplicationRecord
+  }),
+  applicationController.editApplication
+);
 
-// Delete Application
-router.delete("/:id", applicationController.deleteApplication);
+/**
+ * DELETE /api/applications/:id
+ * Delete application
+ * Permission: delete:application_master (checked for specific plant)
+ */
+router.delete(
+  "/:id",
+  authorize("delete:application_master", {
+    checkPlantInRecord: true,
+    fetchRecord: fetchApplicationRecord
+  }),
+  applicationController.deleteApplication
+);
+
+/**
+ * GET /api/applications/departments/:id
+ * Get departments for a specific plant
+ * Permission: read:application_master (checked for specific plant)
+ */
+router.get(
+  "/departments/:id",
+  authorize("read:application_master"),
+  applicationController.getDepartmentByPlantId
+);
+
+/**
+ * GET /api/applications/activity-logs
+ * Get activity logs for applications (filtered by user's plant access)
+ * Permission: read:application_master
+ */
+router.get(
+  "/activity-logs",
+  authorize("read:application_master"),
+  applicationController.getApplicationActivityLogs
+);
+
+/**
+ * GET /api/applications/roles/:id/:dept_id
+ * Get roles and applications for plant and department
+ * Permission: read:application_master (checked for specific plant)
+ */
+router.get(
+  "/roles/:id/:dept_id",
+  authorize("read:application_master"),
+  applicationController.getRoleApplicationIDByPlantIdandDepartment
+);
 
 module.exports = router;

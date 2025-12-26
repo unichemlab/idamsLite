@@ -10,7 +10,6 @@ import { fetchPermissionsAPI, fetchWorkflows, loginAPI, API_BASE } from "../util
 import AbilityProvider from "./AbilityContext";
 
 // Interface for workflow data
-
 interface PlantPermission {
   moduleId: string;
   plantId: number;
@@ -21,6 +20,7 @@ interface PlantPermission {
     delete: boolean;
   };
 }
+
 interface Workflow {
   id?: number;
   workflow_id?: number;
@@ -37,8 +37,8 @@ interface Workflow {
 // Interface for approver detection result
 interface ApproverDetectionResult {
   isApprover: boolean;
-  isApprover1: boolean; // From user_requests/task_requests table
-  isWorkflowApprover: boolean; // From approval_workflow_master
+  isApprover1: boolean;
+  isWorkflowApprover: boolean;
   approverPlants?: number[];
 }
 
@@ -57,14 +57,18 @@ export interface AuthUser {
   status: string;
   token: string;
   isApprover?: boolean;
-  isApprover1?: boolean; // Approver from user_requests/task_requests
-  isWorkflowApprover?: boolean; // Approver from approval_workflow_master
+  isApprover1?: boolean;
+  isWorkflowApprover?: boolean;
   isITBin?: boolean;
+  isSuperAdmin?: boolean;
   roleName?: string;
   permissions?: string[];
   approverPlants?: number[];
+  approverTypes?: string[];
   itPlants?: any[];
   itPlantIds?: number[];
+  plantPermissions?: PlantPermission[];
+  permittedPlantIds?: number[];
 }
 
 interface AuthContextType {
@@ -91,8 +95,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [permissions, setPermissions] = useState<string[]>([]);
-  const [plantPermissions, setPlantPermissions] = useState<PlantPermission[]>([]);
-  const [permittedPlantIds, setPermittedPlantIds] = useState<number[]>([]);
+
   const determineInitialRoute = (userData: AuthUser) => {
     const isApprover =
       userData.permissions?.includes("approve:requests") ||
@@ -115,46 +118,48 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const normalizePermissions = (permissions: any): string[] => {
     if (Array.isArray(permissions)) return permissions;
-
     if (permissions && typeof permissions === "object") {
       return Object.values(permissions);
     }
-
     return [];
   };
 
   /**
    * Fetches plant-wise user permissions from the User Permissions API.
-   * This API returns the permissions assigned to the user via the
-   * User Master after the user details are edited or updated.
    */
+  const fetchPermissions = useCallback(async (): Promise<{
+    permissions: string[];
+    plantPermissions: PlantPermission[];
+    permittedPlantIds: number[];
+  }> => {
+    try {
+      const data: any = await fetchPermissionsAPI();
+      console.log("Fetched permissions:", data);
 
-  const fetchPermissions = useCallback(async (): Promise<string[]> => {
-  try {
-    const data: any = await fetchPermissionsAPI();
-    console.log("Fetched permissions:", data);
+      const normalized = normalizePermissions(data?.permissions);
+      const plantPerms = data?.plantPermissions || [];
+      const plantIds = data?.permittedPlantIds || [];
 
-    const normalized = normalizePermissions(data?.permissions);
+      setPermissions(normalized);
 
-    setPermissions(normalized);
-    setPlantPermissions(data?.plantPermissions || []);
-    setPermittedPlantIds(data?.permittedPlantIds || []);
-
-    return normalized; // ✅ ALWAYS array
-  } catch (err) {
-    console.error("fetchPermissions error", err);
-    setPermissions([]);
-    setPlantPermissions([]);
-    setPermittedPlantIds([]);
-    return []; // ✅ NEVER null
-  }
-}, []);
-
-
+      return {
+        permissions: normalized,
+        plantPermissions: plantPerms,
+        permittedPlantIds: plantIds,
+      };
+    } catch (err) {
+      console.error("fetchPermissions error", err);
+      setPermissions([]);
+      return {
+        permissions: [],
+        plantPermissions: [],
+        permittedPlantIds: [],
+      };
+    }
+  }, []);
 
   /**
    * Check if user is Approver 1 (from user_requests and task_requests tables)
-   * Approver 1 is always based on email matching in these tables
    */
   const checkApprover1Status = useCallback(
     async (userEmail: string, token?: string): Promise<boolean> => {
@@ -165,7 +170,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log("Email:", userEmail);
 
       try {
-        // Check user_requests table for approver1_email
         const userReqRes = await fetch(
           `${API_BASE}/api/user-requests/approvers?email=${encodeURIComponent(userEmail)}`,
           { method: "GET", headers }
@@ -181,7 +185,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
         }
 
-        // Check task_requests table for approver1_email
         const taskReqRes = await fetch(
           `${API_BASE}/api/task-requests/approvers?email=${encodeURIComponent(userEmail)}`,
           { method: "GET", headers }
@@ -209,7 +212,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   /**
    * Check if user is a Workflow Approver (from approval_workflow_master)
-   * These are approvers assigned to specific plants in the workflow
    */
   const checkWorkflowApproverStatus = useCallback(
     async (userId: number, token?: string): Promise<{ found: boolean; plants: number[] }> => {
@@ -269,16 +271,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 
   /**
-   * Combined approver check - determines both types of approver status
+   * Combined approver check
    */
   const checkApproverStatus = useCallback(
     async (userId: number, userEmail: string, token?: string): Promise<ApproverDetectionResult> => {
       console.log("=== Starting Combined Approver Check ===");
 
-      // Check Approver 1 status (from user_requests/task_requests)
       const isApprover1 = await checkApprover1Status(userEmail, token);
-
-      // Check Workflow Approver status (from approval_workflow_master)
       const workflowResult = await checkWorkflowApproverStatus(userId, token);
 
       const result: ApproverDetectionResult = {
@@ -292,8 +291,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log("User ID:", userId);
       console.log("Email:", userEmail);
       console.log("Is Approver (any type):", result.isApprover);
-      console.log("Is Approver1 (user_requests/task_requests):", result.isApprover1);
-      console.log("Is Workflow Approver (approval_workflow_master):", result.isWorkflowApprover);
+      console.log("Is Approver1:", result.isApprover1);
+      console.log("Is Workflow Approver:", result.isWorkflowApprover);
       console.log("Approver Plants:", result.approverPlants);
       console.log("==============================");
 
@@ -357,7 +356,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return false;
       }
     },
-    [setUser]
+    []
   );
 
   // Restore user from localStorage on app load
@@ -367,40 +366,78 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     (async () => {
       try {
         const stored = localStorage.getItem("authUser");
+        const token = localStorage.getItem("token");
+
         if (stored && mounted) {
           const parsed: AuthUser = JSON.parse(stored);
 
-          const normalizedPermissions = normalizePermissions(parsed.permissions);
+          // First, try to get permissions from token
+          let tokenPermissions: string[] = [];
+          let tokenPlantPermissions: PlantPermission[] = [];
+          let tokenPlantIds: number[] = [];
 
-          setUser({
-            ...parsed,
-            permissions: normalizedPermissions,
-          });
-          setPermissions(normalizedPermissions);
-
-          const token = localStorage.getItem("token");
           if (token) {
-            let userPermissions: string[] = [];
             try {
               const payload = JSON.parse(atob(token.split(".")[1]));
+              console.log("Token payload:", payload);
+
               if (payload?.permissions) {
-                userPermissions = normalizePermissions(payload.permissions);
-                setPermissions(userPermissions);
-                setUser((prev) =>
-                  prev ? { ...prev, permissions: userPermissions } : prev
-                );
+                tokenPermissions = normalizePermissions(payload.permissions);
               }
+              if (payload?.plantPermissions) {
+                tokenPlantPermissions = payload.plantPermissions || [];
+              }
+              if (payload?.permittedPlantIds) {
+                tokenPlantIds = payload.permittedPlantIds || [];
+              }
+            } catch (e) {
+              console.warn("Error decoding token:", e);
+            }
+          }
 
-            } catch (e) { }
+          // Set initial user with token data
+          setUser({
+            ...parsed,
+            permissions: tokenPermissions,
+            plantPermissions: tokenPlantPermissions,
+            permittedPlantIds: tokenPlantIds,
+          });
+          setPermissions(tokenPermissions);
 
+          // Fetch fresh permissions if needed
+          if (token && (!tokenPermissions.length || !tokenPlantPermissions.length)) {
             try {
-              if (!userPermissions || userPermissions.length === 0) {
-                userPermissions = await fetchPermissions();
-              }
-
+              const freshPerms = await fetchPermissions();
+              
               if (!mounted) return;
 
-              // Check both approver types
+              setUser((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      permissions: freshPerms.permissions,
+                      plantPermissions: freshPerms.plantPermissions,
+                      permittedPlantIds: freshPerms.permittedPlantIds,
+                    }
+                  : null
+              );
+
+              // Update localStorage
+              const updatedUser = {
+                ...parsed,
+                permissions: freshPerms.permissions,
+                plantPermissions: freshPerms.plantPermissions,
+                permittedPlantIds: freshPerms.permittedPlantIds,
+              };
+              localStorage.setItem("authUser", JSON.stringify(updatedUser));
+            } catch (e) {
+              console.warn("Error fetching fresh permissions:", e);
+            }
+          }
+
+          // Check approver status
+          if (token && mounted) {
+            try {
               const approverResult = await checkApproverStatus(
                 parsed.id,
                 parsed.email,
@@ -413,48 +450,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 setUser((prev) =>
                   prev
                     ? {
-                      ...prev,
-                      permissions: userPermissions,
-                      isApprover: true,
-                      isApprover1: approverResult.isApprover1,
-                      isWorkflowApprover: approverResult.isWorkflowApprover,
-                      approverPlants: approverResult.approverPlants,
-                    }
+                        ...prev,
+                        isApprover: true,
+                        isApprover1: approverResult.isApprover1,
+                        isWorkflowApprover: approverResult.isWorkflowApprover,
+                        approverPlants: approverResult.approverPlants,
+                      }
                     : null
                 );
 
-                // Update localStorage with approver info
-                try {
-                  const updatedUser = {
-                    ...parsed,
-                    permissions: userPermissions,
+                const updatedUser = JSON.parse(localStorage.getItem("authUser") || "{}");
+                localStorage.setItem(
+                  "authUser",
+                  JSON.stringify({
+                    ...updatedUser,
                     isApprover: true,
                     isApprover1: approverResult.isApprover1,
                     isWorkflowApprover: approverResult.isWorkflowApprover,
                     approverPlants: approverResult.approverPlants,
-                  };
-                  localStorage.setItem("authUser", JSON.stringify(updatedUser));
-                } catch (e) {
-                  console.warn("Error updating localStorage:", e);
-                }
-              } else {
-                setUser((prev) =>
-                  prev ? { ...prev, permissions: userPermissions } : null
+                  })
                 );
               }
-
-              // Check IT Bin status
-              if (!mounted) return;
-              try {
-                await fetchITBinForUser(parsed.id, token);
-              } catch (e) {
-                console.warn("Error checking IT Bin status:", e);
-              }
             } catch (e) {
-              console.warn("Error restoring session:", e);
-              if (mounted) {
-                setError("Failed to restore session. Please try logging in again.");
-              }
+              console.warn("Error checking approver status:", e);
+            }
+          }
+
+          // Check IT Bin status
+          if (token && mounted) {
+            try {
+              await fetchITBinForUser(parsed.id, token);
+            } catch (e) {
+              console.warn("Error checking IT Bin status:", e);
             }
           }
         }
@@ -515,6 +542,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       console.log("Login data details:", data);
 
+      // Extract permissions from token
+      let tokenPermissions: string[] = [];
+      let tokenPlantPermissions: PlantPermission[] = [];
+      let tokenPlantIds: number[] = [];
+      let isSuperAdmin = false;
+
+      try {
+        const payload = JSON.parse(atob(data.token.split(".")[1]));
+        console.log("Token payload on login:", payload);
+
+        if (payload?.permissions) {
+          tokenPermissions = normalizePermissions(payload.permissions);
+        }
+        if (payload?.plantPermissions) {
+          tokenPlantPermissions = payload.plantPermissions || [];
+        }
+        if (payload?.permittedPlantIds) {
+          tokenPlantIds = payload.permittedPlantIds || [];
+        }
+        // Check for super admin from token
+        isSuperAdmin = payload?.isSuperAdmin || false;
+      } catch (e) {
+        console.warn("Error decoding token on login:", e);
+      }
+
       const authUser: AuthUser = {
         id: userId,
         username: data.user.username,
@@ -529,39 +581,46 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         role_id,
         status,
         token: data.token,
+        permissions: tokenPermissions,
+        plantPermissions: tokenPlantPermissions,
+        permittedPlantIds: tokenPlantIds,
+        isSuperAdmin,
       };
 
-      try {
-        const payload = JSON.parse(atob(data.token.split(".")[1]));
-        if (payload && Array.isArray(payload.permissions)) {
-          const normalized = normalizePermissions(payload.permissions);
-          (authUser as any).permissions = normalized;
-          setPermissions(normalized);
-        }
-      } catch (e) { }
-
       setUser(authUser);
+      setPermissions(tokenPermissions);
 
       try {
         localStorage.setItem("authUser", JSON.stringify(authUser));
         localStorage.setItem("token", authUser.token);
 
-        if (
-          !(
-            (authUser as any).permissions &&
-            (authUser as any).permissions.length
-          )
-        ) {
-          const userPermissions = await fetchPermissions();
+        // Fetch additional permissions if not in token
+        if (!tokenPermissions.length || !tokenPlantPermissions.length) {
+          const freshPerms = await fetchPermissions();
           setUser((prev) =>
-            prev ? { ...prev, permissions: userPermissions } : prev
+            prev
+              ? {
+                  ...prev,
+                  permissions: freshPerms.permissions,
+                  plantPermissions: freshPerms.plantPermissions,
+                  permittedPlantIds: freshPerms.permittedPlantIds,
+                }
+              : prev
           );
+
+          const updatedUser = {
+            ...authUser,
+            permissions: freshPerms.permissions,
+            plantPermissions: freshPerms.plantPermissions,
+            permittedPlantIds: freshPerms.permittedPlantIds,
+          };
+          localStorage.setItem("authUser", JSON.stringify(updatedUser));
         }
       } catch (e) {
         console.warn("Error saving auth data or fetching permissions:", e);
       }
 
-      // Check both approver types during login
+      // Check approver status
       try {
         const approverResult = await checkApproverStatus(
           authUser.id,
@@ -573,33 +632,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser((prev) =>
             prev
               ? {
-                ...prev,
-                isApprover: true,
-                isApprover1: approverResult.isApprover1,
-                isWorkflowApprover: approverResult.isWorkflowApprover,
-                approverPlants: approverResult.approverPlants,
-              }
+                  ...prev,
+                  isApprover: true,
+                  isApprover1: approverResult.isApprover1,
+                  isWorkflowApprover: approverResult.isWorkflowApprover,
+                  approverPlants: approverResult.approverPlants,
+                }
               : prev
           );
 
-          // Update localStorage with complete approver info
-          try {
-            const updatedUser = {
-              ...authUser,
+          const updatedUser = JSON.parse(localStorage.getItem("authUser") || "{}");
+          localStorage.setItem(
+            "authUser",
+            JSON.stringify({
+              ...updatedUser,
               isApprover: true,
               isApprover1: approverResult.isApprover1,
               isWorkflowApprover: approverResult.isWorkflowApprover,
               approverPlants: approverResult.approverPlants,
-            };
-            localStorage.setItem("authUser", JSON.stringify(updatedUser));
-          } catch (e) {
-            console.warn("Error updating localStorage with approver info:", e);
-          }
+            })
+          );
         }
       } catch (e) {
         console.warn("checkApproverStatus error:", e);
       }
 
+      // Check IT Bin
       try {
         await fetchITBinForUser(authUser.id, authUser.token);
       } catch (e) {

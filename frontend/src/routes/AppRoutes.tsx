@@ -731,7 +731,7 @@ console.log(isAllowed);
         }
       />
       <Route
-        path="/departments/edit/:id"
+        path="/department-master/edit/:id"
         element={
           <ProtectedRoute>
             <EditDeptTableFormPage />

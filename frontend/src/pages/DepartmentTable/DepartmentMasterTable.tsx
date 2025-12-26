@@ -1,9 +1,9 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef,useCallback } from "react";
 import { FaTrash, FaRegClock, FaEdit } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { fetchDepartmentActivityLogs } from "../../utils/api";
 import { useDepartmentContext } from "../../pages/DepartmentMaster/DepartmentContext";
-import styles from "./DepartmentTable.module.css";
+import styles from "../Plant/PlantMasterTable.module.css";
 import paginationStyles from "../../styles/Pagination.module.css";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
 import jsPDF from "jspdf";
@@ -11,6 +11,9 @@ import autoTable from "jspdf-autotable";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
 import AppHeader from "../../components/Common/AppHeader";
 import { useAuth } from "../../context/AuthContext";
+import { PermissionGuard, PermissionButton } from "../../components/Common/PermissionComponents";
+import { PERMISSIONS } from "../../constants/permissions";
+import { usePermissions } from "../../context/PermissionContext";
 
 const DepartmentMasterTable: React.FC = () => {
   const { departments, deleteDepartment } = useDepartmentContext();
@@ -29,7 +32,7 @@ const DepartmentMasterTable: React.FC = () => {
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
-
+  const { hasPermission } = usePermissions();
   useEffect(() => {
     if (!showFilterPopover) return;
     const handleClick = (e: MouseEvent) => {
@@ -266,6 +269,33 @@ const DepartmentMasterTable: React.FC = () => {
     setShowDeleteModal(false);
   };
 
+const handleEdit = useCallback(() => {
+      if (selectedRow === null) return;
+      const app = filteredData[selectedRow];
+      
+      if (!hasPermission(PERMISSIONS.DEPARTMENT.UPDATE)) {
+        alert('You do not have permission to edit applications for this plant');
+        return;
+      }
+      
+      navigate(`/department-master/edit/${app.id}`, {
+        state: { applicationData: app, applicationIdx: selectedRow },
+      });
+       //navigate(`/vendor-information/edit/${selectedRow}`);
+    }, [selectedRow, filteredData, navigate]);
+
+    const handleDelete = useCallback(() => {
+        if (selectedRow === null) return;
+        const app = filteredData[selectedRow];
+        
+        if (!hasPermission(PERMISSIONS.DEPARTMENT.DELETE)) {
+          alert('You do not have permission to delete applications for this plant');
+          return;
+        }
+        
+        setShowDeleteModal(true);
+      }, [selectedRow, filteredData, hasPermission]);
+
   return (
     <div className={styles.pageWrapper}>
       <AppHeader title="Department Master Management" />
@@ -273,13 +303,14 @@ const DepartmentMasterTable: React.FC = () => {
       <div className={styles.contentArea}>
         <div className={styles.controlPanel}>
           <div className={styles.actionRow}>
+             <PermissionGuard permission={PERMISSIONS.DEPARTMENT.CREATE}>
             <button
               className={styles.addBtn}
               onClick={() => navigate("/department-master/add")}
             >
               + Add New Department
             </button>
-
+            </PermissionGuard>
             <button
               className={styles.filterBtn}
               onClick={() => setShowFilterPopover((prev) => !prev)}
@@ -287,8 +318,24 @@ const DepartmentMasterTable: React.FC = () => {
             >
               🔍 Filter
             </button>
+            <PermissionButton
+              permission={PERMISSIONS.DEPARTMENT.UPDATE}
+              className={styles.editBtn}
+              disabled={selectedRow === null}
+              onClick={handleEdit}
+            >
+              <FaEdit size={14} /> Edit
+            </PermissionButton>
 
-            <button
+            <PermissionButton
+              permission={PERMISSIONS.DEPARTMENT.DELETE}
+              className={styles.deleteBtn}
+              disabled={selectedRow === null}
+              onClick={handleDelete}
+            >
+              <FaTrash size={14} /> Delete
+            </PermissionButton>
+            {/* <button
               className={styles.editBtn}
               onClick={() => {
                 if (selectedRow !== null && filteredData[selectedRow])
@@ -305,7 +352,7 @@ const DepartmentMasterTable: React.FC = () => {
               onClick={() => setShowDeleteModal(true)}
             >
               <FaTrash size={14} /> Delete
-            </button>
+            </button> */}
 
             <button className={styles.exportBtn} onClick={handleExportPDF}>
               📄 Export PDF

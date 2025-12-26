@@ -1,4 +1,4 @@
-import React from "react";
+import React,{useCallback} from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
@@ -12,7 +12,9 @@ import { useAbility } from "../../context/AbilityContext";
 import { fetchRoleActivityLogs } from "../../utils/api";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
 import AppHeader from "../../components/Common/AppHeader";
-
+import { PermissionGuard, PermissionButton } from "../../components/Common/PermissionComponents";
+import { PERMISSIONS } from "../../constants/permissions";
+import { usePermissions } from "../../context/PermissionContext";
 interface RoleMasterTableProps {
   onAdd?: () => void;
   onEdit?: (id: number) => void;
@@ -41,7 +43,7 @@ export default function RoleMasterTable({
   const navigate = useNavigate();
   const { can } = useAbility();
   const { user } = useAuth();
-
+  const { hasPermission } = usePermissions();
   // Filtering logic
   const filteredData = roles.filter((role) => {
     if (!filterValue.trim()) return true;
@@ -197,7 +199,32 @@ export default function RoleMasterTable({
       setSelectedRow(null);
     }
   };
+const handleEdit = useCallback(() => {
+      if (selectedRow === null) return;
+      const app = filteredData[selectedRow];
+      
+      if (!hasPermission(PERMISSIONS.ROLE.UPDATE)) {
+        alert('You do not have permission to edit applications for this plant');
+        return;
+      }
+      
+      navigate(`/department-master/edit/${app.id}`, {
+        state: { applicationData: app, applicationIdx: selectedRow },
+      });
+       //navigate(`/vendor-information/edit/${selectedRow}`);
+    }, [selectedRow, filteredData, navigate]);
 
+    const handleDelete = useCallback(() => {
+        if (selectedRow === null) return;
+        const app = filteredData[selectedRow];
+        
+        if (!hasPermission(PERMISSIONS.ROLE.DELETE)) {
+          alert('You do not have permission to delete applications for this plant');
+          return;
+        }
+        
+        setShowDeleteModal(true);
+      }, [selectedRow, filteredData, hasPermission]);
   // approverFilter/state implemented above
 
   return (
@@ -206,24 +233,14 @@ export default function RoleMasterTable({
       <div className={styles.contentArea}>
         <div className={styles.controlPanel}>
           <div className={styles.actionRow}>
+            <PermissionGuard permission={PERMISSIONS.ROLE.CREATE}>
             <button
-              className={styles.addBtn}
-              onClick={() => {
-                if (onAdd) {
-                  onAdd();
-                } else {
-                  navigate("/role-master/add");
-                }
-              }}
-              disabled={!can("create:roles")}
-              title={
-                !can("create:roles")
-                  ? "You don't have permission to add roles"
-                  : ""
-              }
+              className={styles.addBtn} 
+              onClick={() => navigate("/role-master/add")}
             >
               + Add New
             </button>
+            </PermissionGuard>
             <button
               className={styles.filterBtn}
               onClick={() => setShowFilterPopover((prev) => !prev)}
@@ -232,7 +249,24 @@ export default function RoleMasterTable({
             >
               🔍 Filter
             </button>
-            <button
+            <PermissionButton
+              permission={PERMISSIONS.ROLE.UPDATE}
+              className={styles.editBtn}
+              disabled={selectedRow === null}
+              onClick={handleEdit}
+            >
+              <FaEdit size={14} /> Edit
+            </PermissionButton>
+
+            <PermissionButton
+              permission={PERMISSIONS.ROLE.DELETE}
+              className={styles.deleteBtn}
+              disabled={selectedRow === null}
+              onClick={handleDelete}
+            >
+              <FaTrash size={14} /> Delete
+            </PermissionButton>
+            {/* <button
               className={`${styles.btn} ${styles.editBtn}`}
               onClick={() => {
                 if (selectedRow !== null && filteredData[selectedRow]) {
@@ -254,8 +288,8 @@ export default function RoleMasterTable({
               }
             >
               <FaEdit size={14} /> Edit
-            </button>
-            <button
+            </button> */}
+            {/* <button
               className={`${styles.btn} ${styles.deleteBtn}`}
               disabled={selectedRow === null || !can("delete:roles")}
               onClick={handleDeleteRole}
@@ -266,7 +300,7 @@ export default function RoleMasterTable({
               }
             >
               <FaTrash size={14} /> Delete
-            </button>
+            </button> */}
             <button
               className={styles.exportBtn}
               aria-label="Export table to PDF"

@@ -507,6 +507,7 @@ exports.login = async (req, res) => {
 
         // Permissions summary
         permittedPlantIds,
+        plantPermissions,
         hasApproverAccess: permissions.includes("approve:requests"),
         full_name: user.employee_name,
       },

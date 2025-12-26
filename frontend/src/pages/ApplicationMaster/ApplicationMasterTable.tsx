@@ -1,16 +1,21 @@
-import React from "react";
+// src/pages/ApplicationMaster/ApplicationMasterTable.tsx
+import React, { useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { FaRegClock, FaEdit, FaTrash } from "react-icons/fa";
 import AppHeader from "../../components/Common/AppHeader";
-import styles from "../Plant/PlantMasterTable.module.css";
-import paginationStyles from "../../styles/Pagination.module.css";
-import { FaRegClock } from "react-icons/fa6";
-import { FaEdit, FaTrash } from "react-icons/fa";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
-import login_headTitle2 from "../../assets/login_headTitle2.png";
+import { PermissionGuard, PermissionButton } from "../../components/Common/PermissionComponents";
 import { useApplications } from "../../context/ApplicationsContext";
 import { useDepartmentContext } from "../DepartmentMaster/DepartmentContext";
 import { usePlantContext } from "../PlantMaster/PlantContext";
 import { useAuth } from "../../context/AuthContext";
-import { fetchApplicationActivityLogs,hasPermission } from "../../utils/api";
+import { usePermissions } from "../../context/PermissionContext";
+import { filterByPlantPermission,filterByModulePlantPermission } from "../../utils/permissionUtils";
+import { fetchApplicationActivityLogs, API_BASE } from "../../utils/api";
+import { PERMISSIONS } from "../../constants/permissions";
+import styles from "../Plant/PlantMasterTable.module.css";
+import paginationStyles from "../../styles/Pagination.module.css";
+import login_headTitle2 from "../../assets/login_headTitle2.png";
 
 export default function ApplicationMasterTable() {
   const [showActivityModal, setShowActivityModal] = React.useState(false);
@@ -25,22 +30,25 @@ export default function ApplicationMasterTable() {
   const [tempFilterColumn, setTempFilterColumn] = React.useState(filterColumn);
   const [tempFilterValue, setTempFilterValue] = React.useState(filterValue);
   const popoverRef = React.useRef<HTMLDivElement | null>(null);
+  
   const { applications, setApplications } = useApplications();
   const { departments } = useDepartmentContext();
   const { plants } = usePlantContext();
   const { user } = useAuth();
-  const navigate = require("react-router-dom").useNavigate();
+  const { hasPermission } = usePermissions();
+  const navigate = useNavigate();
 
-  const getDepartmentName = (id: number) => {
+  const getDepartmentName = useCallback((id: number) => {
     const dept = departments.find((d) => d.id === id);
-    return dept ? dept.name : id;
-  };
+    return dept ? dept.name || dept.department_name : id;
+  }, [departments]);
 
-  const getPlantName = (id: number) => {
+  const getPlantName = useCallback((id: number) => {
     const plant = plants.find((p) => p.id === id);
     return plant ? plant.name || plant.plant_name || id : id;
-  };
+  }, [plants]);
 
+  // Close filter popover on outside click
   React.useEffect(() => {
     if (!showFilterPopover) return;
     const handleClick = (e: MouseEvent) => {
@@ -52,66 +60,90 @@ export default function ApplicationMasterTable() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [showFilterPopover]);
 
-  const filteredData = applications.filter((app) => {
-    if (!filterValue.trim()) return true;
-    const value = filterValue.toLowerCase();
-    switch (filterColumn) {
-      case "application_hmi_name":
-        return app.application_hmi_name?.toLowerCase().includes(value);
-      case "plant_location_id":
-        const plantName = String(getPlantName(app.plant_location_id)).toLowerCase();
-        return plantName.includes(value) || String(app.plant_location_id).includes(value);
-      case "department_id":
-        const deptName = String(getDepartmentName(app.department_id)).toLowerCase();
-        return deptName.includes(value) || String(app.department_id).includes(value);
-      case "role_id":
-        if (Array.isArray(app.role_names) && app.role_names.length > 0) {
-          return app.role_names.some((name) => name.toLowerCase().includes(value));
-        }
-        return String(app.role_id).includes(value);
-      case "status":
-        return app.status?.toLowerCase().includes(value);
-      default:
-        return true;
-    }
-  });
+  // Filter by plant permissions first
+  const permissionFilteredData = useMemo(() => {
+    return filterByModulePlantPermission(applications,user,"application_master");
+  }, [applications, user]);
 
+  // Apply user's custom filters
+  const filteredData = useMemo(() => {
+    return permissionFilteredData.filter((app) => {
+      if (!filterValue.trim()) return true;
+      const value = filterValue.toLowerCase();
+      switch (filterColumn) {
+        case "application_hmi_name":
+          return app.application_hmi_name?.toLowerCase().includes(value);
+        case "plant_location_id":
+          const plantName = String(getPlantName(app.plant_location_id)).toLowerCase();
+          return plantName.includes(value) || String(app.plant_location_id).includes(value);
+        case "department_id":
+          const deptName = String(getDepartmentName(app.department_id)).toLowerCase();
+          return deptName.includes(value) || String(app.department_id).includes(value);
+        case "role_id":
+          if (Array.isArray(app.role_names) && app.role_names.length > 0) {
+            return app.role_names.some((name) => name.toLowerCase().includes(value));
+          }
+          return String(app.role_id).includes(value);
+        case "status":
+          return app.status?.toLowerCase().includes(value);
+        default:
+          return true;
+      }
+    });
+  }, [permissionFilteredData, filterValue, filterColumn, getPlantName, getDepartmentName]);
+
+  // Reset to first page when filter changes
   React.useEffect(() => {
     setCurrentPage(1);
   }, [filterValue]);
 
   const totalPages = Math.ceil(filteredData.length / rowsPerPage) || 1;
-  const paginatedData = filteredData.slice(
-    (currentPage - 1) * rowsPerPage,
-    currentPage * rowsPerPage
-  );
+  const paginatedData = useMemo(() => {
+    return filteredData.slice(
+      (currentPage - 1) * rowsPerPage,
+      currentPage * rowsPerPage
+    );
+  }, [filteredData, currentPage]);
 
-  const handleDelete = () => setShowDeleteModal(true);
+  const handleDelete = useCallback(() => {
+    if (selectedRow === null) return;
+    const app = filteredData[selectedRow];
+    
+    if (!hasPermission(PERMISSIONS.APPLICATION.DELETE, app.plant_location_id)) {
+      alert('You do not have permission to delete applications for this plant');
+      return;
+    }
+    
+    setShowDeleteModal(true);
+  }, [selectedRow, filteredData, hasPermission]);
   
-  const confirmDelete = () => {
+  const confirmDelete = useCallback(async () => {
     if (selectedRow === null) return;
     const sel = filteredData[selectedRow];
     if (!sel) return;
-    const idx = applications.findIndex((a: any) => a.id === sel.id);
-    if (idx === -1) return;
-    const updated = [...applications];
-    const app = updated[idx];
-    if (app) {
-      app.activityLogs = app.activityLogs || [];
-      app.activityLogs.push({
-        action: "Delete",
-        oldValue: { ...app },
-        newValue: "-",
-        approver: localStorage.getItem("username") || "admin",
-        dateTime: new Date().toISOString(),
+
+    try {
+      const res = await fetch(`${API_BASE}/api/applications/${sel.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
       });
+
+      if (!res.ok) {
+        throw new Error('Failed to delete application');
+      }
+
+      const updated = applications.filter((a: any) => a.id !== sel.id);
+      setApplications(updated);
+      setSelectedRow(null);
+      setShowDeleteModal(false);
+    } catch (err) {
+      alert('Failed to delete application. Please try again.');
+      console.error(err);
     }
-    updated.splice(idx, 1);
-    setApplications(updated);
-    setSelectedRow(null);
-    setShowDeleteModal(false);
-    navigate("/application-masters", { state: { activeTab: "application" } });
-  };
+  }, [selectedRow, filteredData, applications, setApplications]);
 
   const loadImage = (url: string): Promise<HTMLImageElement> => {
     return new Promise((resolve, reject) => {
@@ -122,7 +154,7 @@ export default function ApplicationMasterTable() {
     });
   };
 
-  const handleExportPDF = async () => {
+  const handleExportPDF = useCallback(async () => {
     const jsPDF = (await import("jspdf")).default;
     const autoTable = (await import("jspdf-autotable")).default;
     const doc = new jsPDF({ orientation: "landscape" });
@@ -210,7 +242,21 @@ export default function ApplicationMasterTable() {
     }
 
     doc.save(fileName);
-  };
+  }, [filteredData, user, getPlantName, getDepartmentName]);
+
+  const handleEdit = useCallback(() => {
+    if (selectedRow === null) return;
+    const app = filteredData[selectedRow];
+    
+    if (!hasPermission(PERMISSIONS.APPLICATION.UPDATE, app.plant_location_id)) {
+      alert('You do not have permission to edit applications for this plant');
+      return;
+    }
+    
+    navigate(`/edit-application-masters/${app.id}`, {
+      state: { applicationData: app, applicationIdx: selectedRow },
+    });
+  }, [selectedRow, filteredData, hasPermission, navigate]);
 
   return (
     <div className={styles.pageWrapper}>
@@ -219,34 +265,40 @@ export default function ApplicationMasterTable() {
       <div className={styles.contentArea}>
         <div className={styles.controlPanel}>
           <div className={styles.actionRow}>
-            {hasPermission(user, "create:application_master") &&(
-            <button className={styles.addBtn} onClick={() => navigate("/add-application-masters")}>
-              + Add New Application
-            </button>
-            )}
-            <button className={styles.filterBtn} onClick={() => setShowFilterPopover((prev) => !prev)}>
+            <PermissionGuard permission={PERMISSIONS.APPLICATION.CREATE}>
+              <button 
+                className={styles.addBtn} 
+                onClick={() => navigate("/add-application-masters")}
+              >
+                + Add New Application
+              </button>
+            </PermissionGuard>
+
+            <button 
+              className={styles.filterBtn} 
+              onClick={() => setShowFilterPopover((prev) => !prev)}
+            >
               🔍 Filter
             </button>
-            {hasPermission(user, "update:application_master") &&(
-            <button
+
+            <PermissionButton
+              permission={PERMISSIONS.APPLICATION.UPDATE}
               className={styles.editBtn}
               disabled={selectedRow === null}
-              onClick={() => {
-                if (selectedRow !== null) {
-                  navigate(`/edit-application-masters/${selectedRow}`, {
-                    state: { applicationData: filteredData[selectedRow], applicationIdx: selectedRow },
-                  });
-                }
-              }}
+              onClick={handleEdit}
             >
               <FaEdit size={14} /> Edit
-            </button>
-            )}
-            {hasPermission(user, "delete:application_master") &&(
-            <button className={styles.deleteBtn} disabled={selectedRow === null} onClick={handleDelete}>
+            </PermissionButton>
+
+            <PermissionButton
+              permission={PERMISSIONS.APPLICATION.DELETE}
+              className={styles.deleteBtn}
+              disabled={selectedRow === null}
+              onClick={handleDelete}
+            >
               <FaTrash size={14} /> Delete
-            </button>
-            )}
+            </PermissionButton>
+
             <button className={styles.exportBtn} onClick={handleExportPDF}>
               📄 Export PDF
             </button>
@@ -258,7 +310,10 @@ export default function ApplicationMasterTable() {
               <div className={styles.filterBody}>
                 <div className={styles.filterField}>
                   <label>Column</label>
-                  <select value={tempFilterColumn} onChange={(e) => setTempFilterColumn(e.target.value)}>
+                  <select 
+                    value={tempFilterColumn} 
+                    onChange={(e) => setTempFilterColumn(e.target.value)}
+                  >
                     <option value="application_hmi_name">Application/HMI Name</option>
                     <option value="plant_location_id">Plant Location</option>
                     <option value="department_id">Department</option>
@@ -327,63 +382,74 @@ export default function ApplicationMasterTable() {
                 </tr>
               </thead>
               <tbody>
-                {paginatedData.map((app: any, idx: number) => {
-                  const globalIdx = (currentPage - 1) * rowsPerPage + idx;
-                  return (
-                    <tr
-                      key={app.id || globalIdx}
-                      className={selectedRow === globalIdx ? styles.selectedRow : ""}
-                    >
-                      <td>
-                        <input
-                          type="radio"
-                          checked={selectedRow === globalIdx}
-                          onChange={() => setSelectedRow(globalIdx)}
-                        />
-                      </td>
-                      <td>{getPlantName(app.plant_location_id)}</td>
-                      <td>{getDepartmentName(app.department_id)}</td>
-                      <td className={styles.appName}>{app.application_hmi_name}</td>
-                      <td>{app.application_hmi_version}</td>
-                      <td>{app.equipment_instrument_id}</td>
-                      <td>{app.application_hmi_type}</td>
-                      <td>
-                        {Array.isArray(app.role_names) && app.role_names.length > 0
-                          ? app.role_names.join(", ")
-                          : app.role_id}
-                      </td>
-                      <td>{app.system_name}</td>
-                      <td>{app.multiple_role_access ? "Yes" : "No"}</td>
-                      <td>
-                        <span className={app.status === "INACTIVE" ? styles.statusInactive : styles.statusActive}>
-                          {app.status}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        <button className={styles.activityBtn} onClick={async () => {
-                          try {
-                            const logs = await fetchApplicationActivityLogs();
-                            const filtered = (logs || []).filter((log: any) => {
-                              if (log.table_name === "application_master" && String(log.record_id) === String(app.id))
-                                return true;
-                              if (log.details && typeof log.details === "string") {
-                                return log.details.includes(`"tableName":"application_master"`) &&
-                                  log.details.includes(`"recordId":"${app.id}"`);
+                {paginatedData.length === 0 ? (
+                  <tr>
+                    <td colSpan={12} style={{ textAlign: 'center', padding: '20px', color: '#6b7280' }}>
+                      No applications found matching your permissions and filters
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedData.map((app: any, idx: number) => {
+                    const globalIdx = (currentPage - 1) * rowsPerPage + idx;
+                    return (
+                      <tr
+                        key={app.id || globalIdx}
+                        className={selectedRow === globalIdx ? styles.selectedRow : ""}
+                      >
+                        <td>
+                          <input
+                            type="radio"
+                            checked={selectedRow === globalIdx}
+                            onChange={() => setSelectedRow(globalIdx)}
+                          />
+                        </td>
+                        <td>{getPlantName(app.plant_location_id)}</td>
+                        <td>{getDepartmentName(app.department_id)}</td>
+                        <td className={styles.appName}>{app.application_hmi_name}</td>
+                        <td>{app.application_hmi_version}</td>
+                        <td>{app.equipment_instrument_id}</td>
+                        <td>{app.application_hmi_type}</td>
+                        <td>
+                          {Array.isArray(app.role_names) && app.role_names.length > 0
+                            ? app.role_names.join(", ")
+                            : app.role_id}
+                        </td>
+                        <td>{app.system_name}</td>
+                        <td>{app.multiple_role_access ? "Yes" : "No"}</td>
+                        <td>
+                          <span className={app.status === "INACTIVE" ? styles.statusInactive : styles.statusActive}>
+                            {app.status}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button 
+                            className={styles.activityBtn} 
+                            onClick={async () => {
+                              try {
+                                const logs = await fetchApplicationActivityLogs();
+                                const filtered = (logs || []).filter((log: any) => {
+                                  if (log.table_name === "application_master" && String(log.record_id) === String(app.id))
+                                    return true;
+                                  if (log.details && typeof log.details === "string") {
+                                    return log.details.includes(`"tableName":"application_master"`) &&
+                                      log.details.includes(`"recordId":"${app.id}"`);
+                                  }
+                                  return false;
+                                });
+                                setActivityLogsApp({ ...app, activityLogs: filtered });
+                              } catch (err) {
+                                setActivityLogsApp({ ...app, activityLogs: [] });
                               }
-                              return false;
-                            });
-                            setActivityLogsApp({ ...app, activityLogs: filtered });
-                          } catch (err) {
-                            setActivityLogsApp({ ...app, activityLogs: [] });
-                          }
-                          setShowActivityModal(true);
-                        }}>
-                          <FaRegClock size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                              setShowActivityModal(true);
+                            }}
+                          >
+                            <FaRegClock size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
@@ -443,11 +509,15 @@ export default function ApplicationMasterTable() {
                     {(Array.isArray(activityLogsApp.activityLogs) ? activityLogsApp.activityLogs : []).map((log: any, i: number) => (
                       <tr key={i}>
                         <td>{log.action || "-"}</td>
-                        <td>{JSON.stringify(log.oldValue) || "-"}</td>
-                        <td>{JSON.stringify(log.newValue) || "-"}</td>
-                        <td>{log.approver || "-"}</td>
-                        <td>{log.approvalStatus || "-"}</td>
-                        <td>{log.dateTime ? new Date(log.dateTime).toLocaleString() : "-"}</td>
+                        <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {log.oldValue ? JSON.stringify(log.oldValue).substring(0, 100) : "-"}
+                        </td>
+                        <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {log.newValue ? JSON.stringify(log.newValue).substring(0, 100) : "-"}
+                        </td>
+                        <td>{log.approver || log.action_performed_by || "-"}</td>
+                        <td>{log.approvalStatus || log.approval_status || "-"}</td>
+                        <td>{log.dateTime || log.date_time_ist ? new Date(log.dateTime || log.date_time_ist).toLocaleString() : "-"}</td>
                       </tr>
                     ))}
                   </tbody>

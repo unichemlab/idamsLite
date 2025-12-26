@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect,useCallback } from "react";
 import { usePlantContext } from "../PlantMaster/PlantContext";
 import styles from "./PlantMasterTable.module.css";
 import paginationStyles from "../../styles/Pagination.module.css";
@@ -13,7 +13,9 @@ import { fetchPlantActivityLogs } from "../../utils/api";
 import { useAbility } from "../../context/AbilityContext";
 import { useAuth } from "../../context/AuthContext";
 import AppHeader from "../../components/Common/AppHeader";
-
+import { PermissionGuard, PermissionButton } from "../../components/Common/PermissionComponents";
+import { PERMISSIONS } from "../../constants/permissions";
+import { usePermissions } from "../../context/PermissionContext";
 export interface ActivityLog {
   id?: number;
   sr_no?: number;
@@ -27,9 +29,10 @@ export interface ActivityLog {
 }
 
 const PlantMasterTable: React.FC = () => {
-  const { plants, deletePlant } = usePlantContext();
-  const [selectedPlantId, setSelectedPlantId] = React.useState<number | null>(null);
-  const [showDeleteModal, setShowDeleteModal] = React.useState(false);
+const { plants, deletePlant } = usePlantContext();
+const [selectedPlantId, setSelectedPlantId] = React.useState<number | null>(null);
+const [selectedRow, setSelectedRow] = React.useState<number | null>(null);
+const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   const [showActivityModal, setShowActivityModal] = React.useState(false);
   const [currentPage, setCurrentPage] = React.useState(1);
   const rowsPerPage = 10;
@@ -47,7 +50,7 @@ const PlantMasterTable: React.FC = () => {
   const navigate = useNavigate();
   const { can } = useAbility();
   const { user } = useAuth();
-
+  const { hasPermission } = usePermissions();
   useEffect(() => {
     if (!showFilterPopover) return;
     const handleClick = (e: MouseEvent) => {
@@ -286,7 +289,32 @@ const PlantMasterTable: React.FC = () => {
     setSelectedPlantId(null);
     setShowDeleteModal(false);
   };
+const handleEdit = useCallback(() => {
+      if (selectedPlantId === null) return;
+      const app = filteredData[selectedPlantId];
+      
+      if (!hasPermission(PERMISSIONS.PLANT.UPDATE)) {
+        alert('You do not have permission to edit applications for this plant');
+        return;
+      }
+      
+      navigate(`/plant-master/edit/${app.id}`, {
+        state: { applicationData: app, applicationIdx: selectedPlantId },
+      });
+       //navigate(`/vendor-information/edit/${selectedRow}`);
+    }, [selectedPlantId, filteredData, navigate]);
 
+    const handleDelete = useCallback(() => {
+        if (selectedPlantId === null) return;
+        const app = filteredData[selectedPlantId];
+        
+        if (!hasPermission(PERMISSIONS.DEPARTMENT.DELETE)) {
+          alert('You do not have permission to delete applications for this plant');
+          return;
+        }
+        
+        setShowDeleteModal(true);
+      }, [selectedPlantId, filteredData, hasPermission]);
   return (
     <div className={styles.pageWrapper}>
       <AppHeader title="Plant Master Management" />
@@ -294,15 +322,14 @@ const PlantMasterTable: React.FC = () => {
       <div className={styles.contentArea}>
         <div className={styles.controlPanel}>
           <div className={styles.actionRow}>
+             <PermissionGuard permission={PERMISSIONS.PLANT.CREATE}>
             <button
               className={styles.addBtn}
               onClick={() => navigate("/plant-master/add")}
-              disabled={!can("create:plants")}
-              title={!can("create:plants") ? "You don't have permission to add plants" : ""}
-            >
+              >
               + Add New Plant
             </button>
-            
+            </PermissionGuard>
             <button
               className={styles.filterBtn}
               onClick={() => setShowFilterPopover((prev) => !prev)}
@@ -310,8 +337,24 @@ const PlantMasterTable: React.FC = () => {
             >
               🔍 Filter
             </button>
-            
-            <button
+            <PermissionButton
+              permission={PERMISSIONS.PLANT.UPDATE}
+              className={styles.editBtn}
+              disabled={selectedPlantId === null}
+              onClick={handleEdit}
+            >
+              <FaEdit size={14} /> Edit
+            </PermissionButton>
+
+            <PermissionButton
+              permission={PERMISSIONS.PLANT.DELETE}
+              className={styles.deleteBtn}
+              disabled={selectedPlantId === null}
+              onClick={handleDelete}
+            >
+              <FaTrash size={14} /> Delete
+            </PermissionButton>
+            {/* <button
               className={styles.editBtn}
               onClick={() => {
                 if (selectedPlant) {
@@ -336,7 +379,7 @@ const PlantMasterTable: React.FC = () => {
               onClick={() => setShowDeleteModal(true)}
             >
               <FaTrash size={14} /> Delete
-            </button>
+            </button> */}
             
             <button
               className={styles.exportBtn}

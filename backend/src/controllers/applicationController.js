@@ -1,21 +1,28 @@
+// backend/controllers/applicationController.js
 const db = require("../config/db");
 const auditLog = require("../utils/audit");
 const { logActivity } = require("../utils/activityLogger");
 const { submitForApproval } = require("../utils/masterApprovalHelper");
-// Get all applications (GET)
+const { filterByPlantAccess, canAccessPlant } = require("../middleware/permissionMiddleware");
+
+// Get all applications (GET) - WITH PERMISSION FILTERING
 exports.getAllApplications = async (req, res) => {
   try {
     const result = await db.query(
       "SELECT * FROM application_master ORDER BY id ASC"
     );
-    res.status(200).json(result.rows);
+    
+    // 🔥 Filter by user's plant access
+    const filteredApps = filterByPlantAccess(result.rows, req.user);
+    
+    res.status(200).json(filteredApps);
   } catch (err) {
     console.error("Error fetching applications:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 };
 
-// Delete Application (DELETE)
+// Delete Application (DELETE) - WITH PERMISSION CHECK
 exports.deleteApplication = async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
@@ -33,10 +40,18 @@ exports.deleteApplication = async (req, res) => {
       return res.status(404).json({ error: "Application not found" });
     }
 
+    // 🔥 CHECK PERMISSION for this plant
+    if (!canAccessPlant(req.user, oldValue.plant_location_id)) {
+      return res.status(403).json({ 
+        error: "You do not have permission to delete applications for this plant",
+        code: "INSUFFICIENT_PERMISSIONS"
+      });
+    }
+
     const userId = req.user?.id || req.user?.user_id;
     const username = req.user?.username || "Unknown";
 
-    // 🔥 Submit for approval (same as plant)
+    // Submit for approval
     const approvalId = await submitForApproval({
       module: "application",
       tableName: "application_master",
@@ -66,7 +81,6 @@ exports.deleteApplication = async (req, res) => {
 
     const deletedRow = result.rows[0];
 
-    // normal audit log
     auditLog(
       req,
       "application_master",
@@ -77,7 +91,6 @@ exports.deleteApplication = async (req, res) => {
       "application deleted"
     );
 
-    // activity log
     await logActivity({
       userId,
       module: "application",
@@ -97,7 +110,7 @@ exports.deleteApplication = async (req, res) => {
   }
 };
 
-// Add Application (POST)
+// Add Application (POST) - WITH PERMISSION CHECK
 exports.addApplication = async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.user_id;
@@ -120,6 +133,14 @@ exports.addApplication = async (req, res) => {
       role_lock = false,
     } = req.body;
 
+    // 🔥 CHECK PERMISSION for this plant
+    if (!canAccessPlant(req.user, plant_location_id)) {
+      return res.status(403).json({ 
+        error: "You do not have permission to create applications for this plant",
+        code: "INSUFFICIENT_PERMISSIONS"
+      });
+    }
+
     let roleIdStr = Array.isArray(role_id)
       ? role_id.join(",")
       : String(role_id);
@@ -141,7 +162,7 @@ exports.addApplication = async (req, res) => {
       status,
     };
 
-    // 🔥 SUBMIT FOR APPROVAL
+    // Submit for approval
     const approvalId = await submitForApproval({
       module: "application",
       tableName: "application_master",
@@ -154,7 +175,6 @@ exports.addApplication = async (req, res) => {
       comments: `Create Application: ${display_name}`,
     });
 
-    // If approval required
     if (approvalId !== null) {
       return res.status(202).json({
         message: "Application creation submitted for approval",
@@ -212,8 +232,7 @@ exports.addApplication = async (req, res) => {
   }
 };
 
-
-// Edit Application (PUT)
+// Edit Application (PUT) - WITH PERMISSION CHECK
 exports.editApplication = async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
@@ -234,6 +253,14 @@ exports.editApplication = async (req, res) => {
       return res.status(404).json({ error: "Application not found" });
     }
 
+    // 🔥 CHECK PERMISSION for existing record's plant
+    if (!canAccessPlant(req.user, oldValue.plant_location_id)) {
+      return res.status(403).json({ 
+        error: "You do not have permission to edit this application",
+        code: "INSUFFICIENT_PERMISSIONS"
+      });
+    }
+
     const {
       transaction_id,
       plant_location_id,
@@ -250,6 +277,16 @@ exports.editApplication = async (req, res) => {
       status,
       role_lock = false,
     } = req.body;
+
+    // 🔥 CHECK PERMISSION for new plant (if plant is being changed)
+    if (plant_location_id !== oldValue.plant_location_id) {
+      if (!canAccessPlant(req.user, plant_location_id)) {
+        return res.status(403).json({ 
+          error: "You do not have permission to move this application to the selected plant",
+          code: "INSUFFICIENT_PERMISSIONS"
+        });
+      }
+    }
 
     let roleIdStr = Array.isArray(role_id)
       ? role_id.join(",")
@@ -272,7 +309,7 @@ exports.editApplication = async (req, res) => {
       status,
     };
 
-    // 🔥 Submit for approval
+    // Submit for approval
     const approvalId = await submitForApproval({
       module: "application",
       tableName: "application_master",
@@ -353,13 +390,20 @@ exports.editApplication = async (req, res) => {
   }
 };
 
-
 exports.getDepartmentByPlantId = async (req, res) => {
   try {
     const plantID = parseInt(req.params.id, 10);
 
     if (isNaN(plantID)) {
       return res.status(400).json({ error: "Invalid plant ID" });
+    }
+
+    // 🔥 CHECK if user can access this plant
+    if (!canAccessPlant(req.user, plantID)) {
+      return res.status(403).json({ 
+        error: "You do not have permission to access departments for this plant",
+        code: "INSUFFICIENT_PERMISSIONS"
+      });
     }
 
     const result = await db.query(
@@ -384,7 +428,7 @@ exports.getDepartmentByPlantId = async (req, res) => {
   }
 };
 
-// Get activity logs related to applications (normalizes legacy `details` rows)
+// Get activity logs - WITH PERMISSION FILTERING
 exports.getApplicationActivityLogs = async (req, res) => {
   try {
     const { rows: rawRows } = await db.query(
@@ -415,7 +459,37 @@ exports.getApplicationActivityLogs = async (req, res) => {
       return r;
     });
 
-    res.json(rows);
+    // 🔥 Filter logs - only show logs for accessible plants
+    const filteredRows = rows.filter(log => {
+      // Try to extract plant_location_id from old_value or new_value
+      let plantId = null;
+      
+      if (log.old_value) {
+        try {
+          const oldVal = typeof log.old_value === 'string' 
+            ? JSON.parse(log.old_value) 
+            : log.old_value;
+          plantId = oldVal.plant_location_id;
+        } catch (e) {}
+      }
+      
+      if (!plantId && log.new_value) {
+        try {
+          const newVal = typeof log.new_value === 'string' 
+            ? JSON.parse(log.new_value) 
+            : log.new_value;
+          plantId = newVal.plant_location_id;
+        } catch (e) {}
+      }
+      
+      // If no plant ID found, include the log (might be system-level)
+      if (!plantId) return true;
+      
+      // Check if user can access this plant
+      return canAccessPlant(req.user, plantId);
+    });
+
+    res.json(filteredRows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -428,6 +502,14 @@ exports.getRoleApplicationIDByPlantIdandDepartment = async (req, res) => {
 
     if (isNaN(plantID) || isNaN(departmentID)) {
       return res.status(400).json({ error: "Invalid plant or department ID" });
+    }
+
+    // 🔥 CHECK if user can access this plant
+    if (!canAccessPlant(req.user, plantID)) {
+      return res.status(403).json({ 
+        error: "You do not have permission to access data for this plant",
+        code: "INSUFFICIENT_PERMISSIONS"
+      });
     }
 
     const result = await db.query(

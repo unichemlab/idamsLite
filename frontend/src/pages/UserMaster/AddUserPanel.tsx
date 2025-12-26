@@ -10,10 +10,14 @@ const moduleList = [
    "Application Master",
   "Approval Workflow",
   "Dashboard",
+  "Department Master",
+ // "Network Master",
   "Plant Master",
   "Role Master",
   "Reviewer",
   "Reports",
+  "Server Inventory",
+  "System Inventory",
   "Task Clouser Bin",
   "Vendor Information",
 ];
@@ -418,7 +422,7 @@ const AddUserPanel = ({
         )}
         <div className={styles.header}>
           <h2 className={styles.title}>
-            {mode === "edit" ? `Edit User - ${form.fullName}` : "Add New User"}
+            {mode === "edit" ? `Edit User - ${form.fullName}` : "Add New User12"}
           </h2>
           <button type="button" className={styles.closeBtn} onClick={onClose}>
             ×
