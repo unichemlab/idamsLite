@@ -1,4 +1,4 @@
-import React, { useState, useRef, useContext } from "react";
+import React, { useState, useRef, useContext,useMemo } from "react";
 import styles from "../Plant/PlantMasterTable.module.css";
 import { FaEdit, FaTrash } from "react-icons/fa";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
@@ -10,6 +10,10 @@ import unichemLogoBase64 from "../../assets/unichemLogoBase64";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
 import { useAuth } from "../../context/AuthContext";
 import AppHeader from "../../components/Common/AppHeader";
+import { usePermissions } from "../../context/PermissionContext";
+import { filterByPlantPermission,filterByModulePlantPermission } from "../../utils/permissionUtils";
+import { fetchApplicationActivityLogs, API_BASE } from "../../utils/api";
+import { PermissionGuard, PermissionButton } from "../../components/Common/PermissionComponents";
 
 const ServerInventoryMasterTable: React.FC = () => {
   const serverCtx = useContext(ServerContext);
@@ -28,7 +32,10 @@ const ServerInventoryMasterTable: React.FC = () => {
 
   // Fetch servers from backend
   // Removed direct fetch; data comes from context
-
+ // Filter by plant permissions first
+  // const permissionFilteredData = useMemo(() => {
+  //   return filterByModulePlantPermission(servers,user,"system_inventory");
+  // }, [servers, user]);
   // Filtering logic
   const filteredData = servers.filter((server) => {
     if (!filterValue.trim()) return true;
