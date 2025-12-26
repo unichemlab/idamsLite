@@ -94,7 +94,7 @@ const AddApplicationMaster: React.FC = () => {
           {/* Form Card */}
           <div className={addStyles.formCard}>
             <div className={addStyles.formHeader}>
-              <h2>Add New Application</h2>
+              <h2>Add New Application 12</h2>
               <p>Enter application details to add a new record to the system</p>
             </div>
 

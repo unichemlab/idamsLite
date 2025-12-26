@@ -21,11 +21,36 @@ const EditApplicationFormPage: React.FC = () => {
   const [roles, setRoles] = useState<{ id: string; name: string }[]>([]);
   const { plants } = require("../PlantMaster/PlantContext").usePlantContext();
   const plantOptions = Array.isArray(plants)
-    ? plants.map((plant: any) => ({
+  ? plants
+      .filter((plant: any) => {
+        // 🔥 Super Admin → all plants
+        if (
+          user?.role_id === 1 ||
+          (Array.isArray(user?.role_id) && user?.role_id.includes(1)) ||
+          user?.isSuperAdmin
+        ) {
+          return true;
+        }
+
+        const plantId = Number(plant.id);
+
+        // 🔒 IT Bin access
+        // if (user?.isITBin && Array.isArray(user?.itPlantIds)) {
+        //   return user.itPlantIds.includes(plantId);
+        // }
+
+        // 🔒 Normal permitted plants
+        if (Array.isArray(user?.permittedPlantIds)) {
+          return user?.permittedPlantIds.includes(plantId);
+        }
+
+        return false;
+      })
+      .map((plant: any) => ({
         value: String(plant.id),
         label: plant.plant_name || plant.name || String(plant.id),
       }))
-    : [];
+  : [];
   const { departments } =
     require("../DepartmentMaster/DepartmentContext").useDepartmentContext();
   const departmentOptions = Array.isArray(departments)
@@ -253,7 +278,7 @@ const EditApplicationFormPage: React.FC = () => {
           <div className={addStyles.formCard}>
             <div className={addStyles.formHeader}>
               <h2>Edit Application</h2>
-              <p>Update application details in the system</p>
+              <p>Update application details in the system12</p>
             </div>
 
             <form className={addStyles.form} onSubmit={handleSubmit}>

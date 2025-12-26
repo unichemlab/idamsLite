@@ -1,5 +1,5 @@
 import React from "react";
-import AddUserPanel, { UserForm } from "../AddUserPanel/AddUserPanel";
+import AddUserPanel, { UserForm } from "./AddUserPanel";
 import styles from "./AddUserFormPage.module.css";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useUserContext } from "../../context/UserContext";

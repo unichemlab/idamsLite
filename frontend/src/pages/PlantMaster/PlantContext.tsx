@@ -49,7 +49,7 @@ interface PlantContextType {
   plants: Plant[];
   addPlant: (plant: Plant) => Promise<ApprovalResponse | Plant>;
   updatePlant: (index: number, updated: Plant) => Promise<ApprovalResponse | Plant>;
-  deletePlant: (index: number) => Promise<ApprovalResponse | void>;
+  deletePlant: (index: number) => void;
   refreshPlants: () => void;
 }
 

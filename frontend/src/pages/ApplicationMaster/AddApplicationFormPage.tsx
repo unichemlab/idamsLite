@@ -11,13 +11,40 @@ import { usePlantContext } from "../PlantMaster/PlantContext";
 import { FaLock, FaUnlock } from "react-icons/fa";
 
 const AddApplicationFormPage: React.FC = () => {
+  const { user } = useAuth();
   const { plants } = usePlantContext();
-  const plantOptions = Array.isArray(plants)
-    ? plants.map((plant) => ({
+ const plantOptions = Array.isArray(plants)
+  ? plants
+      .filter((plant: any) => {
+        // 🔥 Super Admin → all plants
+        if (
+          user?.role_id === 1 ||
+          (Array.isArray(user?.role_id) && user?.role_id.includes(1)) ||
+          user?.isSuperAdmin
+        ) {
+          return true;
+        }
+
+        const plantId = Number(plant.id);
+
+        // 🔒 IT Bin access
+        // if (user?.isITBin && Array.isArray(user?.itPlantIds)) {
+        //   return user.itPlantIds.includes(plantId);
+        // }
+
+        // 🔒 Normal permitted plants
+        if (Array.isArray(user?.permittedPlantIds)) {
+          return user?.permittedPlantIds.includes(plantId);
+        }
+
+        return false;
+      })
+      .map((plant: any) => ({
         value: String(plant.id),
         label: plant.plant_name || plant.name || String(plant.id),
       }))
-    : [];
+  : [];
+
   const { departments } =
     require("../DepartmentMaster/DepartmentContext").useDepartmentContext();
   const departmentOptions = Array.isArray(departments)
@@ -28,7 +55,7 @@ const AddApplicationFormPage: React.FC = () => {
     : [];
 
   const [roleLocked, setRoleLocked] = useState(false);
-  const { user } = useAuth();
+  
   const username = user?.username || "";
   const [showModal, setShowModal] = useState(false);
   const navigate = useNavigate();

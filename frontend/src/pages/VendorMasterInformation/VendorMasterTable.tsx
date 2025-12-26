@@ -1,9 +1,11 @@
-import React, { useEffect } from "react";
+import React, { useEffect,useCallback } from "react";
 import { useVendorContext } from "../VendorMaster/VendorContext";
 import styles from "../Plant/PlantMasterTable.module.css";
 import paginationStyles from "../../styles/Pagination.module.css";
 import { FaEdit, FaTrash } from "react-icons/fa";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
+import { PermissionGuard, PermissionButton } from "../../components/Common/PermissionComponents";
+import { PERMISSIONS } from "../../constants/permissions";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { FaRegClock } from "react-icons/fa6";
@@ -13,6 +15,7 @@ import { fetchVendorActivityLogs } from "../../utils/api";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
 import { useAuth } from "../../context/AuthContext";
 import AppHeader from "../../components/Common/AppHeader";
+import { usePermissions } from "../../context/PermissionContext";
 
 // Activity logs from backend
 
@@ -37,6 +40,7 @@ const VendorMasterTable: React.FC = () => {
   const navigate = useNavigate();
   const { can } = useAbility();
   const { user } = useAuth();
+   const { hasPermission } = usePermissions();
 
   useEffect(() => {
     if (!showFilterPopover) return;
@@ -51,6 +55,9 @@ const VendorMasterTable: React.FC = () => {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [showFilterPopover]);
+
+
+
 
   // Filtering logic
   const filteredData = vendors.filter((vendor) => {
@@ -320,24 +327,48 @@ const VendorMasterTable: React.FC = () => {
     setShowDeleteModal(false);
   };
 
+
+  const handleEdit = useCallback(() => {
+      if (selectedRow === null) return;
+      const app = filteredData[selectedRow];
+      
+      // if (!hasPermission(PERMISSIONS.APPLICATION.UPDATE, app.plant_location_id)) {
+      //   alert('You do not have permission to edit applications for this plant');
+      //   return;
+      // }
+      
+      navigate(`/vendor-information/edit/${app.id}`, {
+        state: { applicationData: app, applicationIdx: selectedRow },
+      });
+       //navigate(`/vendor-information/edit/${selectedRow}`);
+    }, [selectedRow, filteredData, navigate]);
+
+    const handleDelete = useCallback(() => {
+        if (selectedRow === null) return;
+        const app = filteredData[selectedRow];
+        
+        if (!hasPermission(PERMISSIONS.APPLICATION.DELETE)) {
+          alert('You do not have permission to delete applications for this plant');
+          return;
+        }
+        
+        setShowDeleteModal(true);
+      }, [selectedRow, filteredData, hasPermission]);
+
   return (
     <div className={styles.pageWrapper}>
       <AppHeader title="Vendor Information Management" />
       <div className={styles.contentArea}>
         <div className={styles.controlPanel}>
           <div className={styles.actionRow}>
+             <PermissionGuard permission={PERMISSIONS.VENDOR.CREATE}>
           <button
             className={styles.addBtn}
             onClick={() => navigate("/vendor-information/add")}
-            disabled={!can("create:vendors")}
-            title={
-              !can("create:vendors")
-                ? "You don't have permission to add vendors"
-                : ""
-            }
           >
             + Add New
           </button>
+          </PermissionGuard>
           <button
             className={styles.filterBtn}
             onClick={() => setShowFilterPopover((prev) => !prev)}
@@ -346,37 +377,24 @@ const VendorMasterTable: React.FC = () => {
           >
             🔍 Filter
           </button>
-          <button
-            className={`${styles.btn} ${styles.editBtn}`}
-            onClick={() => {
-              if (selectedRow !== null)
-                navigate(`/vendor-information/edit/${selectedRow}`);
-            }}
-            disabled={selectedRow === null || !can("update:vendors")}
-            title={
-              selectedRow === null
-                ? "Select a vendor to edit"
-                : !can("update:vendors")
-                ? "You don't have permission to edit vendors"
-                : ""
-            }
-          >
-            <FaEdit size={14} /> Edit
-          </button>
-          <button
-            className={`${styles.btn} ${styles.deleteBtn}`}
-            disabled={selectedRow === null || !can("delete:vendors")}
-            onClick={() => setShowDeleteModal(true)}
-            title={
-              selectedRow === null
-                ? "Select a vendor to delete"
-                : !can("delete:vendors")
-                ? "You don't have permission to delete vendors"
-                : ""
-            }
-          >
-            <FaTrash size={14} /> Delete
-          </button>
+           <PermissionButton
+              permission={PERMISSIONS.VENDOR.UPDATE}
+              className={styles.editBtn}
+              disabled={selectedRow === null}
+              onClick={handleEdit}
+            >
+              <FaEdit size={14} /> Edit
+            </PermissionButton>
+
+            <PermissionButton
+              permission={PERMISSIONS.VENDOR.DELETE}
+              className={styles.deleteBtn}
+              disabled={selectedRow === null}
+              onClick={handleDelete}
+            >
+              <FaTrash size={14} /> Delete
+            </PermissionButton>
+          
           <button
             className={styles.exportBtn}
             aria-label="Export table to PDF"

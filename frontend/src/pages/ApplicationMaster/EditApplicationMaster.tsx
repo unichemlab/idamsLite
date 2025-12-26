@@ -175,7 +175,7 @@ const EditApplicationMaster: React.FC = () => {
           <div className={addStyles.formCard}>
             <div className={addStyles.formHeader}>
               <h2>Edit Application</h2>
-              <p>Update application details in the system</p>
+              <p>Update application details in the system123</p>
             </div>
 
             <form className={addStyles.form} onSubmit={handleSubmit}>
