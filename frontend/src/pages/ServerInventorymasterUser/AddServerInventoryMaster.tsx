@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { useServerContext, Server } from "../ServerInventorymasterUser/ServerContext";
+import { useServerContext, Server } from "../ServerInventoryMaster/ServerContext";
 import AppHeader from "../../components/Common/AppHeader";
 import styles from "../Plant/AddPlantMaster.module.css";
 
