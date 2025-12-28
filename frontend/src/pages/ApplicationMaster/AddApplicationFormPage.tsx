@@ -162,68 +162,88 @@ const AddApplicationFormPage: React.FC = () => {
     setShowModal(true);
   };
 
-  const handleConfirm = async (data: Record<string, string>) => {
-    if (data.username === username && data.password) {
-      try {
-        let newTransactionId = "APP0000001";
-        if (applications && applications.length > 0) {
-          const maxNum = applications
-            .map((a) => {
-              const match = String(a.transaction_id || "").match(/APP(\d+)/);
-              return match ? parseInt(match[1], 10) : 0;
-            })
-            .reduce((a, b) => Math.max(a, b), 0);
-          newTransactionId = `APP${String(maxNum + 1).padStart(7, "0")}`;
-        }
-        const payload = {
-          ...form,
-          transaction_id: newTransactionId,
-          role_id: Array.isArray(form.role_id)
-            ? form.role_id.join(",")
-            : form.role_id,
-          plant_location_id: form.plant_location_id
-            ? Number(form.plant_location_id)
-            : null,
-          department_id: form.department_id ? Number(form.department_id) : null,
-          system_inventory_id: form.system_inventory_id
-            ? Number(form.system_inventory_id)
-            : null,
-          role_lock: true,
-        };
-        const res = await fetch(`${API_BASE}/api/applications`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`, // 🔥 REQUIRED
-          },
-          body: JSON.stringify(payload),
-        });
+  // AddApplicationFormPage.tsx - Updated handleConfirm function
 
-        if (!res.ok) {
-          const errorText = await res.text();
-          throw new Error("Failed to add application: " + errorText);
+const handleConfirm = async (data: Record<string, string>) => {
+  if (data.username === username && data.password) {
+    try {
+      // 🔥 Don't generate transaction_id - let backend handle it
+      const payload = {
+        plant_location_id: form.plant_location_id
+          ? Number(form.plant_location_id)
+          : null,
+        department_id: form.department_id ? Number(form.department_id) : null,
+        application_hmi_name: form.application_hmi_name,
+        application_hmi_version: form.application_hmi_version,
+        equipment_instrument_id: form.equipment_instrument_id,
+        application_hmi_type: form.application_hmi_type,
+        display_name: form.display_name,
+        role_id: Array.isArray(form.role_id)
+          ? form.role_id.join(",")
+          : form.role_id,
+        system_name: form.system_name,
+        system_inventory_id: form.system_inventory_id
+          ? Number(form.system_inventory_id)
+          : null,
+        multiple_role_access: form.multiple_role_access,
+        status: form.status,
+        role_lock: roleLocked,
+      };
+
+      console.log("📤 Sending payload:", payload);
+
+      const res = await fetch(`${API_BASE}/api/applications`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
+        
+        // Handle specific error codes
+        if (errorData.code === "DUPLICATE_TRANSACTION_ID") {
+          throw new Error("Duplicate transaction ID detected. Please try again.");
         }
-        const newApp = await res.json();
-        const roleIdArr = String(newApp.role_id || "")
-          .split(",")
-          .map((id) => id.trim())
-          .filter(Boolean);
-        const role_names = roleIdArr.map(
-          (id) => roles.find((r) => r.id === id)?.name || id
-        );
-        setApplications([...(applications || []), { ...newApp, role_names }]);
-        setShowModal(false);
-        navigate("/application-masters", { state: { activeTab: "application" } });
-      } catch (err) {
-        alert(
-          "Failed to add application. Please try again.\n" +
-          (err instanceof Error ? err.message : "")
-        );
+        
+        throw new Error(errorData.error || errorData.message || "Failed to add application");
       }
-    } else {
-      alert("Invalid credentials. Please try again.");
+
+      const newApp = await res.json();
+      
+      // Handle pending approval response
+      if (newApp.status === "PENDING_APPROVAL") {
+        alert(`Application submitted for approval!\nApproval ID: ${newApp.approvalId}`);
+        navigate("/application-masters", { state: { activeTab: "application" } });
+        return;
+      }
+
+      // Handle direct creation (no approval needed)
+      const roleIdArr = String(newApp.role_id || "")
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean);
+      const role_names = roleIdArr.map(
+        (id) => roles.find((r) => r.id === id)?.name || id
+      );
+      
+      setApplications([...(applications || []), { ...newApp, role_names }]);
+      setShowModal(false);
+      navigate("/application-masters", { state: { activeTab: "application" } });
+    } catch (err) {
+      console.error("❌ Error adding application:", err);
+      alert(
+        "Failed to add application. Please try again.\n" +
+        (err instanceof Error ? err.message : "Unknown error")
+      );
     }
-  };
+  } else {
+    alert("Invalid credentials. Please try again.");
+  }
+};
 
   return (
     <React.Fragment>
