@@ -14,7 +14,7 @@ const syncADUsers = async (req, res) => {
       errorMessage = null;
 
   try {
-    const ou = req.query.ou || "OU=BADDI"; 
+    const ou = req.query.ou || "OU=COE-Ghaziabad"; 
     const baseDN = `${ou},DC=uniwin,DC=local`;
 
     // Fetch last sync time from log
