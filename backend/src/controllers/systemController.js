@@ -1,30 +1,59 @@
 const { logActivity } = require("../utils/activityLogger");
 const { submitForApproval } = require("../utils/masterApprovalHelper");
+const pool = require("../config/db");
 
 // ------------------------------
-// IN-MEMORY SYSTEM LIST
+// GET ALL SYSTEMS WITH RELATIONS
 // ------------------------------
-let systems = [{ id: 1, transaction_id: "SYS00000001", plant_location_id: "1", user_location: "", building_location: "", department_id: "1", allocated_to_user_name: "", host_name: "MES-GOA1-PROD-01", make: "", model: "", serial_no: "", processor: "", ram_capacity: "", hdd_capacity: "", ip_address: "", other_software: "", windows_activated: false, os_version_service_pack: "", architecture: "", type_of_asset: "", category_gxp: "", gamp_category: "", instrument_equipment_name: "", equipment_instrument_id: "EQP-GOA1-PROD-001", instrument_owner: "", service_tag: "", warranty_status: "", warranty_end_date: "", connected_no_of_equipments: 0, application_name: "Manufacturing Execution System", application_version: "v4.2.1", application_oem: "", application_vendor: "", user_management_applicable: false, application_onboard: "", system_process_owner: "", database_version: "", domain_workgroup: "", connected_through: "", specific_vlan: "", ip_address_type: "", date_time_sync_available: false, antivirus: "", antivirus_version: "", backup_type: "", backup_frequency_days: 0, backup_path: "", backup_tool: "", backup_procedure_available: false, folder_deletion_restriction: false, remote_tool_available: false, os_administrator: "", system_running_with: "", audit_trail_adequacy: "", user_roles_availability: false, user_roles_challenged: false, system_managed_by: "", planned_upgrade_fy2526: false, eol_eos_upgrade_status: "", system_current_status: "", purchase_po: "", purchase_vendor_name: "", amc_vendor_name: "", renewal_po: "", warranty_period: "", amc_start_date: "", amc_expiry_date: "", sap_asset_no: "", remarks: "", status: "ACTIVE", created_on: "2025-09-05 17:22:19.656851", updated_on: "2025-09-05 17:22:19.656851", system_name: "MES-GOA1-PROD-01", description: "Manufacturing Execution System", }, { id: 2, transaction_id: "SYS00000002", plant_location_id: "1", user_location: "", building_location: "", department_id: "2", allocated_to_user_name: "", host_name: "LIMS-GOA1-QC-01", make: "", model: "", serial_no: "", processor: "", ram_capacity: "", hdd_capacity: "", ip_address: "", other_software: "", windows_activated: false, os_version_service_pack: "", architecture: "", type_of_asset: "", category_gxp: "", gamp_category: "", instrument_equipment_name: "", equipment_instrument_id: "EQP-GOA1-QC-001", instrument_owner: "", service_tag: "", warranty_status: "", warranty_end_date: "", connected_no_of_equipments: 0, application_name: "Laboratory Information Management System", application_version: "v3.8.5", application_oem: "", application_vendor: "", user_management_applicable: false, application_onboard: "", system_process_owner: "", database_version: "", domain_workgroup: "", connected_through: "", specific_vlan: "", ip_address_type: "", date_time_sync_available: false, antivirus: "", antivirus_version: "", backup_type: "", backup_frequency_days: 0, backup_path: "", backup_tool: "", backup_procedure_available: false, folder_deletion_restriction: false, remote_tool_available: false, os_administrator: "", system_running_with: "", audit_trail_adequacy: "", user_roles_availability: false, user_roles_challenged: false, system_managed_by: "", planned_upgrade_fy2526: false, eol_eos_upgrade_status: "", system_current_status: "", purchase_po: "", purchase_vendor_name: "", amc_vendor_name: "", renewal_po: "", warranty_period: "", amc_start_date: "", amc_expiry_date: "", sap_asset_no: "", remarks: "", status: "ACTIVE", created_on: "2025-09-05 17:22:19.656851", updated_on: "2025-09-05 17:22:19.656851", system_name: "LIMS-GOA1-QC-01", description: "Laboratory Information Management System", }, { id: 3, transaction_id: "SYS00000003", plant_location_id: "11", user_location: "", building_location: "", department_id: "15", allocated_to_user_name: "", host_name: "ERP-CORP-FIN-01", make: "", model: "", serial_no: "", processor: "", ram_capacity: "", hdd_capacity: "", ip_address: "", other_software: "", windows_activated: false, os_version_service_pack: "", architecture: "", type_of_asset: "", category_gxp: "", gamp_category: "", instrument_equipment_name: "", equipment_instrument_id: "EQP-CORP-FIN-001", instrument_owner: "", service_tag: "", warranty_status: "", warranty_end_date: "", connected_no_of_equipments: 0, application_name: "Enterprise Resource Planning", application_version: "v12.2", application_oem: "", application_vendor: "", user_management_applicable: false, application_onboard: "", system_process_owner: "", database_version: "", domain_workgroup: "", connected_through: "", specific_vlan: "", ip_address_type: "", date_time_sync_available: false, antivirus: "", antivirus_version: "", backup_type: "", backup_frequency_days: 0, backup_path: "", backup_tool: "", backup_procedure_available: false, folder_deletion_restriction: false, remote_tool_available: false, os_administrator: "", system_running_with: "", audit_trail_adequacy: "", user_roles_availability: false, user_roles_challenged: false, system_managed_by: "", planned_upgrade_fy2526: false, eol_eos_upgrade_status: "", system_current_status: "", purchase_po: "", purchase_vendor_name: "", amc_vendor_name: "", renewal_po: "", warranty_period: "", amc_start_date: "", amc_expiry_date: "", sap_asset_no: "", remarks: "", status: "ACTIVE", created_on: "2025-09-05 17:22:19.656851", updated_on: "2025-09-05 17:22:19.656851", system_name: "ERP-CORP-FIN-01", description: "Enterprise Resource Planning", },];
-
-// ------------------------------
-// GET ALL SYSTEMS
-// ------------------------------
-exports.getAllSystems = (req, res) => {
-  res.json(systems);
+exports.getAllSystems = async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        s.*,
+        p.plant_name,
+        d.department_name
+      FROM system_inventory_master s
+      LEFT JOIN plant_master p ON s.plant_location_id = p.id
+      LEFT JOIN department_master d ON s.department_id = d.id
+      WHERE s.status = 'ACTIVE'
+      ORDER BY s.id DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching systems:", err);
+    res.status(500).json({ error: err.message });
+  }
 };
 
 // ------------------------------
-// GET SYSTEM BY ID
+// GET SYSTEM BY ID WITH RELATIONS
 // ------------------------------
-exports.getSystemById = (req, res) => {
+exports.getSystemById = async (req, res) => {
   const id = parseInt(req.params.id, 10);
-  const system = systems.find((s) => s.id === id);
-  if (!system) return res.status(404).json({ error: "System not found" });
-  res.json(system);
+  try {
+    const result = await pool.query(`
+      SELECT 
+        s.*,
+        p.plant_name,
+        d.department_name
+      FROM system_inventory_master s
+      LEFT JOIN plant_master p ON s.plant_location_id = p.id
+      LEFT JOIN department_master d ON s.department_id = d.id
+      WHERE s.id = $1 
+    `, [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "System not found" });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error fetching system:", err);
+    res.status(500).json({ error: err.message });
+  }
 };
 
 // ------------------------------
-// CREATE SYSTEM  (WITH APPROVAL)
+// CREATE SYSTEM (WITH APPROVAL)
 // ------------------------------
 exports.createSystem = async (req, res) => {
   const userId = req.user?.id || req.user?.user_id;
@@ -32,6 +61,35 @@ exports.createSystem = async (req, res) => {
 
   try {
     const payload = { ...req.body };
+
+    // Convert string IDs to integers for foreign keys
+    if (payload.plant_location_id) {
+      payload.plant_location_id = parseInt(payload.plant_location_id, 10);
+    }
+    if (payload.department_id) {
+      payload.department_id = parseInt(payload.department_id, 10);
+    }
+
+    // Validate foreign keys exist
+    if (payload.plant_location_id) {
+      const plantCheck = await pool.query(
+        'SELECT id FROM plant_master WHERE id = $1',
+        [payload.plant_location_id]
+      );
+      if (plantCheck.rows.length === 0) {
+        return res.status(400).json({ error: "Invalid plant location ID" });
+      }
+    }
+
+    if (payload.department_id) {
+      const deptCheck = await pool.query(
+        'SELECT id FROM department_master WHERE id = $1',
+        [payload.department_id]
+      );
+      if (deptCheck.rows.length === 0) {
+        return res.status(400).json({ error: "Invalid department ID" });
+      }
+    }
 
     // Prepare new unapproved data
     const newSystemData = {
@@ -42,40 +100,41 @@ exports.createSystem = async (req, res) => {
     // Submit for approval
     const approvalId = await submitForApproval({
       module: "system",
-      tableName: "system_master",
+      tableName: "system_inventory_master",
       action: "create",
       recordId: null,
       oldValue: null,
       newValue: newSystemData,
       requestedBy: userId,
       requestedByUsername: username,
-      comments: `Create system: ${payload.system_name || ""}`,
+      comments: `Create system: ${payload.host_name || ""}`,
     });
 
     // If approval workflow is OFF → create immediately
     if (approvalId === null) {
-      const maxId = systems.reduce((m, s) => Math.max(m, s.id || 0), 0);
-      const newId = maxId + 1;
-      const now = new Date().toISOString();
+      // Build column names and values dynamically
+      const columns = Object.keys(newSystemData).filter(k => k !== 'id' && k !== 'created_on' && k !== 'updated_on');
+      const values = columns.map(k => newSystemData[k]);
+      const placeholders = columns.map((_, i) => `$${i + 1}`).join(', ');
+      const columnList = columns.join(', ');
 
-      const newSystem = {
-        id: newId,
-        ...newSystemData,
-        created_on: now,
-        updated_on: now,
-      };
+      const result = await pool.query(`
+        INSERT INTO system_inventory_master (${columnList})
+        VALUES (${placeholders})
+        RETURNING *
+      `, values);
 
-      systems.push(newSystem);
+      const newSystem = result.rows[0];
 
       await logActivity({
         userId,
         module: "system",
-        tableName: "system_master",
-        recordId: newId,
+        tableName: "system_inventory_master",
+        recordId: newSystem.id,
         action: "create",
         oldValue: null,
         newValue: newSystem,
-        comments: `Created system id ${newId}`,
+        comments: `Created system id ${newSystem.id}`,
         reqMeta: req._meta || {},
       });
 
@@ -97,7 +156,7 @@ exports.createSystem = async (req, res) => {
 };
 
 // ------------------------------
-// UPDATE SYSTEM  (WITH APPROVAL)
+// UPDATE SYSTEM (WITH APPROVAL)
 // ------------------------------
 exports.updateSystem = async (req, res) => {
   const userId = req.user?.id || req.user?.user_id;
@@ -105,16 +164,54 @@ exports.updateSystem = async (req, res) => {
   const id = parseInt(req.params.id, 10);
 
   try {
-    const idx = systems.findIndex((s) => s.id === id);
-    if (idx === -1) return res.status(404).json({ error: "System not found" });
+    // Get existing system
+    const existing = await pool.query(
+      'SELECT * FROM system_inventory_master WHERE id = $1',
+      [id]
+    );
+    
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: "System not found" });
+    }
 
-    const oldValue = { ...systems[idx] };
-    const newValue = { ...systems[idx], ...req.body };
+    const oldValue = existing.rows[0];
+    const payload = { ...req.body };
+
+    // Convert string IDs to integers for foreign keys
+    if (payload.plant_location_id) {
+      payload.plant_location_id = parseInt(payload.plant_location_id, 10);
+    }
+    if (payload.department_id) {
+      payload.department_id = parseInt(payload.department_id, 10);
+    }
+
+    // Validate foreign keys if changed
+    if (payload.plant_location_id && payload.plant_location_id !== oldValue.plant_location_id) {
+      const plantCheck = await pool.query(
+        'SELECT id FROM plant_master WHERE id = $1',
+        [payload.plant_location_id]
+      );
+      if (plantCheck.rows.length === 0) {
+        return res.status(400).json({ error: "Invalid plant location ID" });
+      }
+    }
+
+    if (payload.department_id && payload.department_id !== oldValue.department_id) {
+      const deptCheck = await pool.query(
+        'SELECT id FROM department_master WHERE id = $1',
+        [payload.department_id]
+      );
+      if (deptCheck.rows.length === 0) {
+        return res.status(400).json({ error: "Invalid department ID" });
+      }
+    }
+
+    const newValue = { ...oldValue, ...payload };
 
     // Submit for approval
     const approvalId = await submitForApproval({
       module: "system",
-      tableName: "system_master",
+      tableName: "system_inventory_master",
       action: "update",
       recordId: id,
       oldValue,
@@ -126,25 +223,35 @@ exports.updateSystem = async (req, res) => {
 
     // If approval workflow is OFF → update immediately
     if (approvalId === null) {
-      systems[idx] = {
-        ...systems[idx],
-        ...req.body,
-        updated_on: new Date().toISOString(),
-      };
+      // Build dynamic UPDATE query
+      const fields = Object.keys(payload).filter(k => k !== 'id' && k !== 'created_on' && k !== 'updated_on');
+      const setClause = fields.map((f, i) => `${f} = $${i + 1}`).join(', ');
+      const values = fields.map(f => payload[f]);
+      values.push(id);
+
+      const result = await pool.query(
+        `UPDATE system_inventory_master 
+         SET ${setClause}, updated_on = NOW() 
+         WHERE id = $${values.length} 
+         RETURNING *`,
+        values
+      );
+
+      const updated = result.rows[0];
 
       await logActivity({
         userId,
         module: "system",
-        tableName: "system_master",
+        tableName: "system_inventory_master",
         recordId: id,
         action: "update",
         oldValue,
-        newValue: systems[idx],
+        newValue: updated,
         comments: `Updated system id ${id}`,
         reqMeta: req._meta || {},
       });
 
-      return res.json(systems[idx]);
+      return res.json(updated);
     }
 
     res.status(202).json({
@@ -169,15 +276,21 @@ exports.deleteSystem = async (req, res) => {
   const id = parseInt(req.params.id, 10);
 
   try {
-    const idx = systems.findIndex((s) => s.id === id);
-    if (idx === -1) return res.status(404).json({ error: "System not found" });
+    const existing = await pool.query(
+      'SELECT * FROM system_inventory_master WHERE id = $1',
+      [id]
+    );
+    
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: "System not found" });
+    }
 
-    const oldValue = { ...systems[idx] };
+    const oldValue = existing.rows[0];
 
     // Submit for approval
     const approvalId = await submitForApproval({
       module: "system",
-      tableName: "system_master",
+      tableName: "system_inventory_master",
       action: "delete",
       recordId: id,
       oldValue,
@@ -189,12 +302,12 @@ exports.deleteSystem = async (req, res) => {
 
     // If approval workflow is OFF → delete immediately
     if (approvalId === null) {
-      systems.splice(idx, 1);
+      await pool.query('DELETE FROM system_inventory_master WHERE id = $1', [id]);
 
       await logActivity({
         userId,
         module: "system",
-        tableName: "system_master",
+        tableName: "system_inventory_master",
         recordId: id,
         action: "delete",
         oldValue,

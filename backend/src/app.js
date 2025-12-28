@@ -100,8 +100,8 @@ app.get("/api/ad-users-sync", async (req, res) => {
     errorMessage = null;
 
   try {
-    const ou = req.query.ou || "OU=JOGESHWARI"; // dynamic OU support
-    const baseDN = `${ou},DC=uniwin,DC=local`;
+    const ou = req.query.ou || "OU=BADDI"; // dynamic OU support
+    const baseDN = `OU=BADDI,DC=uniwin,DC=local`;
 
     // ----------------------------
     // Fetch previous last_sync for OU
@@ -170,7 +170,7 @@ app.get("/api/ad-users-sync", async (req, res) => {
         );
       });
     };
-
+console.log("Using LDAP filter:", baseDN, ldapFilter);
     // ----------------------------
     // Fetch AD users incrementally
     // ----------------------------
@@ -202,7 +202,7 @@ app.get("/api/ad-users-sync", async (req, res) => {
 
         const users = results.users || [];
         totalRecords = users.length;
-
+        console.log(`Fetched ${totalRecords} user(s) from AD for OU: ${ou}`);
         for (const u of users) {
           try {
             let manager = null;
@@ -351,7 +351,7 @@ app.get("/api/ad-users-sync", async (req, res) => {
 // -----------------------------
 app.get("/api/ad-check", async (req, res) => {
   try {
-    const baseDN = "OU=JOGESHWARI,DC=uniwin,DC=local";
+    const baseDN = "OU=BADDI,DC=uniwin,DC=local";
 
     const config = {
       url: AD_SERVER,
@@ -719,7 +719,7 @@ app.get("/api/ad-ous-list", (req, res) => {
 // -----------------------------
 app.get("/api/ad-users", async (req, res) => {
   try {
-    const baseDN = "OU=JOGESHWARI,DC=uniwin,DC=local";
+    const baseDN = "OU=BADDI,DC=uniwin,DC=local";
 
     const config = {
       url: AD_SERVER,

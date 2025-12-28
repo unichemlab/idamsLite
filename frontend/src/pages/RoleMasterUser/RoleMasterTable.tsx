@@ -208,7 +208,7 @@ const handleEdit = useCallback(() => {
         return;
       }
       
-      navigate(`/department-master/edit/${app.id}`, {
+      navigate(`/role-master/edit/${app.id}`, {
         state: { applicationData: app, applicationIdx: selectedRow },
       });
        //navigate(`/vendor-information/edit/${selectedRow}`);

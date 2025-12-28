@@ -89,11 +89,11 @@ export const MENU_CONFIG: MenuItem[] = [
         route: "/department-master",
         permission: "read:department_master",
       },
-      {
-        label: "Network Master",
-        route: "/network-master",
-        permission: "read:network_master",
-      },
+      // {
+      //   label: "Network Master",
+      //   route: "/network-master",
+      //   permission: "read:network_master",
+      // },
       {
         label: "Plant Master",
         route: "/plant-master",

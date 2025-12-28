@@ -78,7 +78,7 @@ const ApprovalBin: React.FC = () => {
 
   const handleViewDetails = (approval: Approval) => {
     // Navigate to dedicated details page
-    navigate(`/master-approvals/${approval.id}`);
+    navigate(`/admin-approval/${approval.id}`);
   };
 
   const handleApproveClick = (approval: Approval) => {

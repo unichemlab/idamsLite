@@ -13,7 +13,7 @@ const AddSystemInventory: React.FC = () => {
   const [form, setForm] = useState<System>({
     id: 0,
     transaction_id: "",
-    plant_location_id: "",
+    plant_location_id: undefined,
     user_location: "",
     building_location: "",
     department_id: "",

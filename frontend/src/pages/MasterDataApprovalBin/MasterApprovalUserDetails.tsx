@@ -116,7 +116,7 @@ const [showUserMenu, setShowUserMenu] = useState(false);
         alert("❌ Request rejected successfully.");
       }
 
-      navigate("/master-approvals");
+      navigate("/admin-approval");
     } catch (err: any) {
       console.error("Error processing approval:", err);
       alert(`Error: ${err.message || "Failed to process approval"}`);
@@ -214,7 +214,7 @@ const [showUserMenu, setShowUserMenu] = useState(false);
         <div className={styles.error}>
           <h2>❌ Error</h2>
           <p>{error || "Approval not found"}</p>
-          <button onClick={() => navigate("/master-approvals")} className={styles.backButton}>
+          <button onClick={() => navigate("/admin-approval")} className={styles.backButton}>
             ← Back to Approvals
           </button>
         </div>

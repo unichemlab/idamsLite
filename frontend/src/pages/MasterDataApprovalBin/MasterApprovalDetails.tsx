@@ -87,7 +87,7 @@ const MasterApprovalDetails: React.FC = () => {
         alert("❌ Request rejected successfully.");
       }
 
-      navigate("/master-approvals");
+      navigate("/admin-approval");
     } catch (err: any) {
       console.error("Error processing approval:", err);
       alert(`Error: ${err.message || "Failed to process approval"}`);

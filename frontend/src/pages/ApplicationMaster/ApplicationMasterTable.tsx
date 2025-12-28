@@ -59,12 +59,13 @@ export default function ApplicationMasterTable() {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [showFilterPopover]);
-
+console.log('All Applications:', applications);
   // Filter by plant permissions first
   const permissionFilteredData = useMemo(() => {
     return filterByModulePlantPermission(applications,user,"application_master");
   }, [applications, user]);
-
+console.log('Applications after permission filter:', permissionFilteredData);
+console.log('User info',applications,user);
   // Apply user's custom filters
   const filteredData = useMemo(() => {
     return permissionFilteredData.filter((app) => {
@@ -92,6 +93,8 @@ export default function ApplicationMasterTable() {
     });
   }, [permissionFilteredData, filterValue, filterColumn, getPlantName, getDepartmentName]);
 
+console.log('Filtered applications:', filteredData);
+   
   // Reset to first page when filter changes
   React.useEffect(() => {
     setCurrentPage(1);

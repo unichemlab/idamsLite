@@ -15,7 +15,7 @@ const AddServerInventory: React.FC = () => {
   const [form, setForm] = useState<Server>({
     id: 0,
     transaction_id: "",
-    plant_location_id: "",
+    plant_location_id: undefined,
     rack_number: "",
     server_owner: "",
     type_tower_rack_mounted: "",
