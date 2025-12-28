@@ -93,30 +93,37 @@ const EditApplicationMaster: React.FC = () => {
   };
 
   const handleConfirm = (data: Record<string, string>) => {
-    if (data.username === username && data.password) {
-      const payload = { ...form };
-      fetch(`${API_BASE}/api/applications/${applicationData?.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+  if (data.username === username && data.password) {
+    const payload = { ...form };
+
+    const token = localStorage.getItem("token"); // 👈 REQUIRED
+
+    fetch(`${API_BASE}/api/applications/${applicationData?.id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`, // 👈 REQUIRED
+      },
+      body: JSON.stringify(payload),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to update application");
+        return res.json();
       })
-        .then((res) => {
-          if (!res.ok) throw new Error("Failed to update application");
-          return res.json();
-        })
-        .then(() => {
-          setShowModal(false);
-          navigate("/application-masters", {
-            state: { activeTab: "application" },
-          });
-        })
-        .catch((err) => {
-          alert("Failed to update application. " + err.message);
+      .then(() => {
+        setShowModal(false);
+        navigate("/application-masters", {
+          state: { activeTab: "application" },
         });
-    } else {
-      alert("Invalid credentials. Please try again.");
-    }
-  };
+      })
+      .catch((err) => {
+        alert("Failed to update application. " + err.message);
+      });
+  } else {
+    alert("Invalid credentials. Please try again.");
+  }
+};
+
 
   return (
     <>

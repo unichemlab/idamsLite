@@ -9,6 +9,7 @@ const permissions = ["Add", "Edit", "View", "Delete"];
 const moduleList = [
    "Application Master",
   "Approval Workflow",
+  "Admin Approval",
   "Dashboard",
   "Department Master",
  // "Network Master",

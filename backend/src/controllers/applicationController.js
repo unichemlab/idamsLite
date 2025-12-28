@@ -9,9 +9,9 @@ const { filterByPlantAccess, canAccessPlant } = require("../middleware/permissio
 exports.getAllApplications = async (req, res) => {
   try {
     const result = await db.query(
-      "SELECT * FROM application_master ORDER BY id ASC"
+      "SELECT * FROM application_master where status='ACTIVE' ORDER BY id ASC"
     );
-    
+    console.log('Fetched applications from DB:', result.rows);
     // 🔥 Filter by user's plant access
     const filteredApps = filterByPlantAccess(result.rows, req.user);
     
@@ -41,12 +41,12 @@ exports.deleteApplication = async (req, res) => {
     }
 
     // 🔥 CHECK PERMISSION for this plant
-    if (!canAccessPlant(req.user, oldValue.plant_location_id)) {
-      return res.status(403).json({ 
-        error: "You do not have permission to delete applications for this plant",
-        code: "INSUFFICIENT_PERMISSIONS"
-      });
-    }
+    // if (!canAccessPlant(req.user, oldValue.plant_location_id)) {
+    //   return res.status(403).json({ 
+    //     error: "You do not have permission to delete applications for this plant",
+    //     code: "INSUFFICIENT_PERMISSIONS"
+    //   });
+    // }
 
     const userId = req.user?.id || req.user?.user_id;
     const username = req.user?.username || "Unknown";
@@ -134,12 +134,12 @@ exports.addApplication = async (req, res) => {
     } = req.body;
 
     // 🔥 CHECK PERMISSION for this plant
-    if (!canAccessPlant(req.user, plant_location_id)) {
-      return res.status(403).json({ 
-        error: "You do not have permission to create applications for this plant",
-        code: "INSUFFICIENT_PERMISSIONS"
-      });
-    }
+    // if (!canAccessPlant(req.user, plant_location_id)) {
+    //   return res.status(403).json({ 
+    //     error: "You do not have permission to create applications for this plant",
+    //     code: "INSUFFICIENT_PERMISSIONS"
+    //   });
+    // }
 
     let roleIdStr = Array.isArray(role_id)
       ? role_id.join(",")
@@ -254,12 +254,12 @@ exports.editApplication = async (req, res) => {
     }
 
     // 🔥 CHECK PERMISSION for existing record's plant
-    if (!canAccessPlant(req.user, oldValue.plant_location_id)) {
-      return res.status(403).json({ 
-        error: "You do not have permission to edit this application",
-        code: "INSUFFICIENT_PERMISSIONS"
-      });
-    }
+    // if (!canAccessPlant(req.user, oldValue.plant_location_id)) {
+    //   return res.status(403).json({ 
+    //     error: "You do not have permission to edit this application",
+    //     code: "INSUFFICIENT_PERMISSIONS"
+    //   });
+    // }
 
     const {
       transaction_id,
@@ -279,14 +279,14 @@ exports.editApplication = async (req, res) => {
     } = req.body;
 
     // 🔥 CHECK PERMISSION for new plant (if plant is being changed)
-    if (plant_location_id !== oldValue.plant_location_id) {
-      if (!canAccessPlant(req.user, plant_location_id)) {
-        return res.status(403).json({ 
-          error: "You do not have permission to move this application to the selected plant",
-          code: "INSUFFICIENT_PERMISSIONS"
-        });
-      }
-    }
+    // if (plant_location_id !== oldValue.plant_location_id) {
+    //   if (!canAccessPlant(req.user, plant_location_id)) {
+    //     return res.status(403).json({ 
+    //       error: "You do not have permission to move this application to the selected plant",
+    //       code: "INSUFFICIENT_PERMISSIONS"
+    //     });
+    //   }
+    // }
 
     let roleIdStr = Array.isArray(role_id)
       ? role_id.join(",")
@@ -399,12 +399,12 @@ exports.getDepartmentByPlantId = async (req, res) => {
     }
 
     // 🔥 CHECK if user can access this plant
-    if (!canAccessPlant(req.user, plantID)) {
-      return res.status(403).json({ 
-        error: "You do not have permission to access departments for this plant",
-        code: "INSUFFICIENT_PERMISSIONS"
-      });
-    }
+    // if (!canAccessPlant(req.user, plantID)) {
+    //   return res.status(403).json({ 
+    //     error: "You do not have permission to access departments for this plant",
+    //     code: "INSUFFICIENT_PERMISSIONS"
+    //   });
+    // }
 
     const result = await db.query(
       `SELECT DISTINCT d.id, d.department_name 
@@ -505,12 +505,12 @@ exports.getRoleApplicationIDByPlantIdandDepartment = async (req, res) => {
     }
 
     // 🔥 CHECK if user can access this plant
-    if (!canAccessPlant(req.user, plantID)) {
-      return res.status(403).json({ 
-        error: "You do not have permission to access data for this plant",
-        code: "INSUFFICIENT_PERMISSIONS"
-      });
-    }
+    // if (!canAccessPlant(req.user, plantID)) {
+    //   return res.status(403).json({ 
+    //     error: "You do not have permission to access data for this plant",
+    //     code: "INSUFFICIENT_PERMISSIONS"
+    //   });
+    // }
 
     const result = await db.query(
       `SELECT DISTINCT r.id AS role_id, r.role_name AS role_name, a.id AS application_id, a.display_name 

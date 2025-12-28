@@ -1,4 +1,4 @@
-import React, { useState, useRef, useContext } from "react";
+import React, { useState, useRef, useContext,useMemo } from "react";
 // import styles from "../ApplicationMasterTable/ApplicationMasterTable.module.css";
 import paginationStyles from "../../styles/Pagination.module.css";
 import { FaEdit, FaTrash } from "react-icons/fa";
@@ -8,12 +8,16 @@ import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useNavigate } from "react-router-dom";
-import { SystemContext } from "../SystemInventoryMaster/SystemContext";
+import { SystemContext,System } from "../SystemInventoryMaster/SystemContext";
 import unichemLogoBase64 from "../../assets/unichemLogoBase64";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
 import { useAuth } from "../../context/AuthContext";
 import AppHeader from "../../components/Common/AppHeader";
 import styles from "../Plant/PlantMasterTable.module.css";
+import { usePermissions } from "../../context/PermissionContext";
+import { filterByPlantPermission,filterByModulePlantPermission } from "../../utils/permissionUtils";
+import { fetchApplicationActivityLogs, API_BASE } from "../../utils/api";
+import { PermissionGuard, PermissionButton } from "../../components/Common/PermissionComponents";
 
 const SystemInventoryMasterTable: React.FC = () => {
   const systemCtx = useContext(SystemContext);
@@ -29,22 +33,27 @@ const SystemInventoryMasterTable: React.FC = () => {
   const navigate = useNavigate();
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [activityLogsSystem, setActivityLogsSystem] = useState<any>(null);
-
+const { user } = useAuth();
   // Pagination state
   const [currentPage, setCurrentPage] = useState<number>(1);
   const rowsPerPage = 10;
-
+console.log("Sytems",systems);
   // Reset page and selection when filter changes to avoid out-of-range selections
   React.useEffect(() => {
     setCurrentPage(1);
     setSelectedRow(null);
   }, [filterValue, filterColumn]);
 
+    const permissionFilteredData = useMemo(() => {
+      return filterByModulePlantPermission(systems,user,"system_inventory");
+    }, [systems, user]);
+
   // Fetch systems from backend
   // Removed direct fetch; data comes from context
 
   // Filtering logic
-  const filteredData = systems.filter((system) => {
+  const filteredData  = useMemo(() => {
+          return permissionFilteredData.filter((system) => {
     if (!filterValue.trim()) return true;
     const value = filterValue.toLowerCase();
     switch (filterColumn) {
@@ -58,15 +67,15 @@ const SystemInventoryMasterTable: React.FC = () => {
         return true;
     }
   });
+   }, [permissionFilteredData, filterValue, filterColumn]);
+
 
   const totalPages = Math.max(1, Math.ceil(filteredData.length / rowsPerPage));
   const paginatedData = filteredData.slice(
     (currentPage - 1) * rowsPerPage,
     currentPage * rowsPerPage
   );
-
-  const { user } = useAuth();
-
+console.log("Filtered Data:", filteredData);
   const loadImage = (url: string): Promise<HTMLImageElement> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -216,10 +225,10 @@ const SystemInventoryMasterTable: React.FC = () => {
       ],
     ];
     const rows = filteredData.map((system) => [
-      system.plant_location_id ?? "",
+      system.plant_name ?? "",
       system.user_location ?? "",
       system.building_location ?? "",
-      system.department_id ?? "",
+      system.department_name ?? "",
       system.allocated_to_user_name ?? "",
       system.host_name ?? "",
       system.make ?? "",
@@ -570,10 +579,10 @@ const SystemInventoryMasterTable: React.FC = () => {
                       />
                     </td>
                     {/* Removed System Name, Status, Description, Transaction ID cells */}
-                    <td>{system.plant_location_id}</td>
+                    <td>{system.plant_name}</td>
                     <td>{system.user_location}</td>
                     <td>{system.building_location}</td>
-                    <td>{system.department_id}</td>
+                    <td>{system.department_name}</td>
                     <td>{system.allocated_to_user_name}</td>
                     <td>{system.host_name}</td>
                     <td>{system.make}</td>

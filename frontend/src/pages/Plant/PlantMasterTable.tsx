@@ -292,13 +292,13 @@ const [showDeleteModal, setShowDeleteModal] = React.useState(false);
 const handleEdit = useCallback(() => {
       if (selectedPlantId === null) return;
       const app = filteredData[selectedPlantId];
-      
+      console.log("Editing plant:", selectedPlantId,app);
       if (!hasPermission(PERMISSIONS.PLANT.UPDATE)) {
         alert('You do not have permission to edit applications for this plant');
         return;
       }
       
-      navigate(`/plant-master/edit/${app.id}`, {
+      navigate(`/plant-master/edit/${selectedPlantId}`, {
         state: { applicationData: app, applicationIdx: selectedPlantId },
       });
        //navigate(`/vendor-information/edit/${selectedRow}`);

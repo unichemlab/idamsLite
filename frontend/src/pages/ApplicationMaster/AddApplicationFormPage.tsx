@@ -11,10 +11,11 @@ import { usePlantContext } from "../PlantMaster/PlantContext";
 import { FaLock, FaUnlock } from "react-icons/fa";
 
 const AddApplicationFormPage: React.FC = () => {
+  const token = localStorage.getItem("token");
   const { user } = useAuth();
   const { plants } = usePlantContext();
- const plantOptions = Array.isArray(plants)
-  ? plants
+  const plantOptions = Array.isArray(plants)
+    ? plants
       .filter((plant: any) => {
         // 🔥 Super Admin → all plants
         if (
@@ -43,19 +44,19 @@ const AddApplicationFormPage: React.FC = () => {
         value: String(plant.id),
         label: plant.plant_name || plant.name || String(plant.id),
       }))
-  : [];
+    : [];
 
   const { departments } =
     require("../DepartmentMaster/DepartmentContext").useDepartmentContext();
   const departmentOptions = Array.isArray(departments)
     ? departments.map((dept) => ({
-        value: String(dept.id),
-        label: dept.department_name || dept.name || String(dept.id),
-      }))
+      value: String(dept.id),
+      label: dept.department_name || dept.name || String(dept.id),
+    }))
     : [];
 
   const [roleLocked, setRoleLocked] = useState(false);
-  
+
   const username = user?.username || "";
   const [showModal, setShowModal] = useState(false);
   const navigate = useNavigate();
@@ -95,17 +96,31 @@ const AddApplicationFormPage: React.FC = () => {
 
   const [roles, setRoles] = useState<{ id: string; name: string }[]>([]);
   React.useEffect(() => {
-    fetch(`${API_BASE}/api/roles`)
-      .then((res) => res.json())
+    fetch(`${API_BASE}/api/roles`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch roles");
+        return res.json();
+      })
       .then((data) => {
         if (Array.isArray(data)) {
           setRoles(
-            data.map((r: any) => ({ id: String(r.id), name: r.role_name }))
+            data.map((r: any) => ({
+              id: String(r.id),
+              name: r.role_name,
+            }))
           );
         }
       })
-      .catch(() => setRoles([]));
-  }, []);
+      .catch((err) => {
+        console.error("Role fetch failed:", err);
+        setRoles([]);
+      });
+  }, [token]);
+
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -129,17 +144,14 @@ const AddApplicationFormPage: React.FC = () => {
           "equipment_instrument_id",
         ].includes(name)
       ) {
-        updated.display_name = `${
-          name === "application_hmi_name" ? value : updated.application_hmi_name
-        } | ${
-          name === "application_hmi_version"
+        updated.display_name = `${name === "application_hmi_name" ? value : updated.application_hmi_name
+          } | ${name === "application_hmi_version"
             ? value
             : updated.application_hmi_version
-        } | ${
-          name === "equipment_instrument_id"
+          } | ${name === "equipment_instrument_id"
             ? value
             : updated.equipment_instrument_id
-        }`;
+          }`;
       }
       return updated;
     });
@@ -180,9 +192,13 @@ const AddApplicationFormPage: React.FC = () => {
         };
         const res = await fetch(`${API_BASE}/api/applications`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`, // 🔥 REQUIRED
+          },
           body: JSON.stringify(payload),
         });
+
         if (!res.ok) {
           const errorText = await res.text();
           throw new Error("Failed to add application: " + errorText);
@@ -201,7 +217,7 @@ const AddApplicationFormPage: React.FC = () => {
       } catch (err) {
         alert(
           "Failed to add application. Please try again.\n" +
-            (err instanceof Error ? err.message : "")
+          (err instanceof Error ? err.message : "")
         );
       }
     } else {

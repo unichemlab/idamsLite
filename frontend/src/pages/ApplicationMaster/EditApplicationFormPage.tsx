@@ -10,6 +10,7 @@ import { useAuth } from "../../context/AuthContext";
 import { FaLock, FaUnlock } from "react-icons/fa";
 
 const EditApplicationFormPage: React.FC = () => {
+  const token = localStorage.getItem("token");
   const location = useLocation();
   const navigate = useNavigate();
   const { setApplications } = useApplications();
@@ -21,7 +22,7 @@ const EditApplicationFormPage: React.FC = () => {
   const [roles, setRoles] = useState<{ id: string; name: string }[]>([]);
   const { plants } = require("../PlantMaster/PlantContext").usePlantContext();
   const plantOptions = Array.isArray(plants)
-  ? plants
+    ? plants
       .filter((plant: any) => {
         // 🔥 Super Admin → all plants
         if (
@@ -50,14 +51,14 @@ const EditApplicationFormPage: React.FC = () => {
         value: String(plant.id),
         label: plant.plant_name || plant.name || String(plant.id),
       }))
-  : [];
+    : [];
   const { departments } =
     require("../DepartmentMaster/DepartmentContext").useDepartmentContext();
   const departmentOptions = Array.isArray(departments)
     ? departments.map((dept: any) => ({
-        value: String(dept.id),
-        label: dept.department_name || dept.name || String(dept.id),
-      }))
+      value: String(dept.id),
+      label: dept.department_name || dept.name || String(dept.id),
+    }))
     : [];
 
   type FormType = {
@@ -92,8 +93,8 @@ const EditApplicationFormPage: React.FC = () => {
         display_name: applicationData.display_name || "",
         role_id: applicationData.role_id
           ? String(applicationData.role_id)
-              .split(",")
-              .map((id: string) => id.trim())
+            .split(",")
+            .map((id: string) => id.trim())
           : [],
         system_name: applicationData.system_name || "",
         system_inventory_id: String(applicationData.system_inventory_id || ""),
@@ -128,15 +129,30 @@ const EditApplicationFormPage: React.FC = () => {
   }, [applicationData?.id]);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/roles`)
-      .then((res) => res.json())
+    fetch(`${API_BASE}/api/roles`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch roles");
+        return res.json();
+      })
       .then((data) => {
-        if (Array.isArray(data))
+        if (Array.isArray(data)) {
           setRoles(
-            data.map((r: any) => ({ id: String(r.id), name: r.role_name }))
+            data.map((r: any) => ({
+              id: String(r.id),
+              name: r.role_name,
+            }))
           );
+        }
+      })
+      .catch((err) => {
+        console.error("Role fetch error:", err);
       });
-  }, []);
+  }, [token]);
+
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -159,17 +175,14 @@ const EditApplicationFormPage: React.FC = () => {
           "equipment_instrument_id",
         ].includes(name)
       ) {
-        updated.display_name = `${
-          name === "application_hmi_name" ? value : updated.application_hmi_name
-        } | ${
-          name === "application_hmi_version"
+        updated.display_name = `${name === "application_hmi_name" ? value : updated.application_hmi_name
+          } | ${name === "application_hmi_version"
             ? value
             : updated.application_hmi_version
-        } | ${
-          name === "equipment_instrument_id"
+          } | ${name === "equipment_instrument_id"
             ? value
             : updated.equipment_instrument_id
-        }`;
+          }`;
       }
       return updated;
     });
@@ -202,9 +215,11 @@ const EditApplicationFormPage: React.FC = () => {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`, // 🔥 REQUIRED
           },
           body: JSON.stringify(payload),
         });
+
         if (!res.ok) {
           const errorText = await res.text();
           throw new Error(errorText);
@@ -220,7 +235,7 @@ const EditApplicationFormPage: React.FC = () => {
       } catch (err) {
         alert(
           "Failed to update application. Please try again.\n" +
-            (err instanceof Error ? err.message : "")
+          (err instanceof Error ? err.message : "")
         );
       }
     } else {

@@ -14,7 +14,7 @@ const AddServerInventory: React.FC = () => {
   const [form, setForm] = useState<Server>({
     id: 0,
     transaction_id: "",
-    plant_location_id: "",
+    plant_location_id: undefined,
     rack_number: "",
     server_owner: "",
     type_tower_rack_mounted: "",
@@ -88,7 +88,7 @@ const AddServerInventory: React.FC = () => {
           ? (e.target as HTMLInputElement).checked
           : undefined;
       setForm({ ...form, [name]: type === "checkbox" ? checked : value });
-    } else if (["purchase_po", "windows_activated"].includes(name)) {
+    } else if (["plant_location_id","purchase_po", "windows_activated"].includes(name)) {
       setForm({
         ...form,
         [name]: type === "number" ? Number(value) : Number(value),
@@ -167,11 +167,12 @@ const AddServerInventory: React.FC = () => {
                   <div className={styles.formGroup}>
                     <label>Plant Location</label>
                     <input
-                      name="plant_location_id"
-                      value={form.plant_location_id}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
+  type="number"
+  name="plant_location_id"
+  value={form.plant_location_id ?? ""}
+  onChange={handleChange}
+  className={styles.input}
+/>
                   </div>
                   <div className={styles.formGroup}>
                     <label>RACK NUMBER</label>

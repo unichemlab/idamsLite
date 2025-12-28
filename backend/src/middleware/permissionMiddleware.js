@@ -149,6 +149,7 @@ const requirePermission = (permission, options = {}) => {
  * @returns {Array} - Filtered records
  */
 const filterByPlantAccess = (records, user) => {
+  console.log('Filtering records based on plant access for user:', user);
   if (!user) return [];
   if (user.isSuperAdmin) return records;
 

@@ -33,14 +33,15 @@ const ServerInventoryMasterTable: React.FC = () => {
   // Fetch servers from backend
   // Removed direct fetch; data comes from context
  // Filter by plant permissions first
-  // const permissionFilteredData = useMemo(() => {
-  //   return filterByModulePlantPermission(servers,user,"system_inventory");
-  // }, [servers, user]);
-  // Filtering logic
-  const filteredData = servers.filter((server) => {
-    if (!filterValue.trim()) return true;
-    const value = filterValue.toLowerCase();
-    switch (filterColumn) {
+  const permissionFilteredData = useMemo(() => {
+    return filterByModulePlantPermission(servers,user,"system_inventory");
+  }, [servers, user]);
+
+    const filteredData = useMemo(() => {
+        return permissionFilteredData.filter((server) => {
+          if (!filterValue.trim()) return true;
+          const value = filterValue.toLowerCase();
+          switch (filterColumn) {
       case "host_name":
         return server.host_name
           ? server.host_name.toLowerCase().includes(value)
@@ -54,7 +55,10 @@ const ServerInventoryMasterTable: React.FC = () => {
       default:
         return true;
     }
-  });
+        });
+      }, [permissionFilteredData, filterValue, filterColumn]);
+
+
 
   // PDF Export Handler
   const loadImage = (url: string): Promise<HTMLImageElement> => {

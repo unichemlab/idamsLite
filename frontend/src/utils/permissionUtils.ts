@@ -6,8 +6,13 @@
 export const hasPermission = (user: any, permission: string, plantId?: number): boolean => {
   if (!user) return false;
 
-  // Super admin has all permissions
-  if (user.isSuperAdmin) return true;
+  if (
+    user.role_id === 1 ||
+    (Array.isArray(user.role_id) && user.role_id.includes(1)) ||
+    user.isSuperAdmin === true
+  ) {
+    return true;
+  }
 
   // Check global permissions
   const hasGlobalPermission = user.permissions?.includes(permission) || false;
@@ -77,7 +82,13 @@ export const filterByPlantPermission = <T extends { plant_location_id?: number; 
   user: any
 ): T[] => {
   if (!user) return [];
-  if (user.isSuperAdmin) return data;
+  if (
+    user.role_id === 1 ||
+    (Array.isArray(user.role_id) && user.role_id.includes(1)) ||
+    user.isSuperAdmin === true
+  ) {
+    return data;
+  }
    console.log('Filtering data based on plant permissions for user:', user);
    console.log('Original data:', data);
   return data.filter(item => {
@@ -97,7 +108,13 @@ export const filterByModulePlantPermission = <
   moduleId: string
 ): T[] => {
   if (!user) return [];
-  if (user.isSuperAdmin) return data;
+ if (
+    user.role_id === 1 ||
+    (Array.isArray(user.role_id) && user.role_id.includes(1)) ||
+    user.isSuperAdmin === true
+  ) {
+    return data;
+  }
 
   const allowedPlantIds = new Set<number>();
 
@@ -109,9 +126,9 @@ export const filterByModulePlantPermission = <
   }
 
   // 2️⃣ IT BIN override (optional – only if business allows)
-  if (user.isITBin && Array.isArray(user.itPlantIds)) {
-    user.itPlantIds.forEach((id: number) => allowedPlantIds.add(id));
-  }
+  // if (user.isITBin && Array.isArray(user.itPlantIds)) {
+  //   user.itPlantIds.forEach((id: number) => allowedPlantIds.add(id));
+  // }
 
   // 3️⃣ Filter records
   return data.filter((item) => {

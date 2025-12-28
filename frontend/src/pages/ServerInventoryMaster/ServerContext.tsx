@@ -17,7 +17,7 @@ export const useServerContext = () => {
 export interface Server {
   id: number;
   transaction_id: string;
-  plant_location_id?: string;
+  plant_location_id?: number;
   rack_number?: string;
   server_owner?: string;
   type_tower_rack_mounted?: string;
