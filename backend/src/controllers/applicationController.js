@@ -506,22 +506,52 @@ exports.editApplication = async (req, res) => {
   }
 };
 
+// exports.getDepartmentByPlantId = async (req, res) => {
+//   try {
+//     const plantID = parseInt(req.params.id, 10);
+
+//     if (isNaN(plantID)) {
+//       return res.status(400).json({ error: "Invalid plant ID" });
+//     }
+
+//     // 🔥 Super Admin bypass plant check
+//     if (!isSuperAdmin(req.user)) {
+//       if (!canAccessPlant(req.user, plantID)) {
+//         return res.status(403).json({ 
+//           error: "You do not have permission to access departments for this plant",
+//           code: "INSUFFICIENT_PERMISSIONS"
+//         });
+//       }
+//     }
+
+//     const result = await db.query(
+//       `SELECT DISTINCT d.id, d.department_name 
+//        FROM application_master a
+//        JOIN department_master d ON a.department_id = d.id
+//        WHERE a.plant_location_id = $1
+//        ORDER BY d.department_name`,
+//       [plantID]
+//     );
+
+//     if (result.rows.length === 0) {
+//       return res
+//         .status(404)
+//         .json({ error: "No departments found for this plant" });
+//     }
+
+//     res.status(200).json(result.rows);
+//   } catch (err) {
+//     console.error("Error fetching departments:", err);
+//     res.status(500).json({ error: "Internal server error" });
+//   }
+// };
+
 exports.getDepartmentByPlantId = async (req, res) => {
   try {
     const plantID = parseInt(req.params.id, 10);
 
     if (isNaN(plantID)) {
       return res.status(400).json({ error: "Invalid plant ID" });
-    }
-
-    // 🔥 Super Admin bypass plant check
-    if (!isSuperAdmin(req.user)) {
-      if (!canAccessPlant(req.user, plantID)) {
-        return res.status(403).json({ 
-          error: "You do not have permission to access departments for this plant",
-          code: "INSUFFICIENT_PERMISSIONS"
-        });
-      }
     }
 
     const result = await db.query(
@@ -545,6 +575,8 @@ exports.getDepartmentByPlantId = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
+
 
 // Get activity logs - WITH PERMISSION FILTERING
 exports.getApplicationActivityLogs = async (req, res) => {
@@ -629,16 +661,6 @@ exports.getRoleApplicationIDByPlantIdandDepartment = async (req, res) => {
       return res.status(400).json({ error: "Invalid plant or department ID" });
     }
 
-    // 🔥 Super Admin bypass plant check
-    if (!isSuperAdmin(req.user)) {
-      if (!canAccessPlant(req.user, plantID)) {
-        return res.status(403).json({ 
-          error: "You do not have permission to access data for this plant",
-          code: "INSUFFICIENT_PERMISSIONS"
-        });
-      }
-    }
-
     const result = await db.query(
       `SELECT DISTINCT r.id AS role_id, r.role_name AS role_name, a.id AS application_id, a.display_name 
        FROM application_master a
@@ -681,3 +703,66 @@ exports.getRoleApplicationIDByPlantIdandDepartment = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+
+// exports.getRoleApplicationIDByPlantIdandDepartment = async (req, res) => {
+//   try {
+//     const plantID = parseInt(req.params.id, 10);
+//     const departmentID = parseInt(req.params.dept_id, 10);
+
+//     if (isNaN(plantID) || isNaN(departmentID)) {
+//       return res.status(400).json({ error: "Invalid plant or department ID" });
+//     }
+
+//     // 🔥 Super Admin bypass plant check
+//     if (!isSuperAdmin(req.user)) {
+//       if (!canAccessPlant(req.user, plantID)) {
+//         return res.status(403).json({ 
+//           error: "You do not have permission to access data for this plant",
+//           code: "INSUFFICIENT_PERMISSIONS"
+//         });
+//       }
+//     }
+
+//     const result = await db.query(
+//       `SELECT DISTINCT r.id AS role_id, r.role_name AS role_name, a.id AS application_id, a.display_name 
+//        FROM application_master a
+//        JOIN role_master r ON r.id = ANY(string_to_array(a.role_id, ',')::int[])
+//        WHERE a.plant_location_id = $1 AND a.department_id = $2 AND a.status='ACTIVE'
+//        ORDER BY r.role_name`,
+//       [plantID, departmentID]
+//     );
+
+//     if (result.rows.length === 0) {
+//       return res.status(404).json({
+//         error: "No roles or applications found for this plant and department",
+//       });
+//     }
+
+//     // Unique roles
+//     const roles = Array.from(
+//       new Set(
+//         result.rows.map((row) =>
+//           JSON.stringify({ id: row.role_id, name: row.role_name })
+//         )
+//       )
+//     ).map((item) => JSON.parse(item));
+
+//     // Applications
+//     const applications = Array.from(
+//       new Set(
+//         result.rows.map((row) =>
+//           JSON.stringify({
+//             id: row.application_id,
+//             name: row.display_name,
+//           })
+//         )
+//       )
+//     ).map((item) => JSON.parse(item));
+
+//     res.status(200).json({ roles, applications });
+//   } catch (err) {
+//     console.error("Error fetching roles and applications:", err);
+//     res.status(500).json({ error: err.message });
+//   }
+// };

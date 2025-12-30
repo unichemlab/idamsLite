@@ -57,8 +57,8 @@ console.log("Sytems",systems);
     if (!filterValue.trim()) return true;
     const value = filterValue.toLowerCase();
     switch (filterColumn) {
-      case "system_name":
-        return system.system_name?.toLowerCase().includes(value);
+      case "hostname_name":
+        return system.host_name?.toLowerCase().includes(value);
       case "description":
         return system.description?.toLowerCase().includes(value);
       case "status":
@@ -420,8 +420,8 @@ console.log("Filtered Data:", filteredData);
         <div className={styles.controls}>
           {showFilterPopover && (
             <div className={styles.filterPopover} ref={popoverRef}>
-              <div className={styles.filterPopoverHeader}>Advanced Filter</div>
-              <div className={styles.filterPopoverBody}>
+              <div className={styles.filterHeader}>Advanced Filter</div>
+              <div className={styles.filterBody}>
                 <div className={styles.filterFieldRow}>
                   <label className={styles.filterLabel}>Column</label>
                   <select
@@ -429,8 +429,7 @@ console.log("Filtered Data:", filteredData);
                     value={tempFilterColumn}
                     onChange={(e) => setTempFilterColumn(e.target.value)}
                   >
-                    <option value="name">System Name</option>
-                    <option value="description">Description</option>
+                    <option value="host_name">System Name</option>
                     <option value="status">Status</option>
                   </select>
                 </div>
@@ -448,7 +447,7 @@ console.log("Filtered Data:", filteredData);
                   />
                 </div>
               </div>
-              <div className={styles.filterPopoverFooter}>
+              <div className={styles.filterFooter}>
                 <button
                   className={styles.applyBtn}
                   onClick={() => {

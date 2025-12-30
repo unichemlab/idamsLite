@@ -88,6 +88,7 @@
     grid-template-columns: repeat(3, 1fr);
     gap: 24px;
     margin-bottom: 6px;
+    padding: 5px;
 }
 /* Form Body */
 .form {
@@ -127,9 +128,21 @@
   font-weight: 700;
 }
 
+.textarea
+{
+  min-height: 25px;
+    max-height: 35px;
+    resize: vertical;
+    width: 100%;
+    border: 1px solid #d9dde7;
+    border-radius: 8px;
+    color: #333;
+    background: #fff;
+    transition: all 0.25s ease;
+}
+
 .input,
-.select,
-.textarea {
+.select {
   padding: 14px 16px;
   border: 2px solid #e2e8f0;
   border-radius: 10px;
@@ -148,6 +161,18 @@
   box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
   background: #fafbff;
 }
+/* Floating label behavior */
+input:focus ~ label,
+select:focus ~ label,
+textarea:focus ~ label,
+input:not(:placeholder-shown) ~ label,
+select:not([value=""]) ~ label,
+textarea:not(:placeholder-shown) ~ label {
+  top: -10px;
+  left: 8px;
+  font-size: 0.9rem;
+  color: #007bff;
+}
 
 .input::placeholder,
 .textarea::placeholder {
@@ -161,12 +186,6 @@
   background-position: right 16px center;
   padding-right: 40px;
   appearance: none;
-}
-
-.textarea {
-  resize: vertical;
-  min-height: 140px;
-  line-height: 1.6;
 }
 
 /* Form Footer */

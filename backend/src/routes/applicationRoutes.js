@@ -68,15 +68,16 @@ router.delete(
 );
 
 /**
- * GET /api/applications/departments/:id
- * Get departments for a specific plant
- * Permission: read:application_master (checked for specific plant)
+ * @swagger
+ * /api/applications:
+ *   get:
+ *     summary: Get role , department, applications_id according to plant id
+ *     tags: [Applications]
+ *     responses:
+ *       200:
+ *         description: Get role , department, applications_id
  */
-router.get(
-  "/departments/:id",
-  authorize("read:application_master"),
-  applicationController.getDepartmentByPlantId
-);
+router.get("/:id", applicationController.getDepartmentByPlantId);
 
 /**
  * GET /api/applications/activity-logs
@@ -94,9 +95,25 @@ router.get(
  * Get roles and applications for plant and department
  * Permission: read:application_master (checked for specific plant)
  */
+// router.get(
+//   "/roles/:id/:dept_id",
+//   authorize("read:application_master"),
+//   applicationController.getRoleApplicationIDByPlantIdandDepartment
+// );
+
+
+/**
+ * @swagger
+ * /api/applications:
+ *   get:
+ *     summary: Get role , applications_id according to plant id
+ *     tags: [Applications]
+ *     responses:
+ *       200:
+ *         description: Get role , applications_id
+ */
 router.get(
-  "/roles/:id/:dept_id",
-  authorize("read:application_master"),
+  "/:id/:dept_id",
   applicationController.getRoleApplicationIDByPlantIdandDepartment
 );
 

@@ -45,7 +45,7 @@ exports.getDepartmentActivityLogs = async (req, res) => {
 exports.getAllDepartments = async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT * FROM department_master ORDER BY id"
+      "SELECT * FROM department_master where status='ACTIVE' ORDER BY id"
     );
     res.json(rows);
   } catch (err) {
