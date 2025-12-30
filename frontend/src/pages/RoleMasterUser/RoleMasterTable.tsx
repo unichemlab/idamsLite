@@ -317,8 +317,8 @@ const handleEdit = useCallback(() => {
 
           {showFilterPopover && (
             <div className={styles.filterPopover} ref={popoverRef}>
-              <div className={styles.filterPopoverHeader}>Advanced Filter</div>
-              <div className={styles.filterPopoverBody}>
+              <div className={styles.filterHeader}>Advanced Filter</div>
+              <div className={styles.filterBody}>
                 <div className={styles.filterFieldRow}>
                   <label className={styles.filterLabel}>Column</label>
                   <select
@@ -344,7 +344,7 @@ const handleEdit = useCallback(() => {
                   />
                 </div>
               </div>
-              <div className={styles.filterPopoverFooter}>
+              <div className={styles.filterFooter}>
                 <button
                   className={styles.applyBtn}
                   onClick={() => {

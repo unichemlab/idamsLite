@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { API_BASE, request } from "../utils/api";
+
 // Backend API base URL
 const API_URL = `${API_BASE}/api/users`;
 
@@ -32,16 +33,94 @@ interface UserContextType {
   currentUser?: any;
 }
 
-// No initialUsers: always fetch from backend
-
 const UserContext = createContext<UserContextType | undefined>(undefined);
+
+// ========================================
+// HELPER CONSTANTS AND FUNCTIONS
+// ========================================
+
+const VALID_MODULES = [
+  "Application Master",
+  "Approval Workflow",
+  "Admin Approval",
+  "Dashboard",
+  "Department Master",
+  "Plant Master",
+  "Role Master",
+  "Reviewer",
+  "Reports",
+  "Server Inventory",
+  "System Inventory",
+  "Task Clouser Bin",
+  "Vendor Information",
+];
+
+const MODULE_TO_ID: Record<string, string> = {
+  "Application Master": "application_master",
+  "Approval Workflow": "approval_workflow",
+  "Admin Approval": "admin_approval",
+  "Dashboard": "dashboard",
+  "Department Master": "department_master",
+  "Plant Master": "plant_master",
+  "Role Master": "role_master",
+  "Reviewer": "reviewer",
+  "Reports": "reports",
+  "Server Inventory": "server_inventory",
+  "System Inventory": "system_inventory",
+  "Task Clouser Bin": "task_clouser_bin",
+  "Vendor Information": "vendor_information",
+};
+
+// Smart parser that knows about valid module names
+const parsePermissionKey = (key: string): { 
+  plantName?: string; 
+  moduleName: string; 
+  moduleId: string 
+} => {
+  // Try to find a valid module name that this key ends with
+  for (const validModule of VALID_MODULES) {
+    if (key.endsWith(validModule)) {
+      // Check if there's a plant prefix
+      const plantPart = key.substring(0, key.length - validModule.length);
+      
+      if (plantPart === "") {
+        // No plant, just module
+        return {
+          plantName: undefined,
+          moduleName: validModule,
+          moduleId: MODULE_TO_ID[validModule] || validModule.toLowerCase().replace(/\s+/g, "_")
+        };
+      } else if (plantPart.endsWith("-")) {
+        // Has plant prefix
+        const plantName = plantPart.slice(0, -1); // Remove trailing dash
+        return {
+          plantName: plantName,
+          moduleName: validModule,
+          moduleId: MODULE_TO_ID[validModule] || validModule.toLowerCase().replace(/\s+/g, "_")
+        };
+      }
+    }
+  }
+  
+  // Fallback: couldn't match a known module
+  console.warn(`[PARSE] Could not parse key: "${key}"`);
+  return {
+    plantName: undefined,
+    moduleName: key,
+    moduleId: key.toLowerCase().replace(/\s+/g, "_")
+  };
+};
+
+// ========================================
+// PROVIDER COMPONENT
+// ========================================
 
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [users, setUsers] = useState<UserWithLogs[]>([]);
-  // Get current user from localStorage (set by AuthContext)
   const [currentUser, setCurrentUser] = useState<any>(null);
+  
   useEffect(() => {
     const stored = localStorage.getItem("authUser");
     if (stored) {
@@ -51,7 +130,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Fetch users from backend
   const fetchUsers = async () => {
-    // use centralized request helper so Authorization header and base URL are applied
     const data: any = await request("/api/users");
 
     // Fetch global plant list to resolve plant IDs -> names when mapping permissions
@@ -70,45 +148,59 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
     // Helper: convert tokens to object shape, matching plant IDs to plant names
     const tokensToObject = (tokens: string[], userPlants?: any[]) => {
       const subjectToModule: Record<string, string> = {
-        roles: "Role Master",
-        plants: "Plant Master",
-        vendors: "Vendor Master",
-        applications: "Application Master",
-        workflows: "Approval Workflow",
-        audit: "Audit Review",
-        reports: "Reports",
-        plant_it_admin: "Plant IT Admin",
+        "roles": "Role Master",
+        "plants": "Plant Master",
+        "vendors": "Vendor Master",
+        "applications": "Application Master",
+        "workflows": "Approval Workflow",
+        "audit": "Audit Review",
+        "reports": "Reports",
+        "plant_it_admin": "Plant IT Admin",
+        "role_master": "Role Master",
+        "plant_master": "Plant Master",
+        "vendor_master": "Vendor Master",
+        "application_master": "Application Master",
+        "approval_workflow": "Approval Workflow",
+        "audit_review": "Audit Review",
+        "admin_approval": "Admin Approval",
+        "dashboard": "Dashboard",
+        "department_master": "Department Master",
+        "reviewer": "Reviewer",
+        "server_inventory": "Server Inventory",
+        "system_inventory": "System Inventory",
+        "task_clouser_bin": "Task Clouser Bin",
+        "task_closure_bin": "Task Closure Bin",
+        "vendor_information": "Vendor Information",
       };
+      
       const actionReverse: Record<string, string> = {
         create: "Add",
         update: "Edit",
         read: "View",
         delete: "Delete",
       };
-      // Start with global plant id->name map, overlay user's plants when provided
+      
       const plantIdToName: Record<string, string> = { ...globalPlantIdToName };
       (userPlants || []).forEach((plant) => {
         if (typeof plant === "object" && plant !== null) {
           if (plant.id && plant.name)
             plantIdToName[String(plant.id)] = plant.name;
         } else if (typeof plant === "string") {
-          // If plant is a string, assume name only (map name->name so lookups by name work)
           plantIdToName[plant] = plant;
         }
       });
+      
       const permsObj: Record<string, string[]> = {};
       tokens.forEach((token) => {
         const parts = token.split(":");
         if (parts.length < 2) return;
         const action = actionReverse[parts[0]] || parts[0];
         const subject = parts[1];
-        // Ignore malformed tokens like "create:" which have empty subject
         if (!subject || subject.trim() === "") return;
         const plantId = parts[2];
         const moduleName = subjectToModule[subject] || subject;
         let key = moduleName;
         if (plantId) {
-          // Try to match plantId to plant name
           const plantName = plantIdToName[plantId] || plantId;
           key = `${plantName}-${moduleName}`;
         }
@@ -122,16 +214,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
     const mapUser = (user: any) => {
       let permissions: Record<string, string[]> = {};
       if (Array.isArray(user.permissions)) {
-        // If permissions is an array of tokens, convert to object
         permissions = tokensToObject(user.permissions, user.plants || []);
       } else if (
         typeof user.permissions === "object" &&
         user.permissions !== null
       ) {
-        // If permissions is already an object, use as-is
         permissions = user.permissions;
       } else if (typeof user.permissions === "string") {
-        // If permissions is a stringified array, parse and convert
         try {
           const arr = JSON.parse(user.permissions);
           if (Array.isArray(arr)) {
@@ -139,16 +228,14 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
           }
         } catch {}
       }
-      // Normalize user's plants into an array of plant names so UI checkboxes match
+      
       const normalizedPlants = (user.plants || []).map((p: any) => {
         if (typeof p === "object" && p !== null) {
           return p.name || p.plant_name || String(p.id || "");
         }
-        // if it's a number-like id, resolve via global map
         if (typeof p === "number" || /^[0-9]+$/.test(String(p))) {
           return globalPlantIdToName[String(p)] || String(p);
         }
-        // otherwise assume it's a name string
         return String(p);
       });
 
@@ -157,7 +244,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
         fullName: user.full_name || user.employee_name || user.fullName || "",
         email: user.email,
         empCode: user.employee_code || user.empCode || "",
-        department: user.department || "-", // Optionally map department_id to name
+        department: user.department || "-",
         department_id: user.department_id,
         status: user.status,
         plants: normalizedPlants || [],
@@ -179,6 +266,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
         updated_on: user.updated_on,
       };
     };
+    
     setUsers(Array.isArray(data.users) ? data.users.map(mapUser) : []);
   };
 
@@ -186,31 +274,17 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
     fetchUsers();
   }, []);
 
-  // Add user via backend
+  // ========================================
+  // ADD USER
+  // ========================================
   const addUser = async (user: UserForm) => {
-    // Convert frontend permission object into an array of permission tokens
-    // Example token: "create:roles:3" meaning create on roles for plant id 3
-    const permissionTokens: string[] = [];
-    // Map human-friendly module names to backend subjects
-    const moduleToSubject: Record<string, string> = {
-      "Role Master": "roles",
-      "Plant Master": "plants",
-      "Vendor Master": "vendors",
-      "Application Master": "applications",
-      "Approval Workflow": "workflows",
-      "Audit Review": "audit",
-      Reports: "reports",
-      "Plant IT Admin": "plant_it_admin",
-    };
+    console.group("🔵 [ADD USER] Starting");
+    console.log("User:", user.fullName, user.email);
+    console.log("Plants:", user.plants);
+    console.log("Permissions keys:", Object.keys(user.permissions || {}));
+    console.groupEnd();
 
-    const actionMap: Record<string, string> = {
-      Add: "create",
-      Edit: "update",
-      View: "read",
-      Delete: "delete",
-    };
-
-    // Try to map plant names (used in AddUserPanel) to plant ids via API
+    // Fetch plant mapping first
     let plantsByName: Record<string, number> = {};
     try {
       const plantList: any[] = await request("/api/plants");
@@ -218,68 +292,42 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
         const name = p.name || p.plant_name || "";
         if (name) plantsByName[String(name)] = p.id;
       });
+      console.log("📋 [ADD USER] Plant mapping loaded:", Object.keys(plantsByName));
     } catch (e) {
-      // If mapping fails, continue and emit tokens without numeric plant id
-      console.warn("Failed to fetch plants for permission mapping:", e);
+      console.error("❌ [ADD USER] Failed to fetch plants:", e);
     }
 
-    // helper: fuzzy resolve plant name -> id (handles minor name differences)
-    const normalize = (s: string) =>
-      String(s || "")
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, "");
-    const resolvePlantId = (plantName?: string) => {
+    // Helper to resolve plant name to ID with fuzzy matching
+    const resolvePlantId = (plantName?: string): number | null => {
       if (!plantName) return null;
-      if (plantsByName[plantName]) return plantsByName[plantName];
-      const target = normalize(plantName);
-      for (const k of Object.keys(plantsByName)) {
-        if (normalize(k) === target) return plantsByName[k];
+      
+      // Direct exact match
+      if (plantsByName[plantName]) {
+        return plantsByName[plantName];
       }
-      for (const k of Object.keys(plantsByName)) {
-        const nk = normalize(k);
-        if (nk.includes(target) || target.includes(nk)) return plantsByName[k];
+      
+      // Case-insensitive match
+      const lowerPlantName = plantName.toLowerCase().trim();
+      for (const [name, id] of Object.entries(plantsByName)) {
+        if (name.toLowerCase().trim() === lowerPlantName) {
+          return id;
+        }
       }
+      
+      // Partial match
+      for (const [name, id] of Object.entries(plantsByName)) {
+        if (name.includes(plantName) || plantName.includes(name)) {
+          console.warn(`⚠️ [ADD USER] Fuzzy matched "${plantName}" to "${name}"`);
+          return id;
+        }
+      }
+      
+      console.error(`❌ [ADD USER] Could not resolve plant: "${plantName}"`);
+      console.log("Available plants:", Object.keys(plantsByName));
       return null;
     };
 
-    // Robustly handle empty, null, or unexpected permissions object
-    if (user.permissions && typeof user.permissions === "object") {
-      Object.keys(user.permissions).forEach((moduleKey) => {
-        // moduleKey may be either "PlantName-Module Name" or just "Module Name"
-        const split = moduleKey.split("-");
-        let plantName: string | undefined;
-        let moduleName: string;
-        if (split.length > 1) {
-          plantName = split[0];
-          moduleName = split.slice(1).join("-");
-        } else {
-          plantName = undefined;
-          moduleName = moduleKey;
-        }
-        const subject =
-          moduleToSubject[moduleName] ||
-          moduleName.toLowerCase().replace(/\s+/g, "_");
-        const actions = Array.isArray(user.permissions[moduleKey])
-          ? user.permissions[moduleKey]
-          : [];
-        actions.forEach((act) => {
-          const mapped = actionMap[act] || act.toLowerCase();
-          if (plantName) {
-            const plantId = plantsByName[plantName];
-            if (plantId) {
-              permissionTokens.push(`${mapped}:${subject}:${plantId}`);
-            } else {
-              // fallback: include plant name so frontend can reconcile if needed
-              permissionTokens.push(`${mapped}:${subject}:${plantName}`);
-            }
-          } else {
-            // global permission (no plant)
-            permissionTokens.push(`${mapped}:${subject}`);
-          }
-        });
-      });
-    }
-
+    // Create user in user_master (don't send complex permission tokens)
     const payload: any = {
       username: user.email.split("@")[0],
       full_name: user.fullName,
@@ -289,114 +337,131 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
       password: "changeme123",
       status: user.status.toUpperCase(),
       plants: user.plants,
-      // send transformed permission tokens to backend
-      permissions: permissionTokens,
+      permissions: [], // Empty - we'll save to user_plant_permission instead
       central_permission: user.centralPermission,
       comment: user.comment,
       corporate_access_enabled: user.corporateAccessEnabled,
       location: user.location,
     };
-    // TEMP LOG: inspect payload in browser console to debug mismatches
-    try {
-      // eslint-disable-next-line no-console
-      console.log("[DEBUG][frontend] addUser payload:", payload);
-    } catch (e) {}
+
+    console.log("📤 [ADD USER] Sending user payload...");
 
     const res = await fetch(API_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${localStorage.getItem("token") || ""}`
+      },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) throw new Error("Failed to add user");
+    
+    if (!res.ok) {
+      const error = await res.text();
+      console.error("❌ [ADD USER] Failed:", error);
+      throw new Error("Failed to add user");
+    }
+    
     const created = await res.json();
+    const createdId = created?.user?.id || created?.id;
+    console.log("✅ [ADD USER] User created with ID:", createdId);
 
-    // If permissions present, convert to plant-permission rows and send to backend
+    // Now save plant permissions to user_plant_permission table
     try {
-      const createdId = created?.user?.id || created?.id;
-      if (
-        createdId &&
-        user.permissions &&
-        typeof user.permissions === "object"
-      ) {
+      if (!createdId) {
+        throw new Error("No user ID returned from server");
+      }
+
+      if (user.permissions && typeof user.permissions === "object") {
         const permissionRows: any[] = [];
-        Object.keys(user.permissions).forEach((moduleKey) => {
-          const split = moduleKey.split("-");
-          let plantName: string | undefined;
-          let moduleName: string;
-          if (split.length > 1) {
-            plantName = split[0];
-            moduleName = split.slice(1).join("-");
-          } else {
-            plantName = undefined;
-            moduleName = moduleKey;
+        
+        console.group("🔧 [ADD USER] Building permission rows");
+        
+        Object.keys(user.permissions).forEach((key) => {
+          const parsed = parsePermissionKey(key);
+          
+          console.log(`  Key: "${key}"`);
+          console.log(`    → Plant: "${parsed.plantName}", Module: "${parsed.moduleName}", ID: "${parsed.moduleId}"`);
+          
+          if (!parsed.plantName) {
+            console.log("    ⏭️ Skipping (no plant)");
+            return;
           }
-          const moduleId = moduleName
-            .toLowerCase()
-            .replace(/\s+/g, "_")
-            .replace(/[^a-z0-9_]/g, "");
-          const actions = Array.isArray(user.permissions[moduleKey])
-            ? user.permissions[moduleKey]
-            : [];
-          // Map actions to booleans
-          const can_add = actions.includes("Add");
-          const can_edit = actions.includes("Edit");
-          const can_view = actions.includes("View");
-          const can_delete = actions.includes("Delete");
-          // Resolve plant id via plantsByName map (with fuzzy fallback)
-          const plantId = resolvePlantId(plantName);
+          
+          const actions = Array.isArray(user.permissions[key]) ? user.permissions[key] : [];
+          
+          if (actions.length === 0) {
+            console.log("    ⏭️ Skipping (no actions)");
+            return;
+          }
+          
+          const plantId = resolvePlantId(parsed.plantName);
+          
           if (!plantId) {
-            console.warn(
-              "Skipping permission for unresolved plant:",
-              plantName,
-              moduleName
-            );
-            return; // skip global or unresolved plants
+            console.error(`    ❌ Failed to resolve plant ID`);
+            return;
           }
-          permissionRows.push({
+          
+          const row = {
             plant_id: plantId,
-            module_id: moduleId,
-            can_add,
-            can_edit,
-            can_view,
-            can_delete,
-          });
+            module_id: parsed.moduleId,
+            can_add: actions.includes("Add"),
+            can_edit: actions.includes("Edit"),
+            can_view: actions.includes("View"),
+            can_delete: actions.includes("Delete"),
+          };
+          
+          console.log(`    ✅ Row: Plant ${plantId}, Module ${parsed.moduleId}, Actions: ${actions.join(", ")}`);
+          permissionRows.push(row);
         });
+        
+        console.log(`📊 Total permission rows: ${permissionRows.length}`);
+        console.groupEnd();
+        
         if (permissionRows.length > 0) {
-          await fetch(`${API_URL}/${createdId}/plant-permissions`, {
+          console.log("📤 [ADD USER] Saving plant permissions...");
+          
+          const permRes = await fetch(`${API_URL}/${createdId}/plant-permissions`, {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
+            headers: { 
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${localStorage.getItem("token") || ""}`
+            },
             body: JSON.stringify({ permissions: permissionRows }),
           });
+          
+          if (!permRes.ok) {
+            const errorData = await permRes.json().catch(() => ({ error: "Unknown error" }));
+            console.error("❌ [ADD USER] Permission save failed:", errorData);
+            throw new Error(errorData.error || "Failed to save plant permissions");
+          }
+          
+          const result = await permRes.json();
+          console.log("✅ [ADD USER] Permissions saved successfully:", result);
+        } else {
+          console.warn("⚠️ [ADD USER] No permission rows to save");
         }
       }
-    } catch (e) {
-      console.warn("Failed to save plant permissions after create:", e);
+    } catch (e: any) {
+      console.error("❌ [ADD USER] Permission error:", e);
+      alert(`User created but permissions may not have saved: ${e.message}\n\nPlease check console for details.`);
     }
 
     await fetchUsers();
+    console.log("✅ [ADD USER] Complete");
   };
 
-  // Edit user via backend
+  // ========================================
+  // EDIT USER
+  // ========================================
   const editUser = async (userId: string, user: UserForm) => {
-    // Transform permissions similar to addUser
-    const permissionTokens: string[] = [];
-    const moduleToSubject: Record<string, string> = {
-      "Role Master": "roles",
-      "Plant Master": "plants",
-      "Vendor Master": "vendors",
-      "Application Master": "applications",
-      "Approval Workflow": "workflows",
-      "Audit Review": "audit",
-      Reports: "reports",
-      "Plant IT Admin": "plant_it_admin",
-    };
-    const actionMap: Record<string, string> = {
-      Add: "create",
-      Edit: "update",
-      View: "read",
-      Delete: "delete",
-    };
+    console.group("🔵 [EDIT USER] Starting");
+    console.log("User ID:", userId);
+    console.log("User:", user.fullName, user.email);
+    console.log("Plants:", user.plants);
+    console.log("Permissions keys:", Object.keys(user.permissions || {}));
+    console.groupEnd();
 
+    // Fetch plant mapping
     let plantsByName: Record<string, number> = {};
     try {
       const plantList: any[] = await request("/api/plants");
@@ -404,67 +469,34 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
         const name = p.name || p.plant_name || "";
         if (name) plantsByName[String(name)] = p.id;
       });
+      console.log("📋 [EDIT USER] Plant mapping loaded:", Object.keys(plantsByName));
     } catch (e) {
-      console.warn("Failed to fetch plants for permission mapping:", e);
+      console.error("❌ [EDIT USER] Failed to fetch plants:", e);
     }
 
-    // helper: fuzzy resolve plant name -> id (handles minor name differences)
-    const normalize = (s: string) =>
-      String(s || "")
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, "");
-    const resolvePlantId = (plantName?: string) => {
+    const resolvePlantId = (plantName?: string): number | null => {
       if (!plantName) return null;
       if (plantsByName[plantName]) return plantsByName[plantName];
-      const target = normalize(plantName);
-      for (const k of Object.keys(plantsByName)) {
-        if (normalize(k) === target) return plantsByName[k];
+      
+      const lowerPlantName = plantName.toLowerCase().trim();
+      for (const [name, id] of Object.entries(plantsByName)) {
+        if (name.toLowerCase().trim() === lowerPlantName) {
+          return id;
+        }
       }
-      for (const k of Object.keys(plantsByName)) {
-        const nk = normalize(k);
-        if (nk.includes(target) || target.includes(nk)) return plantsByName[k];
+      
+      for (const [name, id] of Object.entries(plantsByName)) {
+        if (name.includes(plantName) || plantName.includes(name)) {
+          console.warn(`⚠️ [EDIT USER] Fuzzy matched "${plantName}" to "${name}"`);
+          return id;
+        }
       }
+      
+      console.error(`❌ [EDIT USER] Could not resolve plant: "${plantName}"`);
       return null;
     };
 
-    // Robustly handle empty, null, or unexpected permissions object
-    if (user.permissions && typeof user.permissions === "object") {
-      Object.keys(user.permissions).forEach((moduleKey) => {
-        let plantName: string | undefined;
-        let moduleName: string;
-        const split = moduleKey.split("-");
-        if (split.length > 1) {
-          plantName = split[0];
-          moduleName = split.slice(1).join("-");
-        } else {
-          plantName = undefined;
-          moduleName = moduleKey;
-        }
-        const subject =
-          moduleToSubject[moduleName] ||
-          moduleName.toLowerCase().replace(/\s+/g, "_");
-        const actions = Array.isArray(user.permissions[moduleKey])
-          ? user.permissions[moduleKey]
-          : [];
-        actions.forEach((act) => {
-          const mapped = actionMap[act] || act.toLowerCase();
-          // Skip if subject empty for any reason
-          if (!subject || String(subject).trim() === "") return;
-          if (plantName) {
-            const plantId = resolvePlantId(plantName);
-            if (plantId) {
-              permissionTokens.push(`${mapped}:${subject}:${plantId}`);
-            } else {
-              // fallback to plant name when id resolution fails
-              permissionTokens.push(`${mapped}:${subject}:${plantName}`);
-            }
-          } else {
-            permissionTokens.push(`${mapped}:${subject}`);
-          }
-        });
-      });
-    }
-
+    // Update user in user_master
     const payload: any = {
       full_name: user.fullName,
       email: user.email,
@@ -472,80 +504,105 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
       department: user.department,
       status: user.status.toUpperCase(),
       plants: user.plants,
-      permissions: permissionTokens,
+      permissions: [], // Empty - we'll save to user_plant_permission instead
       central_permission: user.centralPermission,
       comment: user.comment,
       corporate_access_enabled: user.corporateAccessEnabled,
       location: user.location,
     };
-    // TEMP LOG: inspect payload in browser console to debug mismatches
-    try {
-      // eslint-disable-next-line no-console
-      console.log("[DEBUG][frontend] editUser payload:", payload);
-    } catch (e) {}
+
+    console.log("📤 [EDIT USER] Updating user...");
 
     const res = await fetch(`${API_URL}/${userId}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${localStorage.getItem("token") || ""}`
+      },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) throw new Error("Failed to edit user");
-    // After updating user_master, also update user_plant_permission
+    
+    if (!res.ok) {
+      const error = await res.text();
+      console.error("❌ [EDIT USER] Failed:", error);
+      throw new Error("Failed to edit user");
+    }
+
+    console.log("✅ [EDIT USER] User updated");
+
+    // Save plant permissions
     try {
-      // Build permission rows similar to addUser
       const permissionRows: any[] = [];
-      Object.keys(user.permissions || {}).forEach((moduleKey) => {
-        const split = moduleKey.split("-");
-        let plantName: string | undefined;
-        let moduleName: string;
-        if (split.length > 1) {
-          plantName = split[0];
-          moduleName = split.slice(1).join("-");
-        } else {
-          plantName = undefined;
-          moduleName = moduleKey;
+      
+      console.group("🔧 [EDIT USER] Building permission rows");
+      
+      Object.keys(user.permissions || {}).forEach((key) => {
+        const parsed = parsePermissionKey(key);
+        
+        console.log(`  Key: "${key}"`);
+        console.log(`    → Plant: "${parsed.plantName}", Module: "${parsed.moduleName}", ID: "${parsed.moduleId}"`);
+        
+        if (!parsed.plantName) {
+          console.log("    ⏭️ Skipping (no plant)");
+          return;
         }
-        const moduleId = moduleName
-          .toLowerCase()
-          .replace(/\s+/g, "_")
-          .replace(/[^a-z0-9_]/g, "");
-        const actions = Array.isArray(user.permissions[moduleKey])
-          ? user.permissions[moduleKey]
-          : [];
-        const can_add = actions.includes("Add");
-        const can_edit = actions.includes("Edit");
-        const can_view = actions.includes("View");
-        const can_delete = actions.includes("Delete");
-        const plantId = plantsByName[plantName || ""];
-        if (!plantId) return; // skip unresolved or global
-        permissionRows.push({
+        
+        const actions = Array.isArray(user.permissions[key]) ? user.permissions[key] : [];
+        
+        if (actions.length === 0) {
+          console.log("    ⏭️ Skipping (no actions)");
+          return;
+        }
+        
+        const plantId = resolvePlantId(parsed.plantName);
+        
+        if (!plantId) {
+          console.error(`    ❌ Failed to resolve plant ID`);
+          return;
+        }
+        
+        const row = {
           plant_id: plantId,
-          module_id: moduleId,
-          can_add,
-          can_edit,
-          can_view,
-          can_delete,
-        });
+          module_id: parsed.moduleId,
+          can_add: actions.includes("Add"),
+          can_edit: actions.includes("Edit"),
+          can_view: actions.includes("View"),
+          can_delete: actions.includes("Delete"),
+        };
+        
+        console.log(`    ✅ Row: Plant ${plantId}, Module ${parsed.moduleId}, Actions: ${actions.join(", ")}`);
+        permissionRows.push(row);
       });
-      if (permissionRows.length > 0) {
-        await fetch(`${API_URL}/${userId}/plant-permissions`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ permissions: permissionRows }),
-        });
-      } else {
-        // If no permissions provided, clear existing
-        await fetch(`${API_URL}/${userId}/plant-permissions`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ permissions: [] }),
-        });
+      
+      console.log(`📊 Total permission rows: ${permissionRows.length}`);
+      console.groupEnd();
+      
+      console.log("📤 [EDIT USER] Saving plant permissions...");
+      
+      const permRes = await fetch(`${API_URL}/${userId}/plant-permissions`, {
+        method: "PUT",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("token") || ""}`
+        },
+        body: JSON.stringify({ permissions: permissionRows }),
+      });
+      
+      if (!permRes.ok) {
+        const errorData = await permRes.json().catch(() => ({ error: "Unknown error" }));
+        console.error("❌ [EDIT USER] Permission save failed:", errorData);
+        throw new Error(errorData.error || "Failed to save plant permissions");
       }
-    } catch (e) {
-      console.warn("Failed to save plant permissions after edit:", e);
+      
+      const result = await permRes.json();
+      console.log("✅ [EDIT USER] Permissions saved successfully:", result);
+    } catch (e: any) {
+      console.error("❌ [EDIT USER] Permission error:", e);
+      alert(`User updated but permissions may not have saved: ${e.message}\n\nPlease check console for details.`);
     }
 
     await fetchUsers();
+    console.log("✅ [EDIT USER] Complete");
   };
 
   const deleteUser = (idx: number) => {

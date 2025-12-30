@@ -79,7 +79,7 @@ const AddVendorMaster: React.FC = () => {
             <div className={styles.scrollFormContainer}>
               <div className={styles.rowFields}>
                 <div className={styles.formGroup}>
-                  <label>Vendor Name</label>
+                 
                   <input
                     name="name"
                     value={form.name}
@@ -87,10 +87,10 @@ const AddVendorMaster: React.FC = () => {
                     required
                     className={styles.input}
                   />
+                   <label htmlFor="name">Vendor Name</label>
                 </div>
 
                 <div className={styles.formGroup}>
-                  <label>Status</label>
                   <select
                     className={styles.select}
                     name="status"
@@ -100,13 +100,10 @@ const AddVendorMaster: React.FC = () => {
                     <option value="ACTIVE">ACTIVE</option>
                     <option value="INACTIVE">INACTIVE</option>
                   </select>
+                  <label htmlFor="status">Status</label>
                 </div>
               </div>
-              <div
-                className={styles.formGroup}
-                style={{ width: "100%", marginTop: 18 }}
-              >
-                <label>Description</label>
+              <div className={styles.formGroup}>
                 <textarea
                   name="description"
                   value={form.description}
@@ -114,9 +111,9 @@ const AddVendorMaster: React.FC = () => {
                   required
                   className={styles.textarea}
                   rows={5}
-                  style={{ minHeight: 100, resize: "vertical", width: "100%" }}
                   placeholder="Enter description..."
                 />
+                 <label htmlFor="description">Description</label>
               </div>
             </div>
             <div

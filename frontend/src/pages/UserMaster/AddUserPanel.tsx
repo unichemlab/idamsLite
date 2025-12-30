@@ -7,12 +7,11 @@ import ConfirmLoginModal from "components/Common/ConfirmLoginModal";
 
 const permissions = ["Add", "Edit", "View", "Delete"];
 const moduleList = [
-   "Application Master",
+  "Application Master",
   "Approval Workflow",
   "Admin Approval",
   "Dashboard",
   "Department Master",
- // "Network Master",
   "Plant Master",
   "Role Master",
   "Reviewer",
@@ -22,6 +21,19 @@ const moduleList = [
   "Task Clouser Bin",
   "Vendor Information",
 ];
+
+// Helper to extract plant name from permission keys like "Baddi unit-I-Application Master"
+const extractPlantFromKey = (key: string): string | null => {
+  for (const module of moduleList) {
+    if (key.endsWith(module)) {
+      const plantPart = key.substring(0, key.length - module.length);
+      if (plantPart.endsWith("-")) {
+        return plantPart.slice(0, -1); // Remove trailing dash
+      }
+    }
+  }
+  return null;
+};
 
 export type UserForm = {
   fullName: string;
@@ -126,37 +138,63 @@ const AddUserPanel = ({
       try {
         const id = (initialData as any)?.id;
         if (!id) return;
+        
+        console.log("[LOAD PERMS] Fetching permissions for user ID:", id);
+        
         const res = await fetch(`/api/users/${id}/plant-permissions`);
-        if (!res.ok) return;
+        if (!res.ok) {
+          console.warn("[LOAD PERMS] Failed to fetch:", res.status);
+          return;
+        }
+        
         const data = await res.json();
         if (!mounted) return;
+        
+        console.log("[LOAD PERMS] Received data:", data);
+        
         const mapped = data.mappedPermissions || {};
+        
         // Only include keys that look like "Plant-Module"
         const filtered: Record<string, string[]> = {};
+        const plantNames = new Set<string>();
+        
         Object.keys(mapped).forEach((k) => {
           if (k && k.includes("-")) {
             filtered[k] = mapped[k];
+            
+            // Use the helper function to extract plant name correctly
+            const plantName = extractPlantFromKey(k);
+            if (plantName) {
+              plantNames.add(plantName);
+            }
           }
         });
+        
+        console.log("[LOAD PERMS] Filtered permissions:", filtered);
+        console.log("[LOAD PERMS] Extracted plant names:", Array.from(plantNames));
+        
         setForm((prev) => ({
           ...prev,
-          permissions:
-            Object.keys(filtered).length > 0 ? filtered : prev.permissions,
-          // ensure plants include any plant names derived from mapped keys
-          plants: Array.from(
-            new Set([
-              ...prev.plants,
-              ...(Object.keys(filtered)
-                .map((k) => (k.includes("-") ? k.split("-")[0] : null))
-                .filter(Boolean) as string[]),
-            ])
-          ),
+          permissions: Object.keys(filtered).length > 0 ? filtered : prev.permissions,
+          // Merge existing plants with newly extracted plant names
+          plants: Array.from(new Set([...prev.plants, ...Array.from(plantNames)])),
         }));
+        
+        // Set the first plant as active if we have any
+        if (plantNames.size > 0 && !activePlant) {
+          setActivePlant(Array.from(plantNames)[0]);
+        }
+        
       } catch (e) {
+        console.error("[LOAD PERMS] Error:", e);
         // ignore load errors
       }
     };
-    if (mode === "edit" && initialData) loadPlantPermissions();
+    
+    if (mode === "edit" && initialData) {
+      loadPlantPermissions();
+    }
+    
     return () => {
       mounted = false;
     };
@@ -379,7 +417,15 @@ const AddUserPanel = ({
     if (!username || data.username === username) {
       setSaving(true);
       try {
+        // Add logging before save
+        console.group("[SAVE USER] Form data being saved");
+        console.log("Plants:", form.plants);
+        console.log("Permission keys:", Object.keys(form.permissions));
+        console.log("Permissions:", form.permissions);
+        console.groupEnd();
+        
         await onSave(form);
+        
         if (
           mode === "edit" &&
           !departmentInitiallyPresent &&
@@ -393,6 +439,7 @@ const AddUserPanel = ({
         onClose();
       } catch (err: any) {
         setError(err.message || "Failed to save user");
+        console.error("[SAVE USER] Error:", err);
       } finally {
         setSaving(false);
       }
@@ -423,7 +470,7 @@ const AddUserPanel = ({
         )}
         <div className={styles.header}>
           <h2 className={styles.title}>
-            {mode === "edit" ? `Edit User - ${form.fullName}` : "Add New User12"}
+            {mode === "edit" ? `Edit User - ${form.fullName}` : "Add New User"}
           </h2>
           <button type="button" className={styles.closeBtn} onClick={onClose}>
             ×
