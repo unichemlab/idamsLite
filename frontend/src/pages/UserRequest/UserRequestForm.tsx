@@ -1452,7 +1452,7 @@ const AddUserRequest: React.FC = () => {
                       </option>
                     ))}
                   </select>
-                  <label htmlFor="plant_location">
+                  <label htmlFor="plant_location" className={addUserRequestStyles.floatingLabel}>
                     Plant <span style={{ color: "red" }}>*</span>
                   </label>
                 </div>
@@ -1474,7 +1474,7 @@ const AddUserRequest: React.FC = () => {
                       </option>
                     ))}
                   </select>
-                  <label htmlFor="department">
+                  <label htmlFor="department" className={addUserRequestStyles.floatingLabel}>
                     Req. App. Department <span style={{ color: "red" }}>*</span>
                   </label>
                 </div>
@@ -1491,7 +1491,7 @@ const AddUserRequest: React.FC = () => {
                       </option>
                     ))}
                   </select>
-                  <label htmlFor="applicationId">Application</label>
+                  <label htmlFor="applicationId" className={addUserRequestStyles.floatingLabel}>Application</label>
                 </div>
               </div>
 
@@ -1506,7 +1506,7 @@ const AddUserRequest: React.FC = () => {
                     placeholder=""
                     autoFocus
                   />
-                  <label htmlFor="transactionId">Transaction ID</label>
+                  <label htmlFor="transactionId" className={addUserRequestStyles.floatingLabel}>Transaction ID</label>
                 </div>
                 <div className={addUserRequestStyles.formGroup}>
                   <input
@@ -1517,7 +1517,7 @@ const AddUserRequest: React.FC = () => {
                     placeholder=" "
                     autoFocus
                   />
-                  <label htmlFor="employeeCode">Employee Code</label>
+                  <label htmlFor="employeeCode" className={addUserRequestStyles.floatingLabel}>Employee Code</label>
                 </div>
                 <div className={addUserRequestStyles.formGroup}></div>
               </div>
