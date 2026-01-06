@@ -370,7 +370,7 @@ const EditApplicationMaster: React.FC = () => {
                     })
                   }
                 >
-                  ✕ Cancel
+                 Cancel
                 </button>
               </div>
             </form>

@@ -199,7 +199,7 @@ const allowedRoutes = [
    "/activity-log",
    "/admin-approval",
    "/admin-approval/:id",
-    "/approval-workflows"
+    "/approval-workflows",
   /********************************************************* */
 ];
 

@@ -1,19 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
-import Select from "react-select";
+import Select, { SingleValue, MultiValue } from "react-select";
 import { useNavigate } from "react-router-dom";
-import {
-  useUserRequestContext,
-  UserRequest,
-  TaskRequest,
-  Manager,
-} from "./UserRequestContext";
-import {
-  FiChevronDown,
-  FiBriefcase,
-  FiLogOut,
-} from "react-icons/fi";
+import { useUserRequestContext, UserRequest, TaskRequest, Manager } from "./UserRequestContext";
+import { FiChevronDown, FiLogOut } from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
-import { fetchPlants, fetchVendors } from "../../utils/api";
+import { fetchPlants, fetchVendors, fetchAccessLogsForFirm } from "../../utils/api";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
 import addUserRequestStyles from "./AddUserRequest.module.css";
 import jsPDF from "jspdf";
@@ -22,6 +13,17 @@ import styles from "../../pages/HomePage/homepageUser.module.css";
 import AppMenu from "../../components/AppMenu";
 export const API_BASE =
   process.env.REACT_APP_API_URL || "http://localhost:4000";
+
+type RoleOption = {
+  value: string;
+  label: string;
+};
+type BulkRow = {
+  location: string;
+  department: string;
+  applicationId: string;
+  role: string[];
+};
 const AddUserRequest: React.FC = () => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -40,6 +42,7 @@ const AddUserRequest: React.FC = () => {
   const { addUserRequest } = useUserRequestContext();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+
   // ===================== Filter + Search State =====================
   const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [filter, setFilter] = useState({
@@ -51,6 +54,7 @@ const AddUserRequest: React.FC = () => {
   });
 
   const [filterResults, setFilterResults] = useState<UserRequest[]>([]);
+  const [userrequests, setUserRequests] = useState<UserRequest[]>([]);
   const [resultModalOpen, setResultModalOpen] = useState(false);
   // extra state for the filter modal
   const [filterApplications, setFilterApplications] = useState<
@@ -61,6 +65,12 @@ const AddUserRequest: React.FC = () => {
   >([]);
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [selectedTasks, setSelectedTasks] = useState<TaskRequest[]>([]);
+  const [vendorAccessLogs, setVendorAccessLogs] = useState<any[]>([]);
+  const [selectedAccessLog, setSelectedAccessLog] = useState<any>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   console.log(user);
   // ===================== Main Form State =====================
   const [form, setForm] = useState<UserRequest>({
@@ -72,7 +82,7 @@ const AddUserRequest: React.FC = () => {
     accessType: "",
     applicationId: "",
     department: "",
-    role: "",
+    role: [] as string[],
     reportsTo: "",
     reportsToOptions: [],
     trainingStatus: "Yes",
@@ -88,10 +98,17 @@ const AddUserRequest: React.FC = () => {
     allocatedId: [],
   });
   console.log("form data", form);
+
   const [attachments, setAttachments] = useState<File[]>([]);
-  const [bulkRows, setBulkRows] = useState([
-    { location: "", department: "", applicationId: "", role: "" },
+  const [bulkRows, setBulkRows] = useState<BulkRow[]>([
+    {
+      location: "",
+      department: "",
+      applicationId: "",
+      role: [],
+    },
   ]);
+
   const [modalTasks, setModalTasks] = useState<TaskRequest[] | null>(null);
   const [plants, setPlants] = useState<{ id: number; plant_name: string }[]>(
     []
@@ -111,10 +128,75 @@ const AddUserRequest: React.FC = () => {
   const [departments, setDepartments] = useState<
     { id: number; department_name: string }[]
   >([]);
-  const [roles, setRoles] = useState<{ id: number; name: string }[]>([]);
+  const [roles, setRoles] = useState<{ id: number; name: string; }[]>([]);
   const [applications, setApplications] = useState<
-    { id: string; name: string }[]
+    { id: string; name: string; multiple_role_access: boolean; }[]
   >([]);
+
+  const roleOptions: RoleOption[] = roles.map(role => ({
+    value: String(role.id),
+    label: role.name,
+    isDisabled: false,
+  }));
+  const getUsedRolesForApplication = (appId: string, currentIndex: number) => {
+    return bulkRows
+      .filter((row, idx) => row.applicationId === appId && idx !== currentIndex)
+      .flatMap(row => row.role);
+  };
+  const buildBulkRoleOptions = (rowIndex: number, appId: string): RoleOption[] => {
+    const usedRoles = getUsedRolesForApplication(appId, rowIndex);
+
+    return roles.map(role => {
+      const roleId = String(role.id);
+      const disabled = usedRoles.includes(roleId);
+
+      return {
+        value: roleId,
+        label: role.name,
+        isDisabled: disabled,
+      };
+    });
+  };
+  const handleRoleChange = (
+    selected: SingleValue<RoleOption> | MultiValue<RoleOption>,
+    setValue: (roles: string[]) => void
+  ) => {
+    if (!selected) {
+      setValue([]);
+      return;
+    }
+
+    // MULTI SELECT
+    if (Array.isArray(selected)) {
+      setValue(selected.map((opt) => opt.value));
+      return;
+    }
+
+    // SINGLE SELECT (TS-safe)
+    setValue([(selected as RoleOption).value]);
+  };
+
+  const selectedApplication = applications.find(
+    app => String(app.id) === String(form.applicationId)
+  );
+
+  const isMultipleRoleAllowed = selectedApplication?.multiple_role_access === true;
+  useEffect(() => {
+    if (
+      !isMultipleRoleAllowed &&
+      roleOptions.length === 1 &&
+      form.role.length === 0
+    ) {
+      setForm(prev => ({
+        ...prev,
+        role: [roleOptions[0].value],
+      }));
+    }
+  }, [roleOptions, isMultipleRoleAllowed]);
+
+  useEffect(() => {
+    console.log("ROLE:", form.role, "MULTI:", isMultipleRoleAllowed, "Application:", applications);
+  }, [form.role, isMultipleRoleAllowed]);
 
   // ===================== Helper Functions =====================
   const truncateText = (text: string | undefined, wordLimit: number = 12): string => {
@@ -123,6 +205,91 @@ const AddUserRequest: React.FC = () => {
     if (words.length <= wordLimit) return text;
     return words.slice(0, wordLimit).join(' ') + '...';
   };
+
+  const getRule1Key = (req: {
+    plant_location: string;
+    department: string;
+    applicationId: string;
+  }) => {
+    return `${req.plant_location}|${req.department}|${req.applicationId}`;
+  };
+
+  const validateAccessRules = async (): Promise<boolean> => {
+    setValidationError(null);
+
+    const ruleKey = getRule1Key({
+      plant_location: form.plant_location,
+      department: form.department,
+      applicationId: form.applicationId,
+    });
+
+    if (!form.plant_location || !form.department || !form.applicationId) {
+      setValidationError("Plant, Department and Application are mandatory");
+      return false;
+    }
+
+    /* ---------------------------
+       1️⃣ CHECK IN-FLIGHT REQUESTS
+    ----------------------------*/
+    const conflictingInFlight = userrequests.find((req) => {
+      if (!req.plant_location || !req.department || !req.applicationId) return false;
+
+      const reqKey = `${req.plant_location}|${req.department}|${req.applicationId}`;
+
+      return (
+        reqKey === ruleKey &&
+        ["Pending", "Approved"].includes(req.status || "")
+      );
+    });
+
+    if (conflictingInFlight) {
+      if (form.accessType === "New User Creation") {
+        setValidationError(
+          "Duplicate New User Creation request already exists for the selected access."
+        );
+        return false;
+      } else {
+        setValidationError(
+          "Another request is already in progress for the selected Plant, Department and Application."
+        );
+        return false;
+      }
+    }
+
+    /* ---------------------------
+       2️⃣ CHECK ACCESS LOG (BACKEND)
+    ----------------------------*/
+    try {
+      const res = await fetch(
+        `/api/access-logs/validate?plant=${form.plant_location}&department=${form.department}&application=${form.applicationId}`
+      );
+
+      if (!res.ok) return true; // fail-safe
+
+      const data = await res.json();
+
+      if (data.exists) {
+        if (form.accessType === "New User Creation") {
+          setValidationError(
+            "Access already exists for the selected Plant, Department and Application."
+          );
+          return false;
+        }
+
+        if (data.task_status !== "Closed" && data.task_status !== "Rejected") {
+          setValidationError(
+            "Access is still active or request is not closed. Modification is not allowed."
+          );
+          return false;
+        }
+      }
+    } catch (err) {
+      console.error("Validation API failed", err);
+    }
+
+    return true;
+  };
+
 
   const toggleComment = (transactionId: string, approver: 'a1' | 'a2') => {
     setExpandedComments(prev => ({
@@ -261,7 +428,7 @@ const AddUserRequest: React.FC = () => {
           location: form.plant_location,
           department: form.department,
           applicationId: "",
-          role: "",
+          role: [],
         },
       ]);
     } else {
@@ -549,16 +716,142 @@ const AddUserRequest: React.FC = () => {
   };
 
   // ===================== Form Submission =====================
+  // const handleSubmit = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+
+  //   // =================== Validations ===================
+  //   if (
+  //     form.request_for_by === "Vendor / OEM" &&
+  //     form.accessType === "Modify Access"
+  //   ) {
+  //     if (!form.vendorFirm || !form.allocatedId) {
+  //       alert(
+  //         "Vendor Firm and Allocated ID are required for Vendor/OEM Modify."
+  //       );
+  //       return;
+  //     }
+  //   }
+
+  //   if (form.accessType === "Bulk New User Creation" && bulkRows.length === 0) {
+  //     alert("Please add at least one bulk entry.");
+  //     return;
+  //   }
+
+  //   if (
+  //     form.trainingStatus === "Yes" &&
+  //     (form.accessType === "New User Creation" ||
+  //       form.accessType === "Bulk New User Creation") &&
+  //     attachments.length === 0
+  //   ) {
+  //     alert("Attachment is mandatory for training records.");
+  //     return;
+  //   }
+
+  //   // =================== Approver Info ===================
+  //   const approver1 = form.reportsToOptions[0]; // Manager
+  //   const approver2 = form.reportsToOptions[1]; // Managers Manager (second level)
+
+  //   // Convert to string to satisfy TypeScript
+  //   const approver1_id_str = String(approver1?.employeeCode || "");
+  //   const approver2_id_str = "";
+
+  //   const approver1_email = approver1?.email || "";
+  //   const approver2_email = "";
+
+  //   // =================== Build Tasks ===================
+  //   const tasks: TaskRequest[] = [];
+
+  //   if (form.accessType === "Bulk New User Creation") {
+  //     bulkRows.forEach((row) => {
+  //       tasks.push({
+  //         application_equip_id: row.applicationId,
+  //         department: form.department,
+  //         role: row.role,
+  //         location: form.plant_location,
+  //         reports_to: form.reportsTo,
+  //         task_status: "Pending",
+  //         approver1_id: approver1_id_str,
+  //         approver2_id: '',
+  //       });
+  //     });
+  //   } else {
+  //     tasks.push({
+  //       application_equip_id: form.applicationId,
+  //       department: form.department,
+  //       role: form.role,
+  //       location: form.plant_location,
+  //       reports_to: form.reportsTo,
+  //       task_status: "Pending",
+  //       approver1_id: approver1_id_str,
+  //       approver2_id: '',
+  //     });
+  //   }
+
+  //   // =================== Build FormData ===================
+  //   const formData = new FormData();
+
+  //   formData.append("request_for_by", form.request_for_by || "");
+  //   formData.append("name", form.name || "");
+  //   formData.append("employee_code", form.employeeCode || "");
+  //   formData.append("employee_location", form.location || "");
+  //   formData.append("plant_location", form.plant_location || "");
+  //   formData.append("department", form.department || "");
+  //   formData.append("role", form.role || "");
+  //   formData.append("status", form.status || "Pending");
+  //   formData.append("reports_to", form.reportsTo || "");
+  //   formData.append("training_status", form.trainingStatus || "");
+  //   formData.append("access_request_type", form.accessType || "");
+  //   formData.append("vendor_name", form.vendorName?.toString() || "");
+  //   formData.append("vendor_firm", form.vendorFirm?.toString() || "");
+  //   formData.append("vendor_code", form.vendorCode?.toString() || "");
+  //   formData.append("vendor_allocated_id", form.allocatedId?.toString() || "");
+
+  //   // Approver info
+  //   formData.append("approver1_email", approver1_email);
+  //   formData.append("approver2_email", "");
+  //   formData.append("approver1_status", "Pending");
+  //   formData.append("approver2_status", "Pending");
+
+  //   // Attach file
+  //   if (attachments.length > 0) {
+  //     formData.append("training_attachment", attachments[0]);
+  //   }
+
+  //   // Attach tasks
+  //   formData.append("tasks", JSON.stringify(tasks));
+
+  //   console.log("Submitting FormData:", Object.fromEntries(formData.entries()));
+
+  //   try {
+  //     const response = await addUserRequest(formData); // send FormData to backend
+
+  //     alert("Request submitted successfully!");
+  //     window.location.href = "/user-access-management";
+  //     // navigate("/user-access-management");
+  //     // window.location.reload();
+  //   } catch (err) {
+  //     console.error("Failed to save request:", err);
+  //     alert("Something went wrong while saving the request.");
+  //   }
+  // };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // =================== Validations ===================
+    setValidationError(null);
+    setSuccessMessage(null);
+
+    const token = localStorage.getItem("token");
+
+    // =====================================================
+    // BASIC VALIDATIONS
+    // =====================================================
     if (
       form.request_for_by === "Vendor / OEM" &&
       form.accessType === "Modify Access"
     ) {
-      if (!form.vendorFirm || !form.allocatedId) {
-        alert(
+      if (!form.vendorFirm || !form.allocatedId?.length) {
+        setValidationError(
           "Vendor Firm and Allocated ID are required for Vendor/OEM Modify."
         );
         return;
@@ -566,7 +859,7 @@ const AddUserRequest: React.FC = () => {
     }
 
     if (form.accessType === "Bulk New User Creation" && bulkRows.length === 0) {
-      alert("Please add at least one bulk entry.");
+      setValidationError("Please add at least one bulk entry.");
       return;
     }
 
@@ -576,97 +869,269 @@ const AddUserRequest: React.FC = () => {
         form.accessType === "Bulk New User Creation") &&
       attachments.length === 0
     ) {
-      alert("Attachment is mandatory for training records.");
+      setValidationError("Attachment is mandatory for training records.");
       return;
     }
 
-    // =================== Approver Info ===================
-    const approver1 = form.reportsToOptions[0]; // Manager
-    const approver2 = form.reportsToOptions[1]; // Managers Manager (second level)
-
-    // Convert to string to satisfy TypeScript
-    const approver1_id_str = String(approver1?.employeeCode || "");
-    const approver2_id_str = "";
-
-    const approver1_email = approver1?.email || "";
-    const approver2_email = "";
-
-    // =================== Build Tasks ===================
-    const tasks: TaskRequest[] = [];
-
-    if (form.accessType === "Bulk New User Creation") {
-      bulkRows.forEach((row) => {
-        tasks.push({
-          application_equip_id: row.applicationId,
-          department: form.department,
-          role: row.role,
-          location: form.plant_location,
-          reports_to: form.reportsTo,
-          task_status: "Pending",
-          approver1_id: approver1_id_str,
-          approver2_id: '',
-        });
-      });
-    } else {
-      tasks.push({
-        application_equip_id: form.applicationId,
-        department: form.department,
-        role: form.role,
-        location: form.plant_location,
-        reports_to: form.reportsTo,
-        task_status: "Pending",
-        approver1_id: approver1_id_str,
-        approver2_id: '',
-      });
-    }
-
-    // =================== Build FormData ===================
-    const formData = new FormData();
-
-    formData.append("request_for_by", form.request_for_by || "");
-    formData.append("name", form.name || "");
-    formData.append("employee_code", form.employeeCode || "");
-    formData.append("employee_location", form.location || "");
-    formData.append("plant_location", form.plant_location || "");
-    formData.append("department", form.department || "");
-    formData.append("role", form.role || "");
-    formData.append("status", form.status || "Pending");
-    formData.append("reports_to", form.reportsTo || "");
-    formData.append("training_status", form.trainingStatus || "");
-    formData.append("access_request_type", form.accessType || "");
-    formData.append("vendor_name", form.vendorName?.toString() || "");
-    formData.append("vendor_firm", form.vendorFirm?.toString() || "");
-    formData.append("vendor_code", form.vendorCode?.toString() || "");
-    formData.append("vendor_allocated_id", form.allocatedId?.toString() || "");
-
-    // Approver info
-    formData.append("approver1_email", approver1_email);
-    formData.append("approver2_email", "");
-    formData.append("approver1_status", "Pending");
-    formData.append("approver2_status", "Pending");
-
-    // Attach file
-    if (attachments.length > 0) {
-      formData.append("training_attachment", attachments[0]);
-    }
-
-    // Attach tasks
-    formData.append("tasks", JSON.stringify(tasks));
-
-    console.log("Submitting FormData:", Object.fromEntries(formData.entries()));
-
     try {
-      const response = await addUserRequest(formData); // send FormData to backend
+      setIsSubmitting(true);
 
-      alert("Request submitted successfully!");
-      window.location.href = "/user-access-management";
-      // navigate("/user-access-management");
-      // window.location.reload();
+      const isBulk = form.accessType === "Bulk New User Creation";
+      const applicationIds = isBulk
+        ? bulkRows.map(r => r.applicationId).filter(Boolean)
+        : [form.applicationId].filter(Boolean);
+
+      if (applicationIds.length === 0) {
+        setValidationError("Please select at least one application.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      console.group("🔐 [VALIDATION] Starting all rule checks");
+
+      // =====================================================
+      // RULE 6: Validate Bulk Creation (if applicable)
+      // =====================================================
+      if (isBulk) {
+        console.log("\n[RULE 6] Validating bulk creation...");
+
+        const bulkValidationRes = await fetch(
+          `${API_BASE}/api/user-requests/validate-bulk`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              plant_location: form.plant_location,
+              department: form.department,
+              applicationIds
+            })
+          }
+        );
+
+        if (!bulkValidationRes.ok) {
+          throw new Error("Bulk validation failed");
+        }
+
+        const bulkData = await bulkValidationRes.json();
+        console.log("[RULE 6] Result:", bulkData);
+
+        if (!bulkData.valid) {
+          console.error("[RULE 6] ❌ FAIL");
+          console.groupEnd();
+          setValidationError(bulkData.message || "Bulk validation failed");
+          setIsSubmitting(false);
+          return;
+        }
+
+        console.log("[RULE 6] ✅ PASS - Bulk validation successful");
+      }
+
+      // =====================================================
+      // Prepare validation payload
+      // =====================================================
+      const validationPayload = {
+        request_for_by: form.request_for_by,
+        name: form.name,
+        vendor_name: Array.isArray(form.vendorName)
+          ? form.vendorName[0] || ""
+          : form.vendorName || "",
+        plant_location: form.plant_location,
+        department: form.department,
+        applicationId: applicationIds,
+        accessType: form.accessType,
+      };
+
+      console.log("\nValidation payload:", validationPayload);
+
+      // =====================================================
+      // RULE 1/3/4: Check In-Flight Requests
+      // =====================================================
+      console.log("\n[RULE 1/3/4] Checking in-flight requests...");
+
+      const inflightRes = await fetch(
+        `${API_BASE}/api/user-requests/inflight-check`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify(validationPayload)
+        }
+      );
+
+      if (!inflightRes.ok) {
+        throw new Error("In-flight validation failed");
+      }
+
+      const inflightData = await inflightRes.json();
+      console.log("[RULE 1/3/4] Result:", inflightData);
+
+      if (inflightData?.conflict) {
+        console.error(`[${inflightData.rule}] ❌ CONFLICT`);
+        console.groupEnd();
+        setValidationError(
+          inflightData.message ||
+          "A request is already in progress for this combination."
+        );
+        setIsSubmitting(false);
+        return;
+      }
+
+      console.log("[RULE 1/3/4] ✅ PASS - No in-flight conflicts");
+
+      // =====================================================
+      // RULE 2/3: Check Access Log
+      // =====================================================
+      console.log("\n[RULE 2/3] Checking access log...");
+
+      const accessLogRes = await fetch(
+        `${API_BASE}/api/access-logs/conflict-check`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify(validationPayload)
+        }
+      );
+
+      if (!accessLogRes.ok) {
+        throw new Error("Access log validation failed");
+      }
+
+      const accessLogData = await accessLogRes.json();
+      console.log("[RULE 2/3] Result:", accessLogData);
+
+      if (accessLogData?.conflict) {
+        console.error(`[${accessLogData.rule}] ❌ CONFLICT`);
+        console.groupEnd();
+        setValidationError(
+          accessLogData.message ||
+          "Access log validation failed."
+        );
+        setIsSubmitting(false);
+        return;
+      }
+
+      console.log("[RULE 2/3] ✅ PASS - Access log validation successful");
+
+      console.log("\n✅ ALL VALIDATION RULES PASSED");
+      console.groupEnd();
+
+      // =====================================================
+      // RULE 8: Build Approver Information
+      // =====================================================
+      const approver1 = form.reportsToOptions[0]; // Manager
+      const approver2 = form.reportsToOptions[1]; // Manager's Manager
+
+      const approver1_id_str = String(approver1?.employeeCode || "");
+      const approver1_email = approver1?.email || "";
+
+      // Note: Add approver2 and approver3 logic when required
+      // const approver2_id_str = String(approver2?.employeeCode || "");
+      // const approver2_email = approver2?.email || "";
+
+      // =====================================================
+      // BUILD TASKS
+      // =====================================================
+      const tasks: TaskRequest[] = [];
+      const selectedRoles = Array.isArray(form.role)
+        ? form.role
+        : [form.role];
+      if (isBulk) {
+        bulkRows.forEach((row) => {
+          selectedRoles.forEach((roleId) => {
+            tasks.push({
+              application_equip_id: row.applicationId,
+              department: form.department,
+              role: roleId,
+              location: form.plant_location,
+              reports_to: form.reportsTo,
+              task_status: "Pending",
+              approver1_id: approver1_id_str,
+              approver2_id: "",
+            });
+          });
+        });
+      } else {
+        selectedRoles.forEach((roleId) => {
+          tasks.push({
+            application_equip_id: form.applicationId,
+            department: form.department,
+            role: roleId,
+            location: form.plant_location,
+            reports_to: form.reportsTo,
+            task_status: "Pending",
+            approver1_id: approver1_id_str,
+            approver2_id: "",
+          });
+        });
+      }
+
+      // =====================================================
+      // BUILD FORM DATA
+      // =====================================================
+      const formData = new FormData();
+
+      formData.append("request_for_by", form.request_for_by || "");
+      formData.append("name", form.name || "");
+      formData.append("employee_code", form.employeeCode || "");
+      formData.append("employee_location", form.location || "");
+      formData.append("plant_location", form.plant_location || "");
+      formData.append("department", form.department || "");
+      formData.append("role", Array.isArray(form.role) ? form.role.join(",") : form.role);
+      formData.append("status", "Pending"); // RULE 8: Initial status
+      formData.append("reports_to", form.reportsTo || "");
+      formData.append("training_status", form.trainingStatus || "");
+      formData.append("access_request_type", form.accessType || "");
+      formData.append("vendor_name", form.vendorName?.toString() || "");
+      formData.append("vendor_firm", form.vendorFirm || "");
+      formData.append("vendor_code", form.vendorCode || "");
+      formData.append("vendor_allocated_id", form.allocatedId?.toString() || "");
+
+      // RULE 8: Approver information
+      formData.append("approver1_email", approver1_email);
+      formData.append("approver2_email", "");
+      formData.append("approver1_status", "Pending");
+      formData.append("approver2_status", "Pending");
+
+      if (attachments.length > 0) {
+        formData.append("training_attachment", attachments[0]);
+      }
+
+      formData.append("tasks", JSON.stringify(tasks));
+
+      console.log("[SUBMIT] Sending request to backend...");
+
+      // =====================================================
+      // SUBMIT
+      // =====================================================
+      await addUserRequest(formData);
+
+      setSuccessMessage("✅ Request submitted successfully!");
+      setIsSubmitting(false);
+
+      setTimeout(() => {
+        window.location.href = "/user-access-management";
+      }, 1200);
+
     } catch (err) {
-      console.error("Failed to save request:", err);
-      alert("Something went wrong while saving the request.");
+      console.error("[SUBMIT] Error:", err);
+      setValidationError(
+        err instanceof Error
+          ? err.message
+          : "Failed to submit request. Please try again."
+      );
+      setIsSubmitting(false);
     }
   };
+
+
 
   const isVendorModify =
     form.request_for_by === "Vendor / OEM" &&
@@ -865,15 +1330,88 @@ const AddUserRequest: React.FC = () => {
   }, [filterModalOpen, user]);
 
   useEffect(() => {
-  if (form.request_for_by !== "Vendor / OEM") {
+    if (form.request_for_by !== "Vendor / OEM") {
+      setForm(prev => ({
+        ...prev,
+        vendorFirm: "",
+        vendorCode: "",
+        vendorName: [],
+      }));
+    }
+  }, [form.request_for_by]);
+
+  useEffect(() => {
+    const fetchVendorAccessLogs = async () => {
+      if (isVendorModify && form.vendorFirm) {
+        try {
+          console.log("[VENDOR MODIFY] Fetching access logs for:", form.vendorFirm);
+          const logs = await fetchAccessLogsForFirm(form.vendorFirm);
+          console.log("[VENDOR MODIFY] Received logs:", logs);
+
+          // Filter logs with closed task status
+          const closedLogs = Array.isArray(logs)
+            ? logs.filter(log => log.task_status === 'Closed')
+            : [];
+
+          setVendorAccessLogs(closedLogs);
+
+          // If only one log, auto-select it
+          if (closedLogs.length === 1) {
+            handleAccessLogSelect(closedLogs[0]);
+          } else {
+            // Reset form if multiple or no logs
+            setSelectedAccessLog(null);
+            setForm(prev => ({
+              ...prev,
+              allocatedId: [],
+              vendorName: [],
+              vendorCode: '',
+              plant_location: '',
+              department: '',
+              applicationId: '',
+              role: ''
+            }));
+          }
+        } catch (error) {
+          console.error("[VENDOR MODIFY] Error fetching access logs:", error);
+          setVendorAccessLogs([]);
+          // alert("Failed to fetch vendor access logs. Please try again.");
+        }
+      } else {
+        setVendorAccessLogs([]);
+        setSelectedAccessLog(null);
+      }
+    };
+
+    fetchVendorAccessLogs();
+  }, [form.vendorFirm, isVendorModify]);
+
+  // Add handler function for allocated ID selection:
+
+  const handleAccessLogSelect = (log: any) => {
+    if (!log) {
+      setSelectedAccessLog(null);
+      return;
+    }
+
+    console.log("[VENDOR MODIFY] Selected log:", log);
+
+    setSelectedAccessLog(log);
+
+    // Populate form with selected access log data
     setForm(prev => ({
       ...prev,
-      vendorFirm: "",
-      vendorCode: "",
-      vendorName: [],
+      allocatedId: log.vendor_allocated_id || '',
+      vendorName: log.vendor_name || '',
+      vendorCode: log.vendor_code || '',
+      plant_location: log.location || '', // plant ID
+      department: log.department || '', // department ID
+      applicationId: log.application_equip_id || '', // application ID
+      role: log.role || '' // role ID
     }));
-  }
-}, [form.request_for_by]);
+  };
+
+
   const handleLogout = () => {
     logout();
     navigate("/");
@@ -937,7 +1475,7 @@ const AddUserRequest: React.FC = () => {
                     ))}
                   </select>
                   <label htmlFor="department">
-                    Department <span style={{ color: "red" }}>*</span>
+                    Req. App. Department <span style={{ color: "red" }}>*</span>
                   </label>
                 </div>
                 <div className={addUserRequestStyles.formGroup}>
@@ -1433,9 +1971,8 @@ const AddUserRequest: React.FC = () => {
                       <option value="Others">Others</option>
                       <option value="Vendor / OEM">Vendor / OEM</option>
                     </select>
-                    <label htmlFor="request_for_by">
-                      Access For <span style={{ color: "red" }}>*</span>
-                    </label>
+                    <label htmlFor="request_for_by" className={addUserRequestStyles.floatingLabel}>
+                      Access For <span style={{ color: "red" }}>*</span></label>
                   </div>
                   <div className={addUserRequestStyles.formGroup}>
                     <input
@@ -1447,9 +1984,8 @@ const AddUserRequest: React.FC = () => {
                       }
                       required
                     />
-                    <label htmlFor="employeeCode">
-                      Employee Code <span style={{ color: "red" }}>*</span>
-                    </label>
+                    <label htmlFor="employeeCode" className={addUserRequestStyles.floatingLabel}>
+                      Employee Code <span style={{ color: "red" }}>*</span></label>
                   </div>
                   <div className={addUserRequestStyles.formGroup}>
                     <input
@@ -1459,9 +1995,8 @@ const AddUserRequest: React.FC = () => {
                       required
                       disabled={form.request_for_by === "Self" && !!form.name}
                     />
-                    <label htmlFor="name">
-                      Requestor For /By <span style={{ color: "red" }}>*</span>
-                    </label>
+                    <label htmlFor="name" className={addUserRequestStyles.floatingLabel}>
+                      Requestor For /By <span style={{ color: "red" }}>*</span></label>
                   </div>
 
                   <div className={addUserRequestStyles.formGroup}>
@@ -1472,9 +2007,8 @@ const AddUserRequest: React.FC = () => {
                       required
                       disabled={!!form.location}
                     />
-                    <label htmlFor="location">
-                      Location <span style={{ color: "red" }}>*</span>
-                    </label>
+                    <label htmlFor="location" className={addUserRequestStyles.floatingLabel}>
+                      Location <span style={{ color: "red" }}>*</span></label>
                   </div>
                 </div>
                 <div className={addUserRequestStyles.fourCol}>
@@ -1492,10 +2026,9 @@ const AddUserRequest: React.FC = () => {
                         </option>
                       ))}
                     </select>
-                    <label htmlFor="accessType">
-                      Access Request Type{" "}
-                      <span style={{ color: "red" }}>*</span>
-                    </label>
+
+                    <label htmlFor="accessType" className={addUserRequestStyles.floatingLabel}>
+                      Access Request Type <span style={{ color: "red" }}>*</span></label>
                   </div>
                   {!isBulkDeactivation && (
                     <div className={addUserRequestStyles.formGroup}>
@@ -1520,10 +2053,8 @@ const AddUserRequest: React.FC = () => {
                           </option>
                         ))}
                       </select>
-                      <label htmlFor="reportsTo">
-                        Approver 1(Manager/Manager's Manager){" "}
-                        <span style={{ color: "red" }}>*</span>
-                      </label>
+                      <label htmlFor="reportsTo" className={addUserRequestStyles.floatingLabel}>
+                        Approver 1(Manager/Manager's Manager) <span style={{ color: "red" }}>*</span></label>
                     </div>
                   )}
                   <div className={addUserRequestStyles.formGroup}>
@@ -1535,9 +2066,8 @@ const AddUserRequest: React.FC = () => {
                       <option value="Yes">Yes</option>
                       <option value="No">No</option>
                     </select>
-                    <label htmlFor="trainingStatus">
-                      Training Completed <span style={{ color: "red" }}>*</span>
-                    </label>
+                    <label htmlFor="trainingStatus" className={addUserRequestStyles.floatingLabel}>
+                      Training Completed <span style={{ color: "red" }}>*</span></label>
                   </div>
                   {form.trainingStatus === "Yes" && (
                     <div className={addUserRequestStyles.formGroup}>
@@ -1548,9 +2078,9 @@ const AddUserRequest: React.FC = () => {
                         multiple
                         onChange={handleFileChange}
                       />
-                      <label htmlFor="trainingAttachment">
-                        Attachment (PDF,Max 4MB)
-                      </label>
+
+                      <label htmlFor="trainingAttachment" className={addUserRequestStyles.floatingLabel}>
+                        Attachment (PDF,Max 4MB)</label>
                     </div>
                   )}
                 </div>
@@ -1570,9 +2100,8 @@ const AddUserRequest: React.FC = () => {
                         onChange={handleChange}
                         required
                       />
-                      <label htmlFor="vendorName">
-                        Vendor Name <span style={{ color: "red" }}>*</span>
-                      </label>
+                      <label htmlFor="trainingAttachment" className={addUserRequestStyles.floatingLabel}>
+                        Vendor Name <span style={{ color: "red" }}>*</span></label>
                     </div>
 
                     <div className={addUserRequestStyles.formGroup}>
@@ -1592,9 +2121,8 @@ const AddUserRequest: React.FC = () => {
                         }}
                         isClearable
                       />
-                      <label htmlFor="vendorFirm">
-                        Vendor Firm <span style={{ color: "red" }}>*</span>
-                      </label>
+                      <label htmlFor="vendorFirm" className={addUserRequestStyles.floatingLabel}>
+                        Vendor Firm <span style={{ color: "red" }}>*</span></label>
                     </div>
 
                     <div className={addUserRequestStyles.formGroup}>
@@ -1603,7 +2131,8 @@ const AddUserRequest: React.FC = () => {
                         value={form.vendorCode}
                         readOnly
                       />
-                      <label htmlFor="vendorCode">Vendor Code</label>
+                      <label htmlFor="vendorCode" className={addUserRequestStyles.floatingLabel}>
+                        Vendor Code </label>
                     </div>
 
                   </div>
@@ -1616,40 +2145,115 @@ const AddUserRequest: React.FC = () => {
                   <span className={addUserRequestStyles.sectionHeaderTitle}>
                     Vendor Modify
                   </span>
+
+                  {/* Row 1: Vendor Firm Selection */}
                   <div className={addUserRequestStyles.fourCol}>
                     <div className={addUserRequestStyles.formGroup}>
-                      <input
-                        name="vendorFirm"
-                        value={form.vendorFirm}
-                        onChange={handleChange}
-                        required
+                      <Select
+                        classNamePrefix="react-select"
+                        placeholder="Search Vendor Firm"
+                        options={vendorFirmOptions}
+                        value={vendorFirmOptions.find(
+                          opt => opt.value === form.vendorFirm
+                        )}
+                        onChange={(selected) => {
+                          setForm(prev => ({
+                            ...prev,
+                            vendorFirm: selected?.value || "",
+                            vendorCode: selected?.vendorCode || "",
+                            // Reset dependent fields
+                            allocatedId: [],
+                            vendorName: [],
+                            plant_location: '',
+                            department: '',
+                            applicationId: '',
+                            role: ''
+                          }));
+                          setSelectedAccessLog(null);
+                        }}
+                        isClearable
                       />
-                      <label htmlFor="vendorFirm">
+                      <label htmlFor="vendorFirm" className={addUserRequestStyles.floatingLabel}>
                         Vendor Firm <span style={{ color: "red" }}>*</span>
                       </label>
                     </div>
+
+                    {/* Show Allocated ID dropdown if multiple logs found */}
+                    {vendorAccessLogs.length > 1 && (
+                      <div className={addUserRequestStyles.formGroup}>
+                        <select
+                          name="allocatedId"
+                          value={selectedAccessLog?.vendor_allocated_id || ''}
+                          onChange={(e) => {
+                            const selected = vendorAccessLogs.find(
+                              log => log.vendor_allocated_id === e.target.value
+                            );
+                            handleAccessLogSelect(selected);
+                          }}
+                          required
+                        >
+                          <option value="">Select Allocated ID</option>
+                          {vendorAccessLogs.map((log, idx) => (
+                            <option
+                              key={idx}
+                              value={log.vendor_allocated_id}
+                              title={`${log.vendor_allocated_id} - ${log.vendor_name}`}
+                            >
+                              {log.vendor_allocated_id}
+                            </option>
+                          ))}
+                        </select>
+                        <label htmlFor="allocatedId" className={addUserRequestStyles.floatingLabel}>
+                          Allocated ID <span style={{ color: "red" }}>*</span>
+                        </label>
+                      </div>
+                    )}
+
+                    {/* Show Allocated ID as input if only one log found */}
+                    {vendorAccessLogs.length === 1 && (
+                      <div className={addUserRequestStyles.formGroup}>
+                        <input
+                          name="allocatedId"
+                          value={form.allocatedId}
+                          readOnly
+                        />
+                        <label htmlFor="allocatedId" className={addUserRequestStyles.floatingLabel}>
+                          Allocated ID <span style={{ color: "red" }}>*</span>
+                        </label>
+                      </div>
+                    )}
+
                     <div className={addUserRequestStyles.formGroup}>
                       <input
-                        name="allocatedId"
-                        value={form.allocatedId}
-                        onChange={handleChange}
-                        required
+                        name="vendorName"
+                        value={form.vendorName}
+                        readOnly
                       />
-                      <label htmlFor="allocatedId">
-                        Allocated ID <span style={{ color: "red" }}>*</span>
-                      </label>
-                    </div>
-                    <div className={addUserRequestStyles.formGroup}>
-                      <input name="vendorName" value={form.vendorName} />
-                      <label htmlFor="vendorName">
+                      <label htmlFor="vendorName" className={addUserRequestStyles.floatingLabel}>
                         Vendor Name <span style={{ color: "red" }}>*</span>
                       </label>
                     </div>
+
+                    <div className={addUserRequestStyles.formGroup}>
+                      <input
+                        name="vendorCode"
+                        value={form.vendorCode}
+                        readOnly
+                      />
+                      <label htmlFor="vendorCode" className={addUserRequestStyles.floatingLabel}>
+                        Vendor Code
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Row 2: Access Information (auto-filled from selected log) */}
+                  <div className={addUserRequestStyles.fourCol}>
                     <div className={addUserRequestStyles.formGroup}>
                       <select
                         name="plant_location"
                         value={form.plant_location}
                         onChange={handleChange}
+                        disabled
                         required
                       >
                         <option value="">Select Plant</option>
@@ -1663,17 +2267,17 @@ const AddUserRequest: React.FC = () => {
                           </option>
                         ))}
                       </select>
-                      <label htmlFor="plant_location">
+                      <label htmlFor="plant_location" className={addUserRequestStyles.floatingLabel}>
                         Plant Location <span style={{ color: "red" }}>*</span>
                       </label>
                     </div>
-                  </div>
-                  <div className={addUserRequestStyles.fourCol}>
+
                     <div className={addUserRequestStyles.formGroup}>
                       <select
                         name="department"
                         value={form.department}
                         onChange={handleChange}
+                        disabled
                         required
                       >
                         <option value="">Select Department</option>
@@ -1687,46 +2291,86 @@ const AddUserRequest: React.FC = () => {
                           </option>
                         ))}
                       </select>
-                      <label htmlFor="department">
-                        Department <span style={{ color: "red" }}>*</span>
-                      </label>
-                    </div>
-                    <div className={addUserRequestStyles.formGroup}>
-                      <select
-                        name="role"
-                        value={form.role}
-                        onChange={handleChange}
-                        required
-                      >
-                        <option value="">Select Role</option>
-                        {roles.map((role) => (
-                          <option
-                            key={role.id}
-                            value={role.id}
-                            title={role.name}
-                          >
-                            {role.name}
-                          </option>
-                        ))}
-                      </select>
-                      <label htmlFor="role">
-                        Role <span style={{ color: "red" }}>*</span>
+                      <label htmlFor="department" className={addUserRequestStyles.floatingLabel}>
+                        Req. App. Department <span style={{ color: "red" }}>*</span>
                       </label>
                     </div>
 
                     <div className={addUserRequestStyles.formGroup}>
-                      <textarea
-                        name="remarks"
-                        style={{
-                          minHeight: "40px",
-                          maxHeight: "42px",
-                          resize: "vertical",
-                        }}
-                        maxLength={50}
+                      <select
+                        name="applicationId"
+                        value={form.applicationId}
+                        onChange={handleChange}
+                        required
+                      >
+                        <option value="">Select Application / Equipment ID</option>
+                        {applications.map((app, index) => (
+                          <option key={index} value={app.id} title={app.name}>
+                            {app.name}
+                          </option>
+                        ))}
+                      </select>
+                      <label htmlFor="applicationId" className={addUserRequestStyles.floatingLabel}>
+                        Application / Equipment ID <span style={{ color: "red" }}>*</span>
+                      </label>
+                    </div>
+
+                    <div className={addUserRequestStyles.formGroup}>
+                      <Select<RoleOption, boolean>
+                        isMulti={isMultipleRoleAllowed}
+                        options={roleOptions}
+                        value={
+                          isMultipleRoleAllowed
+                            ? roleOptions.filter(opt => form.role.includes(opt.value))
+                            : roleOptions.find(opt => opt.value === form.role[0]) ?? null
+                        }
+                        onChange={(selected) =>
+                          handleRoleChange(selected, (roles) =>
+                            setForm(prev => ({ ...prev, role: roles }))
+                          )
+                        }
+                        placeholder="Select Role"
+                        closeMenuOnSelect={!isMultipleRoleAllowed}
+                        classNamePrefix="react-select"
                       />
-                      <label htmlFor="remarks">Remarks </label>
+                      <label htmlFor="role" className={addUserRequestStyles.floatingLabel}>
+                        Role <span style={{ color: "red" }}>*</span>
+                      </label>
                     </div>
                   </div>
+
+                  {/* Row 3: Remarks */}
+                  <div className={addUserRequestStyles.formGroup}>
+                    <textarea
+                      name="remarks"
+                      value={form.remarks}
+                      onChange={handleChange}
+                      style={{
+                        minHeight: "40px",
+                        maxHeight: "42px",
+                        resize: "vertical",
+                      }}
+                      maxLength={50}
+                    />
+                    <label htmlFor="remarks" className={addUserRequestStyles.floatingLabel}>
+                      Remarks
+                    </label>
+                  </div>
+
+                  {/* Info message */}
+                  {vendorAccessLogs.length === 0 && form.vendorFirm && (
+                    <div style={{
+                      padding: '12px',
+                      backgroundColor: '#fff3cd',
+                      border: '1px solid #ffc107',
+                      borderRadius: '4px',
+                      color: '#856404',
+                      fontSize: '14px',
+                      marginTop: '10px'
+                    }}>
+                      ⚠️ No closed access logs found for this vendor firm.
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1756,9 +2400,8 @@ const AddUserRequest: React.FC = () => {
                             </option>
                           ))}
                         </select>
-                        <label htmlFor="plant_location">
-                          Plant Location <span style={{ color: "red" }}>*</span>{" "}
-                        </label>
+                        <label htmlFor="plant_location" className={addUserRequestStyles.floatingLabel}>
+                          Plant Location <span style={{ color: "red" }}>*</span></label>
                       </div>
                       <div className={addUserRequestStyles.formGroup}>
                         <select
@@ -1778,9 +2421,9 @@ const AddUserRequest: React.FC = () => {
                             </option>
                           ))}
                         </select>
-                        <label htmlFor="department">
-                          Req. App. Department <span style={{ color: "red" }}>*</span>{" "}
-                        </label>
+
+                        <label htmlFor="department" className={addUserRequestStyles.floatingLabel}>
+                          Req. App. Department <span style={{ color: "red" }}>*</span></label>
                       </div>
                       {!isBulkDeactivation && !isBulkNew && (
                         <div className={addUserRequestStyles.formGroup}>
@@ -1799,34 +2442,32 @@ const AddUserRequest: React.FC = () => {
                               </option>
                             ))}
                           </select>
-                          <label htmlFor="applicationId">
-                            Application / Equipment ID{" "}
-                            <span style={{ color: "red" }}>*</span>
-                          </label>
+                          <label htmlFor="applicationId" className={addUserRequestStyles.floatingLabel}>
+                            Application / Equipment ID <span style={{ color: "red" }}>*</span></label>
                         </div>
                       )}
                       {!isBulkDeactivation && !isBulkNew && (
                         <div className={addUserRequestStyles.formGroup}>
-                          <select
-                            name="role"
-                            value={form.role}
-                            onChange={handleChange}
-                            required
-                          >
-                            <option value="">Select Role</option>
-                            {roles.map((role) => (
-                              <option
-                                key={role.id}
-                                value={role.id}
-                                title={role.name}
-                              >
-                                {role.name}
-                              </option>
-                            ))}
-                          </select>
-                          <label htmlFor="role">
-                            Role <span style={{ color: "red" }}>*</span>
-                          </label>
+                          <Select<RoleOption, boolean>
+                            isMulti={isMultipleRoleAllowed}
+                            options={roleOptions}
+                            value={
+                              isMultipleRoleAllowed
+                                ? roleOptions.filter(opt => form.role.includes(opt.value))
+                                : roleOptions.find(opt => opt.value === form.role[0]) ?? null
+                            }
+                            onChange={(selected) =>
+                              handleRoleChange(selected, (roles) =>
+                                setForm(prev => ({ ...prev, role: roles }))
+                              )
+                            }
+                            placeholder="Select Role"
+                            closeMenuOnSelect={!isMultipleRoleAllowed}
+                            classNamePrefix="react-select"
+                          />
+
+                          <label htmlFor="role" className={addUserRequestStyles.floatingLabel}>
+                            Role <span style={{ color: "red" }}>*</span></label>
                         </div>
                       )}
                     </div>
@@ -1838,7 +2479,9 @@ const AddUserRequest: React.FC = () => {
                         onChange={handleChange}
                         maxLength={50}
                       />
-                      <label htmlFor="remarks">Remarks</label>
+
+                      <label htmlFor="remarks" className={addUserRequestStyles.floatingLabel}>
+                        Remarks</label>
                     </div>
                   </div>
                 )}
@@ -1931,28 +2574,23 @@ const AddUserRequest: React.FC = () => {
 
                               {/* Role dropdown */}
                               <td>
-                                <select
-                                  value={row.role}
-                                  onChange={(e) =>
-                                    handleBulkRowChange(
-                                      index,
-                                      "role",
-                                      e.target.value
-                                    )
+                                <Select
+                                  isMulti={isMultipleRoleAllowed}
+                                  options={buildBulkRoleOptions(index, row.applicationId)}
+                                  value={buildBulkRoleOptions(index, row.applicationId).filter(opt =>
+                                    row.role.includes(opt.value)
+                                  )}
+                                  onChange={(selected) =>
+                                    handleRoleChange(selected, (roles) => {
+                                      const updated = [...bulkRows];
+                                      updated[index].role = roles;
+                                      setBulkRows(updated);
+                                    })
                                   }
-                                  required
-                                >
-                                  <option value="">Select Role</option>
-                                  {roles.map((role) => (
-                                    <option
-                                      key={role.id}
-                                      value={role.id}
-                                      title={role.name}
-                                    >
-                                      {role.name}
-                                    </option>
-                                  ))}
-                                </select>
+                                  closeMenuOnSelect={!isMultipleRoleAllowed}
+                                  classNamePrefix="react-select"
+                                />
+
                               </td>
 
                               {/* Delete button */}
@@ -1974,11 +2612,38 @@ const AddUserRequest: React.FC = () => {
                 </div>
               )}
             </div>
+            {validationError && (
+              <div style={{
+                padding: "10px",
+                background: "#fdecea",
+                color: "#b71c1c",
+                border: "1px solid #f5c6cb",
+                borderRadius: "4px",
+                marginBottom: "10px"
+              }}>
+                {validationError}
+              </div>
+            )}
+
+            {successMessage && (
+              <div style={{
+                padding: "10px",
+                background: "#e6f4ea",
+                color: "#1e7e34",
+                border: "1px solid #c3e6cb",
+                borderRadius: "4px",
+                marginBottom: "10px"
+              }}>
+                {successMessage}
+              </div>
+            )}
+
+
             {/* Move the footer buttons to the top */}
             <div className={addUserRequestStyles.formFooter}>
               <div className={addUserRequestStyles.formActions}>
-                <button type="submit" className={addUserRequestStyles.saveBtn}>
-                  Submit
+                <button type="submit" className={addUserRequestStyles.saveBtn} disabled={isSubmitting}>
+                  {isSubmitting ? "Submitting..." : "Submit Request"}
                 </button>
                 <button
                   type="button"
@@ -1995,5 +2660,4 @@ const AddUserRequest: React.FC = () => {
     </div>
   );
 };
-
 export default AddUserRequest;

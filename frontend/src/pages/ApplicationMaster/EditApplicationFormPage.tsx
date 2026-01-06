@@ -602,7 +602,7 @@ const EditApplicationFormPage: React.FC = () => {
                     });
                   }}
                 >
-                  ✕ Cancel
+                 Cancel
                 </button>
               </div>
             </form>

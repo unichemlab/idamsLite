@@ -277,7 +277,7 @@ const TransactionForm = ({ transaction }) => {
                 onClick={() => navigate("/task-closure-bin")}
                 className={styles.cancelBtn}
               >
-                ✕ Cancel
+               Cancel
               </button>
             </div>
           </form>

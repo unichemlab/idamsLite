@@ -12,6 +12,7 @@ const AddVendorMaster: React.FC = () => {
   const { user } = useAuth();
   const [form, setForm] = useState<Vendor>({
     name: "",
+    code: "",
     description: "",
     status: "ACTIVE",
   });
@@ -77,52 +78,82 @@ const AddVendorMaster: React.FC = () => {
             style={{ width: "100%" }}
           >
             <div className={styles.scrollFormContainer}>
-              <div className={styles.rowFields}>
-                <div className={styles.formGroup}>
-                 
+             <div className={styles.rowFields}>
+                <div className={styles.formGroupFloating}>
                   <input
+                    type="text"
                     name="name"
                     value={form.name}
                     onChange={handleChange}
-                    required
                     className={styles.input}
+                    required
+                    placeholder=" "
                   />
-                   <label htmlFor="name">Vendor Name</label>
+                  <label className={styles.floatingLabel}>
+                    Vendor Name <span className={styles.required}>*</span>
+                  </label>
+                </div>
+                <div className={styles.formGroupFloating}>
+                  <input
+                    type="text"
+                    name="vendorCode"
+                    value={form.code}
+                    onChange={handleChange}
+                    className={styles.input}
+                    required
+                    placeholder=" "
+                  />
+                  <label className={styles.floatingLabel}>
+                    Vendor Code <span className={styles.required}>*</span>
+                  </label>
                 </div>
 
-                <div className={styles.formGroup}>
+                <div className={styles.formGroupFloating}>
                   <select
-                    className={styles.select}
                     name="status"
                     value={form.status}
                     onChange={handleChange}
+                    className={styles.select}
+                    required
                   >
+                    <option value="" disabled hidden></option>
                     <option value="ACTIVE">ACTIVE</option>
                     <option value="INACTIVE">INACTIVE</option>
                   </select>
-                  <label htmlFor="status">Status</label>
+                  <label className={styles.floatingLabel}>
+                    Status <span className={styles.required}>*</span>
+                  </label>
                 </div>
+
               </div>
-              <div className={styles.formGroup}>
+              <div
+                className={styles.formGroup}
+                style={{ width: "100%",padding:15 }}
+              >
+                <div className={styles.formGroupFloating}>
                 <textarea
                   name="description"
                   value={form.description}
                   onChange={handleChange}
                   required
                   className={styles.textarea}
-                  rows={5}
+                  rows={1}
                   placeholder="Enter description..."
                 />
-                 <label htmlFor="description">Description</label>
+                 <label className={styles.floatingLabel}>
+                    Description <span className={styles.required}>*</span>
+                  </label>
+                  </div>
               </div>
             </div>
+            <div className={styles.formFotter}>
             <div
               className={styles.buttonRow}
               style={{
                 display: "flex",
                 justifyContent: "flex-start",
                 gap: 24,
-                marginTop: 24,
+                margin: 15,
               }}
             >
               <button type="submit" className={styles.saveBtn}>
@@ -135,6 +166,7 @@ const AddVendorMaster: React.FC = () => {
               >
                 Cancel
               </button>
+            </div>
             </div>
           </form>
           {showModal && (

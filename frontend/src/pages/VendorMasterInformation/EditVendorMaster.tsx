@@ -19,6 +19,8 @@ const EditVendorMaster: React.FC = () => {
       status: "ACTIVE",
     }
   );
+  console.log("Editing vendor:", vendor);
+  console.log("Form state:", form);
   const { user } = useAuth();
   const [showModal, setShowModal] = useState(false);
 
@@ -83,54 +85,79 @@ const EditVendorMaster: React.FC = () => {
           >
             <div className={styles.scrollFormContainer}>
               <div className={styles.rowFields}>
-                <div className={styles.formGroup}>
-                  <label>Vendor Name</label>
+                 <div className={styles.formGroupFloating}>
                   <input
+                    type="text"
                     name="name"
                     value={form.name}
                     onChange={handleChange}
-                    required
                     className={styles.input}
+                    required
+                    placeholder=" "
                   />
+                  <label className={styles.floatingLabel}>
+                    Vendor Name <span className={styles.required}>*</span>
+                  </label>
                 </div>
-
-                <div className={styles.formGroup}>
-                  <label>Status</label>
+<div className={styles.formGroupFloating}>
+                  <input
+                    type="text"
+                    name="vendorCode"
+                    value={form.code}
+                    onChange={handleChange}
+                    className={styles.input}
+                    required
+                    placeholder=" "
+                  />
+                  <label className={styles.floatingLabel}>
+                    Vendor Code <span className={styles.required}>*</span>
+                  </label>
+                </div>
+                <div className={styles.formGroupFloating}>
                   <select
-                    className={styles.select}
                     name="status"
                     value={form.status}
                     onChange={handleChange}
+                    className={styles.select}
+                    required
                   >
+                    <option value="" disabled hidden></option>
                     <option value="ACTIVE">ACTIVE</option>
                     <option value="INACTIVE">INACTIVE</option>
                   </select>
+                  <label className={styles.floatingLabel}>
+                    Status <span className={styles.required}>*</span>
+                  </label>
                 </div>
               </div>
-              <div
+               <div
                 className={styles.formGroup}
-                style={{ width: "100%", marginTop: 18 }}
+                style={{ width: "100%",padding:15 }}
               >
-                <label>Description</label>
+                <div className={styles.formGroupFloating}>
                 <textarea
                   name="description"
                   value={form.description}
                   onChange={handleChange}
                   required
                   className={styles.textarea}
-                  rows={5}
-                  style={{ minHeight: 100, resize: "vertical", width: "100%" }}
+                  rows={1}
                   placeholder="Enter description..."
                 />
+                 <label className={styles.floatingLabel}>
+                    Description <span className={styles.required}>*</span>
+                  </label>
+                  </div>
               </div>
             </div>
-            <div
+            <div className={styles.formFotter}>
+             <div
               className={styles.buttonRow}
               style={{
                 display: "flex",
                 justifyContent: "flex-start",
                 gap: 24,
-                marginTop: 24,
+                margin: 15,
               }}
             >
               <button type="submit" className={styles.saveBtn}>
@@ -143,6 +170,7 @@ const EditVendorMaster: React.FC = () => {
               >
                 Cancel
               </button>
+            </div>
             </div>
           </form>
           {showModal && (

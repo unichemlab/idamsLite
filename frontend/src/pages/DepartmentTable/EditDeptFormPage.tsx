@@ -5,7 +5,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useDepartmentContext } from "../../pages/DepartmentMaster/DepartmentContext";
 import type { Department } from "./DepartmentContext";
 import AppHeader from "../../components/Common/AppHeader";
-import styles from "./AddDeptFormPage.module.css";
+import styles from ".././Plant/AddPlantMaster.module.css";
 
 const EditDeptFormPage: React.FC = () => {
   const { id } = useParams();
@@ -93,12 +93,10 @@ const EditDeptFormPage: React.FC = () => {
             </div>
 
             <form onSubmit={handleSubmit} className={styles.form}>
-              <div className={styles.formBody}>
-                <div className={styles.formRow}>
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>
-                      Department Name <span className={styles.required}>*</span>
-                    </label>
+              <div className={styles.scrollFormContainer}>
+                <div className={styles.rowFields}>
+                  <div className={styles.formGroupFloating}>
+                   
                     <input
                       name="name"
                       value={form.name}
@@ -107,12 +105,13 @@ const EditDeptFormPage: React.FC = () => {
                       className={styles.input}
                       placeholder="Enter department name"
                     />
+                     <label className={styles.floatingLabel}>
+                      Department Name <span className={styles.required}>*</span>
+                    </label>
                   </div>
 
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>
-                      Status <span className={styles.required}>*</span>
-                    </label>
+                   <div className={styles.formGroupFloating}>
+                   
                     <select
                       className={styles.select}
                       name="status"
@@ -122,13 +121,18 @@ const EditDeptFormPage: React.FC = () => {
                       <option value="ACTIVE">ACTIVE</option>
                       <option value="INACTIVE">INACTIVE</option>
                     </select>
+                    <label className={styles.floatingLabel}>
+                      Status <span className={styles.required}>*</span>
+                    </label>
                   </div>
                 </div>
 
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>
-                    Description <span className={styles.required}>*</span>
-                  </label>
+                 <div
+                  className={styles.formGroup}
+                  style={{ width: "100%", padding: 15 }}
+                >
+                  <div className={styles.formGroupFloating}>
+                
                   <textarea
                     name="description"
                     value={form.description}
@@ -138,20 +142,34 @@ const EditDeptFormPage: React.FC = () => {
                     rows={5}
                     placeholder="Enter department description..."
                   />
+                    <label className={styles.floatingLabel}>
+                    Description <span className={styles.required}>*</span>
+                  </label>
                 </div>
               </div>
 
-              <div className={styles.formFooter}>
+              <div className={styles.formFotter}>
+                <div
+                  className={styles.buttonRow}
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-start",
+                    gap: 24,
+                    margin: 15,
+                  }}
+                >
                 <button type="submit" className={styles.saveBtn}>
-                  ✓ Update Department
+                Update
                 </button>
                 <button
                   type="button"
                   className={styles.cancelBtn}
                   onClick={() => navigate("/department-master")}
                 >
-                  ✕ Cancel
+                 Cancel
                 </button>
+              </div>
+              </div>
               </div>
             </form>
           </div>

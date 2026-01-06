@@ -3,7 +3,7 @@ import { API_BASE } from "../../utils/api";
 import Select from "react-select";
 import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
 import AppHeader from "../../components/Common/AppHeader";
-import addStyles from "../Plant/AddPlantMaster.module.css";
+import styles from "../Plant/AddPlantMaster.module.css";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useApplications } from "../../context/ApplicationsContext";
@@ -164,86 +164,86 @@ const AddApplicationFormPage: React.FC = () => {
 
   // AddApplicationFormPage.tsx - Updated handleConfirm function
 
-const handleConfirm = async (data: Record<string, string>) => {
-  if (data.username === username && data.password) {
-    try {
-      // 🔥 Don't generate transaction_id - let backend handle it
-      const payload = {
-        plant_location_id: form.plant_location_id
-          ? Number(form.plant_location_id)
-          : null,
-        department_id: form.department_id ? Number(form.department_id) : null,
-        application_hmi_name: form.application_hmi_name,
-        application_hmi_version: form.application_hmi_version,
-        equipment_instrument_id: form.equipment_instrument_id,
-        application_hmi_type: form.application_hmi_type,
-        display_name: form.display_name,
-        role_id: Array.isArray(form.role_id)
-          ? form.role_id.join(",")
-          : form.role_id,
-        system_name: form.system_name,
-        system_inventory_id: form.system_inventory_id
-          ? Number(form.system_inventory_id)
-          : null,
-        multiple_role_access: form.multiple_role_access,
-        status: form.status,
-        role_lock: roleLocked,
-      };
+  const handleConfirm = async (data: Record<string, string>) => {
+    if (data.username === username && data.password) {
+      try {
+        // 🔥 Don't generate transaction_id - let backend handle it
+        const payload = {
+          plant_location_id: form.plant_location_id
+            ? Number(form.plant_location_id)
+            : null,
+          department_id: form.department_id ? Number(form.department_id) : null,
+          application_hmi_name: form.application_hmi_name,
+          application_hmi_version: form.application_hmi_version,
+          equipment_instrument_id: form.equipment_instrument_id,
+          application_hmi_type: form.application_hmi_type,
+          display_name: form.display_name,
+          role_id: Array.isArray(form.role_id)
+            ? form.role_id.join(",")
+            : form.role_id,
+          system_name: form.system_name,
+          system_inventory_id: form.system_inventory_id
+            ? Number(form.system_inventory_id)
+            : null,
+          multiple_role_access: form.multiple_role_access,
+          status: form.status,
+          role_lock: roleLocked,
+        };
 
-      console.log("📤 Sending payload:", payload);
+        console.log("📤 Sending payload:", payload);
 
-      const res = await fetch(`${API_BASE}/api/applications`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
+        const res = await fetch(`${API_BASE}/api/applications`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        });
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
-        
-        // Handle specific error codes
-        if (errorData.code === "DUPLICATE_TRANSACTION_ID") {
-          throw new Error("Duplicate transaction ID detected. Please try again.");
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
+
+          // Handle specific error codes
+          if (errorData.code === "DUPLICATE_TRANSACTION_ID") {
+            throw new Error("Duplicate transaction ID detected. Please try again.");
+          }
+
+          throw new Error(errorData.error || errorData.message || "Failed to add application");
         }
-        
-        throw new Error(errorData.error || errorData.message || "Failed to add application");
-      }
 
-      const newApp = await res.json();
-      
-      // Handle pending approval response
-      if (newApp.status === "PENDING_APPROVAL") {
-        alert(`Application submitted for approval!\nApproval ID: ${newApp.approvalId}`);
+        const newApp = await res.json();
+
+        // Handle pending approval response
+        if (newApp.status === "PENDING_APPROVAL") {
+          alert(`Application submitted for approval!\nApproval ID: ${newApp.approvalId}`);
+          navigate("/application-masters", { state: { activeTab: "application" } });
+          return;
+        }
+
+        // Handle direct creation (no approval needed)
+        const roleIdArr = String(newApp.role_id || "")
+          .split(",")
+          .map((id) => id.trim())
+          .filter(Boolean);
+        const role_names = roleIdArr.map(
+          (id) => roles.find((r) => r.id === id)?.name || id
+        );
+
+        setApplications([...(applications || []), { ...newApp, role_names }]);
+        setShowModal(false);
         navigate("/application-masters", { state: { activeTab: "application" } });
-        return;
+      } catch (err) {
+        console.error("❌ Error adding application:", err);
+        alert(
+          "Failed to add application. Please try again.\n" +
+          (err instanceof Error ? err.message : "Unknown error")
+        );
       }
-
-      // Handle direct creation (no approval needed)
-      const roleIdArr = String(newApp.role_id || "")
-        .split(",")
-        .map((id) => id.trim())
-        .filter(Boolean);
-      const role_names = roleIdArr.map(
-        (id) => roles.find((r) => r.id === id)?.name || id
-      );
-      
-      setApplications([...(applications || []), { ...newApp, role_names }]);
-      setShowModal(false);
-      navigate("/application-masters", { state: { activeTab: "application" } });
-    } catch (err) {
-      console.error("❌ Error adding application:", err);
-      alert(
-        "Failed to add application. Please try again.\n" +
-        (err instanceof Error ? err.message : "Unknown error")
-      );
+    } else {
+      alert("Invalid credentials. Please try again.");
     }
-  } else {
-    alert("Invalid credentials. Please try again.");
-  }
-};
+  };
 
   return (
     <React.Fragment>
@@ -255,40 +255,40 @@ const handleConfirm = async (data: Record<string, string>) => {
         />
       )}
 
-      <div className={addStyles.pageWrapper}>
+      <div className={styles.pageWrapper}>
         <AppHeader title="Application Master Management" />
 
-        <div className={addStyles.contentArea}>
+        <div className={styles.contentArea}>
           {/* Breadcrumb */}
-          <div className={addStyles.breadcrumb}>
+          <div className={styles.breadcrumb}>
             <span
-              className={addStyles.breadcrumbLink}
+              className={styles.breadcrumbLink}
               onClick={() =>
                 navigate("/application-masters", { state: { activeTab: "application" } })
               }
             >
               Application Master
             </span>
-            <span className={addStyles.breadcrumbSeparator}>›</span>
-            <span className={addStyles.breadcrumbCurrent}>Add Application</span>
+            <span className={styles.breadcrumbSeparator}>›</span>
+            <span className={styles.breadcrumbCurrent}>Add Application</span>
           </div>
 
           {/* Form Card */}
-          <div className={addStyles.formCard}>
-            <div className={addStyles.formHeader}>
+          <div className={styles.formCard}>
+            <div className={styles.formHeader}>
               <h2>Add New Application Form</h2>
               <p>Enter application details to add a new record to the system</p>
             </div>
 
-            <form className={addStyles.form} onSubmit={handleSubmit}>
-              <div className={addStyles.formBody}>
-                {/* Row 1 - 3 Columns */}
-                <div className={addStyles.rowFields}>
-                  <div className={addStyles.formGroup}>
-                    <label className={addStyles.label}>
-                      Plant Location <span className={addStyles.required}>*</span>
-                    </label>
+            <form className={styles.form} onSubmit={handleSubmit}>
+              <div className={styles.scrollFormContainer}>
+                <div className={styles.rowFields}>
+                  <div
+                    className={`${styles.formGroupFloating} ${form.plant_location_id ? styles.hasValue : ""
+                      }`}
+                  >
                     <Select
+                      classNamePrefix="reactSelect"
                       name="plant_location_id"
                       options={plantOptions}
                       value={
@@ -302,27 +302,22 @@ const handleConfirm = async (data: Record<string, string>) => {
                           plant_location_id: selected ? selected.value : "",
                         }))
                       }
-                      placeholder="Select Plant Location"
-                      isClearable={false}
-                      isSearchable={true}
-                      styles={{
-                        menu: (base) => ({ ...base, zIndex: 20 }),
-                        control: (base) => ({
-                          ...base,
-                          minHeight: 38,
-                          fontSize: 15,
-                          border: '2px solid #e2e8f0',
-                          borderRadius: '10px',
-                        }),
-                      }}
+                      placeholder=""
+                      isSearchable
                     />
+
+                    <label className={styles.floatingLabel}>
+                      Plant Location <span className={styles.required}>*</span>
+                    </label>
                   </div>
 
-                  <div className={addStyles.formGroup}>
-                    <label className={addStyles.label}>
-                      Department <span className={addStyles.required}>*</span>
-                    </label>
+
+                  <div
+                    className={`${styles.formGroupFloating} ${form.department_id ? styles.hasValue : ""
+                      }`}
+                  >
                     <Select
+                      classNamePrefix="reactSelect"
                       name="department_id"
                       options={departmentOptions}
                       value={
@@ -336,77 +331,71 @@ const handleConfirm = async (data: Record<string, string>) => {
                           department_id: selected ? selected.value : "",
                         }))
                       }
-                      placeholder="Select Department"
-                      isClearable={false}
-                      isSearchable={true}
-                      styles={{
-                        menu: (base) => ({ ...base, zIndex: 20 }),
-                        control: (base) => ({
-                          ...base,
-                          minHeight: 38,
-                          fontSize: 15,
-                          border: '2px solid #e2e8f0',
-                          borderRadius: '10px',
-                        }),
-                      }}
+                      placeholder=""
+                      isSearchable
                     />
+
+                    <label className={styles.floatingLabel}>
+                      Department <span className={styles.required}>*</span>
+                    </label>
                   </div>
 
-                  <div className={addStyles.formGroup}>
-                    <label className={addStyles.label}>
-                      Application/HMI Name{" "}
-                      <span className={addStyles.required}>*</span>
-                    </label>
+
+                  <div className={styles.formGroupFloating}>
+
                     <input
-                      className={addStyles.input}
+                      className={styles.input}
                       name="application_hmi_name"
                       value={form.application_hmi_name}
                       onChange={handleChange}
                       required
-                      placeholder="Enter Application/HMI Name"
+                      placeholder=""
                     />
+                    <label className={styles.floatingLabel}>
+                      Application/HMI Name
+                      <span className={styles.required}>*</span>
+                    </label>
                   </div>
                 </div>
 
                 {/* Row 2 - 3 Columns */}
-                <div className={addStyles.rowFields}>
-                  <div className={addStyles.formGroup}>
-                    <label className={addStyles.label}>
-                      Application/HMI Version{" "}
-                      <span className={addStyles.required}>*</span>
-                    </label>
+                <div className={styles.rowFields}>
+                  <div className={styles.formGroupFloating}>
+
                     <input
-                      className={addStyles.input}
+                      className={styles.input}
                       name="application_hmi_version"
                       value={form.application_hmi_version}
                       onChange={handleChange}
                       required
-                      placeholder="Enter Application/HMI Version"
+                      placeholder=""
                     />
+                    <label className={styles.floatingLabel}>
+                      Application/HMI Version{" "}
+                      <span className={styles.required}>*</span>
+                    </label>
                   </div>
 
-                  <div className={addStyles.formGroup}>
-                    <label className={addStyles.label}>
-                      Equipment/Instrument ID{" "}
-                      <span className={addStyles.required}>*</span>
-                    </label>
+                  <div className={styles.formGroupFloating}>
+
                     <input
-                      className={addStyles.input}
+                      className={styles.input}
                       name="equipment_instrument_id"
                       value={form.equipment_instrument_id}
                       onChange={handleChange}
                       required
-                      placeholder="Enter Equipment/Instrument ID"
+                      placeholder=""
                     />
+                    <label className={styles.floatingLabel}>
+                      Equipment/Instrument ID{" "}
+                      <span className={styles.required}>*</span>
+                    </label>
                   </div>
 
-                  <div className={addStyles.formGroup}>
-                    <label className={addStyles.label}>
-                      Application/HMI Type{" "}
-                      <span className={addStyles.required}>*</span>
-                    </label>
+                  <div className={styles.formGroupFloating}>
+
                     <select
-                      className={addStyles.select}
+                      className={styles.select}
                       name="application_hmi_type"
                       value={form.application_hmi_type}
                       onChange={handleChange}
@@ -415,45 +404,51 @@ const handleConfirm = async (data: Record<string, string>) => {
                       <option value="Application">Application</option>
                       <option value="HMI">HMI</option>
                     </select>
+                    <label className={styles.floatingLabel}>
+                      Application/HMI Type{" "}
+                      <span className={styles.required}>*</span>
+                    </label>
                   </div>
                 </div>
 
                 {/* Row 3 - 3 Columns */}
-                <div className={addStyles.rowFields}>
-                  <div className={addStyles.formGroup}>
-                    <label className={addStyles.label}>
-                      System Name (Hostname){" "}
-                      <span className={addStyles.required}>*</span>
-                    </label>
+                <div className={styles.rowFields}>
+                  <div className={styles.formGroupFloating}>
+
                     <input
-                      className={addStyles.input}
+                      className={styles.input}
                       name="system_name"
                       value={form.system_name}
                       onChange={handleChange}
                       required
-                      placeholder="Enter System Name"
+                      placeholder=""
                     />
+                    <label className={styles.floatingLabel}>
+                      System Name (Hostname){" "}
+                      <span className={styles.required}>*</span>
+                    </label>
                   </div>
 
-                  <div className={addStyles.formGroup}>
-                    <label className={addStyles.label}>System Inventory ID</label>
+                  <div className={styles.formGroupFloating}>
+
                     <input
-                      className={addStyles.input}
+                      className={styles.input}
                       name="system_inventory_id"
                       value={form.system_inventory_id}
                       onChange={handleChange}
-                      placeholder="Enter System Inventory ID"
+                      placeholder=""
                       type="number"
                     />
+                    <label className={styles.floatingLabel}>System Inventory ID
+                      <span className={styles.required}>*</span>
+                    </label>
                   </div>
 
-                  <div className={addStyles.formGroup}>
-                    <label className={addStyles.label}>
-                      Status <span className={addStyles.required}>*</span>
-                    </label>
+                  <div className={styles.formGroupFloating}>
+
                     <select
                       id="status"
-                      className={addStyles.select}
+                      className={styles.select}
                       name="status"
                       value={form.status}
                       onChange={handleChange}
@@ -462,42 +457,36 @@ const handleConfirm = async (data: Record<string, string>) => {
                       <option value="ACTIVE">ACTIVE</option>
                       <option value="INACTIVE">INACTIVE</option>
                     </select>
+                    <label className={styles.floatingLabel}>
+                      Status <span className={styles.required}>*</span>
+                    </label>
                   </div>
                 </div>
 
                 {/* Row 4 - Roles and Multiple Role Access - 2 Columns */}
-                <div className={addStyles.rowFields} style={{ gridTemplateColumns: '2fr 1fr' }}>
-                  <div className={addStyles.formGroup}>
-                    <label
-                      htmlFor="role_id"
-                      style={{
-                        fontWeight: 600,
-                        fontSize: 14,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                      }}
-                    >
-                      Roles <span className={addStyles.required}>*</span>
+                <div className={styles.rowFields} style={{ gridTemplateColumns: '2fr 1fr' }}>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>
+                      Roles <span className={styles.required}>*</span>
                       {/* Role Lock Toggle */}
                       <span style={{ marginLeft: 10 }}>
                         <span
-                          className={addStyles.roleLockToggle}
+                          className={styles.roleLockToggle}
                           onClick={() => setRoleLocked((prev) => !prev)}
                           tabIndex={0}
                           aria-label="Role Lock Toggle"
                         >
                           <span
-                            className={addStyles.roleLockTrack}
+                            className={styles.roleLockTrack}
                             style={{
                               background: roleLocked ? "#1569B0" : "#c4c4c4",
                             }}
                           >
-                            <span className={addStyles.roleLockLabel}>
+                            <span className={styles.roleLockLabel}>
                               {roleLocked ? "Lock" : "Unlock"}
                             </span>
                             <span
-                              className={addStyles.roleLockCircle}
+                              className={styles.roleLockCircle}
                               style={{
                                 left: roleLocked ? 52 : 4,
                                 background: "#fff",
@@ -548,8 +537,8 @@ const handleConfirm = async (data: Record<string, string>) => {
                     />
                   </div>
 
-                  <div className={addStyles.formGroup}>
-                    <label className={addStyles.label}>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>
                       Multiple Role Access
                     </label>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
@@ -569,21 +558,31 @@ const handleConfirm = async (data: Record<string, string>) => {
                 </div>
               </div>
 
-              <div className={addStyles.formFooter}>
-                <button type="submit" className={addStyles.saveBtn}>
-                  💾 Save Application
-                </button>
-                <button
-                  type="button"
-                  className={addStyles.cancelBtn}
-                  onClick={() =>
-                    navigate("/application-masters", {
-                      state: { activeTab: "application" },
-                    })
-                  }
+              <div className={styles.formFotter}>
+                <div
+                  className={styles.buttonRow}
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-start",
+                    gap: 24,
+                    margin: 15,
+                  }}
                 >
-                  ✕ Cancel
-                </button>
+                  <button type="submit" className={styles.saveBtn}>
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.cancelBtn}
+                    onClick={() =>
+                      navigate("/application-masters", {
+                        state: { activeTab: "application" },
+                      })
+                    }
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </form>
           </div>

@@ -118,12 +118,10 @@ const AddPlantMasterUser: React.FC = () => {
             </div>
 
             <form className={styles.form} onSubmit={handleSubmit}>
-              <div className={styles.formBody}>
-                <div className={styles.formRow}>
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>
-                      Plant Name <span className={styles.required}>*</span>
-                    </label>
+              <div className={styles.scrollFormContainer}>
+             <div className={styles.rowFields}>
+                  <div className={styles.formGroupFloating}>
+                    
                     <input
                       name="name"
                       value={form.name}
@@ -132,12 +130,12 @@ const AddPlantMasterUser: React.FC = () => {
                       className={styles.input}
                       placeholder="Enter plant name"
                     />
+                    <label className={styles.floatingLabel}>
+                      Plant Name <span className={styles.required}>*</span>
+                    </label>
                   </div>
 
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>
-                      Location <span className={styles.required}>*</span>
-                    </label>
+                  <div className={styles.formGroupFloating}>
                     <input
                       name="location"
                       value={form.location}
@@ -146,12 +144,12 @@ const AddPlantMasterUser: React.FC = () => {
                       className={styles.input}
                       placeholder="Enter location"
                     />
+                    <label className={styles.floatingLabel}>
+                      Plant Location <span className={styles.required}>*</span>
+                    </label>
                   </div>
 
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>
-                      Status <span className={styles.required}>*</span>
-                    </label>
+                  <div className={styles.formGroupFloating}>
                     <select
                       className={styles.select}
                       name="status"
@@ -161,13 +159,16 @@ const AddPlantMasterUser: React.FC = () => {
                       <option value="ACTIVE">ACTIVE</option>
                       <option value="INACTIVE">INACTIVE</option>
                     </select>
+                     <label className={styles.floatingLabel}>
+                      Plant Status <span className={styles.required}>*</span>
+                    </label>
                   </div>
                 </div>
-
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>
-                    Description <span className={styles.required}>*</span>
-                  </label>
+ <div
+                className={styles.formGroup}
+                style={{ width: "100%",padding:15 }}
+              >
+                <div className={styles.formGroupFloating}>
                   <textarea
                     name="description"
                     value={form.description}
@@ -177,20 +178,34 @@ const AddPlantMasterUser: React.FC = () => {
                     rows={5}
                     placeholder="Enter plant description..."
                   />
+                  <label className={styles.floatingLabel}>
+                      Plant Description <span className={styles.required}>*</span>
+                    </label>
+                </div>
                 </div>
               </div>
 
-              <div className={styles.formFooter}>
+              <div className={styles.formFotter}>
+            <div
+              className={styles.buttonRow}
+              style={{
+                display: "flex",
+                justifyContent: "flex-start",
+                gap: 24,
+                margin: 15,
+              }}
+            >
                 <button type="submit" className={styles.saveBtn}>
-                  💾 Save Plant
+                  Save
                 </button>
                 <button
                   type="button"
                   className={styles.cancelBtn}
                   onClick={() => navigate("/plant-master")}
                 >
-                  ✕ Cancel
+                 Cancel
                 </button>
+                </div>
               </div>
             </form>
           </div>

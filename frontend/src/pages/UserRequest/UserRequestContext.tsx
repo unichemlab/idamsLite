@@ -51,7 +51,7 @@ export type UserRequest = {
   accessType: string;
   applicationId: string;
   department: string;
-  role: string;
+  role: string | string[];
   reportsTo: string;
   reportsToOptions: Manager[];
   trainingStatus: "Yes" | "No";
@@ -109,7 +109,7 @@ export const UserRequestProvider: React.FC<{ children: React.ReactNode }> = ({
     accessType: "",
     applicationId: "",
     department: "",
-    role: "",
+    role: [],
     reportsTo: "",
     reportsToOptions: [],
     trainingStatus: "Yes",
