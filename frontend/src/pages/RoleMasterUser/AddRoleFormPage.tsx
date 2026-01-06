@@ -3,7 +3,6 @@ import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
 import { useNavigate } from "react-router-dom";
 import { useRoles } from "../../RoleMaster/RolesContext";
 import type { Role } from "../../RoleMaster/RolesContext";
-import Styles from "../DepartmentMaster/AddDeptFormPage.module.css";
 import { useAuth } from "../../context/AuthContext";
 import AppHeader from "../../components/Common/AppHeader";
 import styles from "../Plant/AddPlantMaster.module.css";
@@ -96,78 +95,77 @@ export default function AddRoleFormPage({ onCancel }: AddRoleFormPageProps) {
             onSubmit={handleSubmit}
             style={{ width: "100%" }}
           >
-            <div className={Styles.scrollFormContainer}>
-              <div className={Styles.rowFields}>
-                <div
-                  className={Styles.formGroup}
-                  style={{ flex: 1, minWidth: 180 }}
-                >
-                  <label>Role Name</label>
+            <div className={styles.scrollFormContainer}>
+              <div className={styles.rowFields}>
+                <div className={styles.formGroupFloating}>
                   <input
                     name="name"
                     value={form.name}
                     onChange={handleFormChange}
                     required
-                    className={Styles.input}
+                    className={styles.input}
                   />
+                  <label className={styles.floatingLabel}>
+                      Role Name <span className={styles.required}>*</span>
+                    </label>
                 </div>
-                <div
-                  className={Styles.formGroup}
-                  style={{ flex: 1, minWidth: 180 }}
-                >
-                  <label>Status</label>
+                <div className={styles.formGroupFloating}>
                   <select
-                    className={Styles.select}
+                    className={styles.select}
                     name="status"
                     value={form.status}
                     onChange={handleFormChange}
                   >
+                     <option value="">Select Status</option>
                     <option value="ACTIVE">ACTIVE</option>
                     <option value="INACTIVE">INACTIVE</option>
                   </select>
+                  <label className={styles.floatingLabel}>
+                      Status <span className={styles.required}>*</span>
+                    </label>
                 </div>
               </div>
               <div
-                className={Styles.formGroup}
-                style={{ width: "100%", marginTop: 18 }}
+                className={styles.formGroup}
+                style={{ width: "100%",padding:15 }}
               >
-                <label>Description</label>
+              <div className={styles.formGroupFloating}>
                 <textarea
                   name="description"
                   value={form.description}
                   onChange={handleFormChange}
                   required
-                  className={Styles.textarea}
-                  rows={4}
-                  style={{
-                    minHeight: 120,
-                    resize: "vertical",
-                    width: "100%",
-                    fontSize: "1.1rem",
-                  }}
+                  className={styles.textarea}
+                  rows={5}
                   placeholder="Enter description..."
                 />
+                 <label className={styles.floatingLabel}>
+                      Description <span className={styles.required}>*</span>
+                    </label>
+              </div>
               </div>
             </div>
+           <div className={styles.formFotter}>
             <div
-              className={Styles.buttonRow}
+              className={styles.buttonRow}
               style={{
                 display: "flex",
                 justifyContent: "flex-start",
                 gap: 24,
-                marginTop: 24,
+                margin: 15,
               }}
             >
-              <button type="submit" className={Styles.saveBtn}>
+              <button type="submit" className={styles.saveBtn}>
                 Save
               </button>
               <button
                 type="button"
-                className={Styles.cancelBtn}
+                className={styles.cancelBtn}
                 onClick={handleCancel}
               >
                 Cancel
               </button>
+            </div>
             </div>
           </form>
           {showModal && (

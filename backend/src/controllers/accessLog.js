@@ -57,6 +57,43 @@ exports.getAccessLogById = async (req, res) => {
   }
 };
 
+
+// Get data of vendor firm
+exports.getAccessLogByFirm = async (req, res) => {
+  const { vendor_firm } = req.params;
+  try {
+    const { rows } = await pool.query(
+      `SELECT 
+        al.*,
+        am.display_name as application_name,
+        dm.department_name,
+        rm.role_name,
+        pm.plant_name as location_name
+      FROM access_log al
+      LEFT JOIN application_master am ON al.application_equip_id = am.id
+      LEFT JOIN department_master dm ON al.department = dm.id
+      LEFT JOIN role_master rm ON al.role = rm.id
+      LEFT JOIN plant_master pm ON al.location = pm.id
+      WHERE al.vendor_firm = $1 
+        AND al.task_status = 'Closed'
+      ORDER BY al.created_on DESC`,
+      [vendor_firm]
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ 
+        error: "No closed access logs found for this vendor firm" 
+      });
+    }
+    
+    // Return all matching records (not just the first one)
+    res.json(rows);
+  } catch (err) {
+    console.error("Error fetching access logs by firm:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 // Get activity logs for access log module
 exports.getAccessLogActivityLogs = async (req, res) => {
   try {
@@ -523,6 +560,172 @@ exports.updateApproverStatus = async (req, res) => {
   } catch (err) {
     console.error("Error updating approver status:", err);
     res.status(500).json({ error: err.message });
+  }
+};
+
+// exports.checkAccessLogConflict = async (req, res) => {
+//   const { applicationId,request_for_by,name,vendor_name,plant_location,department,accessType } = req.body;
+
+//   try {
+//     const appIds = Array.isArray(applicationId)
+//       ? applicationId
+//       : [applicationId];
+//  const inFlightParams =
+//         request_for_by === "Vendor / OEM"
+//           ? [plant_location, department, appIds, vendor_name]
+//           : [plant_location, department, appIds, name];
+//     const { rows } = await pool.query(
+//       `
+//       SELECT
+//         MAX(CASE WHEN task_status = 'Closed' THEN 1 ELSE 0 END) AS exists,
+//         MAX(CASE WHEN task_status IN ('Pending','In Progress','Approved') THEN 1 ELSE 0 END) AS task_not_closed
+//       FROM access_log
+//       WHERE location = $1
+//         AND department = $2
+//         AND application_equip_id = ANY($3)
+//         AND ${
+//             request_for_by === "Vendor / OEM"
+//               ? "vendor_name = $4"
+//               : "name = $4"
+//           }
+//       `,
+//       inFlightParams
+//     );
+
+//     res.json({
+//       exists: rows[0]?.exists === 1,
+//       taskNotClosed: rows[0]?.task_not_closed === 1,
+//     });
+//   } catch (err) {
+//     console.error("Access log validation error:", err);
+//     res.status(500).json({ error: "Validation failed" });
+//   }
+// };
+
+/**
+ * RULE 2: Check Access Log for Modify Access
+ * RULE 3: Check Access Log for New User Creation
+ * 
+ * Checks: Plant + Department + Application (Display Name) + task_status
+ */
+exports.checkAccessLogConflict = async (req, res) => {
+  const { 
+    applicationId, 
+    request_for_by, 
+    name, 
+    vendor_name, 
+    plant_location, 
+    department, 
+    accessType 
+  } = req.body;
+
+  console.log("[RULE 2/3 - ACCESS LOG CHECK]", {
+    request_for_by,
+    name: name || vendor_name,
+    plant_location,
+    department,
+    applicationId,
+    accessType
+  });
+
+  try {
+    const appIds = Array.isArray(applicationId) ? applicationId : [applicationId];
+    const isVendor = request_for_by === "Vendor / OEM";
+
+    const params = [plant_location, department, appIds];
+    if (isVendor) {
+      params.push(vendor_name);
+    } else {
+      params.push(name);
+    }
+
+    // Check access_log for existing records
+    const query = `
+      SELECT
+        COUNT(*) FILTER (WHERE task_status = 'Closed') AS closed_count,
+        COUNT(*) FILTER (WHERE task_status IN ('Pending','In Progress','Approved')) AS active_count,
+        COUNT(*) AS total_count,
+        MAX(CASE WHEN task_status = 'Closed' THEN 1 ELSE 0 END) AS has_closed,
+        MAX(CASE WHEN task_status IN ('Pending','In Progress','Approved') THEN 1 ELSE 0 END) AS has_active,
+        STRING_AGG(DISTINCT app.display_name, ', ') AS application_names
+      FROM access_log al
+      LEFT JOIN application_master app ON al.application_equip_id::text = app.id::text
+      WHERE al.location::text = $1::text
+        AND al.department::text = $2::text
+        AND al.application_equip_id::text = ANY($3::text[])
+        AND ${isVendor 
+          ? "LOWER(TRIM(al.vendor_name)) = LOWER(TRIM($4))" 
+          : "LOWER(TRIM(al.name)) = LOWER(TRIM($4))"
+        }
+    `;
+
+    const { rows } = await pool.query(query, params);
+    const result = {
+      exists: rows[0]?.has_closed === 1,              // Has closed access
+      taskNotClosed: rows[0]?.has_active === 1,       // Has active/unclosed tasks
+      closedCount: parseInt(rows[0]?.closed_count || '0', 10),
+      activeCount: parseInt(rows[0]?.active_count || '0', 10),
+      totalCount: parseInt(rows[0]?.total_count || '0', 10),
+      applicationNames: rows[0]?.application_names || ''
+    };
+
+    // Apply rules based on access type
+    let ruleViolation = null;
+
+    // RULE 2: Modify Access requires existing closed access
+    if (accessType === "Modify Access") {
+      if (!result.exists) {
+        ruleViolation = {
+          rule: "RULE_2",
+          message: "Cannot modify access - No existing closed access found in Access Log for this combination."
+        };
+      } else if (result.taskNotClosed) {
+        ruleViolation = {
+          rule: "RULE_4",
+          message: "Cannot modify access - An active/unclosed task already exists. Please wait for it to complete."
+        };
+      }
+    }
+
+    // RULE 3: New User Creation blocked if access exists
+    if (accessType === "New User Creation" || accessType === "Bulk New User Creation") {
+      if (result.exists) {
+        ruleViolation = {
+          rule: "RULE_3",
+          message: "Duplicate request not allowed - Access already exists in Access Log for this combination."
+        };
+      } else if (result.taskNotClosed) {
+        ruleViolation = {
+          rule: "RULE_4",
+          message: "Duplicate request not allowed - An active/unclosed task already exists."
+        };
+      }
+    }
+
+    // Other access types - just check for active tasks
+    if (!["Modify Access", "New User Creation", "Bulk New User Creation"].includes(accessType)) {
+      if (result.taskNotClosed) {
+        ruleViolation = {
+          rule: "RULE_4",
+          message: "Cannot proceed - An active/unclosed task already exists for this combination."
+        };
+      }
+    }
+
+    console.log("[RULE 2/3] Result:", {
+      ...result,
+      ruleViolation: ruleViolation ? ruleViolation.rule : "PASS"
+    });
+
+    res.json({
+      ...result,
+      conflict: !!ruleViolation,
+      ...ruleViolation
+    });
+
+  } catch (err) {
+    console.error("[RULE 2/3] ERROR:", err);
+    res.status(500).json({ error: "Validation failed", details: err.message });
   }
 };
 

@@ -14,20 +14,20 @@
 
 /* Breadcrumb */
 .breadcrumb {
-      display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 5px;
-    font-size: 12px;
-    font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 5px;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .breadcrumbLink {
   color: #3b82f6;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    padding: 6px 10px;
-    border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 6px 10px;
+  border-radius: 6px;
 }
 
 .breadcrumbLink:hover {
@@ -59,6 +59,7 @@
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -66,41 +67,43 @@
 }
 
 .formHeader {
-       background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
-    padding: 11px;
-    color: white;
+  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+  padding: 11px;
+  color: white;
 }
 
 .formHeader h2 {
-    font-size: 13px;
-    font-weight: 700;
-    margin: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  margin: 6px;
 }
 
 .formHeader p {
   margin: 6px;
-    font-size: 13px;
-    opacity: 0.9;
+  font-size: 13px;
+  opacity: 0.9;
 }
+
 /* 3 COLUMN GRID LAYOUT */
 .rowFields {
   display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 24px;
-    margin-bottom: 6px;
-    padding: 5px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-bottom: 6px;
+  padding: 12px;
 }
+
 /* Form Body */
 .form {
-      display: flex;
-    flex-direction: column;
-    gap: 0;
-    width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
 }
 
 .formBody {
-      padding: 10px 15px;
-    margin: 5px;
+  padding: 10px 15px;
+  margin: 5px;
 }
 
 .formRow {
@@ -128,17 +131,16 @@
   font-weight: 700;
 }
 
-.textarea
-{
+.textarea {
   min-height: 25px;
-    max-height: 35px;
-    resize: vertical;
-    width: 100%;
-    border: 1px solid #d9dde7;
-    border-radius: 8px;
-    color: #333;
-    background: #fff;
-    transition: all 0.25s ease;
+  max-height: 35px;
+  resize: vertical;
+  width: 100%;
+  border: 1px solid #d9dde7;
+  border-radius: 8px;
+  color: #333;
+  background: #fff;
+  transition: all 0.25s ease;
 }
 
 .input,
@@ -161,13 +163,14 @@
   box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
   background: #fafbff;
 }
+
 /* Floating label behavior */
-input:focus ~ label,
-select:focus ~ label,
-textarea:focus ~ label,
-input:not(:placeholder-shown) ~ label,
-select:not([value=""]) ~ label,
-textarea:not(:placeholder-shown) ~ label {
+input:focus~label,
+select:focus~label,
+textarea:focus~label,
+input:not(:placeholder-shown)~label,
+select:not([value=""])~label,
+textarea:not(:placeholder-shown)~label {
   top: -10px;
   left: 8px;
   font-size: 0.9rem;
@@ -190,30 +193,34 @@ textarea:not(:placeholder-shown) ~ label {
 
 /* Form Footer */
 .formFooter {
-     display: flex;
-    gap: 16px;
-    padding: 8px 8px;
-    background: #f8fafc;
-    border-top: 2px solid #e2e8f0;
+  display: flex;
+  gap: 16px;
+  padding: 8px 8px;
+  background: #f8fafc;
+  border-top: 2px solid #e2e8f0;
 }
 
 .saveBtn {
-  flex: 1;
-  max-width: 200px;
-  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-  color: white;
-  border: none;
- /* padding: 14px 28px; */
-  border-radius: 10px;
-  font-size: 15px;
-  font-weight: 700;
+  min-width: 100px;
+  height: 36px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  border: none;
+  transition: background 0.2s ease;
+  background: #f47c20;
+  color: #fff;
+}
+
+.formFotter {
+  background: #fff;
+  padding: 0px 1px;
+  /* border-bottom: 1px solid #e1e8f0; */
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-bottom: -5px;
 }
 
 .saveBtn:hover {
@@ -226,22 +233,18 @@ textarea:not(:placeholder-shown) ~ label {
 }
 
 .cancelBtn {
-  flex: 1;
-  max-width: 160px;
-  background: white;
-  color: #64748b;
-  border: 2px solid #e2e8f0;
-  padding: 11px;
-  border-radius: 10px;
-  font-size: 15px;
-  font-weight: 700;
+  min-width: 100px;
+  height: 36px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
+  border: none;
+  background: #f1f1f1;
+  color: #333;
+  padding: 8px 20px;
 }
+
 
 .cancelBtn:hover {
   background: #f8fafc;
@@ -286,6 +289,7 @@ textarea:not(:placeholder-shown) ~ label {
     opacity: 0;
     transform: translateY(30px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -299,9 +303,12 @@ textarea:not(:placeholder-shown) ~ label {
 }
 
 @keyframes pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: scale(1);
   }
+
   50% {
     transform: scale(1.1);
   }
@@ -399,4 +406,97 @@ textarea:not(:placeholder-shown) ~ label {
   .approvalTitle {
     font-size: 20px;
   }
+}
+
+/* Floating Label Wrapper */
+.formGroupFloating {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Label */
+.floatingLabel {
+  position: absolute;
+  left: 14px;
+  top: 16%;
+  transform: translateY(-50%);
+  background: #ffffff;
+  padding: 0 6px;
+  font-size: 12px;
+  color: #2563eb;
+  pointer-events: none;
+  font-weight: 500;
+}
+
+/* INPUT / SELECT / TEXTAREA COMMON */
+.input,
+.select,
+.textarea {
+  padding: 16px 14px;
+  font-size: 15px;
+}
+
+
+/* Select fix */
+.select {
+  background-color: #fff;
+}
+
+/* Required star spacing */
+.floatingLabel .required {
+  color: #dc2626;
+  margin-left: 2px;
+}
+
+.formGroup label {
+  top: 2px;
+  left: 14px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #2563eb;
+  background: #ffffff;
+  padding: 0 6px;
+  z-index: 1;
+}
+
+.input,
+.select,
+.textarea {
+  padding-top: 22px;
+  /* space for label */
+}
+
+input:focus~label,
+select:focus~label,
+textarea:focus~label,
+input:not(:placeholder-shown)~label,
+select:not([value=""])~label,
+textarea:not(:placeholder-shown)~label {
+  top: 2px !important;
+  left: 14px !important;
+  font-size: 11px !important;
+  color: #007bff !important;
+  background: #fafbff;
+}
+
+/* React Select base */
+.reactSelect__control {
+  min-height: 46px !important;
+  border: 2px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+
+/* ========== LOCKED STATE ========== */
+.locked .input,
+.locked .select,
+.locked .reactSelect__control {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  cursor: not-allowed;
+}
+
+.locked .floatingLabel {
+  color: #94a3b8;
 }

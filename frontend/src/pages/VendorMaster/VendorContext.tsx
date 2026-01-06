@@ -18,7 +18,7 @@ export interface Vendor {
   transaction_id?: string;
   name?: string;
   vendor_name?: string;
-  vendor_code?: string;
+  code?: string;
   description?: string;
   status?: "ACTIVE" | "INACTIVE";
 }
@@ -66,6 +66,7 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
   const addVendor = async (vendor: Vendor) => {
     await addVendorAPI({
       vendor_name: vendor.name,
+      vendor_code: vendor.code,
       description: vendor.description,
       status: vendor.status,
     });
@@ -78,6 +79,7 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
     if (!vendor || !vendor.id) return;
     await updateVendorAPI(vendor.id, {
       vendor_name: updated.name,
+      vendor_code: updated.code,
       description: updated.description,
       status: updated.status,
     });

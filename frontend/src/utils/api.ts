@@ -452,6 +452,9 @@ export async function fetchAccessLogs(params?: {
 export async function fetchActivityLogs(ritm: string) {
   return request(`/api/access-logs/${ritm}/activity`);
 }
+export async function fetchAccessLogsForFirm(vendor_firm: string) {
+  return request(`/api/access-logs/firm/${vendor_firm}`);
+}
 
 export async function addAccessLogAPI(accessLog: any): Promise<any> {
   return request("/api/access-logs", {

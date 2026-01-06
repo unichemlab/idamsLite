@@ -4,6 +4,7 @@ const userController = require("../controllers/userController");
 const userPlantPermissionController = require("../controllers/userPlantPermissionController");
 const pool = require("../config/db");
 
+
 // Get all users
 router.get("/", userController.getAllUsers);
 // Add new user

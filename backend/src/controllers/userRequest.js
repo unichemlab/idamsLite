@@ -81,7 +81,6 @@ const { getApprovalEmail } = require("../utils/emailTemplate");
 const pool = require("../config/db");
 const path = require("path");
 const fs = require("fs");
-
 // Helper: fetch user request and tasks
 const getUserRequestWithTasks = async (id) => {
   const { rows: userRows } = await pool.query(
@@ -790,3 +789,345 @@ exports.searchUserRequests = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+exports.checkInFlightAndAccessLog = async (req, res) => {
+  const {
+    plant_location,
+    department,
+    applicationId,
+    accessType,
+  } = req.body;
+
+  try {
+    // 1️⃣ Check in-flight user requests
+    const inFlight = await pool.query(
+       `SELECT ur.id AS user_request_id,
+              ur.transaction_id AS user_request_transaction_id,
+              ur.request_for_by,
+              ur.name,
+              ur.employee_code,
+              ur.employee_location,
+              ur.access_request_type,
+              ur.training_status,
+              ur.training_attachment,
+              ur.training_attachment_name,
+              ur.vendor_name,
+              ur.vendor_firm,
+              ur.vendor_code,
+              ur.vendor_allocated_id,
+              ur.status AS user_request_status,
+              ur.created_on,
+              tr.id AS task_id,
+              tr.transaction_id AS task_request_transaction_id,
+              tr.application_equip_id,
+              app.display_name AS application_name,
+              tr.department,
+              d.department_name,
+              tr.role,
+              r.role_name AS role_name,
+              p.plant_name AS plant_name,
+              tr.location,
+              tr.reports_to,
+              tr.task_status,
+              tr.remarks
+       FROM user_requests ur
+       LEFT JOIN task_requests tr ON ur.id = tr.user_request_id
+       LEFT JOIN department_master d ON tr.department = d.id
+       LEFT JOIN role_master r ON tr.role = r.id
+       LEFT JOIN plant_master p ON tr.location = p.id
+       LEFT JOIN application_master app ON tr.application_equip_id = app.id
+        WHERE tr.location = $1
+        AND tr.department = $2
+        AND tr.application_equip_id = $3
+        AND tr.task_status IN ('Pending', 'Approved')
+      LIMIT 1
+      `,
+      [plant_location, department, applicationId]
+    );
+
+    if (inFlight.rowCount > 0) {
+      return res.status(409).json({
+        conflict: true,
+        source: "IN_FLIGHT",
+        message: "Request already in progress",
+      });
+    }
+
+    // 2️⃣ Check access log
+    const accessLog = await pool.query(
+      `
+      SELECT 1
+      FROM access_log
+      WHERE location = $1
+        AND department = $2
+        AND application_equip_id = $3
+        AND task_status IN ('Pending', 'In Progress', 'Approved')
+      LIMIT 1
+      `,
+      [plant_location, department, applicationId]
+    );
+
+    if (accessLog.rowCount > 0) {
+      return res.status(409).json({
+        conflict: true,
+        source: "ACCESS_LOG",
+        message: "Access already exists or not closed",
+      });
+    }
+
+    res.json({ conflict: false });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Validation failed" });
+  }
+};
+
+// exports.checkInFlightRequest = async (req, res) => {
+//   const { applicationId,request_for_by,name,vendor_name,plant_location,department,accessType } = req.body;
+// //console.log("Checking in-flight for:", req.body);
+//   try {
+//     const appIds = Array.isArray(applicationId)
+//       ? applicationId
+//       : [applicationId];
+
+//  const inFlightParams =
+//         request_for_by === "Vendor / OEM"
+//           ? [plant_location, department, appIds, vendor_name]
+//           : [plant_location, department, appIds, name];
+//     const { rows } = await pool.query(
+//       `SELECT ur.id AS user_request_id,
+//               ur.transaction_id AS user_request_transaction_id,
+//               ur.request_for_by,
+//               ur.name,
+//               ur.employee_code,
+//               ur.employee_location,
+//               ur.access_request_type,
+//               ur.training_status,
+//               ur.training_attachment,
+//               ur.training_attachment_name,
+//               ur.vendor_name,
+//               ur.vendor_firm,
+//               ur.vendor_code,
+//               ur.vendor_allocated_id,
+//               ur.status AS user_request_status,
+//               ur.created_on,
+//               tr.id AS task_id,
+//               tr.transaction_id AS task_request_transaction_id,
+//               tr.application_equip_id,
+//               app.display_name AS application_name,
+//               tr.department,
+//               d.department_name,
+//               tr.role,
+//               r.role_name AS role_name,
+//               p.plant_name AS plant_name,
+//               tr.location,
+//               tr.reports_to,
+//               tr.task_status,
+//               tr.remarks
+//        FROM user_requests ur
+//        LEFT JOIN task_requests tr ON ur.id = tr.user_request_id
+//        LEFT JOIN department_master d ON tr.department = d.id
+//        LEFT JOIN role_master r ON tr.role = r.id
+//        LEFT JOIN plant_master p ON tr.location = p.id
+//        LEFT JOIN application_master app ON tr.application_equip_id = app.id
+//         WHERE tr.location = $1
+//         AND tr.department = $2
+//         AND tr.application_equip_id = ANY($3)
+//         AND tr.task_status IN ('Pending', 'Approved')
+//         AND ${
+//             request_for_by === "Vendor / OEM"
+//               ? "ur.vendor_name = $4"
+//               : "ur.name = $4"
+//           }
+//       LIMIT 1
+//       `,
+//       inFlightParams
+//     );
+//     return res.json({ conflict: rows.length > 0 });
+//   } catch (err) {
+//     console.error("In-flight validation error:", err);
+//     res.status(500).json({ error: "Validation failed" });
+//   }
+// };
+/**
+ * RULE 1 + RULE 3 + RULE 4: Check In-Flight Requests
+ * 
+ * Checks: Plant + Department + Application (Display Name)
+ * - For ALL request types
+ * - Matches by name/vendor_name
+ * - Blocks if request is Pending, Approved, or In Progress
+ */
+exports.checkInFlightRequest = async (req, res) => {
+  const { 
+    applicationId, 
+    request_for_by, 
+    name, 
+    vendor_name, 
+    plant_location, 
+    department, 
+    accessType 
+  } = req.body;
+
+  console.log("[RULE 1/3/4 - IN-FLIGHT CHECK]", {
+    request_for_by,
+    name: name || vendor_name,
+    plant_location,
+    department,
+    applicationId,
+    accessType
+  });
+
+  try {
+    const appIds = Array.isArray(applicationId) ? applicationId : [applicationId];
+    const isVendor = request_for_by === "Vendor / OEM";
+
+    // Build query to check user_requests + task_requests
+    const params = [plant_location, department, appIds];
+    if (isVendor) {
+      params.push(vendor_name);
+    } else {
+      params.push(name);
+    }
+
+    const query = `
+      SELECT 
+        ur.id AS user_request_id,
+        ur.transaction_id AS user_request_transaction_id,
+        ur.request_for_by,
+        ur.name,
+        ur.vendor_name,
+        ur.access_request_type,
+        ur.status AS user_request_status,
+        ur.approver1_status,
+        ur.approver2_status,
+        tr.id AS task_id,
+        tr.transaction_id AS task_transaction_id,
+        tr.application_equip_id,
+        app.display_name AS application_display_name,
+        tr.department,
+        d.department_name,
+        tr.location,
+        p.plant_name,
+        tr.task_status,
+        tr.created_on
+      FROM user_requests ur
+      INNER JOIN task_requests tr ON ur.id = tr.user_request_id
+      LEFT JOIN department_master d ON tr.department::text = d.id::text
+      LEFT JOIN plant_master p ON tr.location::text = p.id::text
+      LEFT JOIN application_master app ON tr.application_equip_id::text = app.id::text
+      WHERE tr.location::text = $1::text
+        AND tr.department::text = $2::text
+        AND tr.application_equip_id::text = ANY($3::text[])
+        AND tr.task_status IN ('Pending', 'Approved', 'In Progress')
+        AND ${isVendor 
+          ? "LOWER(TRIM(ur.vendor_name)) = LOWER(TRIM($4))" 
+          : "LOWER(TRIM(ur.name)) = LOWER(TRIM($4))"
+        }
+      ORDER BY tr.created_on DESC
+      LIMIT 1
+    `;
+
+    const { rows } = await pool.query(query, params);
+    const hasConflict = rows.length > 0;
+
+    if (hasConflict) {
+      console.log("[RULE 1/3/4] ❌ CONFLICT - In-flight request found:", {
+        transaction_id: rows[0].user_request_transaction_id,
+        request_type: rows[0].access_request_type,
+        status: rows[0].user_request_status,
+        task_status: rows[0].task_status
+      });
+    } else {
+      console.log("[RULE 1/3/4] ✅ PASS - No in-flight conflicts");
+    }
+
+    return res.json({ 
+      conflict: hasConflict,
+      rule: hasConflict ? "RULE_1_3_4" : null,
+      message: hasConflict 
+        ? "A request is already in progress for this combination (Plant + Department + Application)"
+        : null,
+      existingRequest: hasConflict ? rows[0] : null
+    });
+
+  } catch (err) {
+    console.error("[RULE 1/3/4] ERROR:", err);
+    res.status(500).json({ error: "Validation failed", details: err.message });
+  }
+};
+
+/**
+ * RULE 6: Validate Bulk New User Creation
+ * - Maximum 7 applications from same Plant + Department
+ */
+exports.validateBulkCreation = async (req, res) => {
+  const { plant_location, department, applicationIds } = req.body;
+
+  console.log("[RULE 6 - BULK VALIDATION]", {
+    plant_location,
+    department,
+    applicationCount: applicationIds?.length
+  });
+
+  try {
+    // Check count
+    if (!Array.isArray(applicationIds)) {
+      return res.status(400).json({ 
+        valid: false,
+        rule: "RULE_6",
+        message: "Application IDs must be an array" 
+      });
+    }
+
+    if (applicationIds.length === 0) {
+      return res.status(400).json({ 
+        valid: false,
+        rule: "RULE_6",
+        message: "At least one application is required" 
+      });
+    }
+
+    if (applicationIds.length > 7) {
+      console.log("[RULE 6] ❌ FAIL - More than 7 applications");
+      return res.json({ 
+        valid: false,
+        rule: "RULE_6",
+        message: "Maximum 7 applications allowed per bulk request" 
+      });
+    }
+
+    // Verify all applications belong to same department
+    const { rows } = await pool.query(
+      `SELECT 
+        app.id,
+        app.display_name,
+        app.department_id,
+        d.department_name
+      FROM application_master app
+      LEFT JOIN department_master d ON app.department_id::text = d.id::text
+      WHERE app.id::text = ANY($1::text[])
+        AND app.department_id::text = $2::text`,
+      [applicationIds, department]
+    );
+
+    if (rows.length !== applicationIds.length) {
+      console.log("[RULE 6] ❌ FAIL - Applications from different departments");
+      return res.json({ 
+        valid: false,
+        rule: "RULE_6",
+        message: "All applications must belong to the same department" 
+      });
+    }
+
+    console.log("[RULE 6] ✅ PASS - Bulk validation successful");
+    res.json({ 
+      valid: true,
+      applications: rows
+    });
+
+  } catch (err) {
+    console.error("[RULE 6] ERROR:", err);
+    res.status(500).json({ error: "Validation failed", details: err.message });
+  }
+};
+

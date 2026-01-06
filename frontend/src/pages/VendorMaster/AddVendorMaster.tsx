@@ -74,9 +74,8 @@ const AddVendorMaster: React.FC = () => {
           {sidebarConfig.map((item) => (
             <button
               key={item.key}
-              className={`${superAdminStyles["nav-button"]} ${
-                activeTab === item.key ? superAdminStyles.active : ""
-              }`}
+              className={`${superAdminStyles["nav-button"]} ${activeTab === item.key ? superAdminStyles.active : ""
+                }`}
               onClick={() => handleSidebarNav(item.key)}
               style={activeTab === item.key ? { fontWeight: 700 } : {}}
             >
@@ -134,29 +133,52 @@ const AddVendorMaster: React.FC = () => {
           >
             <div className={addStyles.scrollFormContainer}>
               <div className={addStyles.rowFields}>
-                <div className={addStyles.formGroup}>
-                  <label>Vendor Name</label>
+                <div className={addStyles.formGroupFloating}>
                   <input
+                    type="text"
                     name="name"
                     value={form.name}
                     onChange={handleChange}
-                    required
                     className={addStyles.input}
+                    required
+                    placeholder=" "
                   />
+                  <label className={addStyles.floatingLabel}>
+                    Vendor Name <span className={addStyles.required}>*</span>
+                  </label>
+                </div>
+                <div className={addStyles.formGroupFloating}>
+                  <input
+                    type="text"
+                    name="vendorCode"
+                    value={form.name}
+                    onChange={handleChange}
+                    className={addStyles.input}
+                    required
+                    placeholder=" "
+                  />
+                  <label className={addStyles.floatingLabel}>
+                    Vendor Code <span className={addStyles.required}>*</span>
+                  </label>
                 </div>
 
-                <div className={addStyles.formGroup}>
-                  <label>Status</label>
+                <div className={addStyles.formGroupFloating}>
                   <select
-                    className={addStyles.select}
                     name="status"
                     value={form.status}
                     onChange={handleChange}
+                    className={addStyles.select}
+                    required
                   >
+                    <option value="" disabled hidden></option>
                     <option value="ACTIVE">ACTIVE</option>
                     <option value="INACTIVE">INACTIVE</option>
                   </select>
+                  <label className={addStyles.floatingLabel}>
+                    Status <span className={addStyles.required}>*</span>
+                  </label>
                 </div>
+
               </div>
               <div
                 className={addStyles.formGroup}

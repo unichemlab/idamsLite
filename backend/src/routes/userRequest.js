@@ -4,7 +4,7 @@ const multer = require("multer");
 const path = require("path");
 const pool = require("../config/db");
 const userRequestController = require("../controllers/userRequest");
-
+const authorize = require("../middleware/authorize");
 // 📂 Configure multer storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -157,6 +157,8 @@ router.post("/", upload.single("training_attachment"), userRequestController.cre
 router.get("/:id", userRequestController.getUserRequestById);
 router.put("/:id", upload.single("training_attachment"), userRequestController.updateUserRequest);
 router.delete("/:id", userRequestController.deleteUserRequest);
+router.post("/inflight-check",userRequestController.checkInFlightRequest);
+router.post("/validate-bulk",authorize(),userRequestController.validateBulkCreation);
 
 
 // 📥 Download attachment

@@ -225,7 +225,7 @@ const AddApplicationMaster: React.FC = () => {
 
               <div className={addStyles.formFooter}>
                 <button type="submit" className={addStyles.saveBtn}>
-                  💾 Save Application
+                  Save
                 </button>
                 <button
                   type="button"
@@ -236,7 +236,7 @@ const AddApplicationMaster: React.FC = () => {
                     })
                   }
                 >
-                  ✕ Cancel
+                 Cancel
                 </button>
               </div>
             </form>

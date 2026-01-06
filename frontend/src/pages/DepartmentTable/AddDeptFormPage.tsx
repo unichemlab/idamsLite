@@ -4,7 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useDepartmentContext, Department } from "../../pages/DepartmentMaster/DepartmentContext";
 import AppHeader from "../../components/Common/AppHeader";
-import styles from "./AddDeptFormPage.module.css";
+import styles from "../Plant/AddPlantMaster.module.css";
 
 const AddDeptFormPage: React.FC = () => {
   const { addDepartment } = useDepartmentContext();
@@ -85,12 +85,9 @@ const AddDeptFormPage: React.FC = () => {
             </div>
 
             <form className={styles.form} onSubmit={handleSubmit}>
-              <div className={styles.formBody}>
-                <div className={styles.formRow}>
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>
-                      Department Name <span className={styles.required}>*</span>
-                    </label>
+              <div className={styles.scrollFormContainer}>
+                <div className={styles.rowFields}>
+                  <div className={styles.formGroupFloating}>
                     <input
                       name="name"
                       value={form.name}
@@ -99,12 +96,13 @@ const AddDeptFormPage: React.FC = () => {
                       className={styles.input}
                       placeholder="Enter department name"
                     />
+                    <label className={styles.floatingLabel}>
+                      Department Name <span className={styles.required}>*</span>
+                    </label>
                   </div>
 
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>
-                      Status <span className={styles.required}>*</span>
-                    </label>
+                  <div className={styles.formGroupFloating}>
+
                     <select
                       className={styles.select}
                       name="status"
@@ -114,36 +112,55 @@ const AddDeptFormPage: React.FC = () => {
                       <option value="ACTIVE">ACTIVE</option>
                       <option value="INACTIVE">INACTIVE</option>
                     </select>
+                    <label className={styles.floatingLabel}>
+                      Status <span className={styles.required}>*</span>
+                    </label>
                   </div>
                 </div>
 
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>
-                    Description <span className={styles.required}>*</span>
-                  </label>
-                  <textarea
-                    name="description"
-                    value={form.description}
-                    onChange={handleChange}
-                    required
-                    className={styles.textarea}
-                    rows={5}
-                    placeholder="Enter department description..."
-                  />
+                <div
+                  className={styles.formGroup}
+                  style={{ width: "100%", padding: 15 }}
+                >
+                  <div className={styles.formGroupFloating}>
+
+                    <textarea
+                      name="description"
+                      value={form.description}
+                      onChange={handleChange}
+                      required
+                      className={styles.textarea}
+                      rows={5}
+                      placeholder="Enter department description..."
+                    />
+                    <label className={styles.floatingLabel}>
+                      Description <span className={styles.required}>*</span>
+                    </label>
+                  </div>
                 </div>
               </div>
 
-              <div className={styles.formFooter}>
-                <button type="submit" className={styles.saveBtn}>
-                  💾 Save Department
-                </button>
-                <button
-                  type="button"
-                  className={styles.cancelBtn}
-                  onClick={() => navigate("/department-master")}
+               <div className={styles.formFotter}>
+                <div
+                  className={styles.buttonRow}
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-start",
+                    gap: 24,
+                    margin: 15,
+                  }}
                 >
-                  ✕ Cancel
-                </button>
+                  <button type="submit" className={styles.saveBtn}>
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.cancelBtn}
+                    onClick={() => navigate("/department-master")}
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </form>
           </div>

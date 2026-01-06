@@ -120,11 +120,7 @@ export default function EditRoleFormPage({
           >
             <div className={styles.scrollFormContainer}>
               <div className={styles.rowFields}>
-                <div
-                  className={styles.formGroup}
-                  style={{ flex: 1, minWidth: 180 }}
-                >
-                  <label>Role Name</label>
+                <div className={styles.formGroupFloating}>
                   <input
                     name="name"
                     value={form.name}
@@ -132,28 +128,31 @@ export default function EditRoleFormPage({
                     required
                     className={styles.input}
                   />
+                  <label className={styles.floatingLabel}>
+                      Role Name <span className={styles.required}>*</span>
+                    </label>
                 </div>
-                <div
-                  className={styles.formGroup}
-                  style={{ flex: 1, minWidth: 180 }}
-                >
-                  <label>Status</label>
+                <div className={styles.formGroupFloating}>
                   <select
                     className={styles.select}
                     name="status"
                     value={form.status}
                     onChange={handleFormChange}
                   >
+                     <option value="">Select Status</option>
                     <option value="ACTIVE">ACTIVE</option>
                     <option value="INACTIVE">INACTIVE</option>
                   </select>
+                  <label className={styles.floatingLabel}>
+                      Status <span className={styles.required}>*</span>
+                    </label>
                 </div>
               </div>
               <div
                 className={styles.formGroup}
-                style={{ width: "100%", marginTop: 18 }}
+                style={{ width: "100%",padding:15 }}
               >
-                <label>Description</label>
+              <div className={styles.formGroupFloating}>
                 <textarea
                   name="description"
                   value={form.description}
@@ -161,23 +160,22 @@ export default function EditRoleFormPage({
                   required
                   className={styles.textarea}
                   rows={5}
-                  style={{
-                    minHeight: 120,
-                    resize: "vertical",
-                    width: "100%",
-                    fontSize: "1.1rem",
-                  }}
                   placeholder="Enter description..."
                 />
+                 <label className={styles.floatingLabel}>
+                      Description <span className={styles.required}>*</span>
+                    </label>
+              </div>
               </div>
             </div>
+            <div className={styles.formFotter}>
             <div
               className={styles.buttonRow}
               style={{
                 display: "flex",
                 justifyContent: "flex-start",
                 gap: 24,
-                marginTop: 24,
+                margin: 15,
               }}
             >
               <button type="submit" className={styles.saveBtn}>
@@ -190,6 +188,7 @@ export default function EditRoleFormPage({
               >
                 Cancel
               </button>
+            </div>
             </div>
           </form>
           {showModal && (
