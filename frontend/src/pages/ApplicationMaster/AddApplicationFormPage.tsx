@@ -465,43 +465,10 @@ const AddApplicationFormPage: React.FC = () => {
 
                 {/* Row 4 - Roles and Multiple Role Access - 2 Columns */}
                 <div className={styles.rowFields} style={{ gridTemplateColumns: '2fr 1fr' }}>
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>
-                      Roles <span className={styles.required}>*</span>
-                      {/* Role Lock Toggle */}
-                      <span style={{ marginLeft: 10 }}>
-                        <span
-                          className={styles.roleLockToggle}
-                          onClick={() => setRoleLocked((prev) => !prev)}
-                          tabIndex={0}
-                          aria-label="Role Lock Toggle"
-                        >
-                          <span
-                            className={styles.roleLockTrack}
-                            style={{
-                              background: roleLocked ? "#1569B0" : "#c4c4c4",
-                            }}
-                          >
-                            <span className={styles.roleLockLabel}>
-                              {roleLocked ? "Lock" : "Unlock"}
-                            </span>
-                            <span
-                              className={styles.roleLockCircle}
-                              style={{
-                                left: roleLocked ? 52 : 4,
-                                background: "#fff",
-                              }}
-                            >
-                              {roleLocked ? (
-                                <FaLock size={14} color="#1569B0" />
-                              ) : (
-                                <FaUnlock size={14} color="#c4c4c4" />
-                              )}
-                            </span>
-                          </span>
-                        </span>
-                      </span>
-                    </label>
+                  <div className={`${styles.formGroupFloating} ${form.role_id.length > 0 ? styles.filled : ""}`}>
+                    {/* Floating Label */}
+                    
+
                     <Select
                       id="role_id"
                       isMulti
@@ -522,39 +489,104 @@ const AddApplicationFormPage: React.FC = () => {
                             : [],
                         }));
                       }}
-                      placeholder="Select roles..."
+                      placeholder=""   // IMPORTANT for floating label
+                      isDisabled={roleLocked}
+                      classNamePrefix="floatSelect"
                       styles={{
                         menu: (base) => ({ ...base, zIndex: 20 }),
-                        control: (base) => ({
+                        control: (base, state) => ({
                           ...base,
-                          minHeight: 38,
-                          fontSize: 15,
-                          border: '2px solid #e2e8f0',
-                          borderRadius: '10px',
+                          minHeight: 44,
+                          fontSize: 14,
+                          borderRadius: 10,
+                          paddingTop: 12,
+                          border: state.isFocused
+                            ? "2px solid #1569B0"
+                            : "2px solid #e2e8f0",
+                          boxShadow: "none",
                         }),
                       }}
-                      isDisabled={roleLocked}
                     />
+                     <label
+                     className={styles.floatingLabel}
+                      htmlFor="role_id"
+                      style={{
+                        fontWeight: 500,
+                        fontSize: 11,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      Roles <span className={styles.required}>*</span>
+                      {/* Role Lock Toggle */}
+                        <span style={{ marginLeft: 65 }}>
+                        <span
+                          className={styles.roleLockToggle}
+                          onClick={() => {
+                            if (roleLocked) setRoleLocked(false);
+                            else setRoleLocked(true);
+                          }}
+                          tabIndex={0}
+                          aria-label="Role Lock Toggle"
+                        >
+                          <span
+                            className={styles.roleLockTrack}
+                            style={{
+                              color: roleLocked ? "#f47c20" :"#1569B0",
+                            }}
+                          >
+                            <span className={styles.roleLockLabel}>
+                              {roleLocked ? "Lock" : "Unlock"}
+                            </span>
+                            <span
+                              className={styles.roleLockCircle}
+                              style={{
+                                left: roleLocked ? 52 : 4,
+                                background: "#fff",
+                              }}
+                            >
+                              {roleLocked ? (
+                                <FaLock size={14} color="#f47c20" />
+                              ) : (
+                                <FaUnlock size={14} color="#1569B0" />
+                              )}
+                            </span>
+                          </span>
+                        </span>
+                      </span>
+                    </label>
                   </div>
 
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>
+
+                  <div
+                    className={`${styles.formGroupFloating} ${form.multiple_role_access ? styles.filled : ""
+                      }`}
+                  >
+                    {/* Floating Label */}
+                    <label
+                      htmlFor="multiple_role_access"
+                      className={styles.floatingLabel}
+                    >
                       Multiple Role Access
                     </label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+
+                    <div className={styles.checkboxWrapper}>
                       <input
                         id="multiple_role_access"
                         type="checkbox"
                         name="multiple_role_access"
                         checked={form.multiple_role_access}
                         onChange={handleChange}
-                        style={{ width: 20, height: 20, cursor: 'pointer' }}
+                        className={styles.checkbox}
                       />
-                      <label htmlFor="multiple_role_access" style={{ cursor: 'pointer', fontSize: 14, color: '#64748b' }}>
-                        {form.multiple_role_access ? 'Yes' : 'No'}
-                      </label>
+
+                      <span className={styles.checkboxText}>
+                        {form.multiple_role_access ? "Yes" : "No"}
+                      </span>
                     </div>
                   </div>
+
                 </div>
               </div>
 

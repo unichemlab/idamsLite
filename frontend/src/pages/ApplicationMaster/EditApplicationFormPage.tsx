@@ -297,13 +297,11 @@ const EditApplicationFormPage: React.FC = () => {
             </div>
 
             <form className={addStyles.form} onSubmit={handleSubmit}>
-              <div className={addStyles.formBody}>
+               <div className={addStyles.scrollFormContainer}>
                 {/* Row 1 - 3 Columns */}
                 <div className={addStyles.rowFields}>
-                  <div className={addStyles.formGroup}>
-                    <label className={addStyles.label}>
-                      Plant Location <span className={addStyles.required}>*</span>
-                    </label>
+                  <div className={addStyles.formGroupFloating}>
+                   
                     <Select
                       name="plant_location_id"
                       options={plantOptions}
@@ -333,12 +331,13 @@ const EditApplicationFormPage: React.FC = () => {
                         }),
                       }}
                     />
+                     <label className={addStyles.floatingLabel}>
+                      Plant Location <span className={addStyles.required}>*</span>
+                    </label>
                   </div>
 
-                  <div className={addStyles.formGroup}>
-                    <label className={addStyles.label}>
-                      Department <span className={addStyles.required}>*</span>
-                    </label>
+                  <div className={addStyles.formGroupFloating}>
+                   
                     <Select
                       name="department_id"
                       options={departmentOptions}
@@ -368,13 +367,13 @@ const EditApplicationFormPage: React.FC = () => {
                         }),
                       }}
                     />
+                     <label className={addStyles.floatingLabel}>
+                      Department <span className={addStyles.required}>*</span>
+                    </label>
                   </div>
 
-                  <div className={addStyles.formGroup}>
-                    <label className={addStyles.label}>
-                      Application/HMI Name{" "}
-                      <span className={addStyles.required}>*</span>
-                    </label>
+                  <div className={addStyles.formGroupFloating}>
+                    
                     <input
                       className={addStyles.input}
                       name="application_hmi_name"
@@ -383,13 +382,17 @@ const EditApplicationFormPage: React.FC = () => {
                       required
                       placeholder="Enter Application/HMI Name"
                     />
+                    <label className={addStyles.floatingLabel}>
+                      Application/HMI Name{" "}
+                      <span className={addStyles.required}>*</span>
+                    </label>
                   </div>
                 </div>
 
                 {/* Row 2 - 3 Columns */}
                 <div className={addStyles.rowFields}>
-                  <div className={addStyles.formGroup}>
-                    <label className={addStyles.label}>
+                  <div className={addStyles.formGroupFloating}>
+                    <label className={addStyles.floatingLabel}>
                       Application/HMI Version{" "}
                       <span className={addStyles.required}>*</span>
                     </label>
@@ -403,11 +406,8 @@ const EditApplicationFormPage: React.FC = () => {
                     />
                   </div>
 
-                  <div className={addStyles.formGroup}>
-                    <label className={addStyles.label}>
-                      Equipment/Instrument ID{" "}
-                      <span className={addStyles.required}>*</span>
-                    </label>
+                  <div className={addStyles.formGroupFloating}>
+                    
                     <input
                       className={addStyles.input}
                       name="equipment_instrument_id"
@@ -416,13 +416,14 @@ const EditApplicationFormPage: React.FC = () => {
                       required
                       placeholder="Enter Equipment/Instrument ID"
                     />
-                  </div>
-
-                  <div className={addStyles.formGroup}>
-                    <label className={addStyles.label}>
-                      Application/HMI Type{" "}
+                    <label className={addStyles.floatingLabel}>
+                      Equipment/Instrument ID{" "}
                       <span className={addStyles.required}>*</span>
                     </label>
+                  </div>
+
+                  <div className={addStyles.formGroupFloating}>
+                    
                     <select
                       className={addStyles.select}
                       name="application_hmi_type"
@@ -433,15 +434,17 @@ const EditApplicationFormPage: React.FC = () => {
                       <option value="Application">Application</option>
                       <option value="HMI">HMI</option>
                     </select>
+                    <label className={addStyles.floatingLabel}>
+                      Application/HMI Type{" "}
+                      <span className={addStyles.required}>*</span>
+                    </label>
                   </div>
                 </div>
 
                 {/* Row 3 - 3 Columns */}
                 <div className={addStyles.rowFields}>
-                  <div className={addStyles.formGroup}>
-                    <label className={addStyles.label}>
-                      System Name <span className={addStyles.required}>*</span>
-                    </label>
+                  <div className={addStyles.formGroupFloating}>
+                    
                     <input
                       className={addStyles.input}
                       name="system_name"
@@ -450,10 +453,13 @@ const EditApplicationFormPage: React.FC = () => {
                       required
                       placeholder="Enter System Name"
                     />
+                    <label className={addStyles.floatingLabel}>
+                      System Name <span className={addStyles.required}>*</span>
+                    </label>
                   </div>
 
-                  <div className={addStyles.formGroup}>
-                    <label className={addStyles.label}>System Inventory ID</label>
+                  <div className={addStyles.formGroupFloating}>
+                    
                     <input
                       className={addStyles.input}
                       name="system_inventory_id"
@@ -462,12 +468,11 @@ const EditApplicationFormPage: React.FC = () => {
                       placeholder="Enter System Inventory ID"
                       type="number"
                     />
+                    <label className={addStyles.floatingLabel}>System Inventory ID</label>
                   </div>
 
-                  <div className={addStyles.formGroup}>
-                    <label className={addStyles.label}>
-                      Status <span className={addStyles.required}>*</span>
-                    </label>
+                  <div className={addStyles.formGroupFloating}>
+                   
                     <select
                       id="status"
                       className={addStyles.select}
@@ -479,59 +484,16 @@ const EditApplicationFormPage: React.FC = () => {
                       <option value="ACTIVE">ACTIVE</option>
                       <option value="INACTIVE">INACTIVE</option>
                     </select>
+                     <label className={addStyles.floatingLabel}>
+                      Status <span className={addStyles.required}>*</span>
+                    </label>
                   </div>
                 </div>
 
                 {/* Row 4 - Roles and Multiple Role Access - 2 Columns */}
                 <div className={addStyles.rowFields} style={{ gridTemplateColumns: '2fr 1fr' }}>
-                  <div className={addStyles.formGroup}>
-                    <label
-                      htmlFor="role_id"
-                      style={{
-                        fontWeight: 600,
-                        fontSize: 14,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                      }}
-                    >
-                      Roles <span className={addStyles.required}>*</span>
-                      <span style={{ marginLeft: 10 }}>
-                        <span
-                          className={addStyles.roleLockToggle}
-                          onClick={() => {
-                            if (roleLocked) setShowUnlockModal(true);
-                            else setRoleLocked(true);
-                          }}
-                          tabIndex={0}
-                          aria-label="Role Lock Toggle"
-                        >
-                          <span
-                            className={addStyles.roleLockTrack}
-                            style={{
-                              background: roleLocked ? "#1569B0" : "#c4c4c4",
-                            }}
-                          >
-                            <span className={addStyles.roleLockLabel}>
-                              {roleLocked ? "Lock" : "Unlock"}
-                            </span>
-                            <span
-                              className={addStyles.roleLockCircle}
-                              style={{
-                                left: roleLocked ? 52 : 4,
-                                background: "#fff",
-                              }}
-                            >
-                              {roleLocked ? (
-                                <FaLock size={14} color="#1569B0" />
-                              ) : (
-                                <FaUnlock size={14} color="#c4c4c4" />
-                              )}
-                            </span>
-                          </span>
-                        </span>
-                      </span>
-                    </label>
+                  <div className={addStyles.formGroupFloating}>
+                    
                     <Select
                       id="role_id"
                       isMulti
@@ -565,10 +527,58 @@ const EditApplicationFormPage: React.FC = () => {
                       }}
                       isDisabled={roleLocked}
                     />
+                    <label
+                     className={addStyles.floatingLabel}
+                      htmlFor="role_id"
+                      style={{
+                        fontWeight: 500,
+                        fontSize: 11,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      Roles <span className={addStyles.required}>*</span>
+                      <span style={{ marginLeft: 65 }}>
+                        <span
+                          className={addStyles.roleLockToggle}
+                          onClick={() => {
+                            if (roleLocked) setShowUnlockModal(true);
+                            else setRoleLocked(true);
+                          }}
+                          tabIndex={0}
+                          aria-label="Role Lock Toggle"
+                        >
+                          <span
+                            className={addStyles.roleLockTrack}
+                            style={{
+                              color: roleLocked ? "#f47c20" :"#1569B0",
+                            }}
+                          >
+                            <span className={addStyles.roleLockLabel}>
+                              {roleLocked ? "Lock" : "Unlock"}
+                            </span>
+                            <span
+                              className={addStyles.roleLockCircle}
+                              style={{
+                                left: roleLocked ? 52 : 4,
+                                background: "#fff",
+                              }}
+                            >
+                              {roleLocked ? (
+                                <FaLock size={14} color="#f47c20" />
+                              ) : (
+                                <FaUnlock size={14} color="#1569B0" />
+                              )}
+                            </span>
+                          </span>
+                        </span>
+                      </span>
+                    </label>
                   </div>
 
-                  <div className={addStyles.formGroup}>
-                    <label className={addStyles.label}>
+                  <div className={addStyles.formGroupFloating}>
+                    <label className={addStyles.floatingLabel}>
                       Multiple Role Access
                     </label>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
@@ -588,9 +598,18 @@ const EditApplicationFormPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className={addStyles.formFooter}>
+              <div className={addStyles.formFotter}>
+                <div
+                                  className={addStyles.buttonRow}
+                                  style={{
+                                    display: "flex",
+                                    justifyContent: "flex-start",
+                                    gap: 24,
+                                    margin: 15,
+                                  }}
+                                >
                 <button type="submit" className={addStyles.saveBtn}>
-                  ✓ Update Application
+                Update
                 </button>
                 <button
                   type="button"
@@ -602,8 +621,9 @@ const EditApplicationFormPage: React.FC = () => {
                     });
                   }}
                 >
-                 Cancel
+                Cancel
                 </button>
+              </div>
               </div>
             </form>
           </div>
