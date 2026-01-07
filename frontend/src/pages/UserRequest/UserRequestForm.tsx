@@ -1040,38 +1040,96 @@ const AddUserRequest: React.FC = () => {
       // BUILD TASKS
       // =====================================================
       const tasks: TaskRequest[] = [];
-      const selectedRoles = Array.isArray(form.role)
-        ? form.role
-        : [form.role];
-      if (isBulk) {
-        bulkRows.forEach((row) => {
-          selectedRoles.forEach((roleId) => {
-            tasks.push({
-              application_equip_id: row.applicationId,
-              department: form.department,
-              role: roleId,
-              location: form.plant_location,
-              reports_to: form.reportsTo,
-              task_status: "Pending",
-              approver1_id: approver1_id_str,
-              approver2_id: "",
-            });
-          });
-        });
-      } else {
-        selectedRoles.forEach((roleId) => {
-          tasks.push({
-            application_equip_id: form.applicationId,
-            department: form.department,
-            role: roleId,
-            location: form.plant_location,
-            reports_to: form.reportsTo,
-            task_status: "Pending",
-            approver1_id: approver1_id_str,
-            approver2_id: "",
-          });
+      // const selectedRoles = Array.isArray(form.role)
+      //   ? form.role
+      //   : [form.role];
+      // if (isBulk) {
+      //   bulkRows.forEach((row) => {
+      //     console.log("Building tasks for bulk row:", row, "with roles:", form.role); return false;
+      //     selectedRoles.forEach((roleId) => {
+      //       tasks.push({
+      //         application_equip_id: row.applicationId,
+      //         department: form.department,
+      //         role: roleId,
+      //         location: form.plant_location,
+      //         reports_to: form.reportsTo,
+      //         task_status: "Pending",
+      //         approver1_id: approver1_id_str,
+      //         approver2_id: "",
+      //       });
+      //     });
+      //   });
+      // } else {
+      //   selectedRoles.forEach((roleId) => {
+      //     tasks.push({
+      //       application_equip_id: form.applicationId,
+      //       department: form.department,
+      //       role: roleId,
+      //       location: form.plant_location,
+      //       reports_to: form.reportsTo,
+      //       task_status: "Pending",
+      //       approver1_id: approver1_id_str,
+      //       approver2_id: "",
+      //     });
+      //   });
+      // }
+
+
+      // =====================================================
+// BUILD TASKS - FIXED VERSION
+// Replace the task building section in handleSubmit
+// =====================================================
+
+if (isBulk) {
+  // For bulk creation, iterate through each bulk row
+  bulkRows.forEach((row) => {
+    // Get the roles for THIS specific row
+    const rowRoles = Array.isArray(row.role) ? row.role : [row.role];
+    
+    // Create a task for each role in this row
+    rowRoles.forEach((roleId) => {
+      if (roleId) { // Only add if role exists
+        tasks.push({
+          application_equip_id: row.applicationId,
+          department: form.department,
+          role: roleId,
+          location: form.plant_location,
+          reports_to: form.reportsTo,
+          task_status: "Pending",
+          approver1_id: approver1_id_str,
+          approver2_id: "",
         });
       }
+    });
+  });
+} else {
+  // For single creation, use form.role
+  const selectedRoles = Array.isArray(form.role) ? form.role : [form.role];
+  
+  selectedRoles.forEach((roleId) => {
+    if (roleId) { // Only add if role exists
+      tasks.push({
+        application_equip_id: form.applicationId,
+        department: form.department,
+        role: roleId,
+        location: form.plant_location,
+        reports_to: form.reportsTo,
+        task_status: "Pending",
+        approver1_id: approver1_id_str,
+        approver2_id: "",
+      });
+    }
+  });
+}
+
+console.log("[SUBMIT] Generated tasks:", tasks);
+
+// Validation: Ensure at least one task was created
+if (tasks.length === 0) {
+  setValidationError("No valid tasks created. Please check your selections.");
+  setIsSubmitting(false);
+  return;
+}
 
       // =====================================================
       // BUILD FORM DATA
@@ -1106,7 +1164,7 @@ const AddUserRequest: React.FC = () => {
 
       formData.append("tasks", JSON.stringify(tasks));
 
-      console.log("[SUBMIT] Sending request to backend...");
+      console.log("[SUBMIT] Sending request to backend...",bulkRows, tasks);
 
       // =====================================================
       // SUBMIT
