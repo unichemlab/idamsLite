@@ -252,7 +252,6 @@ exports.createUserRequest = async (req, res) => {
 
     const training_attachment = req.file ? req.file.filename : null;
     const training_attachment_name = req.file ? req.file.originalname : null;
-
     // Insert user_request
     const { rows } = await pool.query(
       `INSERT INTO user_requests
@@ -316,16 +315,15 @@ exports.createUserRequest = async (req, res) => {
     for (const task of tasks) {
       // Determine approver details - either from task or from workflow
       const approver1Id = task.approver1_id || approverDetails?.approver_1_id;
-      const approver2Id = task.approver2_id || parseInt(approverDetails?.approver_2_id.split(",")[0], 10);
+      const approver2Id = task.approver2_id || parseInt(approverDetails?.approver_2_id.split(",")[0], 10)|| null;
       const approver1Name =
-        task.approver1_name || approverDetails?.approver1_name;
+        task.approver1_name || approverDetails?.approver1_name||null;
       const approver2Name =
-        task.approver2_name || approverDetails?.approver2_name;
+        task.approver2_name || approverDetails?.approver2_name||null;
       const approver1Email =
-        approverDetails?.approver1_email || approver1_email;
+        approverDetails?.approver1_email || approver1_email||null;
       const approver2Email =
-        approverDetails?.approver2_email || approver2_email;
-
+        approverDetails?.approver2_email || approver2_email||null;
       await pool.query(
         `INSERT INTO task_requests
         (user_request_id, application_equip_id, department, role, location, reports_to, task_status,

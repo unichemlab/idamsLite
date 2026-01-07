@@ -108,19 +108,37 @@ const AddSystemInventory: React.FC = () => {
   }, []);
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value, type } = e.target;
-    setForm({
-      ...form,
-      [name]:
-        type === "checkbox"
-          ? (e.target as HTMLInputElement).checked
-          : type === "number"
-            ? Number(value)
-            : value,
-    });
-  };
+  e: React.ChangeEvent<
+    HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+  >
+) => {
+  const { name, value, type } = e.target;
+
+  let finalValue: any = value;
+
+  // ✅ checkbox → boolean
+  if (type === "checkbox") {
+    finalValue = (e.target as HTMLInputElement).checked;
+  }
+
+  // ✅ number input → number
+  else if (type === "number") {
+    finalValue = Number(value);
+  }
+
+  // ✅ select boolean → boolean
+  else if (value === "true") {
+    finalValue = true;
+  } else if (value === "false") {
+    finalValue = false;
+  }
+
+  setForm((prev) => ({
+    ...prev,
+    [name]: finalValue,
+  }));
+};
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,8 +152,7 @@ const AddSystemInventory: React.FC = () => {
   };
 
   const input = (name: keyof System, label: string, type = "text") => (
-    <div className={styles.formGroup}>
-      <label>{label}</label>
+    <div className={styles.formGroupFloating}>
       <input
         type={type}
         name={name}
@@ -143,6 +160,7 @@ const AddSystemInventory: React.FC = () => {
         onChange={handleChange}
         className={styles.input}
       />
+       <label className={styles.floatingLabel}>{label}</label>
     </div>
   );
 
@@ -159,6 +177,81 @@ const AddSystemInventory: React.FC = () => {
       </label>
     </div>
   );
+const isWindowsRequired = ["Desktop", "Laptop", "Toughbook"].includes(
+  form.type_of_asset || ""
+);
+ type OptionValue = string | number;
+
+type GenericSelectOption<T> = {
+  value: (item: T) => OptionValue;
+  label: (item: T) => string;
+};
+
+const select = <T,>(
+  name: keyof System,
+  label: string,
+  options: T[] = [],
+  mapperOrRequired?: GenericSelectOption<T> | boolean,
+  isRequiredParam: boolean = false,
+  isDisabled: boolean = false,
+  isBoolean: boolean = false
+) => {
+  // ✅ support old & new signatures
+  const mapper =
+    typeof mapperOrRequired === "object" ? mapperOrRequired : undefined;
+
+  const isRequired =
+    typeof mapperOrRequired === "boolean"
+      ? mapperOrRequired
+      : isRequiredParam;
+
+  return (
+    <div className={styles.formGroupFloating}>
+      <select
+        name={name}
+        value={
+          isBoolean
+            ? form[name] === true
+              ? "true"
+              : form[name] === false
+              ? "false"
+              : ""
+            : ((form[name] as any) || "")
+        }
+        onChange={handleChange}
+        required={isRequired}
+        disabled={isDisabled}
+        className={styles.select}
+      >
+        <option value="">-- Select --</option>
+
+        {isBoolean ? (
+          <>
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </>
+        ) : mapper ? (
+          options.map((item, i) => (
+            <option key={i} value={mapper.value(item)}>
+              {mapper.label(item)}
+            </option>
+          ))
+        ) : (
+          (options as any[]).map((v, i) => (
+            <option key={i} value={v as any}>
+              {String(v)}
+            </option>
+          ))
+        )}
+      </select>
+
+      <label className={styles.floatingLabel}>
+        {label}
+        {isRequired && <span className={styles.required}> *</span>}
+      </label>
+    </div>
+  );
+};
 
   return (
     <>
@@ -182,40 +275,10 @@ const AddSystemInventory: React.FC = () => {
             <form className={styles.form} onSubmit={handleSubmit}>
               <div className={styles.scrollFormContainer}>
                 <div className={styles.rowFields}>
-
-                  {/* DROPDOWNS */}
-                  <div className={styles.formGroup}>
-                    <label>Plant</label>
-                    <select
-                      name="plant_location_id"
-                      value={form.plant_location_id}
-                      onChange={handleChange}
-                      className={styles.select}
-                    >
-                      <option value="">-- Select --</option>
-                      {plants.map(p => (
-                        <option key={p.id} value={p.id}>{p.plant_name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className={styles.formGroup}>
-                    <label>Department</label>
-                    <select
-                      name="department_id"
-                      value={form.department_id}
-                      onChange={handleChange}
-                      className={styles.select}
-                    >
-                      <option value="">-- Select --</option>
-                      {departments.map(d => (
-                        <option key={d.id} value={d.id}>{d.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
+                  {select("plant_location_id", "Plant Location",plants,{value: (p) => p.id,label: (p) => p.plant_name},true)}
                   {input("user_location", "User Location")}
                   {input("building_location", "Building Location")}
+                  {select("department_id", "Department" , departments,{value: (p) => p.id,label: (p) => p.name}, true)}
                   {input("allocated_to_user_name", "Allocated To")}
                   {input("host_name", "Host Name")}
                   {input("make", "Make")}
@@ -226,96 +289,46 @@ const AddSystemInventory: React.FC = () => {
                   {input("hdd_capacity", "HDD Capacity")}
                   {input("ip_address", "IP Address")}
                   {input("other_software", "Other Software")}
-                  {checkbox("windows_activated", "Windows Activated")}
+                  {/* {checkbox("windows_activated", "Windows Activated")} */}
                   {input("os_version_service_pack", "OS Version / SP")}
-                  <select name="architecture" value={form.architecture} onChange={handleChange}>
-                    <option value="">-- Select --</option>
-                    <option value="32bit">32bit</option>
-                    <option value="64bit">64bit</option>
-                  </select>
-                  <select name="type_of_asset" value={form.type_of_asset} onChange={handleChange}>
-                    <option value="">-- Select --</option>
-                    {["Desktop", "Laptop", "Toughbook", "HMI", "SCADA", "IPC", "TABs", "Scanner", "Printer"].map(v =>
-                      <option key={v} value={v}>{v}</option>
-                    )}
-                  </select>
-
-                  <select name="category_gxp" value={form.category_gxp} onChange={handleChange}>
-                    <option value="">-- Select --</option>
-                    <option value="GxP">GxP</option>
-                    <option value="Non-GxP">Non-GxP</option>
-                    <option value="Network">Network</option>
-                  </select>
-
+                  {select("architecture","Architecture",["32 bit", "64 bit"],true)}
+                    {select("type_of_asset","Type of Asset",["Desktop", "Laptop", "Toughbook", "HMI", "SCADA", "IPC", "TABs", "Scanner", "Printer"],true)}
+                  {select("windows_activated","Windows Activated",[],false,isWindowsRequired,!isWindowsRequired,true)}
+                  {select("category_gxp","Category",["GxP", "Non-GxP","Network"],true)}
                   {input("gamp_category", "GAMP Category")}
                   {input("instrument_equipment_name", "Instrument / Equipment")}
                   {input("equipment_instrument_id", "Equipment ID")}
                   {input("instrument_owner", "Instrument Owner")}
                   {input("service_tag", "Service Tag")}
-                  {input("warranty_status", "Warranty Status")}
+                 {select("warranty_status","Warranty Status",["Under Warranty", "Out Of Warranty"],true)}
                   {input("warranty_end_date", "Warranty End Date", "date")}
                   {input("connected_no_of_equipments", "Connected Equipments", "number")}
                   {input("application_name", "Application Name")}
                   {input("application_version", "Application Version")}
                   {input("application_oem", "Application OEM")}
                   {input("application_vendor", "Application Vendor")}
-                  {checkbox("user_management_applicable", "User Management Applicable")}
-                  <div className={styles.formGroup}>
-                    <label>Application Onboard</label>
-                    <select
-                      name="application_onboard"
-                      value={form.application_onboard || ""}
-                      onChange={handleChange}
-                    >
-                      <option value="">-- Select --</option>
-                      <option value="Manual">Manual</option>
-                      <option value="Automated">Automated</option>
-                    </select>
-                  </div>
-
+                  {/* {checkbox("user_management_applicable", "User Management Applicable")} */}
+                  {select("user_management_applicable","User Management Applicable",[],false,!isWindowsRequired,!isWindowsRequired,true)}
+                  {select("application_onboard","Application Onboard",["Manual", "Automated"],true)}
+              
                   {input("system_process_owner", "System Process Owner")}
-                  {input("database_version", "Database Version")}
+                  {input("database_version", "Database Version (if installeds)")}
                   {input("domain_workgroup", "Domain / Workgroup")}
-                  <select name="connected_through" value={form.connected_through} onChange={handleChange}>
-                    <option value="">-- Select --</option>
-                    <option value="LAN">LAN</option>
-                    <option value="WiFi">WiFi</option>
-                  </select>
+                  {select("connected_through","Connected Through",["LAN", "WiFi"],true)}
 
                   {input("specific_vlan", "Specific VLAN")}
-                  <select name="ip_address_type" value={form.ip_address_type} onChange={handleChange}>
-                    <option value="">-- Select --</option>
-                    <option value="Static">Static</option>
-                    <option value="DHCP">DHCP</option>
-                    <option value="Other">Other</option>
-                  </select>
-
-                  {checkbox("date_time_sync_available", "Date Time Sync")}
+                   {select("ip_address_type","IP Address Type",["Static", "DHCP","Other"],true)}
+                   {select("date_time_sync_available","Date Time Sync",[],false,!isWindowsRequired,!isWindowsRequired,true)}
                   {input("antivirus", "Antivirus")}
                   {input("antivirus_version", "Antivirus Version")}
-                  <select name="backup_type" value={form.backup_type} onChange={handleChange}>
-                    <option value="">-- Select --</option>
-                    {["Manual", "Auto", "Commvault", "Client", "Server"].map(v =>
-                      <option key={v} value={v}>{v}</option>
-                    )}
-                  </select>
-
-                  <select
-                    name="backup_frequency_days"
-                    value={form.backup_frequency_days}
-                    onChange={handleChange}
-                  >
-                    <option value="">-- Select --</option>
-                    {["Weekly", "Fortnightly", "Monthly", "Yearly"].map(v =>
-                      <option key={v} value={v}>{v}</option>
-                    )}
-                  </select>
-
+                  {select("backup_type","Backup Type",["Manual", "Auto","Commvault Client Of Server"],true)}
+                   {select("backup_frequency_days","Backup Frequency Days",["Weekly", "Fothnight", "Monthly", "Yearly"],true)}
                   {input("backup_path", "Backup Path")}
                   {input("backup_tool", "Backup Tool")}
-                  {checkbox("backup_procedure_available", "Backup Procedure")}
-                  {checkbox("folder_deletion_restriction", "Folder Deletion Restriction")}
-                  {checkbox("remote_tool_available", "Remote Tool")}
+                   {select("backup_procedure_available","Backup Procedure",[],false,!isWindowsRequired,!isWindowsRequired,true)}
+                  
+                   {select("folder_deletion_restriction","Folder Deletion Restriction",[],false,!isWindowsRequired,!isWindowsRequired,true)}
+                   {select("remote_tool_available","Remote Tool",[],false,!isWindowsRequired,!isWindowsRequired,true)}
                   {input("os_administrator", "OS Administrator")}
                   <select name="system_running_with" value={form.system_running_with} onChange={handleChange}>
                     <option value="">-- Select --</option>
@@ -324,15 +337,14 @@ const AddSystemInventory: React.FC = () => {
                   </select>
 
                   {input("audit_trail_adequacy", "Audit Trail Adequacy")}
-                  {checkbox("user_roles_availability", "User Roles Available")}
-                  {checkbox("user_roles_challenged", "User Roles Challenged")}
+                   {select("user_roles_availability","User Roles Available",[],false,!isWindowsRequired,!isWindowsRequired,true)}
+                   {select("user_roles_challenged","User Roles Challenged",[],false,!isWindowsRequired,!isWindowsRequired,true)}
                   <select name="system_managed_by" value={form.system_managed_by} onChange={handleChange}>
                     <option value="">-- Select --</option>
                     <option value="IT">IT</option>
                     <option value="Engineering">Engineering</option>
                   </select>
-
-                  {checkbox("planned_upgrade_fy2526", "Planned Upgrade FY25-26")}
+                    {select("planned_upgrade_fy2526","Planned Upgrade FY25-26",[],false,!isWindowsRequired,!isWindowsRequired,true)}
                   {input("eol_eos_upgrade_status", "EOL / EOS Status")}
                   <select
                     name="system_current_status"
