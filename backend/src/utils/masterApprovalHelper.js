@@ -17,11 +17,18 @@ async function submitForApproval({
 }) {
   try {
     const settingsResult = await pool.query(
-      "SELECT requires_approval, notification_emails FROM approval_settings WHERE module = $1",
-      [module]
+      `SELECT awm.approver_1_id, awm.approver_2_id, 
+             u1.employee_name AS approver1_name, u1.email AS approver1_email,
+             u2.employee_name AS approver2_name, u2.email AS approver2_email
+      FROM approval_workflow_master awm
+      LEFT JOIN user_master u1 ON u1.id::text = awm.approver_1_id
+      LEFT JOIN user_master u2 ON u2.id::text = awm.approver_2_id
+     WHERE  is_active = true AND corporate_type=$1 AND workflow_type=$2
+      LIMIT 1`,
+      ['CORPORATE','Administration']
     );
 
-    const requiresApproval = settingsResult.rows[0]?.requires_approval ?? true;
+    const requiresApproval = settingsResult.rows[0]?.approver2_email ?? [];
 
     if (!requiresApproval) return null;
 
@@ -53,7 +60,7 @@ async function submitForApproval({
         action,
         requestedBy: requestedByUsername,
         comments,
-        recipientEmails: settingsResult.rows[0]?.notification_emails || [],
+        recipientEmails: requiresApproval || [],
         recordData: newValue || oldValue,
       });
     } catch (err) {

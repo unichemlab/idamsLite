@@ -405,10 +405,12 @@ export async function fetchWorkflows(approverId?: number): Promise<any[]> {
 
 
 
-export async function fetchCorporateWorkflows(type?: string,corporate_type?: string): Promise<any[]> {
+export async function fetchCorporateWorkflows(approverId?: number,type?: string,corporate_type?: string): Promise<any[]> {
   const params = [];
+   if (approverId) params.push(`approver_id=${encodeURIComponent(approverId)}`);
   if (type) params.push(`workflow_type=${type}`);
   if (corporate_type) params.push(`corporate_type=${corporate_type}`);
+
   const q = params.length ? `?${params.join('&')}` : '';
   const data: any = await request(`/api/workflows${q}`);
   // Backend may return { workflows: [...] } or an array directly. Normalize to array.

@@ -282,6 +282,7 @@ exports.login = async (req, res) => {
     // CORRECT APPROVER CHECK - Check both user_requests approver1_email and workflow assignments
     // ===============================================
     let isApprover = false;
+    let isCorporateApprover = false;
     let approverTypes = []; // Track what type of approver the user is
     let pendingApproval1Count = 0;
     let pendingApproval2Count = 0;
@@ -388,12 +389,35 @@ exports.login = async (req, res) => {
         logDebug(`User ${username} is assigned in approval workflows`);
       }
 
+
+
+      // Check 4: Is user assigned in approval_workflow_master? (for corporate)
+      const workflowApproverCorporateQuery = `
+        SELECT DISTINCT id
+        FROM approval_workflow_master
+        WHERE (
+          approver_2_id LIKE $1 OR
+          approver_3_id LIKE $1 OR
+          approver_4_id LIKE $1 OR
+          approver_5_id LIKE $1
+        ) AND is_active = true AND corporate_type=$2
+        LIMIT 1
+      `;
+      const workflowApproverCorporateResult = await db.query(workflowApproverCorporateQuery, [`%${user.id}%`,'Administration']);
+
+      if (workflowApproverCorporateResult && workflowApproverCorporateResult.rows && workflowApproverCorporateResult.rows.length > 0) {
+        isCorporateApprover = true;
+        if (!approverTypes.includes('corporate_workflow_approver')) {
+          approverTypes.push('corporate_workflow_approver');
+        }
+        logDebug(`User ${username} is assigned in  Corporate approval workflows`);
+      }
+
       // Add approver permissions if user is any type of approver
-      if (isApprover) {
+      if (isCorporateApprover) {
         permissions.push("approve:requests");
-        permissions.push("view:approvals");
-        permissions.push("read:workflows");
-        permissions.push("update:workflows");
+        permissions.push("read:admin_approval");
+        permissions.push("update:admin_approval");
 
         logDebug(`User ${username} has approver types:`, approverTypes);
         logDebug(`Pending approvals - Level 1: ${pendingApproval1Count}, Level 2: ${pendingApproval2Count}`);
@@ -458,6 +482,7 @@ exports.login = async (req, res) => {
       permittedPlantIds,      // quick filtering
       permissions_version: 2, // bump version
       isApprover: isApprover,
+      isCorporateApprover:isCorporateApprover,
       approverTypes: approverTypes, // ['approver_1', 'workflow_approver'] or subset
       pendingApproval1Count: pendingApproval1Count,
       pendingApproval2Count: pendingApproval2Count,
@@ -497,6 +522,7 @@ exports.login = async (req, res) => {
         role_id: user.role_id,
         status: user.status,
         isApprover: isApprover,
+        isCorporateApprover:isCorporateApprover,
         approverTypes: approverTypes,
         pendingApproval1Count: pendingApproval1Count,
         pendingApproval2Count: pendingApproval2Count,
