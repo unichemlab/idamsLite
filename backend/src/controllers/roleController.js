@@ -233,7 +233,7 @@ exports.deleteRole = async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id || req.user?.user_id;
   const username = req.user?.username || "Unknown";
-
+console.log("user details role delete",req.user);
   try {
     const oldRes = await pool.query(
       "SELECT * FROM role_master WHERE id=$1",

@@ -82,6 +82,8 @@ const authorize = (requiredPermissions, options = {}) => {
       const normalizedUser = {
         id: decoded.user_id,
         user_id: decoded.user_id,
+        username: decoded.username,
+        employee_name:decoded.employee_name,
         role_id: decoded.role_id,
         roles: Array.isArray(decoded.role_id)
           ? decoded.role_id.map(Number)
