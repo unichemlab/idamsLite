@@ -17,19 +17,24 @@ async function submitForApproval({
 }) {
   try {
     const settingsResult = await pool.query(
-      `SELECT awm.approver_1_id, awm.approver_2_id, 
-             u1.employee_name AS approver1_name, u1.email AS approver1_email,
-             u2.employee_name AS approver2_name, u2.email AS approver2_email
-      FROM approval_workflow_master awm
-      LEFT JOIN user_master u1 ON u1.id::text = awm.approver_1_id
-      LEFT JOIN user_master u2 ON u2.id::text = awm.approver_2_id
-     WHERE  is_active = true AND corporate_type=$1 AND workflow_type=$2
-      LIMIT 1`,
-      ['CORPORATE','Administration']
-    );
+  `SELECT awm.approver_1_id, awm.approver_2_id,
+         u1.employee_name AS approver1_name, u1.email AS approver1_email,
+         ARRAY_AGG(u2.employee_name) FILTER (WHERE u2.employee_name IS NOT NULL) AS approver2_names,
+         ARRAY_AGG(u2.email) FILTER (WHERE u2.email IS NOT NULL) AS approver2_emails
+  FROM approval_workflow_master awm
+  LEFT JOIN user_master u1 ON u1.id::text = awm.approver_1_id
+  LEFT JOIN user_master u2 ON u2.id::text = ANY(STRING_TO_ARRAY(awm.approver_2_id, ','))
+  WHERE awm.is_active = true 
+    AND awm.corporate_type = $1 
+    AND awm.workflow_type = $2
+  GROUP BY awm.approver_1_id, awm.approver_2_id, u1.employee_name, u1.email
+  LIMIT 1`,
+  ['Administration', 'CORPORATE']
+);
 
-    const requiresApproval = settingsResult.rows[0]?.approver2_email ?? [];
+const requiresApproval = settingsResult.rows[0]?.approver2_emails ?? [];
 
+console.log("Email_id",settingsResult.rows[0],requiresApproval);
     if (!requiresApproval) return null;
 
     const result = await pool.query(
