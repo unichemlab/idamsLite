@@ -7,17 +7,31 @@ exports.getAllAccessLogs = async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT 
-        al.*,
-       am.display_name as application_name,
-        dm.department_name,
-        rm.role_name,
-        pm.plant_name as location_name
-      FROM access_log al
-      LEFT JOIN application_master am ON al.application_equip_id = am.id
-      LEFT JOIN department_master dm ON al.department = dm.id
-      LEFT JOIN role_master rm ON al.role = rm.id
-      LEFT JOIN plant_master pm ON al.location = pm.id
-      ORDER BY al.created_on DESC`
+  al.*,
+  tc.*,
+
+  am.display_name  AS application_name,
+  dm.department_name,
+  rm.role_name,
+  pm.plant_name    AS location_name,
+
+  um.employee_name AS assigned_to_name
+
+FROM access_log al
+LEFT JOIN application_master am ON al.application_equip_id = am.id
+LEFT JOIN department_master dm ON al.department = dm.id
+LEFT JOIN role_master rm ON al.role = rm.id
+LEFT JOIN plant_master pm ON al.location = pm.id
+
+LEFT JOIN task_closure tc 
+   ON al.task_transaction_id = tc.task_number
+  AND al.ritm_transaction_id = tc.ritm_number
+
+LEFT JOIN user_master um 
+   ON tc.assigned_to = um.id     -- ✅ join here
+
+ORDER BY al.created_on DESC;
+`
     );
     res.json(rows);
   } catch (err) {

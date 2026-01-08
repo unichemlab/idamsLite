@@ -20,15 +20,17 @@ interface AccessLog {
   name: string;
   employee_code: string;
   employee_location: string;
-
+assigned_to_name:string;
   access_request_type: string;
   training_status: string;
-
+access:string,
   vendor_firm: string | null;
   vendor_code: string | null;
   vendor_name: string | null;
   vendor_allocated_id: number | null;
-
+  user_request_type:string;
+  from_date:string;
+  to_date:string;
   user_request_status: string;
   task_status: string;
 
@@ -58,7 +60,7 @@ interface AccessLog {
   approver2_timestamp: string | null;
   approver1_comments: string | null;
   approver2_comments: string | null;
-
+  
   created_on: string;
   updated_on: string;
   completed_at: string | null;
@@ -264,7 +266,7 @@ const AccessLogTable: React.FC = () => {
   if (error) {
     return <div style={{ padding: 24, color: "red" }}>{error}</div>;
   }
-
+console.log("Access Log",accessLogs);
   return (
     <div className={styles.pageWrapper}>
       <AppHeader title="Access Log Management" />
@@ -317,15 +319,24 @@ const AccessLogTable: React.FC = () => {
                     <th>RITM</th>
                     <th>Task</th>
                     <th>Request For</th>
-                    <th>Name</th>
-                    <th>Emp Code</th>
-                    <th>Emp Location</th>
-                    <th>Access Type</th>
-                    <th>Application</th>
-                    <th>Department</th>
-                    <th>Role</th>
+                    <th>Requestor Name</th>
+                    <th>Requestor Emp Code</th>
+                    <th>Requestor Emp Location</th>
+                    <th>Access Request Type</th>
+                    <th>Vendor Firm</th>
+                    <th>Vendor Code</th>
+                    <th>Vendor Name</th>
+                    <th>Vendor Allocated ID</th>
                     <th>Plant</th>
+                    <th>Department</th>
+                    <th>Application</th>
+                    <th>Role</th>
                     <th>Reports To</th>
+                    <th>Access</th>
+                    <th>Assigned Name</th>
+                    <th>User Request Type</th>
+                    <th>From Date</th>
+                    <th>To Date</th>
                     <th>Req Status</th>
                     <th>Task Status</th>
                     <th>Appr 1</th>
@@ -345,19 +356,32 @@ const AccessLogTable: React.FC = () => {
                       <td>{log.employee_code}</td>
                       <td>{log.employee_location}</td>
                       <td>{log.access_request_type}</td>
-                      <td>{log.application_name ?? log.application_equip_id ?? "-"}</td>
-                      <td>{log.department_name ?? log.department ?? "-"}</td>
-                      <td>{log.role_name ?? log.role ?? "-"}</td>
+                      <td>{log.vendor_firm??"-"}</td>
+                      <td>{log.vendor_code??"-"}</td>
+                      <td>{log.vendor_name??"-"}</td>
+                      <td>{log.vendor_allocated_id??"-"}</td>
                       <td>{log.location_name ?? log.location ?? "-"}</td>
-
+                      <td>{log.department_name ?? log.department ?? "-"}</td>
+                      <td>{log.application_name ?? log.application_equip_id ?? "-"}</td>
+                      <td>{log.role_name ?? log.role ?? "-"}</td>
                       <td>{log.reports_to ?? "-"}</td>
-
+                      <td>{log.access ?? "-"}</td>
+                      <td>{log.assigned_to_name??"-"}</td>
+                      <td>{log.user_request_type??"-"}</td>
+                      <td>
+                        {log.from_date
+                          ? new Date(log.from_date.replace(" ", "T")).toLocaleString("en-GB")
+                          : "--"}
+                      </td>
+                      <td>
+                        {log.to_date
+                          ? new Date(log.to_date.replace(" ", "T")).toLocaleString("en-GB")
+                          : "--"}
+                      </td>
                       <td>{log.user_request_status}</td>
                       <td>{log.task_status}</td>
-
                       <td>{log.approver1_status}</td>
                       <td>{log.approver2_status}</td>
-
                       <td>
                         {log.created_on
                           ? new Date(log.created_on.replace(" ", "T")).toLocaleString("en-GB")
