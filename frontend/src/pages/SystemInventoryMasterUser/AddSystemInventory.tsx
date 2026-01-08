@@ -274,12 +274,41 @@ const select = <T,>(
 
             <form className={styles.form} onSubmit={handleSubmit}>
               <div className={styles.scrollFormContainer}>
+                <div className={styles.section}>
+                                <span className={styles.sectionHeaderTitle}>
+                                  User Details
+                                </span>
                 <div className={styles.rowFields}>
                   {select("plant_location_id", "Plant Location",plants,{value: (p) => p.id,label: (p) => p.plant_name},true)}
                   {input("user_location", "User Location")}
                   {input("building_location", "Building Location")}
                   {select("department_id", "Department" , departments,{value: (p) => p.id,label: (p) => p.name}, true)}
                   {input("allocated_to_user_name", "Allocated To")}
+                  </div>
+                  </div>
+                  <div className={styles.section}>
+                                <span className={styles.sectionHeaderTitle}>
+                                  Commercial Details
+                                </span>
+                <div className={styles.rowFields}>
+                       {input("purchase_po", "Purchase PO")}
+                  {input("purchase_vendor_name", "Purchase Vendor")}
+                  {input("amc_vendor_name", "AMC Vendor")}
+                  {input("renewal_po", "Renewal PO")}
+                  {input("warranty_period", "Warranty Period")}
+                  {input("amc_start_date", "AMC Start Date", "date")}
+                  {input("amc_expiry_date", "AMC Expiry Date", "date")}
+                  {input("sap_asset_no", "SAP Asset No")}
+                  {select("warranty_status","Warranty Status",["Under Warranty", "Out Of Warranty"],true)}
+                  {/* {input("warranty_start_date", "Warranty Start Date", "date")} */}
+                  {input("warranty_end_date", "Warranty End Date", "date")}
+                  </div>
+                  </div>
+                  <div className={styles.section}>
+                                <span className={styles.sectionHeaderTitle}>
+                                  Commercial Details
+                                </span>
+                <div className={styles.rowFields}>
                   {input("host_name", "Host Name")}
                   {input("make", "Make")}
                   {input("model", "Model")}
@@ -294,20 +323,22 @@ const select = <T,>(
                   {select("architecture","Architecture",["32 bit", "64 bit"],true)}
                     {select("type_of_asset","Type of Asset",["Desktop", "Laptop", "Toughbook", "HMI", "SCADA", "IPC", "TABs", "Scanner", "Printer"],true)}
                   {select("windows_activated","Windows Activated",[],false,isWindowsRequired,!isWindowsRequired,true)}
+
+                </div>
+                </div>
+                  
                   {select("category_gxp","Category",["GxP", "Non-GxP","Network"],true)}
                   {input("gamp_category", "GAMP Category")}
                   {input("instrument_equipment_name", "Instrument / Equipment")}
                   {input("equipment_instrument_id", "Equipment ID")}
                   {input("instrument_owner", "Instrument Owner")}
                   {input("service_tag", "Service Tag")}
-                 {select("warranty_status","Warranty Status",["Under Warranty", "Out Of Warranty"],true)}
-                  {input("warranty_end_date", "Warranty End Date", "date")}
+                 
                   {input("connected_no_of_equipments", "Connected Equipments", "number")}
                   {input("application_name", "Application Name")}
                   {input("application_version", "Application Version")}
                   {input("application_oem", "Application OEM")}
                   {input("application_vendor", "Application Vendor")}
-                  {/* {checkbox("user_management_applicable", "User Management Applicable")} */}
                   {select("user_management_applicable","User Management Applicable",[],false,!isWindowsRequired,!isWindowsRequired,true)}
                   {select("application_onboard","Application Onboard",["Manual", "Automated"],true)}
               
@@ -330,65 +361,30 @@ const select = <T,>(
                    {select("folder_deletion_restriction","Folder Deletion Restriction",[],false,!isWindowsRequired,!isWindowsRequired,true)}
                    {select("remote_tool_available","Remote Tool",[],false,!isWindowsRequired,!isWindowsRequired,true)}
                   {input("os_administrator", "OS Administrator")}
-                  <select name="system_running_with" value={form.system_running_with} onChange={handleChange}>
-                    <option value="">-- Select --</option>
-                    <option value="AD">AD</option>
-                    <option value="Local">Local</option>
-                  </select>
-
+                  {select("system_running_with","System Running With",["Active Directory", "Local"],true)}
+                  
                   {input("audit_trail_adequacy", "Audit Trail Adequacy")}
                    {select("user_roles_availability","User Roles Available",[],false,!isWindowsRequired,!isWindowsRequired,true)}
                    {select("user_roles_challenged","User Roles Challenged",[],false,!isWindowsRequired,!isWindowsRequired,true)}
-                  <select name="system_managed_by" value={form.system_managed_by} onChange={handleChange}>
-                    <option value="">-- Select --</option>
-                    <option value="IT">IT</option>
-                    <option value="Engineering">Engineering</option>
-                  </select>
+                   {select("system_managed_by","System Managed By",["Information Technology", "Engineering"],true)}
+                  
                     {select("planned_upgrade_fy2526","Planned Upgrade FY25-26",[],false,!isWindowsRequired,!isWindowsRequired,true)}
                   {input("eol_eos_upgrade_status", "EOL / EOS Status")}
-                  <select
-                    name="system_current_status"
-                    value={form.system_current_status}
-                    onChange={handleChange}
-                  >
-                    <option value="">-- Select --</option>
-                    <option value="Validated">Validated</option>
-                    <option value="Retired">Retired</option>
-                  </select>
+                  {select("system_current_status","System Current Status",["Validated", "Retired"],true)}
+                 
+                 
 
-                  {input("purchase_po", "Purchase PO")}
-                  {input("purchase_vendor_name", "Purchase Vendor")}
-                  {input("amc_vendor_name", "AMC Vendor")}
-                  {input("renewal_po", "Renewal PO")}
-                  {input("warranty_period", "Warranty Period")}
-                  {input("amc_start_date", "AMC Start Date", "date")}
-                  {input("amc_expiry_date", "AMC Expiry Date", "date")}
-                  {input("sap_asset_no", "SAP Asset No")}
-
-                  <div className={styles.formGroup} style={{ flex: "1 1 100%" }}>
-                    <label>Remarks</label>
+                  <div className={styles.formGroupFloating} style={{ flex: "1 1 100%" }}>
+                   
                     <textarea
                       name="remarks"
                       value={form.remarks}
                       onChange={handleChange}
                       className={styles.textarea}
                     />
+                     <label className={styles.floatingLabel}>Remarks</label>
                   </div>
-
-                  <div className={styles.formGroup}>
-                    <label>Status</label>
-                    <select
-                      name="status"
-                      value={form.status}
-                      onChange={handleChange}
-                      className={styles.select}
-                    >
-                      <option value="ACTIVE">ACTIVE</option>
-                      <option value="INACTIVE">INACTIVE</option>
-                    </select>
-                  </div>
-
-                </div>
+                   {select("status","Status",["Validated", "Retired"],true)}
               </div>
 
               <div className={styles.buttonRow}>

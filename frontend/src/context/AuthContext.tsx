@@ -6,7 +6,7 @@ import React, {
   useEffect,
   useCallback,
 } from "react";
-import { fetchPermissionsAPI, fetchWorkflows, loginAPI, API_BASE } from "../utils/api";
+import { fetchPermissionsAPI, loginAPI, API_BASE,fetchCorporateWorkflows } from "../utils/api";
 import AbilityProvider from "./AbilityContext";
 
 // Interface for workflow data
@@ -39,6 +39,7 @@ interface ApproverDetectionResult {
   isApprover: boolean;
   isApprover1: boolean;
   isWorkflowApprover: boolean;
+   isCorporateApprover?:boolean;
   approverPlants?: number[];
 }
 
@@ -59,6 +60,7 @@ export interface AuthUser {
   isApprover?: boolean;
   isApprover1?: boolean;
   isWorkflowApprover?: boolean;
+  isCorporateApprover?:boolean;
   isITBin?: boolean;
   isSuperAdmin?: boolean;
   roleName?: string;
@@ -270,6 +272,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     []
   );
 
+  
+
   /**
    * Combined approver check
    */
@@ -279,10 +283,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       const isApprover1 = await checkApprover1Status(userEmail, token);
       const workflowResult = await checkWorkflowApproverStatus(userId, token);
-
+      const dataCorporate=await fetchCorporateWorkflows(userId,'CORPORATE','Administration');
+console.log("data corporate",dataCorporate); 
       const result: ApproverDetectionResult = {
         isApprover: isApprover1 || workflowResult.found,
         isApprover1,
+        isCorporateApprover:(dataCorporate.length > 0)?true:false,
         isWorkflowApprover: workflowResult.found,
         approverPlants: workflowResult.plants,
       };
@@ -454,6 +460,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                         isApprover: true,
                         isApprover1: approverResult.isApprover1,
                         isWorkflowApprover: approverResult.isWorkflowApprover,
+                         isCorporateApprover: approverResult.isCorporateApprover,
                         approverPlants: approverResult.approverPlants,
                       }
                     : null
@@ -467,6 +474,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     isApprover: true,
                     isApprover1: approverResult.isApprover1,
                     isWorkflowApprover: approverResult.isWorkflowApprover,
+                     isCorporateApprover: approverResult.isCorporateApprover,
                     approverPlants: approverResult.approverPlants,
                   })
                 );
@@ -506,7 +514,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!data.user || !data.token) {
         throw new Error("Invalid login response: missing user or token");
       }
-
+console.log("Auth data after data login",data.user);
       const roleMap: Record<string, number> = {
         superAdmin: 1,
         plantAdmin: 2,
@@ -636,6 +644,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                   isApprover: true,
                   isApprover1: approverResult.isApprover1,
                   isWorkflowApprover: approverResult.isWorkflowApprover,
+                   isCorporateApprover: approverResult.isCorporateApprover,
                   approverPlants: approverResult.approverPlants,
                 }
               : prev
@@ -649,6 +658,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               isApprover: true,
               isApprover1: approverResult.isApprover1,
               isWorkflowApprover: approverResult.isWorkflowApprover,
+               isCorporateApprover: approverResult.isCorporateApprover,
               approverPlants: approverResult.approverPlants,
             })
           );

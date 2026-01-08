@@ -40,7 +40,8 @@ export const MENU_CONFIG: MenuItem[] = [
     label: "Admin Approval",
     route: "/admin-approval",
     icon: FiCheckSquare,
-    permission: "read:admin_approval",
+    // permission: "read:admin_approval",
+     condition: (user) => user?.isCorporateApprover,
   },
   {
     label: "Access Log",

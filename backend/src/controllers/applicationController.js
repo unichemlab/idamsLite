@@ -207,7 +207,7 @@ exports.deleteApplication = async (req, res) => {
 exports.addApplication = async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.user_id;
-    const username = req.user?.username || "Unknown";
+    const username = req.user?.username || req.user?.employee_name||'Unknown';
 
     const {
       plant_location_id,
