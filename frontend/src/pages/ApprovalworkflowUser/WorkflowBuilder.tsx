@@ -89,6 +89,10 @@ const WorkflowBuilder: React.FC = () => {
   // we only set workflow helper data (not read directly) so keep setter to avoid removing logic
   const [, setCurrentWorkflowData] = useState<any>(null);
 
+
+  // Check if current selection is Corporate Administration
+  const isCorporateAdmin = workflowType === "CORPORATE" && selectedCorporate === "Administration";
+
   // Build userOptions from the user context (normalize various id fields)
   useEffect(() => {
     setUserOptions(
@@ -384,6 +388,12 @@ const WorkflowBuilder: React.FC = () => {
     // note: depends on selectedPlantId, userOptions, plants
   }, [selectedCorporate,selectedPlantId, userOptions, plants]);
 
+  // Reset approver rows when switching to Corporate Administration
+  useEffect(() => {
+    if (isCorporateAdmin) {
+      setApproverRows(getInitialApproverRows());
+    }
+  }, [isCorporateAdmin]);
   const selectWorkflowType = (type: "PLANT" | "CORPORATE") => {
     setWorkflowType(type);
     setSelectedPlantId("");
@@ -405,6 +415,9 @@ const WorkflowBuilder: React.FC = () => {
   };
 
   const handleAddLevel = () => {
+    // Don't allow adding levels for Corporate Administration
+    if (isCorporateAdmin) return;
+
     const next = approverRows.findIndex((r) => !r.isVisible);
     if (next === -1) return;
     setApproverRows((prev) =>
@@ -413,6 +426,10 @@ const WorkflowBuilder: React.FC = () => {
   };
 
   const handleRemoveLevel = (index: number) => {
+
+    // Don't allow removing the first level for Corporate Administration
+    if (isCorporateAdmin && index === 0) return;
+
     setApproverRows((prev) =>
       prev.map((r, i) => (i === index ? { users: [], isVisible: false } : r))
     );
@@ -470,7 +487,7 @@ const WorkflowBuilder: React.FC = () => {
     }
   };
 
-  const canAddMoreLevels = approverRows.some((r) => !r.isVisible);
+ const canAddMoreLevels = approverRows.some((r) => !r.isVisible) && !isCorporateAdmin;
 
   // react-select portal target to avoid clipping inside scroll containers
   const portalTarget =
@@ -665,10 +682,10 @@ const WorkflowBuilder: React.FC = () => {
                     >
                       <Chip label={`Step ${idx + 1}`} size="small" />
                       <Typography variant="subtitle2">
-                        Approver Level {idx + 2}
+                        {isCorporateAdmin ? "Approval Level" : `Approver Level ${idx + 2}`}
                       </Typography>
                     </div>
-
+                    {!(isCorporateAdmin && idx === 0) && (
                     <Tooltip title="Remove this approver level">
                       <Button
                         size="small"
@@ -679,6 +696,7 @@ const WorkflowBuilder: React.FC = () => {
                         Remove
                       </Button>
                     </Tooltip>
+                  )}
                   </div>
 
                   <Select
