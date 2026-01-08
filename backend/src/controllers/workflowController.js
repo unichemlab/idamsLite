@@ -11,16 +11,35 @@ exports.getWorkflows = async (req, res) => {
     let params = [];
 
     // If user is an approver, only show workflows they're part of
+    // if (isApprover) {
+    //   where.push(`(
+    //     approver_1_id = $${params.length + 1} OR 
+    //     approver_2_id = $${params.length + 1} OR 
+    //     approver_3_id = $${params.length + 1} OR 
+    //     approver_4_id = $${params.length + 1} OR 
+    //     approver_5_id = $${params.length + 1}
+    //   )`);
+    //   params.push(user_id.toString());
+    // }
     if (isApprover) {
-      where.push(`(
-        approver_1_id = $${params.length + 1} OR 
-        approver_2_id = $${params.length + 1} OR 
-        approver_3_id = $${params.length + 1} OR 
-        approver_4_id = $${params.length + 1} OR 
-        approver_5_id = $${params.length + 1}
-      )`);
-      params.push(user_id.toString());
-    }
+  params.push(`%,${user_id},%`);
+  params.push(`${user_id},%`);
+  params.push(`%,${user_id}`);
+  params.push(user_id.toString());
+  
+  const p1 = `$${params.length - 3}`;
+  const p2 = `$${params.length - 2}`;
+  const p3 = `$${params.length - 1}`;
+  const p4 = `$${params.length}`;
+  
+  where.push(`(
+    CONCAT(',', approver_1_id, ',') LIKE ${p1} OR approver_1_id LIKE ${p2} OR approver_1_id LIKE ${p3} OR approver_1_id = ${p4} OR
+    CONCAT(',', approver_2_id, ',') LIKE ${p1} OR approver_2_id LIKE ${p2} OR approver_2_id LIKE ${p3} OR approver_2_id = ${p4} OR
+    CONCAT(',', approver_3_id, ',') LIKE ${p1} OR approver_3_id LIKE ${p2} OR approver_3_id LIKE ${p3} OR approver_3_id = ${p4} OR
+    CONCAT(',', approver_4_id, ',') LIKE ${p1} OR approver_4_id LIKE ${p2} OR approver_4_id LIKE ${p3} OR approver_4_id = ${p4} OR
+    CONCAT(',', approver_5_id, ',') LIKE ${p1} OR approver_5_id LIKE ${p2} OR approver_5_id LIKE ${p3} OR approver_5_id = ${p4}
+  )`);
+}
 
     if (transaction_id) {
       params.push(transaction_id);
