@@ -48,7 +48,7 @@ async function sendApprovalEmail({
       delete: "Deletion",
     }[action] || action;
 
-    const appUrl = process.env.APP_URL || "http://localhost:3000";
+    const appUrl = process.env.REACT_APP_API_URL || "http://localhost:3000";
     const approvalUrl = `${appUrl}/admin-approvals/${approvalId}`;
 
     // Format record data for email
