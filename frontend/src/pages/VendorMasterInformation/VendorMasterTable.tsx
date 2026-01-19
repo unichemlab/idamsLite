@@ -1,4 +1,4 @@
-import React, { useEffect,useCallback } from "react";
+import React, { useEffect, useCallback } from "react";
 import { useVendorContext } from "../VendorMaster/VendorContext";
 import styles from "../Plant/PlantMasterTable.module.css";
 import paginationStyles from "../../styles/Pagination.module.css";
@@ -40,7 +40,7 @@ const VendorMasterTable: React.FC = () => {
   const navigate = useNavigate();
   const { can } = useAbility();
   const { user } = useAuth();
-   const { hasPermission } = usePermissions();
+  const { hasPermission } = usePermissions();
 
   useEffect(() => {
     if (!showFilterPopover) return;
@@ -147,7 +147,7 @@ const VendorMasterTable: React.FC = () => {
     // --- TABLE ---
     const rows = filteredData.map((vendor) => [
       vendor.name ?? vendor.vendor_name ?? "-",
-     // vendor.code ?? vendor.vendor_code ?? "-",
+      // vendor.code ?? vendor.vendor_code ?? "-",
       vendor.description ?? "-",
       vendor.status ?? "-",
     ]);
@@ -264,14 +264,12 @@ const VendorMasterTable: React.FC = () => {
       try {
         oldVal = log.old_value ? JSON.parse(log.old_value) : {};
         newVal = log.new_value ? JSON.parse(log.new_value) : {};
-      } catch {}
+      } catch { }
       return [
         log.action,
-        `${oldVal.vendor_name || ""} ${
-          oldVal.description ? `(${oldVal.description})` : ""
+        `${oldVal.vendor_name || ""} ${oldVal.description ? `(${oldVal.description})` : ""
         }`,
-        `${newVal.vendor_name || ""} ${
-          newVal.description ? `(${newVal.description})` : ""
+        `${newVal.vendor_name || ""} ${newVal.description ? `(${newVal.description})` : ""
         }`,
         log.action_performed_by ?? "",
         log.approve_status ?? "",
@@ -329,31 +327,31 @@ const VendorMasterTable: React.FC = () => {
 
 
   const handleEdit = useCallback(() => {
-      if (selectedRow === null) return;
-      const app = filteredData[selectedRow];
-      
-      // if (!hasPermission(PERMISSIONS.APPLICATION.UPDATE, app.plant_location_id)) {
-      //   alert('You do not have permission to edit applications for this plant');
-      //   return;
-      // }
-      
-      navigate(`/vendor-information/edit/${app.id}`, {
-        state: { applicationData: app, applicationIdx: selectedRow },
-      });
-       //navigate(`/vendor-information/edit/${selectedRow}`);
-    }, [selectedRow, filteredData, navigate]);
+    if (selectedRow === null) return;
+    const app = filteredData[selectedRow];
 
-    const handleDelete = useCallback(() => {
-        if (selectedRow === null) return;
-        const app = filteredData[selectedRow];
-        
-        if (!hasPermission(PERMISSIONS.APPLICATION.DELETE)) {
-          alert('You do not have permission to delete applications for this plant');
-          return;
-        }
-        
-        setShowDeleteModal(true);
-      }, [selectedRow, filteredData, hasPermission]);
+    // if (!hasPermission(PERMISSIONS.APPLICATION.UPDATE, app.plant_location_id)) {
+    //   alert('You do not have permission to edit applications for this plant');
+    //   return;
+    // }
+
+    navigate(`/vendor-information/edit/${app.id}`, {
+      state: { applicationData: app, applicationIdx: selectedRow },
+    });
+    //navigate(`/vendor-information/edit/${selectedRow}`);
+  }, [selectedRow, filteredData, navigate]);
+
+  const handleDelete = useCallback(() => {
+    if (selectedRow === null) return;
+    const app = filteredData[selectedRow];
+
+    if (!hasPermission(PERMISSIONS.APPLICATION.DELETE)) {
+      alert('You do not have permission to delete applications for this plant');
+      return;
+    }
+
+    setShowDeleteModal(true);
+  }, [selectedRow, filteredData, hasPermission]);
 
   return (
     <div className={styles.pageWrapper}>
@@ -361,23 +359,60 @@ const VendorMasterTable: React.FC = () => {
       <div className={styles.contentArea}>
         <div className={styles.controlPanel}>
           <div className={styles.actionRow}>
-             <PermissionGuard permission={PERMISSIONS.VENDOR.CREATE}>
-          <button
-            className={styles.addBtn}
-            onClick={() => navigate("/vendor-information/add")}
-          >
-            + Add New
-          </button>
-          </PermissionGuard>
-          <button
-            className={styles.filterBtn}
-            onClick={() => setShowFilterPopover((prev) => !prev)}
-            type="button"
-            aria-label="Filter vendors"
-          >
-            🔍 Filter
-          </button>
-           <PermissionButton
+            <form
+              className={styles.searchForm}
+              onSubmit={(e) => e.preventDefault()}
+              autoComplete="off"
+              style={{
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                minWidth: 0,
+              }}
+            >
+              <div className={styles.searchBox}>
+                <span className={styles.searchIcon}>🔍</span>
+
+                <input
+                  className={styles.searchInput}
+                  type="text"
+                  placeholder="Search by name, code..."
+                  value={filterValue}
+                  onChange={(e) => setFilterValue(e.target.value)}
+                  aria-label="Search"
+                />
+
+                {/* ✅ Clear Button */}
+                {filterValue && (
+                  <button
+                    type="button"
+                    className={styles.clearBtn}
+                    onClick={() => setFilterValue("")}
+                    aria-label="Clear search"
+                  >
+                    ❌
+                  </button>
+                )}
+              </div>
+            </form>
+
+            <PermissionGuard permission={PERMISSIONS.VENDOR.CREATE}>
+              <button
+                className={styles.addBtn}
+                onClick={() => navigate("/vendor-information/add")}
+              >
+                + Add New
+              </button>
+            </PermissionGuard>
+            <button
+              className={styles.filterBtn}
+              onClick={() => setShowFilterPopover((prev) => !prev)}
+              type="button"
+              aria-label="Filter vendors"
+            >
+              🔍 Filter
+            </button>
+            <PermissionButton
               permission={PERMISSIONS.VENDOR.UPDATE}
               className={styles.editBtn}
               disabled={selectedRow === null}
@@ -394,77 +429,76 @@ const VendorMasterTable: React.FC = () => {
             >
               <FaTrash size={14} /> Delete
             </PermissionButton>
-          
-          <button
-            className={styles.exportBtn}
-            aria-label="Export table to PDF"
-            type="button"
-            onClick={handleExportPDF}
-          >
-            <span role="img" aria-label="Export PDF" style={{ fontSize: 18 }}>
-              🗎
-            </span>
-            PDF
-          </button>
-        </div>
-        {/* Filter Popover */}
-        <div className={styles.controls}>
-          {showFilterPopover && (
-            <div className={styles.filterPopover} ref={popoverRef}>
-              <div className={styles.filterHeader}>Advanced Filter</div>
-              <div className={styles.filterBody}>
-                <div className={styles.filterFieldRow}>
-                  <label className={styles.filterLabel}>Column</label>
-                  <select
-                    className={styles.filterDropdown}
-                    value={tempFilterColumn}
-                    onChange={(e) => setTempFilterColumn(e.target.value)}
+
+            <button
+              className={styles.exportBtn}
+              aria-label="Export table to PDF"
+              type="button"
+              onClick={handleExportPDF}
+            >
+              <span role="img" aria-label="Export PDF" style={{ fontSize: 18 }}>
+                🗎
+              </span>
+              PDF
+            </button>
+          </div>
+          {/* Filter Popover */}
+          <div className={styles.controls}>
+            {showFilterPopover && (
+              <div className={styles.filterPopover} ref={popoverRef}>
+                <div className={styles.filterHeader}>Advanced Filter</div>
+                <div className={styles.filterBody}>
+                  <div className={styles.filterFieldRow}>
+                    <label className={styles.filterLabel}>Column</label>
+                    <select
+                      className={styles.filterDropdown}
+                      value={tempFilterColumn}
+                      onChange={(e) => setTempFilterColumn(e.target.value)}
+                    >
+                      <option value="name">Vendor Name</option>
+                      <option value="description">Description</option>
+                      <option value="status">Status</option>
+                    </select>
+                  </div>
+                  <div className={styles.filterFieldRow}>
+                    <label className={styles.filterLabel}>Value</label>
+                    <input
+                      className={styles.filterInput}
+                      type="text"
+                      placeholder={`Enter ${tempFilterColumn.charAt(0).toUpperCase() +
+                        tempFilterColumn.slice(1)
+                        }`}
+                      value={tempFilterValue}
+                      onChange={(e) => setTempFilterValue(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className={styles.filterFooter}>
+                  <button
+                    className={styles.applyBtn}
+                    onClick={() => {
+                      setFilterColumn(tempFilterColumn);
+                      setFilterValue(tempFilterValue);
+                      setShowFilterPopover(false);
+                    }}
                   >
-                    <option value="name">Vendor Name</option>
-                    <option value="description">Description</option>
-                    <option value="status">Status</option>
-                  </select>
-                </div>
-                <div className={styles.filterFieldRow}>
-                  <label className={styles.filterLabel}>Value</label>
-                  <input
-                    className={styles.filterInput}
-                    type="text"
-                    placeholder={`Enter ${
-                      tempFilterColumn.charAt(0).toUpperCase() +
-                      tempFilterColumn.slice(1)
-                    }`}
-                    value={tempFilterValue}
-                    onChange={(e) => setTempFilterValue(e.target.value)}
-                  />
+                    Apply
+                  </button>
+                  <button
+                    className={styles.clearBtn}
+                    onClick={() => {
+                      setTempFilterValue("");
+                      setFilterValue("");
+                      setShowFilterPopover(false);
+                    }}
+                  >
+                    Clear
+                  </button>
                 </div>
               </div>
-              <div className={styles.filterFooter}>
-                <button
-                  className={styles.applyBtn}
-                  onClick={() => {
-                    setFilterColumn(tempFilterColumn);
-                    setFilterValue(tempFilterValue);
-                    setShowFilterPopover(false);
-                  }}
-                >
-                  Apply
-                </button>
-                <button
-                  className={styles.clearBtn}
-                  onClick={() => {
-                    setTempFilterValue("");
-                    setFilterValue("");
-                    setShowFilterPopover(false);
-                  }}
-                >
-                  Clear
-                </button>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
 
         <div className={styles.tableCard}>
           <div className={styles.tableHeader}>
@@ -473,282 +507,282 @@ const VendorMasterTable: React.FC = () => {
           </div>
           <div className={styles.tableContainer}>
             <table className={styles.table}>
-            <thead>
-              <tr>
-                <th></th>
-                <th>Vendor Name</th>
-                {/* <th>Vendor Code</th> */}
-                <th>Description</th>
-                <th>Status</th>
-                <th>Activity Logs</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedData.map((vendor, index) => {
-                const globalIndex = (currentPage - 1) * rowsPerPage + index;
-                return (
-                  <tr
-                    key={globalIndex}
-                    onClick={() => setSelectedRow(globalIndex)}
-                    style={{
-                      background:
-                        selectedRow === globalIndex ? "#f0f4ff" : undefined,
-                    }}
-                  >
-                    <td>
-                      <input
-                        type="radio"
-                        className={styles.radioInput}
-                        checked={selectedRow === globalIndex}
-                        onChange={() => setSelectedRow(globalIndex)}
-                      />
-                    </td>
-                    <td>{vendor.name ?? vendor.vendor_name ?? ""}</td>
-                    {/* <td>{vendor.code ?? vendor.vendor_code ?? ""}</td> */}
-                    <td>{vendor.description ?? ""}</td>
-                    <td>
-                      <span
-                        className={
-                          vendor.status === "INACTIVE"
-                            ? styles.statusInactive
-                            : styles.status
-                        }
-                      >
-                        {vendor.status ?? ""}
-                      </span>
-                    </td>
-                    <td>
-                      <span
-                        style={{ cursor: "pointer", color: "#0b63ce" }}
-                        title="View Activity Log"
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          setApproverFilter("");
-                          try {
-                            const logs = await fetchVendorActivityLogs();
-                            const filtered = filterLogsForVendor(
-                              logs,
-                              vendor.name ?? ""
-                            );
-                            setActivityVendor({
-                              name: vendor.name ?? "",
-                              logs: filtered,
-                            });
-                          } catch (err) {
-                            setActivityVendor({
-                              name: vendor.name ?? "",
-                              logs: [],
-                            });
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Vendor Name</th>
+                  {/* <th>Vendor Code</th> */}
+                  <th>Description</th>
+                  <th>Status</th>
+                  <th>Activity Logs</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedData.map((vendor, index) => {
+                  const globalIndex = (currentPage - 1) * rowsPerPage + index;
+                  return (
+                    <tr
+                      key={globalIndex}
+                      onClick={() => setSelectedRow(globalIndex)}
+                      style={{
+                        background:
+                          selectedRow === globalIndex ? "#f0f4ff" : undefined,
+                      }}
+                    >
+                      <td>
+                        <input
+                          type="radio"
+                          className={styles.radioInput}
+                          checked={selectedRow === globalIndex}
+                          onChange={() => setSelectedRow(globalIndex)}
+                        />
+                      </td>
+                      <td>{vendor.name ?? vendor.vendor_name ?? ""}</td>
+                      {/* <td>{vendor.code ?? vendor.vendor_code ?? ""}</td> */}
+                      <td>{vendor.description ?? ""}</td>
+                      <td>
+                        <span
+                          className={
+                            vendor.status === "INACTIVE"
+                              ? styles.statusInactive
+                              : styles.status
                           }
-                          setShowActivityModal(true);
-                        }}
-                      >
-                        <FaRegClock size={18} />
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-              <ConfirmDeleteModal
-                open={showDeleteModal}
-                name={
-                  selectedRow !== null && filteredData[selectedRow]
-                    ? filteredData[selectedRow].name ?? "vendor"
-                    : "vendor"
+                        >
+                          {vendor.status ?? ""}
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          style={{ cursor: "pointer", color: "#0b63ce" }}
+                          title="View Activity Log"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            setApproverFilter("");
+                            try {
+                              const logs = await fetchVendorActivityLogs();
+                              const filtered = filterLogsForVendor(
+                                logs,
+                                vendor.name ?? ""
+                              );
+                              setActivityVendor({
+                                name: vendor.name ?? "",
+                                logs: filtered,
+                              });
+                            } catch (err) {
+                              setActivityVendor({
+                                name: vendor.name ?? "",
+                                logs: [],
+                              });
+                            }
+                            setShowActivityModal(true);
+                          }}
+                        >
+                          <FaRegClock size={18} />
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+                <ConfirmDeleteModal
+                  open={showDeleteModal}
+                  name={
+                    selectedRow !== null && filteredData[selectedRow]
+                      ? filteredData[selectedRow].name ?? "vendor"
+                      : "vendor"
+                  }
+                  onCancel={() => setShowDeleteModal(false)}
+                  onConfirm={confirmDelete}
+                />
+              </tbody>
+            </table>
+            {/* Pagination controls */}
+            <div className={paginationStyles.pagination} style={{ marginTop: 8 }}>
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className={
+                  currentPage === 1
+                    ? paginationStyles.disabledPageBtn
+                    : paginationStyles.pageBtn
                 }
-                onCancel={() => setShowDeleteModal(false)}
-                onConfirm={confirmDelete}
-              />
-            </tbody>
-          </table>
-          {/* Pagination controls */}
-          <div className={paginationStyles.pagination} style={{ marginTop: 8 }}>
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className={
-                currentPage === 1
-                  ? paginationStyles.disabledPageBtn
-                  : paginationStyles.pageBtn
-              }
-            >
-              Previous
-            </button>
-            <span
-              className={paginationStyles.pageInfo}
-              style={{ margin: "0 12px" }}
-            >
-              Page {currentPage} of {totalPages}
-            </span>
-            <button
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className={
-                currentPage === totalPages
-                  ? paginationStyles.disabledPageBtn
-                  : paginationStyles.pageBtn
-              }
-            >
-              Next
-            </button>
+              >
+                Previous
+              </button>
+              <span
+                className={paginationStyles.pageInfo}
+                style={{ margin: "0 12px" }}
+              >
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className={
+                  currentPage === totalPages
+                    ? paginationStyles.disabledPageBtn
+                    : paginationStyles.pageBtn
+                }
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Activity Log Modal */}
-      {showActivityModal && activityVendor && (
-        <div
-          className={styles.panelOverlay}
-          style={{ zIndex: 2000, background: "rgba(0,0,0,0.18)" }}
-        >
+        {/* Activity Log Modal */}
+        {showActivityModal && activityVendor && (
           <div
-            className={styles.panelWrapper}
-            style={{
-              maxWidth: 1000,
-              width: "95%",
-              left: "53%",
-              transform: "translateX(-50%)",
-              position: "fixed",
-              top: 176,
-              borderRadius: 16,
-              boxShadow: "0 8px 32px rgba(11,99,206,0.18)",
-              padding: "24px 18px 18px 18px",
-              display: "flex",
-              flexDirection: "column",
-              background: "#fff",
-              zIndex: "1",
-            }}
+            className={styles.panelOverlay}
+            style={{ zIndex: 2000, background: "rgba(0,0,0,0.18)" }}
           >
             <div
+              className={styles.panelWrapper}
               style={{
+                maxWidth: 1000,
+                width: "95%",
+                left: "53%",
+                transform: "translateX(-50%)",
+                position: "fixed",
+                top: 176,
+                borderRadius: 16,
+                boxShadow: "0 8px 32px rgba(11,99,206,0.18)",
+                padding: "24px 18px 18px 18px",
                 display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 16,
+                flexDirection: "column",
+                background: "#fff",
+                zIndex: "1",
               }}
             >
-              <div style={{ fontWeight: 700, fontSize: 20 }}>Activity Log</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <button
-                  className={styles.exportPdfBtn}
-                  onClick={handleExportActivityPDF}
-                  aria-label="Export activity log to PDF"
-                  type="button"
-                >
-                  <span
-                    role="img"
-                    aria-label="Export PDF"
-                    style={{ fontSize: 18 }}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 16,
+                }}
+              >
+                <div style={{ fontWeight: 700, fontSize: 20 }}>Activity Log</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button
+                    className={styles.exportPdfBtn}
+                    onClick={handleExportActivityPDF}
+                    aria-label="Export activity log to PDF"
+                    type="button"
                   >
-                    🗎
-                  </span>
-                  Export PDF
-                </button>
-                <button
+                    <span
+                      role="img"
+                      aria-label="Export PDF"
+                      style={{ fontSize: 18 }}
+                    >
+                      🗎
+                    </span>
+                    Export PDF
+                  </button>
+                  <button
+                    style={{
+                      background: "#e3e9f7",
+                      border: "none",
+                      borderRadius: 8,
+                      padding: "6px 14px",
+                      cursor: "pointer",
+                      fontWeight: 600,
+                      fontSize: 18,
+                    }}
+                    onClick={() => setShowActivityModal(false)}
+                    aria-label="Close activity log"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+              <div
+                style={{
+                  marginBottom: 12,
+                  fontWeight: 500,
+                  fontSize: 15,
+                  color: "#333",
+                }}
+              >
+                <span>
+                  Vendor:{" "}
+                  <span style={{ color: "#0b63ce" }}>{activityVendor.name}</span>
+                </span>
+              </div>
+              <div style={{ marginBottom: 10 }}>
+                <input
+                  type="text"
+                  placeholder="Filter by Approved/Rejected By"
+                  value={approverFilter}
+                  onChange={(e) => setApproverFilter(e.target.value)}
                   style={{
-                    background: "#e3e9f7",
-                    border: "none",
-                    borderRadius: 8,
-                    padding: "6px 14px",
-                    cursor: "pointer",
-                    fontWeight: 600,
-                    fontSize: 18,
+                    padding: "6px 12px",
+                    borderRadius: 6,
+                    border: "1px solid #ccc",
+                    fontSize: 14,
+                    width: 220,
+                    marginRight: 12,
                   }}
-                  onClick={() => setShowActivityModal(false)}
-                  aria-label="Close activity log"
-                >
-                  ×
-                </button>
+                />
+              </div>
+              <div
+                style={{
+                  overflowY: "auto",
+                  maxHeight: 350,
+                  minWidth: "100%",
+                  borderRadius: 8,
+                  boxShadow: "0 2px 8px rgba(11,99,206,0.08)",
+                }}
+              >
+                <table className={styles.table} style={{ minWidth: 1100 }}>
+                  <thead>
+                    <tr>
+                      <th>Actions</th>
+                      <th>Old Value</th>
+                      <th>New Value</th>
+                      <th>Action Performed By</th>
+                      <th>Approval Status</th>
+                      <th>Date/Time (IST)</th>
+                      <th>Comments</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(activityVendor.logs || []).map((log: any, i: number) => {
+                      let oldVal: any = {};
+                      let newVal: any = {};
+                      try {
+                        oldVal = log.old_value ? JSON.parse(log.old_value) : {};
+                        newVal = log.new_value ? JSON.parse(log.new_value) : {};
+                      } catch { }
+                      return (
+                        <tr key={i}>
+                          <td>{log.action}</td>
+                          <td>
+                            {oldVal.vendor_name || ""}{" "}
+                            {oldVal.description ? `(${oldVal.description})` : ""}
+                          </td>
+                          <td>
+                            {newVal.vendor_name || ""}{" "}
+                            {newVal.description ? `(${newVal.description})` : ""}
+                          </td>
+                          <td>{log.action_performed_by ?? ""}</td>
+                          <td>{log.approve_status ?? ""}</td>
+                          <td>
+                            {log.date_time_ist
+                              ? new Date(log.date_time_ist).toLocaleString()
+                              : ""}
+                          </td>
+                          <td>{log.comments ?? ""}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
-            <div
-              style={{
-                marginBottom: 12,
-                fontWeight: 500,
-                fontSize: 15,
-                color: "#333",
-              }}
-            >
-              <span>
-                Vendor:{" "}
-                <span style={{ color: "#0b63ce" }}>{activityVendor.name}</span>
-              </span>
-            </div>
-            <div style={{ marginBottom: 10 }}>
-              <input
-                type="text"
-                placeholder="Filter by Approved/Rejected By"
-                value={approverFilter}
-                onChange={(e) => setApproverFilter(e.target.value)}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: 6,
-                  border: "1px solid #ccc",
-                  fontSize: 14,
-                  width: 220,
-                  marginRight: 12,
-                }}
-              />
-            </div>
-            <div
-              style={{
-                overflowY: "auto",
-                maxHeight: 350,
-                minWidth: "100%",
-                borderRadius: 8,
-                boxShadow: "0 2px 8px rgba(11,99,206,0.08)",
-              }}
-            >
-              <table className={styles.table} style={{ minWidth: 1100 }}>
-                <thead>
-                  <tr>
-                    <th>Actions</th>
-                    <th>Old Value</th>
-                    <th>New Value</th>
-                    <th>Action Performed By</th>
-                    <th>Approval Status</th>
-                    <th>Date/Time (IST)</th>
-                    <th>Comments</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(activityVendor.logs || []).map((log: any, i: number) => {
-                    let oldVal: any = {};
-                    let newVal: any = {};
-                    try {
-                      oldVal = log.old_value ? JSON.parse(log.old_value) : {};
-                      newVal = log.new_value ? JSON.parse(log.new_value) : {};
-                    } catch {}
-                    return (
-                      <tr key={i}>
-                        <td>{log.action}</td>
-                        <td>
-                          {oldVal.vendor_name || ""}{" "}
-                          {oldVal.description ? `(${oldVal.description})` : ""}
-                        </td>
-                        <td>
-                          {newVal.vendor_name || ""}{" "}
-                          {newVal.description ? `(${newVal.description})` : ""}
-                        </td>
-                        <td>{log.action_performed_by ?? ""}</td>
-                        <td>{log.approve_status ?? ""}</td>
-                        <td>
-                          {log.date_time_ist
-                            ? new Date(log.date_time_ist).toLocaleString()
-                            : ""}
-                        </td>
-                        <td>{log.comments ?? ""}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
           </div>
-        </div>
 
-      )}
-    </div>
+        )}
+      </div>
     </div>
   );
 };
