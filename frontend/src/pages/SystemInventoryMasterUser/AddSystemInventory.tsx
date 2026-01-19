@@ -108,37 +108,36 @@ const AddSystemInventory: React.FC = () => {
   }, []);
 
   const handleChange = (
-  e: React.ChangeEvent<
-    HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-  >
-) => {
-  const { name, value, type } = e.target;
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
+  ) => {
+    const { name, value, type } = e.target;
 
-  let finalValue: any = value;
+    let finalValue: any = value;
 
-  // ✅ checkbox → boolean
-  if (type === "checkbox") {
-    finalValue = (e.target as HTMLInputElement).checked;
-  }
+    // ✅ checkbox → boolean
+    if (type === "checkbox") {
+      finalValue = (e.target as HTMLInputElement).checked;
+    }
 
-  // ✅ number input → number
-  else if (type === "number") {
-    finalValue = Number(value);
-  }
+    // ✅ number input → number
+    else if (type === "number") {
+      finalValue = Number(value);
+    }
 
-  // ✅ select boolean → boolean
-  else if (value === "true") {
-    finalValue = true;
-  } else if (value === "false") {
-    finalValue = false;
-  }
+    // ✅ select boolean → boolean
+    else if (value === "true") {
+      finalValue = true;
+    } else if (value === "false") {
+      finalValue = false;
+    }
 
-  setForm((prev) => ({
-    ...prev,
-    [name]: finalValue,
-  }));
-};
-
+    setForm((prev) => ({
+      ...prev,
+      [name]: finalValue,
+    }));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,98 +159,90 @@ const AddSystemInventory: React.FC = () => {
         onChange={handleChange}
         className={styles.input}
       />
-       <label className={styles.floatingLabel}>{label}</label>
+      <label className={styles.floatingLabel}>{label}</label>
     </div>
   );
 
-  const checkbox = (name: keyof System, label: string) => (
-    <div className={styles.formGroup}>
-      <label>
-        <input
-          type="checkbox"
+
+  const isWindowsRequired = ["Desktop", "Laptop", "Toughbook"].includes(
+    form.type_of_asset || ""
+  );
+
+  // ✅ Check if GxP is selected
+  const isGxPSelected = form.category_gxp === "GxP";
+
+  type OptionValue = string | number;
+
+  type GenericSelectOption<T> = {
+    value: (item: T) => OptionValue;
+    label: (item: T) => string;
+  };
+
+  const select = <T,>(
+    name: keyof System,
+    label: string,
+    options: T[] = [],
+    mapperOrRequired?: GenericSelectOption<T> | boolean,
+    isRequiredParam: boolean = false,
+    isDisabled: boolean = false,
+    isBoolean: boolean = false
+  ) => {
+    // ✅ support old & new signatures
+    const mapper =
+      typeof mapperOrRequired === "object" ? mapperOrRequired : undefined;
+
+    const isRequired =
+      typeof mapperOrRequired === "boolean"
+        ? mapperOrRequired
+        : isRequiredParam;
+
+    return (
+      <div className={styles.formGroupFloating}>
+        <select
           name={name}
-          checked={Boolean(form[name])}
+          value={
+            isBoolean
+              ? form[name] === true
+                ? "true"
+                : form[name] === false
+                ? "false"
+                : ""
+              : ((form[name] as any) || "")
+          }
           onChange={handleChange}
-        />{" "}
-        {label}
-      </label>
-    </div>
-  );
-const isWindowsRequired = ["Desktop", "Laptop", "Toughbook"].includes(
-  form.type_of_asset || ""
-);
- type OptionValue = string | number;
+          required={isRequired}
+          disabled={isDisabled}
+          className={styles.select}
+        >
+          <option value="">-- Select --</option>
 
-type GenericSelectOption<T> = {
-  value: (item: T) => OptionValue;
-  label: (item: T) => string;
-};
+          {isBoolean ? (
+            <>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </>
+          ) : mapper ? (
+            options.map((item, i) => (
+              <option key={i} value={mapper.value(item)}>
+                {mapper.label(item)}
+              </option>
+            ))
+          ) : (
+            (options as any[]).map((v, i) => (
+              <option key={i} value={v as any}>
+                {String(v)}
+              </option>
+            ))
+          )}
+        </select>
 
-const select = <T,>(
-  name: keyof System,
-  label: string,
-  options: T[] = [],
-  mapperOrRequired?: GenericSelectOption<T> | boolean,
-  isRequiredParam: boolean = false,
-  isDisabled: boolean = false,
-  isBoolean: boolean = false
-) => {
-  // ✅ support old & new signatures
-  const mapper =
-    typeof mapperOrRequired === "object" ? mapperOrRequired : undefined;
-
-  const isRequired =
-    typeof mapperOrRequired === "boolean"
-      ? mapperOrRequired
-      : isRequiredParam;
-
-  return (
-    <div className={styles.formGroupFloating}>
-      <select
-        name={name}
-        value={
-          isBoolean
-            ? form[name] === true
-              ? "true"
-              : form[name] === false
-              ? "false"
-              : ""
-            : ((form[name] as any) || "")
-        }
-        onChange={handleChange}
-        required={isRequired}
-        disabled={isDisabled}
-        className={styles.select}
-      >
-        <option value="">-- Select --</option>
-
-        {isBoolean ? (
-          <>
-            <option value="true">Yes</option>
-            <option value="false">No</option>
-          </>
-        ) : mapper ? (
-          options.map((item, i) => (
-            <option key={i} value={mapper.value(item)}>
-              {mapper.label(item)}
-            </option>
-          ))
-        ) : (
-          (options as any[]).map((v, i) => (
-            <option key={i} value={v as any}>
-              {String(v)}
-            </option>
-          ))
-        )}
-      </select>
-
-      <label className={styles.floatingLabel}>
-        {label}
-        {isRequired && <span className={styles.required}> *</span>}
-      </label>
-    </div>
-  );
-};
+        <label className={styles.floatingLabel}>
+          {label}
+          {isRequired && <span className={styles.required}> *</span>}
+        </label>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -272,122 +263,143 @@ const select = <T,>(
               <h2>Add System Inventory</h2>
             </div>
 
-            <form className={styles.form} onSubmit={handleSubmit}>
+            <form className={styles.form} onSubmit={handleSubmit} style={{ padding: 10 }}>
               <div className={styles.scrollFormContainer}>
                 <div className={styles.section}>
-                                <span className={styles.sectionHeaderTitle}>
-                                  User Details
-                                </span>
-                <div className={styles.rowFields}>
-                  {select("plant_location_id", "Plant Location",plants,{value: (p) => p.id,label: (p) => p.plant_name},true)}
-                  {input("user_location", "User Location")}
-                  {input("building_location", "Building Location")}
-                  {select("department_id", "Department" , departments,{value: (p) => p.id,label: (p) => p.name}, true)}
-                  {input("allocated_to_user_name", "Allocated To")}
+                  <span className={styles.sectionHeaderTitle}>
+                    User Details
+                  </span>
+                  <div className={styles.rowFields}>
+                    {select("plant_location_id", "Plant Location", plants, { value: (p) => p.id, label: (p) => p.plant_name }, true)}
+                    {input("user_location", "User Location")}
+                    {input("building_location", "Building Location")}
+                    {select("department_id", "Department", departments, { value: (p) => p.id, label: (p) => p.name }, true)}
+                    {input("allocated_to_user_name", "Allocated To")}
                   </div>
-                  </div>
-                  <div className={styles.section}>
-                                <span className={styles.sectionHeaderTitle}>
-                                  Commercial Details
-                                </span>
-                <div className={styles.rowFields}>
-                       {input("purchase_po", "Purchase PO")}
-                  {input("purchase_vendor_name", "Purchase Vendor")}
-                  {input("amc_vendor_name", "AMC Vendor")}
-                  {input("renewal_po", "Renewal PO")}
-                  {input("warranty_period", "Warranty Period")}
-                  {input("amc_start_date", "AMC Start Date", "date")}
-                  {input("amc_expiry_date", "AMC Expiry Date", "date")}
-                  {input("sap_asset_no", "SAP Asset No")}
-                  {select("warranty_status","Warranty Status",["Under Warranty", "Out Of Warranty"],true)}
-                  {/* {input("warranty_start_date", "Warranty Start Date", "date")} */}
-                  {input("warranty_end_date", "Warranty End Date", "date")}
-                  </div>
-                  </div>
-                  <div className={styles.section}>
-                                <span className={styles.sectionHeaderTitle}>
-                                  Commercial Details
-                                </span>
-                <div className={styles.rowFields}>
-                  {input("host_name", "Host Name")}
-                  {input("make", "Make")}
-                  {input("model", "Model")}
-                  {input("serial_no", "Serial No")}
-                  {input("processor", "Processor")}
-                  {input("ram_capacity", "RAM Capacity")}
-                  {input("hdd_capacity", "HDD Capacity")}
-                  {input("ip_address", "IP Address")}
-                  {input("other_software", "Other Software")}
-                  {/* {checkbox("windows_activated", "Windows Activated")} */}
-                  {input("os_version_service_pack", "OS Version / SP")}
-                  {select("architecture","Architecture",["32 bit", "64 bit"],true)}
-                    {select("type_of_asset","Type of Asset",["Desktop", "Laptop", "Toughbook", "HMI", "SCADA", "IPC", "TABs", "Scanner", "Printer"],true)}
-                  {select("windows_activated","Windows Activated",[],false,isWindowsRequired,!isWindowsRequired,true)}
-
                 </div>
+
+                <div className={styles.section}>
+                  <span className={styles.sectionHeaderTitle}>
+                    Commercial Details
+                  </span>
+                  <div className={styles.rowFields}>
+                    {input("purchase_po", "Purchase PO")}
+                    {input("purchase_vendor_name", "Purchase Vendor")}
+                    {input("amc_vendor_name", "AMC Vendor")}
+                    {input("renewal_po", "Renewal PO")}
+                    {input("warranty_period", "Warranty Period")}
+                    {input("amc_start_date", "AMC Start Date", "date")}
+                    {input("amc_expiry_date", "AMC Expiry Date", "date")}
+                    {input("sap_asset_no", "SAP Asset No")}
+                    {select("warranty_status", "Warranty Status", ["Under Warranty", "Out Of Warranty"], true)}
+                    {input("warranty_end_date", "Warranty End Date", "date")}
+                  </div>
                 </div>
-                  
-                  {select("category_gxp","Category",["GxP", "Non-GxP","Network"],true)}
-                  {input("gamp_category", "GAMP Category")}
-                  {input("instrument_equipment_name", "Instrument / Equipment")}
-                  {input("equipment_instrument_id", "Equipment ID")}
-                  {input("instrument_owner", "Instrument Owner")}
-                  {input("service_tag", "Service Tag")}
-                 
-                  {input("connected_no_of_equipments", "Connected Equipments", "number")}
-                  {input("application_name", "Application Name")}
-                  {input("application_version", "Application Version")}
-                  {input("application_oem", "Application OEM")}
-                  {input("application_vendor", "Application Vendor")}
-                  {select("user_management_applicable","User Management Applicable",[],false,!isWindowsRequired,!isWindowsRequired,true)}
-                  {select("application_onboard","Application Onboard",["Manual", "Automated"],true)}
-              
-                  {input("system_process_owner", "System Process Owner")}
-                  {input("database_version", "Database Version (if installeds)")}
-                  {input("domain_workgroup", "Domain / Workgroup")}
-                  {select("connected_through","Connected Through",["LAN", "WiFi"],true)}
 
-                  {input("specific_vlan", "Specific VLAN")}
-                   {select("ip_address_type","IP Address Type",["Static", "DHCP","Other"],true)}
-                   {select("date_time_sync_available","Date Time Sync",[],false,!isWindowsRequired,!isWindowsRequired,true)}
-                  {input("antivirus", "Antivirus")}
-                  {input("antivirus_version", "Antivirus Version")}
-                  {select("backup_type","Backup Type",["Manual", "Auto","Commvault Client Of Server"],true)}
-                   {select("backup_frequency_days","Backup Frequency Days",["Weekly", "Fothnight", "Monthly", "Yearly"],true)}
-                  {input("backup_path", "Backup Path")}
-                  {input("backup_tool", "Backup Tool")}
-                   {select("backup_procedure_available","Backup Procedure",[],false,!isWindowsRequired,!isWindowsRequired,true)}
-                  
-                   {select("folder_deletion_restriction","Folder Deletion Restriction",[],false,!isWindowsRequired,!isWindowsRequired,true)}
-                   {select("remote_tool_available","Remote Tool",[],false,!isWindowsRequired,!isWindowsRequired,true)}
-                  {input("os_administrator", "OS Administrator")}
-                  {select("system_running_with","System Running With",["Active Directory", "Local"],true)}
-                  
-                  {input("audit_trail_adequacy", "Audit Trail Adequacy")}
-                   {select("user_roles_availability","User Roles Available",[],false,!isWindowsRequired,!isWindowsRequired,true)}
-                   {select("user_roles_challenged","User Roles Challenged",[],false,!isWindowsRequired,!isWindowsRequired,true)}
-                   {select("system_managed_by","System Managed By",["Information Technology", "Engineering"],true)}
-                  
-                    {select("planned_upgrade_fy2526","Planned Upgrade FY25-26",[],false,!isWindowsRequired,!isWindowsRequired,true)}
-                  {input("eol_eos_upgrade_status", "EOL / EOS Status")}
-                  {select("system_current_status","System Current Status",["Validated", "Retired"],true)}
-                 
-                 
+                <div className={styles.section}>
+                  <span className={styles.sectionHeaderTitle}>
+                    System Details
+                  </span>
+                  <div className={styles.rowFields}>
+                    {input("host_name", "Host Name")}
+                    {input("make", "Make")}
+                    {input("model", "Model")}
+                    {input("serial_no", "Serial No")}
+                    {input("processor", "Processor")}
+                    {input("ram_capacity", "RAM Capacity")}
+                    {input("hdd_capacity", "HDD Capacity")}
+                    {input("ip_address", "IP Address")}
+                    {input("other_software", "Other Software")}
+                    {input("os_version_service_pack", "OS Version / SP")}
+                    {select("architecture", "Architecture", ["32 bit", "64 bit"], true)}
+                    {select("type_of_asset", "Type of Asset", ["Desktop", "Laptop", "Toughbook", "HMI", "SCADA", "IPC", "TABs", "Scanner", "Printer"], true)}
+                    {select("windows_activated", "Windows Activated", [], false, isWindowsRequired, !isWindowsRequired, true)}
+                     {input("domain_workgroup", "Domain / Workgroup")}
+                    {select("connected_through", "Connected Through", ["LAN", "WiFi"], true)}
+                    {input("specific_vlan", "Specific VLAN")}
+                    {select("ip_address_type", "IP Address Type", ["Static", "DHCP", "Other"], true)}
+                    {input("antivirus", "Antivirus")}
+                    {input("antivirus_version", "Antivirus Version")}
+                    {input("os_administrator", "OS Administrator")}
+                    {select("system_running_with", "System Running With", ["Active Directory", "Local"], true)}
+                    {select("system_managed_by", "System Managed By", ["Information Technology", "Engineering"], true)}
+                    {select("eol_eos_upgrade_status", "Upgrade Status", ["End of Life", "End of Support/Sale"], true)}
+                  </div>
+                </div>
 
-                  <div className={styles.formGroupFloating} style={{ flex: "1 1 100%" }}>
+                <div className={styles.section}>
+                  <span className={styles.sectionHeaderTitle}>
+                    Equipment Details
+                  </span>
+                  <div className={styles.rowFields}>
+                    {select("category_gxp", "Category", ["GxP", "Non-GxP", "Network"], true)}
+                    
+                    {/* ✅ Show these fields only when GxP is selected */}
+                    {isGxPSelected && (
+                      <>
+                        {input("system_process_owner", "System Owner / Process Owner")}
+                        {input("instrument_equipment_name", "Instrument / Equipment Name")}
+                        {input("equipment_instrument_id", "Equipment / Instrument ID")}
+                        {input("instrument_owner", "Instrument Owner")}
+                        {input("service_tag", "Service Tag")}
+                        {input("connected_no_of_equipments", "Connected No. of Equipments", "number")}
+                        {select("system_current_status", "System Current Status", ["Validated", "Retired"], true)}
+                        {input("gamp_category", "GAMP Category")}
+                        {select("application_onboard", "Application Onboard", ["Manual", "Automated"], true)}
+                        {input("application_name", "Application Name")}
+                        {input("application_version", "Application Version")}
+                        {input("application_oem", "Application OEM")}
+                        {input("application_vendor", "Application Vendor")}
+                        {input("database_version", "Database Version (if installed)")}
+                        {select("date_time_sync_available", "Date Time Sync Available", [], false, false, false, true)}
+                        {select("backup_type", "Backup Type", ["Manual", "Auto", "Commvault Client Of Server"], true)}
+                        {select("backup_frequency_days", "Backup Frequency", ["Weekly", "Fothnight", "Monthly", "Yearly"], true)}
+                        {input("backup_path", "Backup Path")}
+                        {input("backup_tool", "Backup Tool with Version")}
+                        {select("backup_procedure_available", "Backup Procedure Available", [], false, false, false, true)}
+                        {select("folder_deletion_restriction", "Folder Deletion Restriction", [], false, false, false, true)}
+                        {select("remote_tool_available", "Remote Tool Available", [], false, false, false, true)}
+                        {input("audit_trail_adequacy", "Audit Trail Adequacy")}
+                        {select("user_roles_availability", "User Roles Availability", [], false, false, false, true)}
+                        {select("user_roles_challenged", "User Roles Challenged", [], false, false, false, true)}
+                        {select("planned_upgrade_fy2526", "Planned Upgrade FY25-26", [], false, false, false, true)}
+                        {select("user_management_applicable", "User Management Applicable", [], false, false, false, true)}
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className={styles.section}>
+                  <span className={styles.sectionHeaderTitle}>
+                    Additional Details
+                  </span>
+                  <div className={styles.rowFields}>
                    
-                    <textarea
-                      name="remarks"
-                      value={form.remarks}
-                      onChange={handleChange}
-                      className={styles.textarea}
-                    />
-                     <label className={styles.floatingLabel}>Remarks</label>
+
+                    <div className={styles.formGroupFloating} style={{ flex: "1 1 100%" }}>
+                      <textarea
+                        name="remarks"
+                        value={form.remarks}
+                        onChange={handleChange}
+                        className={styles.textarea}
+                      />
+                      <label className={styles.floatingLabel}>Remarks</label>
+                    </div>
+                    {select("status", "Status", ["ACTIVE", "INACTIVE"], true)}
                   </div>
-                   {select("status","Status",["Validated", "Retired"],true)}
+                </div>
               </div>
 
-              <div className={styles.buttonRow}>
+             <div className={styles.formFotter}>
+            <div
+              className={styles.buttonRow}
+              style={{
+                display: "flex",
+                justifyContent: "flex-start",
+                gap: 24,
+                margin: 15,
+              }}
+            >
                 <button type="submit" className={styles.saveBtn}>Save</button>
                 <button
                   type="button"
@@ -396,8 +408,8 @@ const select = <T,>(
                 >
                   Cancel
                 </button>
+                </div>
               </div>
-
             </form>
           </div>
         </div>

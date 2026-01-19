@@ -8,5 +8,5 @@ router.get("/", plantController.getAllPlants);
 router.post("/",authorize(), plantController.createPlant);
 router.put("/:id",authorize(), plantController.updatePlant);
 router.delete("/:id",authorize(), plantController.deletePlant);
-
+router.post("/import",plantController.bulkImportPlants);
 module.exports = router;

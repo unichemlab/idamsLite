@@ -1,61 +1,59 @@
+// controllers/networkController.js
+
 const { logActivity } = require("../utils/activityLogger");
 const { submitForApproval } = require("../utils/masterApprovalHelper");
 const pool = require("../config/db");
 
 // ------------------------------
-// GET ALL SYSTEMS WITH RELATIONS
+// GET ALL NETWORKS WITH RELATIONS
 // ------------------------------
-exports.getAllSystems = async (req, res) => {
+exports.getAllNetworks = async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
-        s.*,
-        p.plant_name,
-        d.department_name
-      FROM system_inventory_master s
-      LEFT JOIN plant_master p ON s.plant_location_id = p.id
-      LEFT JOIN department_master d ON s.department_id = d.id
-      WHERE s.status = 'ACTIVE'
-      ORDER BY s.id DESC
+        n.*,
+        p.plant_name
+      FROM network_inventory_master n
+      LEFT JOIN plant_master p ON n.plant_location_id = p.id
+      WHERE n.status = 'ACTIVE'
+      ORDER BY n.id DESC
     `);
     res.json(result.rows);
   } catch (err) {
-    console.error("Error fetching systems:", err);
+    console.error("Error fetching networks:", err);
     res.status(500).json({ error: err.message });
   }
 };
 
 // ------------------------------
-// GET SYSTEM BY ID WITH RELATIONS
+// GET NETWORK BY ID WITH RELATIONS
 // ------------------------------
-exports.getSystemById = async (req, res) => {
+exports.getNetworkById = async (req, res) => {
   const id = parseInt(req.params.id, 10);
   try {
     const result = await pool.query(`
       SELECT 
-        s.*,
-        p.plant_name,
-        d.department_name
-      FROM system_inventory_master s
-      LEFT JOIN plant_master p ON s.plant_location_id = p.id
-      LEFT JOIN department_master d ON s.department_id = d.id
-      WHERE s.id = $1 
+        n.*,
+        p.plant_name
+      FROM network_inventory_master n
+      LEFT JOIN plant_master p ON n.plant_location_id = p.id
+      WHERE n.id = $1 
     `, [id]);
     
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: "System not found" });
+      return res.status(404).json({ error: "Network device not found" });
     }
     res.json(result.rows[0]);
   } catch (err) {
-    console.error("Error fetching system:", err);
+    console.error("Error fetching network device:", err);
     res.status(500).json({ error: err.message });
   }
 };
 
 // ------------------------------
-// CREATE SYSTEM (WITH APPROVAL)
+// CREATE NETWORK (WITH APPROVAL)
 // ------------------------------
-exports.createSystem = async (req, res) => {
+exports.createNetwork = async (req, res) => {
   const userId = req.user?.id || req.user?.user_id;
   const username = req.user?.username || "Unknown";
 
@@ -67,11 +65,10 @@ exports.createSystem = async (req, res) => {
     delete payload.created_on;
     delete payload.updated_on;
     delete payload.plant_name;
-    delete payload.department_name;
     delete payload.transaction_id;
 
     // Convert empty strings to null for date fields
-    const dateFields = ['warranty_end_date', 'amc_start_date', 'amc_expiry_date'];
+    const dateFields = ['purchased_date', 'verify_date', 'warranty_start_date', 'amc_warranty_expiry_date'];
     dateFields.forEach(field => {
       if (payload[field] === '' || payload[field] === null || payload[field] === undefined) {
         payload[field] = null;
@@ -80,14 +77,11 @@ exports.createSystem = async (req, res) => {
 
     // Convert empty strings to null for optional string fields
     const optionalFields = [
-      'gamp_category', 'instrument_equipment_name', 'equipment_instrument_id',
-      'instrument_owner', 'service_tag', 'application_name', 'application_version',
-      'application_oem', 'application_vendor', 'application_onboard',
-      'system_process_owner', 'database_version', 'domain_workgroup',
-      'specific_vlan', 'antivirus', 'antivirus_version', 'backup_type',
-      'backup_frequency_days', 'backup_path', 'backup_tool',
-      'audit_trail_adequacy', 'eol_eos_upgrade_status', 'system_current_status',
-      'sap_asset_no', 'warranty_period', 'other_software', 'os_version_service_pack'
+      'area', 'rack', 'host_name', 'device_ip', 'device_model', 'device_type',
+      'make_vendor', 'trunk_port', 'neighbor_switch_ip', 'neighbor_port',
+      'sfp_fiber_tx', 'poe_non_poe', 'serial_no', 'ios_version', 'uptime',
+      'stack_switch_details', 'purchase_vendor', 'purchased_po', 'sap_asset_no',
+      'service_type', 'amc_vendor', 'remarks'
     ];
     
     optionalFields.forEach(field => {
@@ -99,9 +93,6 @@ exports.createSystem = async (req, res) => {
     // Convert string IDs to integers for foreign keys
     if (payload.plant_location_id) {
       payload.plant_location_id = parseInt(payload.plant_location_id, 10);
-    }
-    if (payload.department_id) {
-      payload.department_id = parseInt(payload.department_id, 10);
     }
 
     // Validate foreign keys exist
@@ -115,97 +106,103 @@ exports.createSystem = async (req, res) => {
       }
     }
 
-    if (payload.department_id) {
-      const deptCheck = await pool.query(
-        'SELECT id FROM department_master WHERE id = $1',
-        [payload.department_id]
-      );
-      if (deptCheck.rows.length === 0) {
-        return res.status(400).json({ error: "Invalid department ID" });
-      }
-    }
+    // Convert boolean strings to actual booleans
+    // ✅ Boolean fields (keep as-is)
+const booleanFields = ['stack', 'under_amc'];
+booleanFields.forEach(field => {
+  if (payload[field] !== undefined && payload[field] !== '') {
+    const val = String(payload[field]).toLowerCase();
+    payload[field] = ['true', 'yes', '1'].includes(val);
+  }
+});
+
+// ✅ dual_power_source as STRING enum (YES / NO / ATS)
+if (payload.dual_power_source !== undefined && payload.dual_power_source !== null) {
+  payload.dual_power_source = String(payload.dual_power_source).trim().toUpperCase();
+}
+
 
     // Prepare new unapproved data
-    const newSystemData = {
+    const newNetworkData = {
       ...payload,
       status: payload.status || "ACTIVE",
     };
 
     // Submit for approval
     const approvalId = await submitForApproval({
-      module: "system",
-      tableName: "system_inventory_master",
+      module: "network",
+      tableName: "network_inventory_master",
       action: "create",
       recordId: null,
       oldValue: null,
-      newValue: newSystemData,
+      newValue: newNetworkData,
       requestedBy: userId,
       requestedByUsername: username,
-      comments: `Create system: ${payload.host_name || ""}`,
+      comments: `Create network device: ${payload.host_name || payload.device_ip || ""}`,
     });
 
     // If approval workflow is OFF → create immediately
     if (approvalId === null) {
       // Build column names and values dynamically
-      const columns = Object.keys(newSystemData);
-      const values = columns.map(k => newSystemData[k]);
-      const placeholders = columns.map((_, i) => `${i + 1}`).join(', ');
+      const columns = Object.keys(newNetworkData);
+      const values = columns.map(k => newNetworkData[k]);
+      const placeholders = columns.map((_, i) => `$${i + 1}`).join(', ');
       const columnList = columns.join(', ');
 
       const result = await pool.query(`
-        INSERT INTO system_inventory_master (${columnList})
+        INSERT INTO network_inventory_master (${columnList})
         VALUES (${placeholders})
         RETURNING *
       `, values);
 
-      const newSystem = result.rows[0];
+      const newNetwork = result.rows[0];
 
       await logActivity({
         userId,
-        module: "system",
-        tableName: "system_inventory_master",
-        recordId: newSystem.id,
+        module: "network",
+        tableName: "network_inventory_master",
+        recordId: newNetwork.id,
         action: "create",
         oldValue: null,
-        newValue: newSystem,
-        comments: `Created system id ${newSystem.id}`,
+        newValue: newNetwork,
+        comments: `Created network device id ${newNetwork.id}`,
         reqMeta: req._meta || {},
       });
 
-      return res.status(201).json(newSystem);
+      return res.status(201).json(newNetwork);
     }
 
     // Otherwise → pending approval
     res.status(202).json({
-      message: "System creation submitted for approval",
+      message: "Network device creation submitted for approval",
       approvalId,
       status: "PENDING_APPROVAL",
-      data: newSystemData,
+      data: newNetworkData,
     });
 
   } catch (err) {
-    console.error("Error creating system:", err);
+    console.error("Error creating network device:", err);
     res.status(500).json({ error: err.message });
   }
 };
 
 // ------------------------------
-// UPDATE SYSTEM (WITH APPROVAL)
+// UPDATE NETWORK (WITH APPROVAL)
 // ------------------------------
-exports.updateSystem = async (req, res) => {
+exports.updateNetwork = async (req, res) => {
   const userId = req.user?.id || req.user?.user_id;
   const username = req.user?.username || "Unknown";
   const id = parseInt(req.params.id, 10);
 
   try {
-    // Get existing system
+    // Get existing network device
     const existing = await pool.query(
-      'SELECT * FROM system_inventory_master WHERE id = $1',
+      'SELECT * FROM network_inventory_master WHERE id = $1',
       [id]
     );
     
     if (existing.rows.length === 0) {
-      return res.status(404).json({ error: "System not found" });
+      return res.status(404).json({ error: "Network device not found" });
     }
 
     const oldValue = existing.rows[0];
@@ -216,11 +213,10 @@ exports.updateSystem = async (req, res) => {
     delete payload.created_on;
     delete payload.updated_on;
     delete payload.plant_name;
-    delete payload.department_name;
     delete payload.transaction_id;
 
     // Convert empty strings to null for date fields
-    const dateFields = ['warranty_end_date', 'amc_start_date', 'amc_expiry_date'];
+    const dateFields = ['purchased_date', 'verify_date', 'warranty_start_date', 'amc_warranty_expiry_date'];
     dateFields.forEach(field => {
       if (payload[field] === '' || payload[field] === null || payload[field] === undefined) {
         payload[field] = null;
@@ -229,14 +225,11 @@ exports.updateSystem = async (req, res) => {
 
     // Convert empty strings to null for optional string fields
     const optionalFields = [
-      'gamp_category', 'instrument_equipment_name', 'equipment_instrument_id',
-      'instrument_owner', 'service_tag', 'application_name', 'application_version',
-      'application_oem', 'application_vendor', 'application_onboard',
-      'system_process_owner', 'database_version', 'domain_workgroup',
-      'specific_vlan', 'antivirus', 'antivirus_version', 'backup_type',
-      'backup_frequency_days', 'backup_path', 'backup_tool',
-      'audit_trail_adequacy', 'eol_eos_upgrade_status', 'system_current_status',
-      'sap_asset_no', 'warranty_period', 'other_software', 'os_version_service_pack'
+      'area', 'rack', 'host_name', 'device_ip', 'device_model', 'device_type',
+      'make_vendor', 'trunk_port', 'neighbor_switch_ip', 'neighbor_port',
+      'sfp_fiber_tx', 'poe_non_poe', 'serial_no', 'ios_version', 'uptime',
+      'stack_switch_details', 'purchase_vendor', 'purchased_po', 'sap_asset_no',
+      'service_type', 'amc_vendor', 'remarks'
     ];
     
     optionalFields.forEach(field => {
@@ -248,9 +241,6 @@ exports.updateSystem = async (req, res) => {
     // Convert string IDs to integers for foreign keys
     if (payload.plant_location_id) {
       payload.plant_location_id = parseInt(payload.plant_location_id, 10);
-    }
-    if (payload.department_id) {
-      payload.department_id = parseInt(payload.department_id, 10);
     }
 
     // Validate foreign keys if changed
@@ -264,43 +254,49 @@ exports.updateSystem = async (req, res) => {
       }
     }
 
-    if (payload.department_id && payload.department_id !== oldValue.department_id) {
-      const deptCheck = await pool.query(
-        'SELECT id FROM department_master WHERE id = $1',
-        [payload.department_id]
-      );
-      if (deptCheck.rows.length === 0) {
-        return res.status(400).json({ error: "Invalid department ID" });
-      }
-    }
+    // Convert boolean strings to actual booleans
+   // ✅ Boolean fields (keep as-is)
+const booleanFields = ['stack', 'under_amc'];
+booleanFields.forEach(field => {
+  if (payload[field] !== undefined && payload[field] !== '') {
+    const val = String(payload[field]).toLowerCase();
+    payload[field] = ['true', 'yes', '1'].includes(val);
+  }
+});
+
+// ✅ dual_power_source as STRING enum (YES / NO / ATS)
+if (payload.dual_power_source !== undefined && payload.dual_power_source !== null) {
+  payload.dual_power_source = String(payload.dual_power_source).trim().toUpperCase();
+}
+
 
     const newValue = { ...oldValue, ...payload };
 
     // Submit for approval
     const approvalId = await submitForApproval({
-      module: "system",
-      tableName: "system_inventory_master",
+      module: "network",
+      tableName: "network_inventory_master",
       action: "update",
       recordId: id,
       oldValue,
       newValue,
       requestedBy: userId,
       requestedByUsername: username,
-      comments: `Update system id ${id}`,
+      comments: `Update network device id ${id}`,
     });
 
     // If approval workflow is OFF → update immediately
     if (approvalId === null) {
       // Build dynamic UPDATE query
       const fields = Object.keys(payload);
-      const setClause = fields.map((f, i) => `${f} = ${i + 1}`).join(', ');
+      const setClause = fields.map((f, i) => `${f} = $${i + 1}`).join(', ');
       const values = fields.map(f => payload[f]);
       values.push(id);
 
       const result = await pool.query(
-        `UPDATE system_inventory_master 
+        `UPDATE network_inventory_master 
          SET ${setClause}, updated_on = NOW() 
-         WHERE id = ${values.length} 
+         WHERE id = $${values.length} 
          RETURNING *`,
         values
       );
@@ -309,13 +305,13 @@ exports.updateSystem = async (req, res) => {
 
       await logActivity({
         userId,
-        module: "system",
-        tableName: "system_inventory_master",
+        module: "network",
+        tableName: "network_inventory_master",
         recordId: id,
         action: "update",
         oldValue,
         newValue: updated,
-        comments: `Updated system id ${id}`,
+        comments: `Updated network device id ${id}`,
         reqMeta: req._meta || {},
       });
 
@@ -323,64 +319,64 @@ exports.updateSystem = async (req, res) => {
     }
 
     res.status(202).json({
-      message: "System update submitted for approval",
+      message: "Network device update submitted for approval",
       approvalId,
       status: "PENDING_APPROVAL",
       data: newValue,
     });
 
   } catch (err) {
-    console.error("Error updating system:", err);
+    console.error("Error updating network device:", err);
     res.status(500).json({ error: err.message });
   }
 };
 
 // ------------------------------
-// DELETE SYSTEM (WITH APPROVAL)
+// DELETE NETWORK (WITH APPROVAL)
 // ------------------------------
-exports.deleteSystem = async (req, res) => {
+exports.deleteNetwork = async (req, res) => {
   const userId = req.user?.id || req.user?.user_id;
   const username = req.user?.username || "Unknown";
   const id = parseInt(req.params.id, 10);
 
   try {
     const existing = await pool.query(
-      'SELECT * FROM system_inventory_master WHERE id = $1',
+      'SELECT * FROM network_inventory_master WHERE id = $1',
       [id]
     );
     
     if (existing.rows.length === 0) {
-      return res.status(404).json({ error: "System not found" });
+      return res.status(404).json({ error: "Network device not found" });
     }
 
     const oldValue = existing.rows[0];
 
     // Submit for approval
     const approvalId = await submitForApproval({
-      module: "system",
-      tableName: "system_inventory_master",
+      module: "network",
+      tableName: "network_inventory_master",
       action: "delete",
       recordId: id,
       oldValue,
       newValue: null,
       requestedBy: userId,
       requestedByUsername: username,
-      comments: `Delete system id ${id}`,
+      comments: `Delete network device id ${id}`,
     });
 
     // If approval workflow is OFF → delete immediately
     if (approvalId === null) {
-      await pool.query('DELETE FROM system_inventory_master WHERE id = $1', [id]);
+      await pool.query('DELETE FROM network_inventory_master WHERE id = $1', [id]);
 
       await logActivity({
         userId,
-        module: "system",
-        tableName: "system_inventory_master",
+        module: "network",
+        tableName: "network_inventory_master",
         recordId: id,
         action: "delete",
         oldValue,
         newValue: null,
-        comments: `Deleted system id ${id}`,
+        comments: `Deleted network device id ${id}`,
         reqMeta: req._meta || {},
       });
 
@@ -388,22 +384,22 @@ exports.deleteSystem = async (req, res) => {
     }
 
     res.status(202).json({
-      message: "System deletion submitted for approval",
+      message: "Network device deletion submitted for approval",
       approvalId,
       status: "PENDING_APPROVAL",
       data: oldValue,
     });
 
   } catch (err) {
-    console.error("Error deleting system:", err);
+    console.error("Error deleting network device:", err);
     res.status(500).json({ error: err.message });
   }
 };
 
 // ------------------------------
-// BULK IMPORT SYSTEM INVENTORY
+// BULK IMPORT NETWORK DEVICES
 // ------------------------------
-exports.bulkImportSystemInventory = async (req, res) => {
+exports.bulkImportNetwork = async (req, res) => {
   const userId = req.user?.id || req.user?.user_id;
   const username = req.user?.username || "Unknown";
   const { records } = req.body;
@@ -425,11 +421,10 @@ exports.bulkImportSystemInventory = async (req, res) => {
         delete record.created_on;
         delete record.updated_on;
         delete record.plant_name;
-        delete record.department_name;
         delete record.transaction_id;
 
         // Convert empty strings to null for date fields
-        const dateFields = ['warranty_end_date', 'amc_start_date', 'amc_expiry_date'];
+        const dateFields = ['purchased_date', 'verify_date', 'warranty_start_date', 'amc_warranty_expiry_date'];
         dateFields.forEach(field => {
           if (record[field] === '' || record[field] === null || record[field] === undefined) {
             record[field] = null;
@@ -440,44 +435,37 @@ exports.bulkImportSystemInventory = async (req, res) => {
         if (record.plant_location_id) {
           record.plant_location_id = parseInt(record.plant_location_id, 10);
         }
-        if (record.department_id) {
-          record.department_id = parseInt(record.department_id, 10);
-        }
 
         // Convert boolean strings to actual booleans
-        const booleanFields = [
-          'windows_activated',
-          'user_management_applicable',
-          'date_time_sync_available',
-          'backup_procedure_available',
-          'folder_deletion_restriction',
-          'remote_tool_available',
-          'user_roles_availability',
-          'user_roles_challenged',
-          'planned_upgrade_fy2526'
-        ];
+       // ✅ Boolean fields (keep as-is)
+const booleanFields = ['stack', 'under_amc'];
+booleanFields.forEach(field => {
+  if (record[field] !== undefined && record[field] !== '') {
+    const val = String(record[field]).toLowerCase();
+    record[field] = ['true', 'yes', '1'].includes(val);
+  }
+});
 
-        booleanFields.forEach(field => {
-          if (record[field] !== undefined && record[field] !== '') {
-            const val = String(record[field]).toLowerCase();
-            record[field] = ['true', 'yes', '1'].includes(val);
-          }
-        });
+// ✅ dual_power_source as STRING enum (YES / NO / ATS)
+if (record.dual_power_source !== undefined && record.dual_power_source !== null) {
+  record.dual_power_source = String(record.dual_power_source).trim().toUpperCase();
+}
+
 
         // Set default status if not provided
         record.status = record.status || 'ACTIVE';
 
         // Submit for approval
         const approvalId = await submitForApproval({
-          module: "system",
-          tableName: "system_inventory_master",
+          module: "network",
+          tableName: "network_inventory_master",
           action: "create",
           recordId: null,
           oldValue: null,
           newValue: record,
           requestedBy: userId,
           requestedByUsername: username,
-          comments: `Bulk import - System: ${record.host_name || `Record ${i + 1}`}`,
+          comments: `Bulk import - Network: ${record.host_name || record.device_ip || `Record ${i + 1}`}`,
         });
 
         if (approvalId) {
@@ -498,13 +486,13 @@ exports.bulkImportSystemInventory = async (req, res) => {
 
     await logActivity({
       userId,
-      module: "system",
-      tableName: "system_inventory_master",
+      module: "network",
+      tableName: "network_inventory_master",
       recordId: null,
       action: "bulk_import",
       oldValue: null,
       newValue: { recordCount: records.length, approvalCount: approvalIds.length },
-      comments: `Bulk imported ${records.length} system inventory records`,
+      comments: `Bulk imported ${records.length} network device records`,
       reqMeta: req._meta || {},
     });
 
@@ -522,5 +510,3 @@ exports.bulkImportSystemInventory = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-
-module.exports=exports;

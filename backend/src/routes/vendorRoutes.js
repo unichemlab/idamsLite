@@ -7,5 +7,5 @@ router.get("/", vendorController.getAllVendors);
 router.post("/", vendorController.createVendor);
 router.put("/:id", vendorController.updateVendor);
 router.delete("/:id", vendorController.deleteVendor);
-
+router.post("/import",vendorController.bulkImportVendors);
 module.exports = router;

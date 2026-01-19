@@ -212,11 +212,38 @@ const SYSTEM_COLUMNS = [
 ];
 
 async function applyCreate(client, tableName, newValue) {
-  const data = typeof newValue === "string" ? JSON.parse(newValue) : newValue;
+  let data = typeof newValue === "string" ? JSON.parse(newValue) : newValue;
 
-  SYSTEM_COLUMNS.forEach(col => delete data[col]);
+  /* -----------------------------------------
+     HARD SAFETY CLEANUP
+  ------------------------------------------ */
+  const forbiddenCols = [
+    "id",
+    "created_on",
+    "created_by",
+    "updated_on",
+    "updated_by",
+    "approved_on",
+    "approved_by",
+    "plant_name"
+  ];
 
+  forbiddenCols.forEach(col => delete data[col]);
+
+  // 🔥 convert empty string to NULL (inet/date safe)
+  Object.keys(data).forEach(k => {
+    if (data[k] === "") data[k] = null;
+  });
+
+  /* -----------------------------------------
+     Build dynamic INSERT
+  ------------------------------------------ */
   const columns = Object.keys(data);
+
+  if (!columns.length) {
+    throw new Error("No valid columns for insert after cleanup");
+  }
+
   const values = columns.map(k => data[k]);
   const placeholders = columns.map((_, i) => `$${i + 1}`);
 
@@ -229,6 +256,7 @@ async function applyCreate(client, tableName, newValue) {
   const result = await client.query(query, values);
   return result.rows[0];
 }
+
 
 async function applyUpdate(client, tableName, recordId, newValue, approvedBy) {
   const data = typeof newValue === "string" ? JSON.parse(newValue) : newValue;
@@ -244,6 +272,7 @@ async function applyUpdate(client, tableName, recordId, newValue, approvedBy) {
     "updated_by",
     "approved_on",
     "approved_by",
+    "plant_name"
   ].forEach(k => delete data[k]);
 
   const columns = Object.keys(data);

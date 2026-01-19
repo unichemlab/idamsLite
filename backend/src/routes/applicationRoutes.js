@@ -4,6 +4,8 @@ const router = express.Router();
 const applicationController = require("../controllers/applicationController");
 const  authorize  = require("../middleware/authorize");
 const { requirePermission } = require("../middleware/permissionMiddleware");
+const multer = require("multer");
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Helper function to fetch application record
 const fetchApplicationRecord = async (id) => {
@@ -116,5 +118,5 @@ router.get(
   "/:id/:dept_id",
   applicationController.getRoleApplicationIDByPlantIdandDepartment
 );
-
+router.post("/import",applicationController.bulkImportApplications);
 module.exports = router;

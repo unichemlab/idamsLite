@@ -1,0 +1,40 @@
+// src/types/network.ts
+
+export interface Network {
+  id: number;
+  transaction_id: string;
+  plant_location_id?: number;
+  plant_name?: string;
+  area?: string;
+  rack?: string;
+  host_name?: string;
+  device_ip?: string;
+  device_model?: string;
+  device_type?: string;
+  make_vendor?: string;
+  trunk_port?: string;
+  neighbor_switch_ip?: string;
+  neighbor_port?: string;
+  sfp_fiber_tx?: string;
+  poe_non_poe?: string;
+  serial_no?: string;
+  ios_version?: string;
+  uptime?: string;
+  verify_date?: string;
+  stack?: boolean;
+  stack_switch_details?: string;
+  dual_power_source?: string;
+  purchase_vendor?: string;
+  purchased_date?: string;
+  purchased_po?: string;
+  sap_asset_no?: string;
+  service_type?: string;
+  warranty_start_date?: string;
+  amc_warranty_expiry_date?: string;
+  under_amc?: boolean;
+  amc_vendor?: string;
+  remarks?: string;
+  status: string;
+  created_on?: string;
+  updated_on?: string;
+}

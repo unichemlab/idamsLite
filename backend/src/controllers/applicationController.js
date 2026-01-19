@@ -47,7 +47,7 @@ const generateUniqueTransactionId = async () => {
 
     // 2. Check pending approvals in master_approvals table
     const pendingApprovalsResult = await db.query(
-      `SELECT new_value FROM master_approvals 
+      `SELECT new_value FROM pending_approvals 
        WHERE module = 'application' 
        AND table_name = 'application_master' 
        AND action = 'create'
@@ -506,6 +506,132 @@ exports.editApplication = async (req, res) => {
   }
 };
 
+// Add this function to your bulkImportController.js
+
+// ------------------------------
+// BULK IMPORT APPLICATIONS
+// ------------------------------
+exports.bulkImportApplications = async (req, res) => {
+  const userId = req.user?.id || req.user?.user_id;
+  const username = req.user?.username || "Unknown";
+  const { records } = req.body;
+
+  if (!records || !Array.isArray(records) || records.length === 0) {
+    return res.status(400).json({ error: "No records provided" });
+  }
+
+  try {
+    const approvalIds = [];
+    const errors = [];
+
+    for (let i = 0; i < records.length; i++) {
+      try {
+        const record = { ...records[i] };
+// 🔥 Generate unique transaction ID (checks both existing records and pending approvals)
+    const transaction_id = await generateUniqueTransactionId();
+       record.transaction_id=transaction_id;
+        // Convert string IDs to integers
+        if (record.plant_location_id) {
+          record.plant_location_id = parseInt(record.plant_location_id, 10);
+        }
+        if (record.department_id) {
+          record.department_id = parseInt(record.department_id, 10);
+        }
+        if (record.system_inventory_id) {
+          record.system_inventory_id = parseInt(record.system_inventory_id, 10);
+        }
+
+        // Handle role_id (can be comma-separated string)
+        if (record.role_id) {
+          // If it's a string with commas, keep it as is
+          // If it's a number, convert to string
+          record.role_id = String(record.role_id);
+        }
+
+        // Convert boolean strings to actual booleans
+        const booleanFields = ['multiple_role_access', 'role_lock'];
+        booleanFields.forEach(field => {
+          if (record[field] !== undefined && record[field] !== '') {
+            const val = String(record[field]).toLowerCase();
+            record[field] = ['true', 'yes', '1'].includes(val);
+          } else {
+            record[field] = false; // Default to false
+          }
+        });
+
+        // Set default status if not provided
+        record.status = record.status || 'ACTIVE';
+
+        // Set default values for optional fields
+        record.application_hmi_version = record.application_hmi_version || null;
+        record.equipment_instrument_id = record.equipment_instrument_id || null;
+        record.application_hmi_type = record.application_hmi_type || null;
+        record.system_name = record.system_name || null;
+        record.system_inventory_id = record.system_inventory_id || null;
+
+        console.log(`Processing application record ${i + 1}/${records.length}:`, record.display_name);
+
+        // Submit for approval
+        const approvalId = await submitForApproval({
+          module: "application",
+          tableName: "application_master",
+          action: "create",
+          recordId: null,
+          oldValue: null,
+          newValue: record,
+          requestedBy: userId,
+          requestedByUsername: username,
+          comments: `Bulk import - Application: ${record.display_name || record.application_hmi_name || `Record ${i + 1}`}`,
+        });
+
+        if (approvalId) {
+          approvalIds.push(approvalId);
+          console.log(`Record ${i + 1}: Created approval ID ${approvalId}`);
+        } else {
+          // If no approval workflow, record was created directly
+          approvalIds.push({ direct: true, record: i + 1 });
+          console.log(`Record ${i + 1}: Created directly (no approval required)`);
+        }
+
+      } catch (error) {
+        console.error(`Error processing record ${i + 1}:`, error);
+        errors.push({
+          record: i + 1,
+          error: error.message,
+          data: records[i].display_name || records[i].application_hmi_name
+        });
+      }
+    }
+
+    console.log(`Bulk import completed: ${approvalIds.length} successful, ${errors.length} failed`);
+
+    await logActivity({
+      userId,
+      module: "application",
+      tableName: "application_master",
+      recordId: null,
+      action: "bulk_import",
+      oldValue: null,
+      newValue: { recordCount: records.length, approvalCount: approvalIds.length },
+      comments: `Bulk imported ${records.length} application records`,
+      reqMeta: req._meta || {},
+    });
+
+    res.status(200).json({
+      message: "Bulk import completed",
+      totalRecords: records.length,
+      successfulImports: approvalIds.length,
+      failedImports: errors.length,
+      approvalIds,
+      errors
+    });
+
+  } catch (err) {
+    console.error("Bulk import error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 // exports.getDepartmentByPlantId = async (req, res) => {
 //   try {
 //     const plantID = parseInt(req.params.id, 10);
@@ -704,6 +830,7 @@ exports.getRoleApplicationIDByPlantIdandDepartment = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
 
 
 // exports.getRoleApplicationIDByPlantIdandDepartment = async (req, res) => {

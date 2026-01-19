@@ -28,6 +28,7 @@ const serverRoutes = require("./routes/serverRoutes");
 const workflowRoutes = require("./routes/workflowRoutes");
 const plantITSupportRoutes = require("./routes/transaction");
 const masterApprovalRoutes = require("./routes/masterApprovalRoutes");
+const bulkImportRoutes = require('./routes/bulkImportRoutes');
 const app = express();
 
 // Configure CORS to allow both localhost and deployed frontend
@@ -82,10 +83,12 @@ app.use("/api/docs", swaggerRoutes);
 app.use("/api/activity-logs", activityLogsRoutes);
 app.use("/api/servers", serverRoutes);
 app.use("/api/approval", approvalRoutes);
+app.use('/api/networks', require('./routes/networkRoutes'));
 app.use("/api/task", taskRoutes);
 app.use("/api/plant-itsupport", plantITSupportRoutes);
 app.use("/api/approvals", approvalsRoutes);
 app.use("/api/rbac", rbacRoutes);
+app.use('/api', bulkImportRoutes);
 app.use("/api/master-approvals",masterApprovalRoutes);
 // Use AD sync routes
 app.use(adSyncRoutes);

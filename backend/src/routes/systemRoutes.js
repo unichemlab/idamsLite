@@ -8,5 +8,5 @@ router.post("/", systemController.createSystem);
 router.get("/:id", systemController.getSystemById);
 router.put("/:id", systemController.updateSystem);
 router.delete("/:id", systemController.deleteSystem);
-
+router.post("/import",systemController.bulkImportSystemInventory);
 module.exports = router;
