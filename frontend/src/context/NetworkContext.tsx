@@ -7,7 +7,7 @@ import React, {
   ReactNode,
   useContext,
 } from "react";
-import { Network } from ".././types/network";
+import { Network } from "../types/network";
 import { API_BASE } from "../utils/api";
 
 // API Functions
