@@ -303,6 +303,42 @@ const handleEdit = useCallback(() => {
       <div className={styles.contentArea}>
         <div className={styles.controlPanel}>
           <div className={styles.actionRow}>
+            <form
+              className={styles.searchForm}
+              onSubmit={(e) => e.preventDefault()}
+              autoComplete="off"
+              style={{
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                minWidth: 0,
+              }}
+            >
+              <div className={styles.searchBox}>
+                <span className={styles.searchIcon}>🔍</span>
+
+                <input
+                  className={styles.searchInput}
+                  type="text"
+                  placeholder="Search by name, code..."
+                  value={filterValue}
+                  onChange={(e) => setFilterValue(e.target.value)}
+                  aria-label="Search"
+                />
+
+                {/* ✅ Clear Button */}
+                {filterValue && (
+                  <button
+                    type="button"
+                    className={styles.clearBtn}
+                    onClick={() => setFilterValue("")}
+                    aria-label="Clear search"
+                  >
+                    ❌
+                  </button>
+                )}
+              </div>
+            </form>
              <PermissionGuard permission={PERMISSIONS.DEPARTMENT.CREATE}>
             <button
               className={styles.addBtn}
