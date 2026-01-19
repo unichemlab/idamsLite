@@ -99,6 +99,17 @@ import AccessLogPage from "pages/AccessLogTable/AccessLogTable";
 import ApprovalHistoryPage from "pages/ApproverDashboard/ApprovalHistory";
 import MasterApprovalUserDetails from "pages/MasterApprovalBin/MasterApprovalUserDetails";
 import MasterApprovalUserBin from "pages/MasterApprovalBin/MasterApprovalUserBin";
+import ImportSystemInventory from 'pages/SystemInventoryMasterUser/ImportSystemInventory';
+import ImportServerInventory from 'pages/ServerInventorymasterUser/ImportServerInventory';
+import ImportDepartment from "pages/DepartmentTable/ImportDepartment";
+import ImportPlant from "pages/Plant/ImportPlant";
+import ImportRole from "pages/RoleMasterUser/ImportRole";
+import ImportVendor from "pages/VendorMasterInformation/ImportVendor";
+import ImportApplication from "pages/ApplicationMaster/ImportApplication";
+import NetworkMasterTable from "pages/NetworkMaster/NetworkMasterTable";
+import AddNetwork from "pages/NetworkMaster/AddNetwork";
+import EditNetwork from "pages/NetworkMaster/EditNetwork";
+import ImportNetwork from "pages/NetworkMaster/ImportNetwork";
 import { Dashboard } from "@mui/icons-material";
 // Removed unused SystemInventoryMasterTable, AddSystemInventory, EditSystemInventory imports
 // List of allowed routes for matching
@@ -171,21 +182,25 @@ const allowedRoutes = [
   "/plant-master",
   "/plant-master/add",
   "/plant-master/edit/:id",
+  "/plant-master/import",
    "/application-masters",
   "/add-application-masters",
   "/edit-application-masters/:idx",
+  "/application-masters/import",
   "/task-closure-bin",
   "/task-closure-bin/add",
   "/task-closure-bin/edit/:id",
    "/department-master",
    "/department-master/add",
    "/department-master/edit/:id",
+   "/department-master/import",
    "/user-master",
    "/user-master/add",
    "/user-master/edit/:id",
    "/role-master",
    "/role-master/add",
    "/role-master/edit/:id",
+   "/role-master/import",
    "/server-master",
    "/server-master/add",
    "/server-master/edit/:id",
@@ -195,11 +210,18 @@ const allowedRoutes = [
    "/vendor-information",
    "/vendor-information/add",
    "/vendor-information/edit/:id",
+   "/vendor-information/import",
    "/access-logs",
    "/activity-log",
    "/admin-approval",
    "/admin-approval/:id",
     "/approval-workflows",
+    "/system-master/import",
+  "/server-master/import",
+  "/network-master",
+   "/network-master/add",
+   "/network-master/edit/:id",
+   "/network-master/import",
   /********************************************************* */
 ];
 
@@ -225,6 +247,7 @@ function AppRoutes() {
       const base = route.split(":")[0];
       return location.pathname.startsWith(base);
     }
+    
     return location.pathname === route;
   });
 console.log(isAllowed);
@@ -664,6 +687,14 @@ console.log(isAllowed);
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/plant-master/import"
+        element={
+          <ProtectedRoute>
+            <ImportPlant />
+          </ProtectedRoute>
+        }
+      />
 <Route
         path="/application-masters"
         element={
@@ -685,6 +716,14 @@ console.log(isAllowed);
         element={
           <ProtectedRoute>
             <EditApplicationForm />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/application-masters/import"
+        element={
+          <ProtectedRoute>
+            <ImportApplication />
           </ProtectedRoute>
         }
       />
@@ -738,6 +777,14 @@ console.log(isAllowed);
           </ProtectedRoute>
         }
       />
+       <Route
+        path="/department-master/import"
+        element={
+          <ProtectedRoute>
+            <ImportDepartment />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/user-master"
         element={
@@ -787,6 +834,14 @@ console.log(isAllowed);
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/role-master/import"
+        element={
+          <ProtectedRoute>
+            <ImportRole />
+          </ProtectedRoute>
+        }
+      />
        <Route
         path="/server-master"
         element={
@@ -812,6 +867,31 @@ console.log(isAllowed);
         }
       />
       <Route
+        path="/network-master"
+        element={
+          <ProtectedRoute>
+            <NetworkMasterTable />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/network-master/add"
+        element={
+          <ProtectedRoute>
+            <AddNetwork />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/network-master/edit/:id"
+        element={
+          <ProtectedRoute>
+            <EditNetwork />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="/network-master/import" element={<ProtectedRoute><ImportNetwork /></ProtectedRoute>} />
+       <Route
         path="/system-master"
         element={
           <ProtectedRoute>
@@ -859,6 +939,14 @@ console.log(isAllowed);
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/vendor-information/import"
+        element={
+          <ProtectedRoute>
+            <ImportVendor />
+          </ProtectedRoute>
+        }
+      />
        <Route
         path="/access-logs"
         element={
@@ -899,6 +987,8 @@ console.log(isAllowed);
           </ProtectedRoute>
         }
       />
+<Route path="/system-master/import" element={<ProtectedRoute><ImportSystemInventory /></ProtectedRoute>} />
+<Route path="/server-master/import" element={<ProtectedRoute><ImportServerInventory /></ProtectedRoute>} />
 {/*************************************************************************************** */}
       {/* Catch-all route for 404 */}
       <Route path="*" element={<NotFound />} />

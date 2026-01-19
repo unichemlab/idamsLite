@@ -96,7 +96,7 @@ const AddVendorMaster: React.FC = () => {
                 <div className={styles.formGroupFloating}>
                   <input
                     type="text"
-                    name="vendorCode"
+                    name="code"
                     value={form.code}
                     onChange={handleChange}
                     className={styles.input}

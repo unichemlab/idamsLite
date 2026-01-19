@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState,useCallback } from "react";
 import { Bell, Settings, User, LogOut, Clock, FileText } from "lucide-react";
 import jsPDF from "jspdf";
+import { useAuth } from "../../context/AuthContext";
 import autoTable from "jspdf-autotable";
 import styles from "../Plant/PlantMasterTable.module.css";
-
+import login_headTitle2 from "../../assets/login_headTitle2.png";
 import { fetchAccessLogs, fetchActivityLogs } from "../../utils/api";
 import { useDebounce } from "../../hooks/useDebounce";
 import AppHeader from "../../components/Common/AppHeader";
@@ -86,7 +87,7 @@ const AccessLogTable: React.FC = () => {
   const [totalRecords, setTotalRecords] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
+const { user } = useAuth();
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 10;
 
@@ -172,44 +173,264 @@ const AccessLogTable: React.FC = () => {
 
   /* -------------------- PDF Export -------------------- */
 
-  const handleExportPDF = () => {
-    const doc = new jsPDF("l", "mm", "a4");
+    const handleExportPDF = useCallback(async () => {
+    const jsPDF = (await import("jspdf")).default;
+    const autoTable = (await import("jspdf-autotable")).default;
+    const doc = new jsPDF({ orientation: "landscape" });
+    const today = new Date();
+    const fileName = `AccessLogReport_${today.toISOString().split("T")[0]}.pdf`;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const pageMargin = 14;
+    const headerHeight = 15;
 
+    // Header background
+    doc.setFillColor(0, 82, 155);
+    doc.rect(0, 0, pageWidth, headerHeight, "F");
+
+    // Add logo if available
+    let logoWidth = 0;
+    let logoHeight = 0;
+    if (login_headTitle2) {
+      try {
+        const loadImage = (src: string): Promise<HTMLImageElement> => {
+          return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+            img.src = src;
+          });
+        };
+        
+        const img = await loadImage(login_headTitle2);
+        const maxLogoHeight = headerHeight * 0.6;
+        const scale = maxLogoHeight / img.height;
+        logoWidth = img.width * scale;
+        logoHeight = img.height * scale;
+        const logoY = headerHeight / 2 - logoHeight / 2;
+        doc.addImage(img, "PNG", pageMargin, logoY, logoWidth, logoHeight);
+      } catch (e) {
+        console.warn("Logo load failed", e);
+      }
+    }
+
+    // Title
     doc.setFontSize(16);
-    doc.text("Access Log Report", 14, 15);
+    doc.setTextColor(255, 255, 255);
+    const titleX = pageMargin + logoWidth + 10;
+    const titleY = headerHeight / 2 + 5;
+    doc.text("Access Log Report", titleX, titleY);
 
-    autoTable(doc, {
-      startY: 22,
-      head: [[
+    // Export info
+    doc.setFontSize(9);
+    doc.setTextColor(220, 230, 245);
+    const exportedByName = (user && (user.name || user.username)) || "Unknown User";
+    const exportedText = `Exported by: ${exportedByName}  On: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
+    const textWidth = doc.getTextWidth(exportedText);
+    doc.text(exportedText, pageWidth - pageMargin - textWidth, titleY);
+
+    // Header line
+    doc.setDrawColor(0, 82, 155);
+    doc.setLineWidth(0.5);
+    doc.line(0, headerHeight, pageWidth, headerHeight);
+
+    // Table headers
+    const headers = [
+      [
         "RITM ID",
+        "Task",
         "Name",
-        "Employee Code",
-        "Request Type",
-        "Request Status",
+        "Emp Code",
+        "Access Type",
+        "Vendor Firm",
+        "Vendor Code",
+        "Vendor Name",
+        "Vendor ID",
+        "Plant",
+        "Department",
+        "Application",
+        "Role",
+        "Reports To",
+        "Access",
+        "Assigned",
+        "User Type",
+        "From Date",
+        "To Date",
+        "Req Status",
         "Task Status",
-        "Approver 1",
-        "Approver 2",
-        "Created On",
-      ]],
-      body: accessLogs.map((log) => [
-        log.ritm_transaction_id,
-        log.name,
-        log.employee_code,
-        log.access_request_type,
-        log.user_request_status,
-        log.task_status,
-        log.approver1_status,
-        log.approver2_status,
-        log.created_on
-          ? new Date(log.created_on.replace(" ", "T")).toLocaleString("en-GB")
-          : "--",
-      ]),
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [11, 99, 206] },
+        "Appr 1",
+        "Appr 2",
+        "Created",
+      ],
+    ];
+
+    // Table rows
+    const rows = accessLogs.map((log: any) => [
+      log.ritm_transaction_id || "-",
+      log.task_transaction_id || "-",
+      log.name || "-",
+      log.employee_code || "-",
+      log.access_request_type || "-",
+      log.vendor_firm || "-",
+      log.vendor_code || "-",
+      log.vendor_name || "-",
+      log.vendor_allocated_id || "-",
+      log.location_name ?? log.location ?? "-",
+      log.department_name ?? log.department ?? "-",
+      log.application_name ?? log.application_equip_id ?? "-",
+      log.role_name ?? log.role ?? "-",
+      log.reports_to || "-",
+      log.access ?? "-",
+      log.assigned_to_name ?? "-",
+      log.user_request_type ?? "-",
+      log.from_date ? new Date(log.from_date.replace(" ", "T")).toLocaleDateString("en-GB") : "--",
+      log.to_date ? new Date(log.to_date.replace(" ", "T")).toLocaleDateString("en-GB") : "--",
+      log.user_request_status || "-",
+      log.task_status || "-",
+      log.approver1_status || "-",
+      log.approver2_status || "-",
+      log.created_on ? new Date(log.created_on.replace(" ", "T")).toLocaleDateString("en-GB") : "--",
+    ]);
+
+    // Generate table
+    autoTable(doc, {
+      head: headers,
+      body: rows,
+      startY: headerHeight + 8,
+      styles: { 
+        fontSize: 7, 
+        cellPadding: 2.5, 
+        halign: "left", 
+        valign: "middle", 
+        textColor: 80,
+        lineColor: [220, 220, 220],
+        lineWidth: 0.1,
+      },
+      headStyles: { 
+        fillColor: [11, 99, 206], 
+        textColor: 255, 
+        fontStyle: "bold", 
+        fontSize: 8,
+        halign: "center",
+      },
+      alternateRowStyles: { 
+        fillColor: [240, 245, 255] 
+      },
+      margin: { left: pageMargin, right: pageMargin },
+      tableWidth: "auto",
+      columnStyles: {
+        0: { cellWidth: 12 },  // RITM ID
+        1: { cellWidth: 12 },  // Task
+        2: { cellWidth: 15 },  // Name
+        3: { cellWidth: 10 },  // Emp Code
+        4: { cellWidth: 12 },  // Access Type
+        5: { cellWidth: 13 },  // Vendor Firm
+        6: { cellWidth: 10 },  // Vendor Code
+        7: { cellWidth: 14 },  // Vendor Name
+        8: { cellWidth: 10 },  // Vendor ID
+        9: { cellWidth: 10 },  // Plant
+        10: { cellWidth: 12 }, // Department
+        11: { cellWidth: 14 }, // Application
+        12: { cellWidth: 11 }, // Role
+        13: { cellWidth: 12 }, // Reports To
+        14: { cellWidth: 10 }, // Access
+        15: { cellWidth: 12 }, // Assigned
+        16: { cellWidth: 10 }, // User Type
+        17: { cellWidth: 12 }, // From Date
+        18: { cellWidth: 12 }, // To Date
+        19: { cellWidth: 11 }, // Req Status
+        20: { cellWidth: 11 }, // Task Status
+        21: { cellWidth: 10 }, // Appr 1
+        22: { cellWidth: 10 }, // Appr 2
+        23: { cellWidth: 12 }, // Created
+      },
     });
 
-    doc.save("access_logs.pdf");
-  };
+    // Footer
+    const pageCount = (doc as any).getNumberOfPages?.() || (doc as any).internal?.getNumberOfPages?.() || 1;
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.line(pageMargin, pageHeight - 15, pageWidth - pageMargin, pageHeight - 15);
+      doc.setFontSize(8);
+      doc.setTextColor(100);
+      doc.text("Unichem Laboratories", pageMargin, pageHeight - 10);
+      doc.text(`Page ${i} of ${pageCount}`, pageWidth - pageMargin - 30, pageHeight - 10);
+    }
+
+    doc.save(fileName);
+  }, [accessLogs, user, login_headTitle2]);
+
+
+
+  // const handleExportPDF = () => {
+  //   const doc = new jsPDF("l", "mm", "a4");
+
+  //   doc.setFontSize(16);
+  //   doc.text("Access Log Report", 14, 15);
+
+  //   autoTable(doc, {
+  //     startY: 22,
+  //     head: [[
+  //       "RITM ID",
+  //       "Task",
+  //       "Req Name",
+  //       "Req Emp Code",
+  //       "Access Req Type",
+  //       "Vendor Firm",
+  //       "Vendor Code",
+  //       "Vendor Name",
+  //       "Vendor Allocated ID",
+  //       "Plant",
+  //       "Department",
+  //       "Application",
+  //       "Role",
+  //       "Reports To",
+  //       "Access",
+  //       "Assigned Name",
+  //       "User Request Type",
+  //       "From Date",
+  //       "To Date",
+  //       "Request Status",
+  //       "Task Status",
+  //       "Approver 1",
+  //       "Approver 2",
+  //       "Created On",
+  //     ]],
+  //     body: accessLogs.map((log) => [
+  //       log.ritm_transaction_id,
+  //       log.task_transaction_id,
+  //       log.name,
+  //       log.employee_code,
+  //       log.access_request_type,
+  //       log.vendor_firm,
+  //       log.vendor_code,
+  //       log.vendor_name,
+  //       log.vendor_allocated_id,
+  //       log.location_name??log.location,
+  //       log.department_name??log.department,
+  //       log.application_name??log.application_equip_id,
+  //       log.role_name??log.role??'-',
+  //       log.access ?? "-",
+  //       log.assigned_to_name??"-",
+  //       log.user_request_type??"-",
+  //       log.from_date ? new Date(log.from_date.replace(" ", "T")).toLocaleString("en-GB"): "--",
+  //       log.to_date ? new Date(log.to_date.replace(" ", "T")).toLocaleString("en-GB"): "--",
+  //       log.user_request_status,
+  //       log.task_status,
+  //       log.approver1_status,
+  //       log.approver2_status,
+  //       log.created_on ? new Date(log.created_on.replace(" ", "T")).toLocaleString("en-GB"): "--",
+  //     ]),
+  //     styles: { fontSize: 9 },
+  //     headStyles: { fillColor: [11, 99, 206] },
+  //   });
+
+  //   doc.save("access_logs.pdf");
+  // };
 
   const handleExportActivityPDF = () => {
     if (!activityLog) return;
@@ -318,11 +539,11 @@ console.log("Access Log",accessLogs);
                   <tr>
                     <th>RITM</th>
                     <th>Task</th>
-                    <th>Request For</th>
-                    <th>Requestor Name</th>
-                    <th>Requestor Emp Code</th>
-                    <th>Requestor Emp Location</th>
-                    <th>Access Request Type</th>
+                    <th>Req For</th>
+                    <th>Req Name</th>
+                    <th>Req Emp Code</th>
+                    <th>Req Emp Location</th>
+                    <th>Access Req Type</th>
                     <th>Vendor Firm</th>
                     <th>Vendor Code</th>
                     <th>Vendor Name</th>

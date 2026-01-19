@@ -7,10 +7,10 @@ import { useUserContext } from "../../context/UserContext";
 const AddUserFormPage: React.FC = () => {
   const navigate = useNavigate();
   const { addUser } = useUserContext();
-  const handleSave = (user: UserForm) => {
-    addUser(user);
-    navigate("/superadmin", { state: { activeTab: "user" } });
-  };
+   const handleSave = (user: UserForm) => {
+     addUser(user);
+     navigate("/superadmin", { state: { activeTab: "user" } });
+   };
   // Import Sidebar and navItems if needed
   // import Sidebar from "../../components/Common/Sidebar";
   // import navItems from "../../components/Common/navItems";

@@ -1,39 +1,33 @@
+// Updated AddUserPanel.tsx
 import React, { useState, useEffect } from "react";
 import { usePlantContext } from "../PlantMaster/PlantContext";
 import { useAuth } from "../../context/AuthContext";
 import { useDepartmentContext } from "../DepartmentMaster/DepartmentContext";
-import styles from "./AddUserPanel.module.css";
+import styles from "../Plant/AddPlantMaster.module.css";
 import ConfirmLoginModal from "components/Common/ConfirmLoginModal";
+import { API_BASE } from "../../utils/api";
 
 const permissions = ["Add", "Edit", "View", "Delete"];
-const moduleList = [
+
+// Separate plant-wise and corporate modules
+const plantWiseModules = [
   "Application Master",
+  "System Master",
+  "Server Management",
+  "Network Master",
+];
+
+const corporateModules = [
   "Approval Workflow",
-  "Admin Approval",
   "Dashboard",
   "Department Master",
   "Plant Master",
   "Role Master",
   "Reviewer",
   "Reports",
-  "Server Inventory",
-  "System Inventory",
   "Task Clouser Bin",
   "Vendor Information",
 ];
-
-// Helper to extract plant name from permission keys like "Baddi unit-I-Application Master"
-const extractPlantFromKey = (key: string): string | null => {
-  for (const module of moduleList) {
-    if (key.endsWith(module)) {
-      const plantPart = key.substring(0, key.length - module.length);
-      if (plantPart.endsWith("-")) {
-        return plantPart.slice(0, -1); // Remove trailing dash
-      }
-    }
-  }
-  return null;
-};
 
 export type UserForm = {
   fullName: string;
@@ -46,6 +40,9 @@ export type UserForm = {
   permissions: {
     [key: string]: string[];
   };
+  corporatePermissions: {
+    [key: string]: string[];
+  };
   centralPermission: boolean;
   comment: string;
   corporateAccessEnabled: boolean;
@@ -56,7 +53,6 @@ interface AddUserPanelProps {
   onSave: (user: UserForm) => void;
   initialData?: UserForm | null;
   mode?: "add" | "edit";
-  panelClassName?: string;
 }
 
 const AddUserPanel = ({
@@ -64,11 +60,11 @@ const AddUserPanel = ({
   onSave,
   initialData = null,
   mode = "add",
-  panelClassName = "",
 }: AddUserPanelProps) => {
   const { plants } = usePlantContext();
   const { departments } = useDepartmentContext();
   const { user } = useAuth();
+
   const [form, setForm] = useState<UserForm>(() => {
     const base = initialData ?? {
       fullName: "",
@@ -79,6 +75,7 @@ const AddUserPanel = ({
       status: "Active",
       plants: [],
       permissions: {},
+      corporatePermissions: {},
       centralPermission: false,
       comment: "",
       corporateAccessEnabled: false,
@@ -88,15 +85,19 @@ const AddUserPanel = ({
       !initialDept || initialDept === "-" ? "" : String(initialDept);
     return {
       ...base,
+      permissions: base.permissions || {},
+      corporatePermissions: base.corporatePermissions || {},   // ✅ GUARDED
       department: deptString,
     };
   });
+
   const [activePlant, setActivePlant] = useState<string | null>(() => {
     if (initialData && initialData.plants && initialData.plants.length > 0) {
       return initialData.plants[0];
     }
     return null;
   });
+
   const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -131,98 +132,104 @@ const AddUserPanel = ({
     }
   }, [departments, initialData]);
 
-  // If editing an existing user, fetch plant-level permissions and populate form
+  // =========================================================
+  // ✅ LOAD PLANT + CENTRAL PERMISSIONS (EDIT MODE)
+  // =========================================================
   useEffect(() => {
     let mounted = true;
-    const loadPlantPermissions = async () => {
+
+    const loadPermissions = async () => {
       try {
         const id = (initialData as any)?.id;
         if (!id) return;
-        
-        console.log("[LOAD PERMS] Fetching permissions for user ID:", id);
-        
-        const res = await fetch(`/api/users/${id}/plant-permissions`);
-        if (!res.ok) {
-          console.warn("[LOAD PERMS] Failed to fetch:", res.status);
-          return;
-        }
-        
+
+        const res = await fetch(`${API_BASE}/api/users/${id}/plant-permissions`);
+        if (!res.ok) return;
+
         const data = await res.json();
         if (!mounted) return;
-        
-        console.log("[LOAD PERMS] Received data:", data);
-        
+
         const mapped = data.mappedPermissions || {};
-        
-        // Only include keys that look like "Plant-Module"
-        const filtered: Record<string, string[]> = {};
-        const plantNames = new Set<string>();
-        
-        Object.keys(mapped).forEach((k) => {
-          if (k && k.includes("-")) {
-            filtered[k] = mapped[k];
-            
-            // Use the helper function to extract plant name correctly
-            const plantName = extractPlantFromKey(k);
-            if (plantName) {
-              plantNames.add(plantName);
+
+        const filteredPlant: Record<string, string[]> = {};
+        const filteredCentral: Record<string, string[]> = {};
+
+        Object.entries(mapped).forEach(([key, actions]) => {
+          if (!Array.isArray(actions) || actions.length === 0) return;
+
+          // Plant permissions contain "-"
+          if (key.includes("-")) {
+            filteredPlant[key] = actions;
+          }
+          // Central permissions (no plant)
+          else {
+            const normalizedKey = key
+              .replace(/_/g, " ")
+              .replace(/\b\w/g, (c) => c.toUpperCase())
+              .trim();
+
+            if (corporateModules.includes(normalizedKey)) {
+              filteredCentral[normalizedKey] = actions;
             }
           }
         });
-        
-        console.log("[LOAD PERMS] Filtered permissions:", filtered);
-        console.log("[LOAD PERMS] Extracted plant names:", Array.from(plantNames));
-        
+
         setForm((prev) => ({
           ...prev,
-          permissions: Object.keys(filtered).length > 0 ? filtered : prev.permissions,
-          // Merge existing plants with newly extracted plant names
-          plants: Array.from(new Set([...prev.plants, ...Array.from(plantNames)])),
+          permissions:
+            Object.keys(filteredPlant).length > 0
+              ? filteredPlant
+              : prev.permissions,
+          corporatePermissions:
+            Object.keys(filteredCentral).length > 0
+              ? filteredCentral
+              : prev.corporatePermissions,
+          plants: Array.from(
+            new Set(
+              Object.keys(filteredPlant)
+                .map((k) => k.split("-")[0])
+                .filter(Boolean)
+            )
+          ),
         }));
-        
-        // Set the first plant as active if we have any
-        if (plantNames.size > 0 && !activePlant) {
-          setActivePlant(Array.from(plantNames)[0]);
-        }
-        
       } catch (e) {
-        console.error("[LOAD PERMS] Error:", e);
-        // ignore load errors
+        console.warn("Failed to load permissions", e);
       }
     };
-    
-    if (mode === "edit" && initialData) {
-      loadPlantPermissions();
-    }
-    
+
+    if (mode === "edit" && initialData) loadPermissions();
+
     return () => {
       mounted = false;
     };
   }, [initialData, mode]);
 
+  // =========================================================
   // Plant selection logic
+  // =========================================================
   const handleCheckboxChange = (plant: string) => {
     let shouldShowError = false;
+
     setForm((prev) => {
       const isSelected = prev.plants.includes(plant);
 
-      // If trying to select a new plant, check if any selected plant has no permissions
       if (!isSelected) {
         const anySelectedWithoutPerm = prev.plants.some((p) => {
-          const pModules = moduleList.map((mod) => `${p}-${mod}`);
+          const pModules = plantWiseModules.map((mod) => `${p}-${mod}`);
           return !pModules.some(
             (modKey) => (prev.permissions[modKey] || []).length > 0
           );
         });
+
         if (anySelectedWithoutPerm) {
           shouldShowError = true;
-          // Do NOT update form state or activePlant at all, just return prev
           return prev;
         }
       }
 
-      // proceed with toggling selection
-      const plantModulesLocal = moduleList.map((mod) => `${plant}-${mod}`);
+      const plantModulesLocal = plantWiseModules.map(
+        (mod) => `${plant}-${mod}`
+      );
       const hasAnyPermissionLocal = plantModulesLocal.some(
         (modKey) => (prev.permissions[modKey] || []).length > 0
       );
@@ -234,10 +241,8 @@ const AddUserPanel = ({
         updatedPlantsLocal = [...new Set([...prev.plants, plant])];
         newActiveLocal = plant;
       } else {
-        // remove plant only if it has no permissions
         if (hasAnyPermissionLocal) {
           shouldShowError = true;
-          // Do NOT update form state or activePlant at all, just return prev
           return prev;
         } else {
           updatedPlantsLocal = prev.plants.filter((p) => p !== plant);
@@ -248,7 +253,6 @@ const AddUserPanel = ({
         }
       }
 
-      // Only update activePlant if no error
       if (!shouldShowError) {
         setActivePlant(newActiveLocal);
       }
@@ -258,10 +262,11 @@ const AddUserPanel = ({
         plants: updatedPlantsLocal,
       };
     });
+
     if (shouldShowError) {
       setToast({
         message:
-          "Please assign at least one permission (Add/Edit/View/Delete) to the already selected plant before selecting another.",
+          "Please assign at least one permission to the already selected plant before selecting another.",
         type: "error",
       });
       if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
@@ -269,7 +274,7 @@ const AddUserPanel = ({
     }
   };
 
-  // Permission toggle for modules
+  // Permission toggle for plant-wise modules
   const handlePermissionToggle = (module: string, action: string) => {
     setForm((prev) => {
       let currentPermissions = prev.permissions[module] || [];
@@ -316,12 +321,10 @@ const AddUserPanel = ({
         updatedPermissions = [];
       }
 
-      // Update permissions and plants for the plant
       const plantPrefix = module.split("-")[0];
-      const plantModulesLocal = moduleList.map(
+      const plantModulesLocal = plantWiseModules.map(
         (mod) => `${plantPrefix}-${mod}`
       );
-      // Check if any permission exists for this plant after update
       const hasAnyPermissionLocal = plantModulesLocal.some((modKey) =>
         modKey === module
           ? updatedPermissions.length > 0
@@ -330,7 +333,6 @@ const AddUserPanel = ({
       let updatedPlantsLocal = [...prev.plants];
       if (!hasAnyPermissionLocal) {
         updatedPlantsLocal = prev.plants.filter((p) => p !== plantPrefix);
-        // If the activePlant is removed, set activePlant to another plant or null
         if (plantPrefix === activePlant) {
           setActivePlant(
             updatedPlantsLocal.length > 0 ? updatedPlantsLocal[0] : null
@@ -344,6 +346,63 @@ const AddUserPanel = ({
           [module]: updatedPermissions,
         },
         plants: updatedPlantsLocal,
+      };
+    });
+  };
+
+  // Permission toggle for corporate modules
+  const handleCorporatePermissionToggle = (module: string, action: string) => {
+    setForm((prev) => {
+      let currentPermissions = prev.corporatePermissions[module] || [];
+      let updatedPermissions = [...currentPermissions];
+      const isChecked = currentPermissions.includes(action);
+
+      const triggers = ["Add", "Edit", "Delete"];
+      if (triggers.includes(action)) {
+        if (!isChecked) {
+          if (!updatedPermissions.includes(action))
+            updatedPermissions.push(action);
+          if (!updatedPermissions.includes("View"))
+            updatedPermissions.push("View");
+        } else {
+          updatedPermissions = updatedPermissions.filter((a) => a !== action);
+        }
+      } else if (action === "View") {
+        const anyTriggerChecked = triggers.some((t) =>
+          currentPermissions.includes(t)
+        );
+        if (!anyTriggerChecked) {
+          if (!isChecked) {
+            updatedPermissions.push("View");
+          } else {
+            updatedPermissions = updatedPermissions.filter((a) => a !== "View");
+          }
+        }
+      }
+
+      updatedPermissions = Array.from(new Set(updatedPermissions));
+
+      const anyTriggerChecked = triggers.some((t) =>
+        updatedPermissions.includes(t)
+      );
+      if (anyTriggerChecked && !updatedPermissions.includes("View")) {
+        updatedPermissions.push("View");
+      }
+
+      const allPerms = ["Add", "Edit", "Delete", "View"];
+      const noneChecked = allPerms.every(
+        (p) => !updatedPermissions.includes(p)
+      );
+      if (noneChecked) {
+        updatedPermissions = [];
+      }
+
+      return {
+        ...prev,
+        corporatePermissions: {
+          ...prev.corporatePermissions,
+          [module]: updatedPermissions,
+        },
       };
     });
   };
@@ -378,7 +437,7 @@ const AddUserPanel = ({
       setUsername(user.username);
       try {
         localStorage.setItem("username", user.username);
-      } catch {}
+      } catch { }
     }
   }, [user?.username, username]);
 
@@ -402,10 +461,10 @@ const AddUserPanel = ({
             setUsername(resolved);
             try {
               localStorage.setItem("username", resolved);
-            } catch {}
+            } catch { }
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
     return () => {
       mounted = false;
@@ -417,15 +476,7 @@ const AddUserPanel = ({
     if (!username || data.username === username) {
       setSaving(true);
       try {
-        // Add logging before save
-        console.group("[SAVE USER] Form data being saved");
-        console.log("Plants:", form.plants);
-        console.log("Permission keys:", Object.keys(form.permissions));
-        console.log("Permissions:", form.permissions);
-        console.groupEnd();
-        
         await onSave(form);
-        
         if (
           mode === "edit" &&
           !departmentInitiallyPresent &&
@@ -439,7 +490,6 @@ const AddUserPanel = ({
         onClose();
       } catch (err: any) {
         setError(err.message || "Failed to save user");
-        console.error("[SAVE USER] Error:", err);
       } finally {
         setSaving(false);
       }
@@ -453,270 +503,348 @@ const AddUserPanel = ({
     }
   };
 
+  // Helper functions for form inputs
+  const input = (name: keyof UserForm, label: string, type = "text", disabled = false) => (
+    <div className={styles.formGroupFloating}>
+      <input
+        type={type}
+        name={name}
+        value={(form[name] as any) || ""}
+        onChange={(e) => setForm({ ...form, [name]: e.target.value })}
+        disabled={disabled}
+        className={styles.input}
+        required={label.includes("*")}
+      />
+      <label className={styles.floatingLabel}>
+        {label}
+        {label.includes("*") && <span className={styles.required}> *</span>}
+      </label>
+    </div>
+  );
+
+  const select = (
+    name: keyof UserForm,
+    label: string,
+    options: string[],
+    isRequired = false,
+    disabled = false
+  ) => (
+    <div className={styles.formGroupFloating}>
+      <select
+        name={name}
+        value={(form[name] as any) || ""}
+        onChange={(e) => setForm({ ...form, [name]: e.target.value })}
+        required={isRequired}
+        disabled={disabled}
+        className={styles.select}
+      >
+        <option value="">-- Select --</option>
+        {options.map((opt) => (
+          <option key={opt} value={opt}>
+            {opt}
+          </option>
+        ))}
+        {mode === "edit" &&
+          form[name] &&
+          !options.includes(form[name] as string) && (
+            <option value={form[name] as string}>{form[name] as string}</option>
+          )}
+      </select>
+      <label className={styles.floatingLabel}>
+        {label}
+        {isRequired && <span className={styles.required}> *</span>}
+      </label>
+    </div>
+  );
+
   return (
     <div>
-      <form
-        className={`${styles.panel} ${panelClassName}`}
-        onSubmit={handleSubmit}
-      >
-        {toast && (
-          <div
-            className={`${styles.toast} ${
-              toast.type === "error" ? styles.toastError : styles.toastInfo
-            }`}
-          >
-            {toast.message}
-          </div>
-        )}
-        <div className={styles.header}>
-          <h2 className={styles.title}>
-            {mode === "edit" ? `Edit User - ${form.fullName}` : "Add New User"}
-          </h2>
-          <button type="button" className={styles.closeBtn} onClick={onClose}>
-            ×
-          </button>
+      {toast && (
+        <div
+          style={{
+            position: "fixed",
+            top: "20px",
+            right: "20px",
+            backgroundColor: toast.type === "error" ? "#dc3545" : "#0d6efd",
+            color: "white",
+            padding: "12px 24px",
+            borderRadius: "4px",
+            zIndex: 9999,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+          }}
+        >
+          {toast.message}
         </div>
+      )}
 
-        <div className={styles.form}>
-          {error && <div className={styles.errorMessage}>{error}</div>}
-          <div className={styles.sectionCard}>
-            <label className={styles.formLabel}>User Details</label>
-            <div className={styles.grid}>
-              <div>
-                <label>Full Name *</label>
-                <input
-                  value={form.fullName}
-                  onChange={(e) =>
-                    setForm({ ...form, fullName: e.target.value })
-                  }
-                  disabled={mode === "edit" && !!form.fullName}
-                  className={
-                    mode === "edit" && !!form.fullName
-                      ? styles.disabledInput
-                      : undefined
-                  }
-                />
-              </div>
-              <div>
-                <label>Email *</label>
-                <input
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  disabled={mode === "edit" && !!form.email}
-                  className={
-                    mode === "edit" && !!form.email
-                      ? styles.disabledInput
-                      : undefined
-                  }
-                />
-              </div>
-              <div>
-                <label>Employee Code *</label>
-                <input
-                  value={form.empCode}
-                  onChange={(e) =>
-                    setForm({ ...form, empCode: e.target.value })
-                  }
-                  disabled={mode === "edit" && !!form.empCode}
-                  className={
-                    mode === "edit" && !!form.empCode
-                      ? styles.disabledInput
-                      : undefined
-                  }
-                />
-              </div>
-              <div>
-                <label>Department *</label>
-                <select
-                  value={form.department || ""}
-                  onChange={(e) =>
-                    setForm({ ...form, department: e.target.value })
-                  }
-                  disabled={mode === "edit" && departmentInitiallyPresent}
-                  className={
-                    mode === "edit" && departmentInitiallyPresent
-                      ? styles.disabledInput
-                      : ""
-                  }
-                >
-                  <option value="">Select Department</option>
-                  <option value="IT">IT</option>
-                  <option value="QA">QA</option>
-                  <option value="HR">HR</option>
-                  <option value="Production">Production</option>
-                  <option value="Finance">Finance</option>
-                  {mode === "edit" &&
-                    !!form.department &&
-                    !["IT", "QA", "HR", "Production", "Finance"].includes(
-                      form.department
-                    ) && (
-                      <option value={form.department}>{form.department}</option>
-                    )}
-                </select>
-              </div>
-              <div>
-                <label>Location *</label>
-                <input
-                  value={form.location}
-                  onChange={(e) =>
-                    setForm({ ...form, location: e.target.value })
-                  }
-                  required
-                />
-              </div>
-              <div>
-                <label>Status *</label>
-                <select
-                  value={form.status}
-                  onChange={(e) => setForm({ ...form, status: e.target.value })}
-                >
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
-              </div>
+      <form className={styles.form} onSubmit={handleSubmit} style={{ padding: 10 }}>
+        <div className={styles.scrollFormContainer}>
+          {error && (
+            <div style={{ color: "#dc3545", padding: "12px", backgroundColor: "#f8d7da", borderRadius: "4px", marginBottom: "16px" }}>
+              {error}
             </div>
-          </div>
-          <div className={styles.sectionCard}>
-            <label className={styles.formLabel}>Plant Selection</label>
-            <div className={styles.chipGroup}>
-              {plants && plants.length > 0 ? (
-                plants.map((plant) => {
-                  const plantName = plant.name || plant.plant_name || "";
-                  if (!plantName) return null;
-                  const plantModules = moduleList.map(
-                    (mod) => `${plantName}-${mod}`
-                  );
-                  const hasAnyPermission = plantModules.some(
-                    (modKey) => (form.permissions[modKey] || []).length > 0
-                  );
-                  return (
-                    <button
-                      type="button"
-                      className={`${styles.chip} ${
-                        form.plants.includes(plantName) ? styles.chipActive : ""
-                      }`}
-                      key={plant.id || plantName}
-                      style={{
-                        cursor: form.plants.includes(plantName)
-                          ? "pointer"
-                          : "not-allowed",
-                      }}
-                      onClick={() => {
-                        // Only allow clicking card to set activePlant if plant is checked
-                        if (form.plants.includes(plantName)) {
-                          setActivePlant(plantName);
-                        }
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={form.plants.includes(plantName)}
-                        disabled={
-                          form.plants.includes(plantName) && hasAnyPermission
-                        }
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          handleCheckboxChange(plantName);
-                        }}
-                      />
-                      {plantName}
-                    </button>
-                  );
-                })
-              ) : (
-                <span>No plants found.</span>
+          )}
+
+          {/* User Details */}
+          <div className={styles.section}>
+            <span className={styles.sectionHeaderTitle}>User Details</span>
+            <div className={styles.rowFields}>
+              {input(
+                "fullName",
+                "Full Name",
+                "text",
+                mode === "edit" && !!form.fullName
               )}
+              {input(
+                "email",
+                "Email",
+                "email",
+                mode === "edit" && !!form.email
+              )}
+              {input(
+                "empCode",
+                "Employee Code",
+                "text",
+                mode === "edit" && !!form.empCode
+              )}
+              {select(
+                "department",
+                "Department",
+                ["IT", "QA", "HR", "Production", "Finance"],
+                true,
+                mode === "edit" && departmentInitiallyPresent
+              )}
+              {input("location", "Location")}
+              {select("status", "Status", ["Active", "Inactive"], true)}
             </div>
           </div>
 
-          {activePlant && form.plants.includes(activePlant) && (
-            <div
-              className={`${styles.plantTableWrapper} ${
-                !activePlant ? styles.plantTableWrapperHidden : ""
-              }`}
-            >
-              <label className={styles.sectionTitle}>
-                Module Permissions for {activePlant}
-              </label>
-              <div className={styles.table}>
-                <div className={styles.rowHeader}>
-                  <span>Module Name</span>
-                  {permissions.map((perm) => (
-                    <span key={perm}>{perm}</span>
-                  ))}
-                </div>
-                {moduleList.map((mod) => {
-                  const moduleKey = `${activePlant}-${mod}`;
-                  return (
-                    <div className={styles.row} key={moduleKey}>
-                      <span>{mod}</span>
-                      {permissions.map((perm) => {
-                        let isDisabled = false;
-                        const isApprovalWorkflow = mod === "Approval Workflow";
-                        if (
-                          isApprovalWorkflow &&
-                          (perm === "Add" || perm === "Delete")
-                        ) {
-                          isDisabled = true;
-                        }
-                        const triggers = ["Add", "Edit", "Delete"];
-                        if (!isDisabled && perm === "View") {
-                          const anyTriggerChecked = triggers.some((t) =>
-                            form.permissions[moduleKey]?.includes(t)
-                          );
-                          if (anyTriggerChecked) isDisabled = true;
-                        }
-                        return (
+          {/* Plant-Wise Access */}
+          <div className={styles.section}>
+            <span className={styles.sectionHeaderTitle}>Plant-Wise Access</span>
+            <div className={styles.rowFields1}>
+              <div style={{ flex: "1 1 100%" }}>
+                <p style={{ fontSize: "14px", color: "#666", marginBottom: "12px" }}>
+                  Select plants for Application Master, System Master & Server Management modules
+                </p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                  {plants && plants.length > 0 ? (
+                    plants.map((plant) => {
+                      const plantName = plant.name || plant.plant_name || "";
+                      if (!plantName) return null;
+                      const plantModules = plantWiseModules.map(
+                        (mod) => `${plantName}-${mod}`
+                      );
+                      const hasAnyPermission = plantModules.some(
+                        (modKey) => (form.permissions[modKey] || []).length > 0
+                      );
+                      const isSelected = form.plants.includes(plantName);
+                      return (
+                        <label
+                          key={plant.id || plantName}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            padding: "8px 16px",
+                            border: isSelected ? "2px solid #0d6efd" : "1px solid #ddd",
+                            borderRadius: "4px",
+                            backgroundColor: isSelected ? "#e7f1ff" : "white",
+                            cursor: "pointer",
+                            userSelect: "none",
+                          }}
+                          onClick={() => {
+                            if (isSelected) {
+                              setActivePlant(plantName);
+                            }
+                          }}
+                        >
                           <input
-                            key={perm}
                             type="checkbox"
-                            checked={
-                              form.permissions[moduleKey]?.includes(perm) ||
-                              false
-                            }
-                            disabled={isDisabled}
-                            onChange={() =>
-                              !isDisabled &&
-                              handlePermissionToggle(moduleKey, perm)
-                            }
-                            className={styles.activePlantCheckbox}
+                            checked={isSelected}
+                            disabled={isSelected && hasAnyPermission}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              handleCheckboxChange(plantName);
+                            }}
+                            style={{ marginRight: "8px" }}
                           />
+                          {plantName}
+                        </label>
+                      );
+                    })
+                  ) : (
+                    <span>No plants found.</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Plant-Wise Module Permissions */}
+          {activePlant && form.plants.includes(activePlant) && (
+            <div className={styles.section}>
+              <span className={styles.sectionHeaderTitle}>
+                Plant-Wise Module Permissions - {activePlant}
+              </span>
+              <div className={styles.rowFields1} style={{ flex: "1 1 100%" }}>
+                <div style={{ overflowX: "auto", width: "100%" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #ddd" }}>
+                    <thead>
+                      <tr style={{ backgroundColor: "#f5f5f5" }}>
+                        <th style={{ padding: "12px", textAlign: "left", borderBottom: "2px solid #ddd", fontWeight: 600 }}>
+                          Module Name
+                        </th>
+                        {permissions.map((perm) => (
+                          <th key={perm} style={{ padding: "12px", textAlign: "center", borderBottom: "2px solid #ddd", borderLeft: "1px solid #ddd", fontWeight: 600 }}>
+                            {perm}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {plantWiseModules.map((mod) => {
+                        const moduleKey = `${activePlant}-${mod}`;
+                        return (
+                          <tr key={moduleKey} style={{ borderBottom: "1px solid #ddd" }}>
+                            <td style={{ padding: "12px", fontWeight: 500 }}>{mod}</td>
+                            {permissions.map((perm) => {
+                              let isDisabled = false;
+                              const triggers = ["Add", "Edit", "Delete"];
+                              if (perm === "View") {
+                                const anyTriggerChecked = triggers.some((t) =>
+                                  form.permissions[moduleKey]?.includes(t)
+                                );
+                                if (anyTriggerChecked) isDisabled = true;
+                              }
+                              return (
+                                <td key={perm} style={{ padding: "12px", textAlign: "center", borderLeft: "1px solid #ddd" }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={
+                                      form.permissions[moduleKey]?.includes(perm) ||
+                                      false
+                                    }
+                                    disabled={isDisabled}
+                                    onChange={() =>
+                                      !isDisabled &&
+                                      handlePermissionToggle(moduleKey, perm)
+                                    }
+                                    style={{ width: "18px", height: "18px", cursor: isDisabled ? "not-allowed" : "pointer" }}
+                                  />
+                                </td>
+                              );
+                            })}
+                          </tr>
                         );
                       })}
-                    </div>
-                  );
-                })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
 
-          <div className={styles.sectionCard}>
-            <div className={styles.commentBox}>
-              <label htmlFor="comment">Comment</label>
-              <textarea
-                id="comment"
-                placeholder="Enter comment here..."
-                value={form.comment}
-                onChange={(e) => setForm({ ...form, comment: e.target.value })}
-              />
+          {/* Corporate Module Permissions */}
+          <div className={styles.section}>
+            <span className={styles.sectionHeaderTitle}>Corporate Module Permissions</span>
+            <div className={styles.rowFields1} style={{ flex: "1 1 100%" }}>
+              <div style={{ overflowX: "auto", width: "100%" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #ddd" }}>
+                  <thead>
+                    <tr style={{ backgroundColor: "#f5f5f5" }}>
+                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "2px solid #ddd", fontWeight: 600 }}>
+                        Module Name
+                      </th>
+                      {permissions.map((perm) => (
+                        <th key={perm} style={{ padding: "12px", textAlign: "center", borderBottom: "2px solid #ddd", borderLeft: "1px solid #ddd", fontWeight: 600 }}>
+                          {perm}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {corporateModules.map((mod) => {
+                      return (
+                        <tr key={mod} style={{ borderBottom: "1px solid #ddd" }}>
+                          <td style={{ padding: "12px", fontWeight: 500 }}>{mod}</td>
+                          {permissions.map((perm) => {
+                            let isDisabled = false;
+                            const isApprovalWorkflow = mod === "Approval Workflow";
+                            if (
+                              isApprovalWorkflow &&
+                              (perm === "Add" || perm === "Delete")
+                            ) {
+                              isDisabled = true;
+                            }
+                            const triggers = ["Add", "Edit", "Delete"];
+                            if (!isDisabled && perm === "View") {
+                              const anyTriggerChecked = triggers.some((t) =>
+                                form.corporatePermissions[mod]?.includes(t)
+                              );
+                              if (anyTriggerChecked) isDisabled = true;
+                            }
+                            return (
+                              <td key={perm} style={{ padding: "12px", textAlign: "center", borderLeft: "1px solid #ddd" }}>
+                                <input
+                                  type="checkbox"
+                                  checked={
+                                    form.corporatePermissions[mod]?.includes(perm) ||
+                                    false
+                                  }
+                                  disabled={isDisabled}
+                                  onChange={() =>
+                                    !isDisabled &&
+                                    handleCorporatePermissionToggle(mod, perm)
+                                  }
+                                  style={{ width: "18px", height: "18px", cursor: isDisabled ? "not-allowed" : "pointer" }}
+                                />
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-          <div className={styles.actions}>
-            <button
-              type="button"
-              className={styles.cancelBtn}
-              onClick={onClose}
-            >
-              Cancel
-            </button>
+
+          {/* Additional Details */}
+          <div className={styles.section}>
+            <span className={styles.sectionHeaderTitle}>Additional Details</span>
+            <div className={styles.textarea1}>
+              <div className={styles.formGroupFloating} style={{ flex: "1 1 100%" }}>
+                <textarea
+                  name="comment"
+                  value={form.comment}
+                  onChange={(e) => setForm({ ...form, comment: e.target.value })}
+                  className={styles.textarea}
+                  rows={3}
+                />
+                <label className={styles.floatingLabel}>Comment</label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className={styles.formFotter}>
+          <div className={styles.buttonRow} style={{ display: "flex", justifyContent: "flex-start", gap: 24, margin: 15 }}>
             <button type="submit" className={styles.saveBtn} disabled={saving}>
               {saving
                 ? mode === "edit"
                   ? "Updating..."
                   : "Saving..."
                 : mode === "edit"
-                ? "Update User"
-                : "Save User"}
+                  ? "Update User"
+                  : "Save User"}
+            </button>
+            <button
+              type="button"
+              className={styles.cancelBtn}
+              onClick={onClose}
+            >
+              Cancel
             </button>
           </div>
         </div>

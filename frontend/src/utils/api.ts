@@ -795,25 +795,40 @@ export const renderApprovalStatus = (
 export const canShowMenu = (menu: any, user: any): boolean => {
   if (!user) return false;
 
-  // 🔒 CONDITION (ALWAYS FIRST)
-  if (menu.condition && !menu.condition(user)) {
-    return false;
-  }
-
-  // 🔥 SUPER ADMIN → bypass PERMISSIONS only
+  // 🔥 SUPER ADMIN → bypass everything
   const isSuperAdmin =
     user.role_id === 1 ||
     (Array.isArray(user.role_id) && user.role_id.includes(1));
 
   if (isSuperAdmin) return true;
 
-  // 🔐 PERMISSION
-  if (menu.permission) {
+  // 🎯 NEW LOGIC: Show menu if EITHER condition OR permission is met
+  const hasCondition = menu.condition !== undefined;
+  const hasPermission = menu.permission !== undefined;
+
+  // Case 1: Has both condition AND permission → Either one must be true
+  if (hasCondition && hasPermission) {
+    const conditionMet = menu.condition(user);
+    const permissionMet = Array.isArray(user.permissions)
+      ? user.permissions.includes(menu.permission)
+      : false;
+    
+    return conditionMet || permissionMet;
+  }
+
+  // Case 2: Has only condition → Check condition
+  if (hasCondition) {
+    return menu.condition(user);
+  }
+
+  // Case 3: Has only permission → Check permission
+  if (hasPermission) {
     return Array.isArray(user.permissions)
       ? user.permissions.includes(menu.permission)
       : false;
   }
 
+  // Case 4: No condition or permission → Show by default
   return true;
 };
 

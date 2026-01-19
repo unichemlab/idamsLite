@@ -18,6 +18,7 @@ export interface Server {
   id: number;
   transaction_id: string;
   plant_location_id?: number;
+  plant_name?:string;
   rack_number?: string;
   server_owner?: string;
   type_tower_rack_mounted?: string;
@@ -73,12 +74,10 @@ export interface Server {
 
 interface ServerContextType {
   servers: Server[];
-  addServer: (server: Server) => void;
-  updateServer: (index: number, updated: Server) => void;
-  deleteServer: (index: number) => void;
+  addServer: (server: Server) => Promise<void>;
+  updateServer: (id: number, updated: Server) => Promise<void>;
+  deleteServer: (id: number) => Promise<void>;
 }
-
-// No default servers, will fetch from API
 
 export const ServerContext = createContext<ServerContextType | undefined>(
   undefined
@@ -101,6 +100,7 @@ export const ServerProvider = ({ children }: { children: ReactNode }) => {
           server_rack_location_area: p.server_rack_location_area,
           asset_no: p.asset_no,
           host_name: p.host_name,
+          plant_name:p.plant_name,
           make: p.make,
           model: p.model,
           serial_no: p.serial_no,
@@ -142,49 +142,80 @@ export const ServerProvider = ({ children }: { children: ReactNode }) => {
           amc_warranty_expiry_date: p.amc_warranty_expiry_date,
           sap_asset_no: p.sap_asset_no,
           amc_vendor: p.amc_vendor,
-
           remarks: p.remarks,
           status: p.status,
           created_on: p.created_on,
           updated_on: p.updated_on,
-          server_name: p.server_name,
-          description: p.description,
         }));
         setServers(normalized as Server[]);
       })
       .catch((err: unknown) => {
+        console.error("Error fetching servers:", err);
         setServers([]);
       });
   };
-
+const normalizePayload = (obj: any) => {
+  Object.keys(obj).forEach((k) => {
+    if (obj[k] === "") obj[k] = null;
+  });
+  return obj;
+};
   useEffect(() => {
     fetchAndSetServers();
   }, []);
 
   // Add server via API
   const addServer = async (server: Server) => {
-    // Exclude id, created_on, updated_on from payload
-    const { id, created_on, updated_on, ...payload } = server;
+  try {
+    const { id, created_on, updated_on, transaction_id, ...payload } = server;
+
+    normalizePayload(payload); // ✅ IMPORTANT
+
     await addServerAPI(payload);
     fetchAndSetServers();
-  };
+  } catch (error) {
+    console.error("Error adding server:", error);
+    throw error;
+  }
+};
 
-  // Update server via API
-  const updateServer = async (index: number, updated: Server) => {
-    const server = servers[index];
-    if (!server || !server.id) return;
-    // Exclude id, created_on, updated_on from payload
-    const { id, created_on, updated_on, ...payload } = updated;
-    await updateServerAPI(server.id, payload);
-    fetchAndSetServers();
-  };
 
-  // Delete server via API
-  const deleteServer = async (index: number) => {
-    const server = servers[index];
-    if (!server || !server.id) return;
-    await deleteServerAPI(server.id);
+  // Update server via API - now accepts ID directly
+  const updateServer = async (id: number, updated: Server) => {
+  try {
+    if (!id) {
+      console.error("Invalid server ID");
+      return;
+    }
+
+    const { id: _, created_on, updated_on, transaction_id, ...payload } = updated;
+
+    normalizePayload(payload); // ✅ IMPORTANT
+
+    console.log("Updating server with ID:", id, "Payload:", payload);
+    await updateServerAPI(id, payload);
     fetchAndSetServers();
+  } catch (error) {
+    console.error("Error updating server:", error);
+    throw error;
+  }
+};
+
+
+  // Delete server via API - now accepts ID directly
+  const deleteServer = async (id: number) => {
+    try {
+      if (!id) {
+        console.error("Invalid server ID");
+        return;
+      }
+      
+      await deleteServerAPI(id);
+      fetchAndSetServers();
+    } catch (error) {
+      console.error("Error deleting server:", error);
+      throw error;
+    }
   };
 
   return (

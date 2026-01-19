@@ -8,7 +8,9 @@ const { submitForApproval } = require("../utils/masterApprovalHelper");
 exports.getAllServers = async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT * FROM server_inventory_master ORDER BY id ASC"
+      `SELECT s.*, p.plant_name FROM server_inventory_master s
+      LEFT JOIN plant_master p ON s.plant_location_id = p.id
+      ORDER BY id ASC`
     );
     res.status(200).json(result.rows);
   } catch (err) {
@@ -303,6 +305,126 @@ exports.deleteServer = async (req, res) => {
   } catch (err) {
     console.error("Error deleting server:", err);
     res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// ------------------------------
+// BULK IMPORT SERVER INVENTORY
+// ------------------------------
+exports.bulkImportServerInventory = async (req, res) => {
+  const userId = req.user?.id || req.user?.user_id;
+  const username = req.user?.username || "Unknown";
+  const { records } = req.body;
+
+  if (!records || !Array.isArray(records) || records.length === 0) {
+    return res.status(400).json({ error: "No records provided" });
+  }
+
+  try {
+    const approvalIds = [];
+    const errors = [];
+
+    for (let i = 0; i < records.length; i++) {
+      try {
+        const record = { ...records[i] };
+
+        // Remove read-only fields
+        delete record.id;
+        delete record.created_on;
+        delete record.updated_on;
+        delete record.transaction_id;
+
+        // Convert empty strings to null for date fields
+        const dateFields = ['start_date', 'end_date', 'purchase_date', 'warranty_new_start_date', 'amc_warranty_expiry_date'];
+        dateFields.forEach(field => {
+          if (record[field] === '' || record[field] === null || record[field] === undefined) {
+            record[field] = null;
+          }
+        });
+
+        // Convert string IDs to integers
+        if (record.plant_location_id) {
+          record.plant_location_id = parseInt(record.plant_location_id, 10);
+        }
+        if (record.purchase_po) {
+          record.purchase_po = parseInt(record.purchase_po, 10);
+        }
+        if (record.windows_activated !== undefined) {
+          record.windows_activated = parseInt(record.windows_activated, 10);
+        }
+
+        // Convert boolean strings to actual booleans
+        const booleanFields = [
+          'part_no',
+          'server_managed_by',
+          'current_rpo',
+          'sap_asset_no',
+          'amc_vendor'
+        ];
+
+        booleanFields.forEach(field => {
+          if (record[field] !== undefined && record[field] !== '') {
+            const val = String(record[field]).toLowerCase();
+            record[field] = ['true', 'yes', '1'].includes(val);
+          }
+        });
+
+        // Set default status if not provided
+        record.status = record.status || 'ACTIVE';
+
+        // Submit for approval
+        const approvalId = await submitForApproval({
+          module: "server",
+          tableName: "server_inventory_master",
+          action: "create",
+          recordId: null,
+          oldValue: null,
+          newValue: record,
+          requestedBy: userId,
+          requestedByUsername: username,
+          comments: `Bulk import - Server: ${record.host_name || `Record ${i + 1}`}`,
+        });
+
+        if (approvalId) {
+          approvalIds.push(approvalId);
+        } else {
+          // If no approval workflow, record was created directly
+          approvalIds.push({ direct: true, record: i + 1 });
+        }
+
+      } catch (error) {
+        console.error(`Error processing record ${i + 1}:`, error);
+        errors.push({
+          record: i + 1,
+          error: error.message
+        });
+      }
+    }
+
+    await logActivity({
+      userId,
+      module: "server",
+      tableName: "server_inventory_master",
+      recordId: null,
+      action: "bulk_import",
+      oldValue: null,
+      newValue: { recordCount: records.length, approvalCount: approvalIds.length },
+      comments: `Bulk imported ${records.length} server inventory records`,
+      reqMeta: req._meta || {},
+    });
+
+    res.status(200).json({
+      message: "Bulk import completed",
+      totalRecords: records.length,
+      successfulImports: approvalIds.length,
+      failedImports: errors.length,
+      approvalIds,
+      errors
+    });
+
+  } catch (err) {
+    console.error("Bulk import error:", err);
+    res.status(500).json({ error: err.message });
   }
 };
 

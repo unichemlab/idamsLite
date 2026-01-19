@@ -17,5 +17,6 @@ router.delete(
   authorize("delete:server_inventory"),
   serverController.deleteServer
 );
+router.post("/import",serverController.bulkImportServerInventory);
 
 module.exports = router;

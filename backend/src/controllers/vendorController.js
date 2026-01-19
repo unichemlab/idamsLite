@@ -57,7 +57,7 @@ exports.getAllVendors = async (req, res) => {
 // CREATE VENDOR (WITH APPROVAL)
 // -------------------------------
 exports.createVendor = async (req, res) => {
-  const { vendor_name, description, status } = req.body;
+  const { vendor_name,code, description, status } = req.body;
   const userId = req.user?.id || req.user?.user_id;
   const username = req.user?.username || "Unknown";
 
@@ -65,6 +65,7 @@ exports.createVendor = async (req, res) => {
     const newVendor = {
       vendor_name,
       description,
+      code,
       status: status || "ACTIVE",
     };
 
@@ -83,8 +84,8 @@ exports.createVendor = async (req, res) => {
     // DIRECT ENTRY (if no approval required)
     if (approvalId === null) {
       const { rows } = await pool.query(
-        "INSERT INTO vendor_master (vendor_name, description, status) VALUES ($1, $2, $3) RETURNING *",
-        [vendor_name, description, status || "ACTIVE"]
+        "INSERT INTO vendor_master (vendor_name,vendor_code, description, status) VALUES ($1, $2, $3,$4) RETURNING *",
+        [vendor_name,code, description, status || "ACTIVE"]
       );
 
       await logActivity({
@@ -138,6 +139,7 @@ exports.updateVendor = async (req, res) => {
 
     const updatedVendor = {
       vendor_name,
+      code,
       description,
       status,
     };
@@ -157,8 +159,8 @@ exports.updateVendor = async (req, res) => {
     // DIRECT UPDATE
     if (approvalId === null) {
       const { rows } = await pool.query(
-        "UPDATE vendor_master SET vendor_name=$1, description=$2, status=$3, updated_on=NOW() WHERE id=$4 RETURNING *",
-        [vendor_name, description, status, id]
+        "UPDATE vendor_master SET vendor_name=$1, description=$2, status=$3,vendor_code=$5, updated_on=NOW() WHERE id=$4 RETURNING *",
+        [vendor_name, description, status, id,code]
       );
 
       await logActivity({
@@ -250,5 +252,81 @@ exports.deleteVendor = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+// ------------------------------
+// BULK IMPORT VENDORS
+// ------------------------------
+exports.bulkImportVendors = async (req, res) => {
+  const userId = req.user?.id || req.user?.user_id;
+  const username = req.user?.username || "Unknown";
+  const { records } = req.body;
 
+  if (!records || !Array.isArray(records) || records.length === 0) {
+    return res.status(400).json({ error: "No records provided" });
+  }
+
+  try {
+    const approvalIds = [];
+    const errors = [];
+
+    for (let i = 0; i < records.length; i++) {
+      try {
+        const record = { ...records[i] };
+        
+        // Set default status
+        record.status = record.status || 'ACTIVE';
+
+        // Submit for approval
+        const approvalId = await submitForApproval({
+          module: "Vendor Information",
+          tableName: "vendor_master",
+          action: "create",
+          recordId: null,
+          oldValue: null,
+          newValue: record,
+          requestedBy: userId,
+          requestedByUsername: username,
+          comments: `Bulk import - Vendor: ${record.vendor_name || `Record ${i + 1}`}`,
+        });
+
+        if (approvalId) {
+          approvalIds.push(approvalId);
+        } else {
+          approvalIds.push({ direct: true, record: i + 1 });
+        }
+
+      } catch (error) {
+        console.error(`Error processing record ${i + 1}:`, error);
+        errors.push({
+          record: i + 1,
+          error: error.message
+        });
+      }
+    }
+
+    await logActivity({
+      userId,
+      module: "Vendor Information",
+      tableName: "vendor_master",
+      recordId: null,
+      action: "bulk_import",
+      oldValue: null,
+      newValue: { recordCount: records.length, approvalCount: approvalIds.length },
+      comments: `Bulk imported ${records.length} Vendor records`,
+      reqMeta: req._meta || {},
+    });
+
+    res.status(200).json({
+      message: "Bulk import completed",
+      totalRecords: records.length,
+      successfulImports: approvalIds.length,
+      failedImports: errors.length,
+      approvalIds,
+      errors
+    });
+
+  } catch (err) {
+    console.error("Bulk import error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
 module.exports = exports;

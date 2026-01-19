@@ -13,14 +13,18 @@ router.post("/", userController.addUser);
 router.put("/:id", userController.editUser);
 
 // User plant-level permissions (store permissions per plant/module)
-router.get(
-  "/:userId/plant-permissions",
-  userPlantPermissionController.getUserPlantPermissions
-);
-router.put(
-  "/:userId/plant-permissions",
-  userPlantPermissionController.setUserPlantPermissions
-);
+// router.get(
+//   "/:userId/plant-permissions",
+//   userPlantPermissionController.getUserPlantPermissions
+// );
+// router.put(
+//   "/:userId/plant-permissions",
+//   userPlantPermissionController.setUserPlantPermissions
+// );
+
+// Permission management (uses updated controller)
+router.get('/:userId/plant-permissions', userPlantPermissionController.getUserPlantPermissions);
+router.put('/:userId/plant-permissions', userPlantPermissionController.setUserPlantPermissions);
 
 router.get("/users/:employeeCode", userController.getUserByEmployeeCode);
 router.get('/department', userController.getUserByDepartment);

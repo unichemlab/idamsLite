@@ -1,21 +1,27 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
 import { useNavigate, useParams } from "react-router-dom";
 import { ServerContext } from "../ServerInventoryMaster/ServerContext";
 import { Server } from "../ServerInventoryMaster/ServerContext";
 import { useAuth } from "../../context/AuthContext";
 import AppHeader from "../../components/Common/AppHeader";
+import { fetchPlants } from "../../utils/api";
 import styles from "../Plant/AddPlantMaster.module.css";
+
+interface Plant {
+  id: number;
+  plant_name: string;
+}
 
 const EditServerInventory: React.FC = () => {
   const { user } = useAuth();
   const { id } = useParams();
   const serverCtx = useContext(ServerContext);
   const navigate = useNavigate();
+  const [plants, setPlants] = useState<Plant[]>([]);
 
-  // Find server by id (not index) for robustness
+  // Find server by id
   const server = serverCtx?.servers.find((s: Server) => String(s.id) === id);
-  console.log("Editing server:", server?.host_name, "with id:", id);
   
   const [form, setForm] = useState<Server>({
     id: server?.id ?? 0,
@@ -74,8 +80,11 @@ const EditServerInventory: React.FC = () => {
     updated_on: server?.updated_on ?? "",
   });
   
-  console.log("Form state initialized to:", form);
   const [showConfirm, setShowConfirm] = useState(false);
+
+  useEffect(() => {
+    fetchPlants().then(setPlants);
+  }, []);
 
   if (!serverCtx || id === undefined || !server) return <div>Server not found</div>;
 
@@ -85,28 +94,23 @@ const EditServerInventory: React.FC = () => {
     >
   ) => {
     const { name, value, type } = e.target;
-    if (
-      [
-        "part_no",
-        "server_managed_by",
-        "current_rpo",
-        "sap_asset_no",
-        "amc_vendor",
-      ].includes(name)
-    ) {
-      const checked =
-        type === "checkbox"
-          ? (e.target as HTMLInputElement).checked
-          : undefined;
-      setForm({ ...form, [name]: type === "checkbox" ? checked : value });
-    } else if (["plant_location_id", "purchase_po", "windows_activated"].includes(name)) {
-      setForm({
-        ...form,
-        [name]: type === "number" ? Number(value) : Number(value),
-      });
-    } else {
-      setForm({ ...form, [name]: value });
+
+    let finalValue: any = value;
+
+    if (type === "checkbox") {
+      finalValue = (e.target as HTMLInputElement).checked;
+    } else if (type === "number") {
+      finalValue = Number(value);
+    } else if (value === "true") {
+      finalValue = true;
+    } else if (value === "false") {
+      finalValue = false;
     }
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: finalValue,
+    }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -114,17 +118,108 @@ const EditServerInventory: React.FC = () => {
     setShowConfirm(true);
   };
 
-  const handleConfirm = () => {
-    // Update by id, not index
+  const handleConfirm = async () => {
     if (server && server.id !== undefined) {
-      serverCtx.updateServer(server.id, form);
+      try {
+        await serverCtx.updateServer(server.id, form);
+        setShowConfirm(false);
+        navigate("/server-master");
+      } catch (error) {
+        console.error("Error updating server:", error);
+        alert("Failed to update server. Please try again.");
+      }
     }
-    setShowConfirm(false);
-    navigate("/server-master");
   };
 
   const handleCancel = () => {
     setShowConfirm(false);
+  };
+
+  const input = (name: keyof Server, label: string, type = "text") => (
+    <div className={styles.formGroupFloating}>
+      <input
+        type={type}
+        name={name}
+        value={form[name] as any}
+        onChange={handleChange}
+        className={styles.input}
+      />
+      <label className={styles.floatingLabel}>{label}</label>
+    </div>
+  );
+
+  const isVirtualSelected = form.vm_type === "Virtual";
+
+  type OptionValue = string | number;
+
+  type GenericSelectOption<T> = {
+    value: (item: T) => OptionValue;
+    label: (item: T) => string;
+  };
+
+  const select = <T,>(
+    name: keyof Server,
+    label: string,
+    options: T[] = [],
+    mapperOrRequired?: GenericSelectOption<T> | boolean,
+    isRequiredParam: boolean = false,
+    isDisabled: boolean = false,
+    isBoolean: boolean = false
+  ) => {
+    const mapper =
+      typeof mapperOrRequired === "object" ? mapperOrRequired : undefined;
+
+    const isRequired =
+      typeof mapperOrRequired === "boolean"
+        ? mapperOrRequired
+        : isRequiredParam;
+
+    return (
+      <div className={styles.formGroupFloating}>
+        <select
+          name={name}
+          value={
+            isBoolean
+              ? form[name] === true
+                ? "true"
+                : form[name] === false
+                ? "false"
+                : ""
+              : ((form[name] as any) || "")
+          }
+          onChange={handleChange}
+          required={isRequired}
+          disabled={isDisabled}
+          className={styles.select}
+        >
+          <option value="">-- Select --</option>
+
+          {isBoolean ? (
+            <>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </>
+          ) : mapper ? (
+            options.map((item, i) => (
+              <option key={i} value={mapper.value(item)}>
+                {mapper.label(item)}
+              </option>
+            ))
+          ) : (
+            (options as any[]).map((v, i) => (
+              <option key={i} value={v as any}>
+                {String(v)}
+              </option>
+            ))
+          )}
+        </select>
+
+        <label className={styles.floatingLabel}>
+          {label}
+          {isRequired && <span className={styles.required}> *</span>}
+        </label>
+      </div>
+    );
   };
 
   return (
@@ -157,549 +252,136 @@ const EditServerInventory: React.FC = () => {
           <div className={styles.formCard}>
             <div className={styles.formHeader}>
               <h2>Edit Server</h2>
-              <p>Enter Server details to edit a record in the system</p>
+              <p>Update server details in the system</p>
             </div>
             <form
               className={styles.form}
               onSubmit={handleSubmit}
-              style={{ width: "100%" }}
+              style={{ padding: 10 }}
             >
               <div className={styles.scrollFormContainer}>
-                <div className={styles.rowFields}>
-                  <div className={styles.formGroup}>
-                    <label>Transaction ID</label>
-                    <input
-                      name="transaction_id"
-                      value={form.transaction_id}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Plant Location</label>
-                    <input
-                      type="number"
-                      name="plant_location_id"
-                      value={form.plant_location_id ?? ""}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>RACK NUMBER</label>
-                    <input
-                      name="rack_number"
-                      value={form.rack_number}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
+                
+                {/* User Details Section */}
+                <div className={styles.section}>
+                  <span className={styles.sectionHeaderTitle}>User Details</span>
+                  <div className={styles.rowFields}>
+                    {select("plant_location_id", "Plant Location", plants, { value: (p) => p.id, label: (p) => p.plant_name }, true)}
+                    {input("server_owner", "Server Owner")}
                   </div>
                 </div>
-                <div className={styles.rowFields}>
-                  <div className={styles.formGroup}>
-                    <label>SERVER OWNER</label>
-                    <input
-                      name="server_owner"
-                      value={form.server_owner}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Type Tower / Rack mounted</label>
-                    <input
-                      name="type_tower_rack_mounted"
-                      value={form.type_tower_rack_mounted}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Server / RACK Location / Area</label>
-                    <input
-                      name="server_rack_location_area"
-                      value={form.server_rack_location_area}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
+
+                {/* Commercial Details Section */}
+                <div className={styles.section}>
+                  <span className={styles.sectionHeaderTitle}>Commercial Details</span>
+                  <div className={styles.rowFields}>
+                    {input("purchase_po", "Purchase PO", "number")}
+                    {input("purchase_date", "Purchased Date", "date")}
+                    {input("sap_asset_no", "SAP Asset No")}
+                    {input("warranty_new_start_date", "Warranty New Start Date", "date")}
+                    {input("amc_warranty_expiry_date", "AMC/Warranty Expiry Date", "date")}
+                    {input("amc_vendor", "AMC Vendor")}
+                    {input("asset_no", "Asset No")}
                   </div>
                 </div>
-                <div className={styles.rowFields}>
-                  <div className={styles.formGroup}>
-                    <label>Asset No.</label>
-                    <input
-                      name="asset_no"
-                      value={form.asset_no}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Host Name</label>
-                    <input
-                      name="host_name"
-                      value={form.host_name}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>MAKE</label>
-                    <input
-                      name="make"
-                      value={form.make}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
+
+                {/* Application Details Section */}
+                <div className={styles.section}>
+                  <span className={styles.sectionHeaderTitle}>Application Details</span>
+                  <div className={styles.rowFields}>
+                    {input("application", "Application")}
+                    {input("application_version", "Application Version")}
+                    {input("application_oem", "Application OEM")}
+                    {input("application_vendor", "Application Vendor")}
                   </div>
                 </div>
-                <div className={styles.rowFields}>
-                  <div className={styles.formGroup}>
-                    <label>MODEL</label>
-                    <input
-                      name="model"
-                      value={form.model}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>SERIAL NO.</label>
-                    <input
-                      name="serial_no"
-                      value={form.serial_no}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>OS</label>
-                    <input
-                      name="os"
-                      value={form.os}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                </div>
-                <div className={styles.rowFields}>
-                  <div className={styles.formGroup}>
-                    <label>Physical Server Host Name</label>
-                    <input
-                      name="physical_server_host_name"
-                      value={form.physical_server_host_name}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>IDRAC/ILO</label>
-                    <input
-                      name="idrac_ilo"
-                      value={form.idrac_ilo}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>IP-ADDRESS</label>
-                    <input
-                      name="ip_address"
-                      value={form.ip_address}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
+
+                {/* Server Details Section */}
+                <div className={styles.section}>
+                  <span className={styles.sectionHeaderTitle}>Server Details</span>
+                  <div className={styles.rowFields}>
+                    {input("rack_number", "Rack Number")}
+                    {select("type_tower_rack_mounted", "Mounted Type", ["Tower", "Rack"], true)}
+                    {input("server_rack_location_area", "Server/Rack Location")}
+                    {select("vm_type", "Server Type", ["Physical", "Virtual"], true)}
+                    {input("host_name", "Host Name")}
+                    {input("make", "Make")}
+                    {input("model", "Model")}
+                    {input("serial_no", "Serial No")}
+                    {input("idrac_ilo", "IDRAC/ILO")}
+                    {input("ip_address", "IP Address")}
+                    {select("part_no", "Part Number", [], false, false, false, true)}
+                    {input("system_owner", "System Owner")}
+                    {select("domain_workgroup", "Domain Name", ["Domain", "Work Group CORP Domain", "GXP"], true)}
+                    {select("windows_activated", "Windows Activated", [], false, false, false, true)}
+                    {select("backup_agent", "Backup Agent", ["VEEAM", "Acronis"], true)}
+                    {select("antivirus", "Antivirus", ["CS", "TM", "McAfee", "Symantec"], true)}
+                    {select("category_gxp", "Category", ["GxP", "Non-GxP"], true)}
+                    {input("current_status", "Current Status of Server")}
+                    {select("server_managed_by", "Server Managed By", ["IT", "ESD"], true)}
+                    {input("remarks_application_usage", "Remarks for Application Usage")}
+                    {input("start_date", "Start Date", "date")}
+                    {input("end_date", "End Date", "date")}
+                    {input("aging", "Aging")}
+                    {input("environment", "Environment")}
+                    {input("server_critility", "Server Critility")}
+                    {input("database_appplication", "Database/Application")}
+                    {select("current_rpo", "Current RPO", [], false, false, false, true)}
+                    {input("reduce_rpo_time", "Reduce RPO Time from 24 Hrs")}
+                    {input("server_to_so_timeline", "Server to SO Timeline")}
+
+                    {/* Virtual Machine fields - shown only when Virtual is selected */}
+                    {isVirtualSelected && (
+                      <>
+                        {input("physical_server_host_name", "Physical Server Host Name")}
+                        {input("vm_display_name", "VM Display Name")}
+                        {input("vm_os", "Virtual Machine OS")}
+                        {input("vm_version", "Virtual Machine Version")}
+                        {input("vm_server_ip", "Virtual Machine Server IP")}
+                      </>
+                    )}
                   </div>
                 </div>
-                <div className={styles.rowFields}>
-                  <div className={styles.formGroup}>
-                    <label>Part No.</label>
-                    <input
-                      name="part_no"
-                      type="checkbox"
-                      checked={!!form.part_no}
-                      onChange={handleChange}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>APPLICATION</label>
-                    <input
-                      name="application"
-                      value={form.application}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Application Version</label>
-                    <input
-                      name="application_version"
-                      value={form.application_version}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
+
+                {/* Additional Details Section */}
+                <div className={styles.section}>
+                  <span className={styles.sectionHeaderTitle}>Additional Details</span>
+                  <div className={styles.rowFields}>
+                    <div className={styles.formGroupFloating} style={{ flex: "1 1 100%" }}>
+                      <textarea
+                        name="remarks"
+                        value={form.remarks}
+                        onChange={handleChange}
+                        className={styles.textarea}
+                      />
+                      <label className={styles.floatingLabel}>Remarks</label>
+                    </div>
+                    {select("status", "Status", ["ACTIVE", "INACTIVE"], true)}
                   </div>
                 </div>
-                <div className={styles.rowFields}>
-                  <div className={styles.formGroup}>
-                    <label>Application OEM</label>
-                    <input
-                      name="application_oem"
-                      value={form.application_oem}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Application Vendor</label>
-                    <input
-                      name="application_vendor"
-                      value={form.application_vendor}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>System Owner</label>
-                    <input
-                      name="system_owner"
-                      value={form.system_owner}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                </div>
-                <div className={styles.rowFields}>
-                  <div className={styles.formGroup}>
-                    <label>VM Display Name</label>
-                    <input
-                      name="vm_display_name"
-                      value={form.vm_display_name}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>TYPE</label>
-                    <input
-                      name="vm_type"
-                      value={form.vm_type}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>VM OS</label>
-                    <input
-                      name="vm_os"
-                      value={form.vm_os}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                </div>
-                <div className={styles.rowFields}>
-                  <div className={styles.formGroup}>
-                    <label>VM Version</label>
-                    <input
-                      name="vm_version"
-                      value={form.vm_version}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>VM Server IP</label>
-                    <input
-                      name="vm_server_ip"
-                      value={form.vm_server_ip}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>
-                      Domain / Work Group CORP Domain / GXP - mention name of
-                      Domain
-                    </label>
-                    <input
-                      name="domain_workgroup"
-                      value={form.domain_workgroup}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                </div>
-                <div className={styles.rowFields}>
-                  <div className={styles.formGroup}>
-                    <label>Is Windows Activated Yes / No</label>
-                    <select
-                      name="windows_activated"
-                      value={form.windows_activated}
-                      onChange={handleChange}
-                      className={styles.input}
-                    >
-                      <option value={1}>Yes</option>
-                      <option value={0}>No</option>
-                    </select>
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Backup Agent VEEAM / Acronis Version</label>
-                    <input
-                      name="backup_agent"
-                      value={form.backup_agent}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Antivirus CS / TM / McAfee/ Symantec</label>
-                    <input
-                      name="antivirus"
-                      value={form.antivirus}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                </div>
-                <div className={styles.rowFields}>
-                  <div className={styles.formGroup}>
-                    <label>Category GxP or Non GxP</label>
-                    <input
-                      name="category_gxp"
-                      value={form.category_gxp}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Current Status of Server</label>
-                    <input
-                      name="current_status"
-                      value={form.current_status}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Server Managed By IT or ESD</label>
-                    <input
-                      name="server_managed_by"
-                      type="checkbox"
-                      checked={!!form.server_managed_by}
-                      onChange={handleChange}
-                    />
-                  </div>
-                </div>
-                <div className={styles.rowFields}>
-                  <div className={styles.formGroup}>
-                    <label>Remarks for Application usage purpose</label>
-                    <input
-                      name="remarks_application_usage"
-                      value={form.remarks_application_usage}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>START DATE</label>
-                    <input
-                      name="start_date"
-                      value={form.start_date}
-                      onChange={handleChange}
-                      className={styles.input}
-                      type="date"
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>END DATE</label>
-                    <input
-                      name="end_date"
-                      value={form.end_date}
-                      onChange={handleChange}
-                      className={styles.input}
-                      type="date"
-                    />
-                  </div>
-                </div>
-                <div className={styles.rowFields}>
-                  <div className={styles.formGroup}>
-                    <label>AGING</label>
-                    <input
-                      name="aging"
-                      value={form.aging}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Environment</label>
-                    <input
-                      name="environment"
-                      value={form.environment}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Server Critility</label>
-                    <input
-                      name="server_critility"
-                      value={form.server_critility}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                </div>
-                <div className={styles.rowFields}>
-                  <div className={styles.formGroup}>
-                    <label>Database/Application</label>
-                    <input
-                      name="database_appplication"
-                      value={form.database_appplication}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Current RPO</label>
-                    <input
-                      name="current_rpo"
-                      type="checkbox"
-                      checked={!!form.current_rpo}
-                      onChange={handleChange}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Reduce RPO time from 24 Hrs</label>
-                    <input
-                      name="reduce_rpo_time"
-                      value={form.reduce_rpo_time}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                </div>
-                <div className={styles.rowFields}>
-                  <div className={styles.formGroup}>
-                    <label>Server to SO Timeline</label>
-                    <input
-                      name="server_to_so_timeline"
-                      value={form.server_to_so_timeline}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Purchased Date</label>
-                    <input
-                      name="purchase_date"
-                      value={form.purchase_date}
-                      onChange={handleChange}
-                      className={styles.input}
-                      type="date"
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Purchased PO</label>
-                    <input
-                      name="purchase_po"
-                      value={form.purchase_po}
-                      onChange={handleChange}
-                      className={styles.input}
-                      type="number"
-                    />
-                  </div>
-                </div>
-                <div className={styles.rowFields}>
-                  <div className={styles.formGroup}>
-                    <label>Warranty New Start Date</label>
-                    <input
-                      name="warranty_new_start_date"
-                      value={form.warranty_new_start_date}
-                      onChange={handleChange}
-                      className={styles.input}
-                      type="date"
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>AMC/Warranty Expiry date</label>
-                    <input
-                      name="amc_warranty_expiry_date"
-                      value={form.amc_warranty_expiry_date}
-                      onChange={handleChange}
-                      className={styles.input}
-                      type="date"
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>SAP Asset No.</label>
-                    <input
-                      name="sap_asset_no"
-                      type="checkbox"
-                      checked={!!form.sap_asset_no}
-                      onChange={handleChange}
-                    />
-                  </div>
-                </div>
-                <div className={styles.rowFields}>
-                  <div className={styles.formGroup}>
-                    <label>AMC Vendor</label>
-                    <input
-                      name="amc_vendor"
-                      type="checkbox"
-                      checked={!!form.amc_vendor}
-                      onChange={handleChange}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Remarks If Any</label>
-                    <input
-                      name="remarks"
-                      value={form.remarks}
-                      onChange={handleChange}
-                      className={styles.input}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Status</label>
-                    <select
-                      name="status"
-                      value={form.status}
-                      onChange={handleChange}
-                      className={styles.input}
-                    >
-                      <option value="ACTIVE">ACTIVE</option>
-                      <option value="INACTIVE">INACTIVE</option>
-                    </select>
-                  </div>
-                </div>
+
               </div>
-              <div
-                className={styles.buttonRow}
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-start",
-                  gap: 24,
-                  marginTop: 24,
-                  position: "sticky",
-                  bottom: 0,
-                  background: "#fff",
-                  padding: "16px 0 8px 0",
-                  zIndex: 2,
-                  borderTop: "1px solid #e2e8f0",
-                }}
-              >
-                <button type="submit" className={styles.saveBtn}>
-                  Update
-                </button>
-                <button
-                  type="button"
-                  className={styles.cancelBtn}
-                  onClick={() => navigate("/server-master")}
+
+              <div className={styles.formFotter}>
+                <div
+                  className={styles.buttonRow}
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-start",
+                    gap: 24,
+                    margin: 15,
+                  }}
                 >
-                  Cancel
-                </button>
+                  <button type="submit" className={styles.saveBtn}>
+                    Update
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.cancelBtn}
+                    onClick={() => navigate("/server-master")}
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </form>
           </div>

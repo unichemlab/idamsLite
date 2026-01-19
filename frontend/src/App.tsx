@@ -19,6 +19,8 @@ import { SystemProvider } from "pages/SystemInventoryMaster/SystemContext";
 import { ServerProvider } from "pages/ServerInventoryMaster/ServerContext";
 import { TaskProvider } from "pages/TaskClosureTracking/TaskContext";
 import { UserRequestProvider } from "pages/UserRequest/UserRequestContext";
+import {NetworkProvider} from "./context/NetworkContext";
+import {UserMasterProvider} from "./context/UserMasterContext";
 
 import AppRoutes from "./routes/AppRoutes";
 import { SpeedInsights } from "@vercel/speed-insights/react";
@@ -39,9 +41,11 @@ const App: React.FC = () => {
                         <RolesProvider>
                           <DepartmentProvider>
                             <UserProvider>
+                              <UserMasterProvider>
                               <ApplicationsProvider>
                                 <VendorProvider>
                                   <SystemProvider>
+                                    <NetworkProvider>
                                     <ServerProvider>
                                       {/* Main App Routes */}
                                       <AppRoutes />
@@ -50,9 +54,11 @@ const App: React.FC = () => {
                                       <SpeedInsights />
                                       <Analytics />
                                     </ServerProvider>
+                                    </NetworkProvider>
                                   </SystemProvider>
                                 </VendorProvider>
                               </ApplicationsProvider>
+                              </UserMasterProvider>
                             </UserProvider>
                           </DepartmentProvider>
                         </RolesProvider>

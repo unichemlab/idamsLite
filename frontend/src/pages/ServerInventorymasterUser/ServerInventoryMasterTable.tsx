@@ -10,10 +10,7 @@ import unichemLogoBase64 from "../../assets/unichemLogoBase64";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
 import { useAuth } from "../../context/AuthContext";
 import AppHeader from "../../components/Common/AppHeader";
-import { usePermissions } from "../../context/PermissionContext";
-import { filterByPlantPermission,filterByModulePlantPermission } from "../../utils/permissionUtils";
-import { fetchApplicationActivityLogs, API_BASE } from "../../utils/api";
-import { PermissionGuard, PermissionButton } from "../../components/Common/PermissionComponents";
+import {filterByModulePlantPermission } from "../../utils/permissionUtils";
 
 const ServerInventoryMasterTable: React.FC = () => {
   const serverCtx = useContext(ServerContext);
@@ -162,13 +159,13 @@ const ServerInventoryMasterTable: React.FC = () => {
         "VM OS",
         "VM Version",
         "VM Server IP",
-        "Domain / Work Group CORP Domain / GXP - mention name of Domain",
-        "Is Windows Activated Yes / No",
-        "Backup Agent VEEAM / Acronis Version",
-        "Antivirus CS / TM / McAfee/ Symantec",
-        "Category GxP or Non GxP",
+        "Domain Name",
+        "Windows Activated",
+        "Backup Agent",
+        "Antivirus",
+        "Category",
         "Current Status of Server",
-        "Server Managed By IT or ESD",
+        "Server Managed",
         "Remarks for Application usage pupose",
         "START DATE",
         "END DATE",
@@ -311,7 +308,7 @@ const ServerInventoryMasterTable: React.FC = () => {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [showFilterPopover]);
-
+console.log("server data",servers);
   return (
     <div className={styles.pageWrapper}>
       <AppHeader title="Server Inventory Management" />
@@ -434,7 +431,7 @@ const ServerInventoryMasterTable: React.FC = () => {
                   <th>Plant Location</th>
                   <th>RACK NUMBER</th>
                   <th>SERVER OWNER</th>
-                  <th>Type Tower / Rack mounted</th>
+                  <th>Mounted Type</th>
                   <th>Server / RACK Location / Area</th>
                   <th>Asset No.</th>
                   <th>Host Name</th>
@@ -456,15 +453,13 @@ const ServerInventoryMasterTable: React.FC = () => {
                   <th>VM OS</th>
                   <th>VM Version</th>
                   <th>VM Server IP</th>
-                  <th>
-                    Domain / Work Group CORP Domain / GXP - mention name of Domain
-                  </th>
-                  <th>Is Windows Activated Yes / No</th>
-                  <th>Backup Agent VEEAM / Acronis Version</th>
-                  <th>Antivirus CS / TM / McAfee/ Symantec</th>
-                  <th>Category GxP or Non GxP</th>
-                  <th>Current Status of Server</th>
-                  <th>Server Managed By IT or ESD</th>
+                  <th>Domain Name</th>
+                  <th>Windows Activated</th>
+                  <th>Backup Agent</th>
+                  <th>Antivirus</th>
+                  <th>Category</th>
+                  <th>Current Status</th>
+                  <th>Server Managed</th>
                   <th>Remarks for Application usage pupose</th>
                   <th>START DATE</th>
                   <th>END DATE</th>
@@ -503,7 +498,7 @@ const ServerInventoryMasterTable: React.FC = () => {
                       />
                     </td>
                     {/* Removed Server Name, Status, Description, Transaction ID cells */}
-                    <td>{server.plant_location_id}</td>
+                    <td>{server.plant_name}</td>
                     <td>{server.rack_number}</td>
                     <td>{server.server_owner}</td>
                     <td>{server.type_tower_rack_mounted}</td>

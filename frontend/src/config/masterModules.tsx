@@ -40,7 +40,7 @@ export const MENU_CONFIG: MenuItem[] = [
     label: "Admin Approval",
     route: "/admin-approval",
     icon: FiCheckSquare,
-    // permission: "read:admin_approval",
+    permission: "read:admin_approval",
      condition: (user) => user?.isCorporateApprover,
   },
   {
@@ -90,11 +90,11 @@ export const MENU_CONFIG: MenuItem[] = [
         route: "/department-master",
         permission: "read:department_master",
       },
-      // {
-      //   label: "Network Master",
-      //   route: "/network-master",
-      //   permission: "read:network_master",
-      // },
+      {
+        label: "Network Master",
+        route: "/network-master",
+        permission: "read:network_master",
+      },
       {
         label: "Plant Master",
         route: "/plant-master",
