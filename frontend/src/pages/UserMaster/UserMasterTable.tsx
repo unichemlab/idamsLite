@@ -267,59 +267,41 @@ const UserMasterTable = () => {
           <div className={styles.controlPanel}>
             <div className={styles.actionRow}>
               <form
-                className={styles.searchForm}
-                onSubmit={(e) => {
-                  e.preventDefault();
-                }}
-                autoComplete="off"
-                style={{
-                  flex: 1,
-                  display: "flex",
-                  alignItems: "center",
-                  minWidth: 0,
-                }}
-              >
+              className={styles.searchForm}
+              onSubmit={(e) => e.preventDefault()}
+              autoComplete="off"
+              style={{
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                minWidth: 0,
+              }}
+            >
+              <div className={styles.searchBox}>
+                <span className={styles.searchIcon}>🔍</span>
+
                 <input
                   className={styles.searchInput}
                   type="text"
-                  placeholder="Search here"
+                  placeholder="Search by name, code..."
                   value={filterValue}
                   onChange={(e) => setFilterValue(e.target.value)}
-                  aria-label="Search by name, email, code, id"
-                  style={{ minWidth: 0, flex: 1 }}
-                />
-                {/* <button
-                  className={styles.addBtn}
-                  type="submit"
-                  tabIndex={-1}
                   aria-label="Search"
-                >
-                  <svg
-                    width="22"
-                    height="22"
-                    viewBox="0 0 22 22"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
+                />
+
+                {/* ✅ Clear Button */}
+                {filterValue && (
+                  <button
+                    type="button"
+                    className={styles.clearBtn}
+                    onClick={() => setFilterValue("")}
+                    aria-label="Clear search"
                   >
-                    <circle
-                      cx="10"
-                      cy="10"
-                      r="8"
-                      stroke="#a14b8c"
-                      strokeWidth="2"
-                    />
-                    <line
-                      x1="16.0607"
-                      y1="16.4749"
-                      x2="20"
-                      y2="20"
-                      stroke="#a14b8c"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </button> */}
-              </form>
+                    ❌
+                  </button>
+                )}
+              </div>
+            </form>
 
               {(isSuperAdmin || ability.can("create:users")) && (
                 <button

@@ -7,16 +7,63 @@ import AppHeader from "../../components/Common/AppHeader";
 import styles from "../Plant/AddPlantMaster.module.css";
 
 const AddVendorMaster: React.FC = () => {
-  const { addVendor } = useVendorContext();
+  const { addVendor, vendors } = useVendorContext();
   const navigate = useNavigate();
   const { user } = useAuth();
+
   const [form, setForm] = useState<Vendor>({
     name: "",
     code: "",
     description: "",
     status: "ACTIVE",
   });
+
+  const [isCodeLocked, setIsCodeLocked] = useState(false);
   const [showModal, setShowModal] = useState(false);
+
+  // ✅ Auto Code Generator
+  const generateVendorCode = (vendorName: string) => {
+    if (!vendorName.trim()) return "";
+
+    const words = vendorName
+      .trim()
+      .split(" ")
+      .map(w => w.replace(/[^a-zA-Z0-9]/g, ""))
+      .filter(Boolean);
+
+    if (words.length === 0) return "";
+
+    // ✅ Combine words if first word is too short
+    let combined = words[0];
+
+    if (combined.length < 5 && words.length > 1) {
+      combined = combined + words[1];
+    }
+
+    combined = combined.toUpperCase();
+
+    // ✅ Block until minimum 5 characters
+    if (combined.length < 5) return "";
+
+    const prefix = combined.substring(0, 4); // Force exactly 4 chars
+    const year = new Date().getFullYear();
+
+    const existingCodes = vendors
+      .map(v => v.code)
+      .filter(Boolean) as string[];
+
+    let counter = 1;
+    let newCode = "";
+
+    do {
+      newCode = `VEN-${year}-${prefix}-${String(counter).padStart(3, "0")}`;
+      counter++;
+    } while (existingCodes.includes(newCode));
+
+    return newCode;
+  };
+
+
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -24,6 +71,29 @@ const AddVendorMaster: React.FC = () => {
     >
   ) => {
     const { name, value } = e.target;
+
+    if (name === "name") {
+      if (!value.trim()) {
+        setForm({ ...form, name: "", code: "" });
+        setIsCodeLocked(false);
+        return;
+      }
+
+      const autoCode = generateVendorCode(value);
+
+      // ✅ Generate only once and only if prefix ready
+      if (autoCode && !isCodeLocked) {
+        setForm({
+          ...form,
+          name: value,
+          code: autoCode,
+        });
+        setIsCodeLocked(true);
+        return;
+      }
+
+    }
+
     setForm({
       ...form,
       [name]: name === "status" ? (value as "ACTIVE" | "INACTIVE") : value,
@@ -35,7 +105,6 @@ const AddVendorMaster: React.FC = () => {
     setShowModal(true);
   };
 
-  // Called after admin confirms
   const handleConfirmLogin = (data: Record<string, string>) => {
     if (data.username === (user?.username || "") && data.password) {
       addVendor(form);
@@ -46,39 +115,38 @@ const AddVendorMaster: React.FC = () => {
     }
   };
 
-  // Use shared sidebarConfig for consistency
-
   return (
-   <div className={styles.pageWrapper}>
-        <AppHeader title="Vendor Information Management" />
+    <div className={styles.pageWrapper}>
+      <AppHeader title="Vendor Information Management" />
 
-        <div className={styles.contentArea}>
-          {/* Breadcrumb */}
-          <div className={styles.breadcrumb}>
-            <span
-              className={styles.breadcrumbLink}
-              onClick={() =>
-                navigate("/vendor-information", { state: { activeTab: "vendor" } })
-              }
-            >
-              Vendor Information Master
-            </span>
-            <span className={styles.breadcrumbSeparator}>›</span>
-            <span className={styles.breadcrumbCurrent}>Add Vendor Information</span>
+      <div className={styles.contentArea}>
+        <div className={styles.breadcrumb}>
+          <span
+            className={styles.breadcrumbLink}
+            onClick={() =>
+              navigate("/vendor-information", {
+                state: { activeTab: "vendor" },
+              })
+            }
+          >
+            Vendor Information Master
+          </span>
+          <span className={styles.breadcrumbSeparator}>›</span>
+          <span className={styles.breadcrumbCurrent}>
+            Add Vendor Information
+          </span>
+        </div>
+
+        <div className={styles.formCard}>
+          <div className={styles.formHeader}>
+            <h2>Add New Vendor Information</h2>
+            <p>Enter Vendor details to add a new record</p>
           </div>
 
-         <div className={styles.formCard}>
-          <div className={styles.formHeader}>
-              <h2>Add New Vendor Information</h2>
-              <p>Enter Vendor details to add a new record to the vendor</p>
-            </div>
-          <form
-            className={styles.form}
-            onSubmit={handleSubmit}
-            style={{ width: "100%" }}
-          >
+          <form className={styles.form} onSubmit={handleSubmit}>
             <div className={styles.scrollFormContainer}>
-             <div className={styles.rowFields}>
+              <div className={styles.rowFields}>
+                {/* Vendor Name */}
                 <div className={styles.formGroupFloating}>
                   <input
                     type="text"
@@ -93,21 +161,23 @@ const AddVendorMaster: React.FC = () => {
                     Vendor Name <span className={styles.required}>*</span>
                   </label>
                 </div>
+
+                {/* Vendor Code */}
                 <div className={styles.formGroupFloating}>
                   <input
                     type="text"
                     name="code"
                     value={form.code}
-                    onChange={handleChange}
+                    readOnly
                     className={styles.input}
-                    required
-                    placeholder=" "
+                    placeholder="Auto Generated"
                   />
                   <label className={styles.floatingLabel}>
-                    Vendor Code <span className={styles.required}>*</span>
+                    Vendor Code
                   </label>
                 </div>
 
+                {/* Status */}
                 <div className={styles.formGroupFloating}>
                   <select
                     name="status"
@@ -116,7 +186,6 @@ const AddVendorMaster: React.FC = () => {
                     className={styles.select}
                     required
                   >
-                    <option value="" disabled hidden></option>
                     <option value="ACTIVE">ACTIVE</option>
                     <option value="INACTIVE">INACTIVE</option>
                   </select>
@@ -124,51 +193,43 @@ const AddVendorMaster: React.FC = () => {
                     Status <span className={styles.required}>*</span>
                   </label>
                 </div>
-
               </div>
-              <div
-                className={styles.formGroup}
-                style={{ width: "100%",padding:15 }}
-              >
+
+              {/* Description */}
+              <div className={styles.formGroup} style={{ width: "100%" }}>
                 <div className={styles.formGroupFloating}>
-                <textarea
-                  name="description"
-                  value={form.description}
-                  onChange={handleChange}
-                  required
-                  className={styles.textarea}
-                  rows={1}
-                  placeholder="Enter description..."
-                />
-                 <label className={styles.floatingLabel}>
+                  <textarea
+                    name="description"
+                    value={form.description}
+                    onChange={handleChange}
+                    required
+                    className={styles.textarea}
+                    rows={1}
+                    placeholder="Enter description..."
+                  />
+                  <label className={styles.floatingLabel}>
                     Description <span className={styles.required}>*</span>
                   </label>
-                  </div>
+                </div>
               </div>
             </div>
+
             <div className={styles.formFotter}>
-            <div
-              className={styles.buttonRow}
-              style={{
-                display: "flex",
-                justifyContent: "flex-start",
-                gap: 24,
-                margin: 15,
-              }}
-            >
-              <button type="submit" className={styles.saveBtn}>
-                Save
-              </button>
-              <button
-                type="button"
-                className={styles.cancelBtn}
-                onClick={() => navigate("/vendor-information")}
-              >
-                Cancel
-              </button>
-            </div>
+              <div className={styles.buttonRow}>
+                <button type="submit" className={styles.saveBtn}>
+                  Save
+                </button>
+                <button
+                  type="button"
+                  className={styles.cancelBtn}
+                  onClick={() => navigate("/vendor-information")}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </form>
+
           {showModal && (
             <ConfirmLoginModal
               title="Confirm Add Vendor"
