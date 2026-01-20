@@ -1,5 +1,6 @@
 const pool = require("../config/db");
 const { sendApprovalEmail } = require("../utils/masterEmailHelper");
+const { checkDuplicateRecord } = require("../utils/duplicateValidator");
 
 /* ======================================================
    SUBMIT FOR APPROVAL
@@ -17,7 +18,7 @@ async function submitForApproval({
 }) {
   try {
     const settingsResult = await pool.query(
-  `SELECT awm.approver_1_id, awm.approver_2_id,
+      `SELECT awm.approver_1_id, awm.approver_2_id,
          u1.employee_name AS approver1_name, u1.email AS approver1_email,
          ARRAY_AGG(u2.employee_name) FILTER (WHERE u2.employee_name IS NOT NULL) AS approver2_names,
          ARRAY_AGG(u2.email) FILTER (WHERE u2.email IS NOT NULL) AS approver2_emails
@@ -29,13 +30,39 @@ async function submitForApproval({
     AND awm.workflow_type = $2
   GROUP BY awm.approver_1_id, awm.approver_2_id, u1.employee_name, u1.email
   LIMIT 1`,
-  ['Administration', 'CORPORATE']
-);
+      ['Administration', 'CORPORATE']
+    );
 
-const requiresApproval = settingsResult.rows[0]?.approver2_emails ?? [];
+    const requiresApproval = settingsResult.rows[0]?.approver2_emails ?? [];
 
-console.log("Email_id",settingsResult.rows[0],requiresApproval);
+    console.log("Email_id", settingsResult.rows[0], requiresApproval);
     if (!requiresApproval) return null;
+    /* ======================================================
+       DUPLICATE VALIDATION (GLOBAL FOR ALL MASTER TABLES)
+    ====================================================== */
+
+    if (["create", "update"].includes(action)) {
+
+      const payload =
+        typeof newValue === "string"
+          ? JSON.parse(newValue)
+          : newValue;
+
+      const duplicate = await checkDuplicateRecord({
+        tableName,
+        payload,
+        excludeId: action === "update" ? recordId : null
+      });
+
+      if (duplicate) {
+        const field = duplicate.column.replace(/_/g, " ").toUpperCase();
+
+        throw {
+          message: `Duplicate value detected. ${field} "${duplicate.value}" already exists. Please edit the existing record instead of creating a new one.`
+        };
+      }
+
+    }
 
     const result = await pool.query(
       `INSERT INTO pending_approvals
@@ -230,22 +257,22 @@ async function applyCreate(client, tableName, newValue) {
 
   // forbiddenCols.forEach(col => delete data[col]);
 
-const forbiddenCols = [
-  "id",
-  "created_on",
-  "created_by",
-  "updated_on",
-  "updated_by",
-  "approved_on",
-  "approved_by"
-];
+  const forbiddenCols = [
+    "id",
+    "created_on",
+    "created_by",
+    "updated_on",
+    "updated_by",
+    "approved_on",
+    "approved_by"
+  ];
 
-// Only remove plant_name for NON plant_master tables
-if (tableName !== "plant_master") {
-  delete data.plant_name;
-}
+  // Only remove plant_name for NON plant_master tables
+  if (tableName !== "plant_master") {
+    delete data.plant_name;
+  }
 
-forbiddenCols.forEach(col => delete data[col]);
+  forbiddenCols.forEach(col => delete data[col]);
 
 
 
@@ -295,21 +322,21 @@ async function applyUpdate(client, tableName, recordId, newValue, approvedBy) {
   // ].forEach(k => delete data[k]);
 
   const forbiddenCols = [
-  "id",
-  "created_on",
-  "created_by",
-  "updated_on",
-  "updated_by",
-  "approved_on",
-  "approved_by"
-];
+    "id",
+    "created_on",
+    "created_by",
+    "updated_on",
+    "updated_by",
+    "approved_on",
+    "approved_by"
+  ];
 
-// Only remove plant_name for NON plant_master tables
-if (tableName !== "plant_master") {
-  delete data.plant_name;
-}
+  // Only remove plant_name for NON plant_master tables
+  if (tableName !== "plant_master") {
+    delete data.plant_name;
+  }
 
-forbiddenCols.forEach(col => delete data[col]);
+  forbiddenCols.forEach(col => delete data[col]);
 
   const columns = Object.keys(data);
   if (!columns.length) {
@@ -369,9 +396,70 @@ forbiddenCols.forEach(col => delete data[col]);
 }
 
 
-async function applyDelete(client, tableName, recordId, approvedBy) {
+// async function applyDelete(client, tableName, recordId, approvedBy) {
 
-  // Check if table has "status" column (soft delete support)
+//   // Check if table has "status" column (soft delete support)
+//   const statusColCheck = await client.query(
+//     `
+//     SELECT 1
+//     FROM information_schema.columns
+//     WHERE table_name = $1
+//       AND column_name = 'status'
+//     `,
+//     [tableName]
+//   );
+
+//   const hasStatus = statusColCheck.rowCount > 0;
+
+//   if (hasStatus) {
+//     // ✅ Soft delete
+//     const query = `
+//       UPDATE ${tableName}
+//       SET status = 'INACTIVE',
+//           updated_on = NOW()
+//       WHERE id = $1
+//       RETURNING *
+//     `;
+//     const result = await client.query(query, [recordId]);
+//     return result.rows[0];
+//   }
+
+//   // ❌ Hard delete only if no FK dependency exists
+//   const fkCheck = await client.query(
+//     `
+//     SELECT conname
+//     FROM pg_constraint
+//     WHERE contype = 'f'
+//       AND confrelid = $1::regclass
+//     `,
+//     [tableName]
+//   );
+
+//   if (fkCheck.rowCount > 0) {
+//     throw new Error(
+//       `Cannot delete record: dependent records exist in other tables`
+//     );
+//   }
+
+//   // Last resort hard delete
+//   const result = await client.query(
+//     `DELETE FROM ${tableName} WHERE id = $1 RETURNING *`,
+//     [recordId]
+//   );
+
+//   return result.rows[0];
+// }
+
+
+
+async function applyDelete(client, tableName, recordId, approvedBy) {
+  // 🔒 Validate table name to avoid SQL injection
+  const validTable = /^[a-zA-Z_]+$/.test(tableName);
+  if (!validTable) {
+    throw new Error("Invalid table name");
+  }
+
+  // ✅ Check if table has "status" column
   const statusColCheck = await client.query(
     `
     SELECT 1
@@ -384,44 +472,31 @@ async function applyDelete(client, tableName, recordId, approvedBy) {
 
   const hasStatus = statusColCheck.rowCount > 0;
 
-  if (hasStatus) {
-    // ✅ Soft delete
-    const query = `
-      UPDATE ${tableName}
-      SET status = 'INACTIVE',
-          updated_on = NOW()
-      WHERE id = $1
-      RETURNING *
-    `;
-    const result = await client.query(query, [recordId]);
-    return result.rows[0];
-  }
-
-  // ❌ Hard delete only if no FK dependency exists
-  const fkCheck = await client.query(
-    `
-    SELECT conname
-    FROM pg_constraint
-    WHERE contype = 'f'
-      AND confrelid = $1::regclass
-    `,
-    [tableName]
-  );
-
-  if (fkCheck.rowCount > 0) {
+  if (!hasStatus) {
     throw new Error(
-      `Cannot delete record: dependent records exist in other tables`
+      `Soft delete not supported for table "${tableName}". Status column not found.`
     );
   }
 
-  // Last resort hard delete
-  const result = await client.query(
-    `DELETE FROM ${tableName} WHERE id = $1 RETURNING *`,
-    [recordId]
-  );
+  // ✅ Soft delete only
+  const query = `
+    UPDATE ${tableName}
+    SET status = 'INACTIVE',
+        updated_on = NOW(),
+        approved_by = $2
+    WHERE id = $1
+    RETURNING *
+  `;
+
+  const result = await client.query(query, [recordId, approvedBy]);
+
+  if (result.rowCount === 0) {
+    throw new Error("Record not found");
+  }
 
   return result.rows[0];
 }
+
 
 
 /* ======================================================
