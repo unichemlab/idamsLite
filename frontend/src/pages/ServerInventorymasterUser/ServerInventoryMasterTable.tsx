@@ -11,6 +11,9 @@ import login_headTitle2 from "../../assets/login_headTitle2.png";
 import { useAuth } from "../../context/AuthContext";
 import AppHeader from "../../components/Common/AppHeader";
 import {filterByModulePlantPermission } from "../../utils/permissionUtils";
+import { PermissionGuard, PermissionButton } from "../../components/Common/PermissionComponents";
+import { PERMISSIONS } from "../../constants/permissions";
+import { usePermissions } from "../../context/PermissionContext";
 
 const ServerInventoryMasterTable: React.FC = () => {
   const serverCtx = useContext(ServerContext);
@@ -31,7 +34,7 @@ const ServerInventoryMasterTable: React.FC = () => {
   // Removed direct fetch; data comes from context
  // Filter by plant permissions first
   const permissionFilteredData = useMemo(() => {
-    return filterByModulePlantPermission(servers,user,"system_inventory");
+    return filterByModulePlantPermission(servers,user,"server_inventory");
   }, [servers, user]);
 
     const filteredData = useMemo(() => {
@@ -351,12 +354,14 @@ console.log("server data",servers);
                 )}
               </div>
             </form>
+            <PermissionGuard permission={PERMISSIONS.SERVER.CREATE}>
             <button
               className={styles.addBtn}
               onClick={() => navigate("/server-master/add")}
             >
               + Add New
             </button>
+            </PermissionGuard>
             <button
               className={styles.filterBtn}
               onClick={() => setShowFilterPopover((prev) => !prev)}

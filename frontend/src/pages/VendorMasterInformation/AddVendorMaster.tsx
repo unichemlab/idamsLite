@@ -36,14 +36,14 @@ const AddVendorMaster: React.FC = () => {
     // ✅ Combine words if first word is too short
     let combined = words[0];
 
-    if (combined.length < 5 && words.length > 1) {
+    if (combined.length < 3 && words.length > 1) {
       combined = combined + words[1];
     }
 
     combined = combined.toUpperCase();
 
     // ✅ Block until minimum 5 characters
-    if (combined.length < 5) return "";
+    if (combined.length < 3) return "";
 
     const prefix = combined.substring(0, 4); // Force exactly 4 chars
     const year = new Date().getFullYear();
