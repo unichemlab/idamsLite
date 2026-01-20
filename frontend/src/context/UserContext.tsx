@@ -167,7 +167,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
         "admin_approval": "Admin Approval",
         "dashboard": "Dashboard",
         "department_master": "Department Master",
-        "network_master":"etwork Master",
+        "network_master":"Network Master",
         "reviewer": "Reviewer",
         "server_inventory": "Server Inventory",
         "system_inventory": "System Inventory",

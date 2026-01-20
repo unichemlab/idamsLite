@@ -15,6 +15,9 @@ import { useAuth } from "../../context/AuthContext";
 import AppHeader from "../../components/Common/AppHeader";
 import styles from "../Plant/PlantMasterTable.module.css";
 import { filterByModulePlantPermission } from "../../utils/permissionUtils";
+import { PermissionGuard, PermissionButton } from "../../components/Common/PermissionComponents";
+import { PERMISSIONS } from "../../constants/permissions";
+import { usePermissions } from "../../context/PermissionContext";
 
 const NetworkMasterTable: React.FC = () => {
   const networkCtx = useContext(NetworkContext);
@@ -515,12 +518,14 @@ const handleExportPDF = async () => {
                 )}
               </div>
             </form>
+             <PermissionGuard permission={PERMISSIONS.NETWORK.CREATE}>
             <button
               className={styles.addBtn}
               onClick={() => navigate("/network-master/add")}
             >
               + Add New
             </button>
+            </PermissionGuard>
             <button
               className={styles.filterBtn}
               onClick={() => setShowFilterPopover((prev) => !prev)}

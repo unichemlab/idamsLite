@@ -217,18 +217,37 @@ async function applyCreate(client, tableName, newValue) {
   /* -----------------------------------------
      HARD SAFETY CLEANUP
   ------------------------------------------ */
-  const forbiddenCols = [
-    "id",
-    "created_on",
-    "created_by",
-    "updated_on",
-    "updated_by",
-    "approved_on",
-    "approved_by",
-    "plant_name"
-  ];
+  // const forbiddenCols = [
+  //   "id",
+  //   "created_on",
+  //   "created_by",
+  //   "updated_on",
+  //   "updated_by",
+  //   "approved_on",
+  //   "approved_by",
+  //   "plant_name"
+  // ];
 
-  forbiddenCols.forEach(col => delete data[col]);
+  // forbiddenCols.forEach(col => delete data[col]);
+
+const forbiddenCols = [
+  "id",
+  "created_on",
+  "created_by",
+  "updated_on",
+  "updated_by",
+  "approved_on",
+  "approved_by"
+];
+
+// Only remove plant_name for NON plant_master tables
+if (tableName !== "plant_master") {
+  delete data.plant_name;
+}
+
+forbiddenCols.forEach(col => delete data[col]);
+
+
 
   // 🔥 convert empty string to NULL (inet/date safe)
   Object.keys(data).forEach(k => {
@@ -264,16 +283,33 @@ async function applyUpdate(client, tableName, recordId, newValue, approvedBy) {
   /* -----------------------------------------
      Remove system/audit fields from payload
   ------------------------------------------ */
-  [
-    "id",
-    "created_on",
-    "created_by",
-    "updated_on",
-    "updated_by",
-    "approved_on",
-    "approved_by",
-    "plant_name"
-  ].forEach(k => delete data[k]);
+  // [
+  //   "id",
+  //   "created_on",
+  //   "created_by",
+  //   "updated_on",
+  //   "updated_by",
+  //   "approved_on",
+  //   "approved_by",
+  //   "plant_name"
+  // ].forEach(k => delete data[k]);
+
+  const forbiddenCols = [
+  "id",
+  "created_on",
+  "created_by",
+  "updated_on",
+  "updated_by",
+  "approved_on",
+  "approved_by"
+];
+
+// Only remove plant_name for NON plant_master tables
+if (tableName !== "plant_master") {
+  delete data.plant_name;
+}
+
+forbiddenCols.forEach(col => delete data[col]);
 
   const columns = Object.keys(data);
   if (!columns.length) {

@@ -18,6 +18,7 @@ import { usePermissions } from "../../context/PermissionContext";
 import { filterByPlantPermission,filterByModulePlantPermission } from "../../utils/permissionUtils";
 import { fetchApplicationActivityLogs, API_BASE } from "../../utils/api";
 import { PermissionGuard, PermissionButton } from "../../components/Common/PermissionComponents";
+import { PERMISSIONS } from "../../constants/permissions";
 
 const SystemInventoryMasterTable: React.FC = () => {
   const systemCtx = useContext(SystemContext);
@@ -25,7 +26,7 @@ const SystemInventoryMasterTable: React.FC = () => {
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showFilterPopover, setShowFilterPopover] = useState(false);
-  const [filterColumn, setFilterColumn] = useState("system_name");
+  const [filterColumn, setFilterColumn] = useState("host_name");
   const [filterValue, setFilterValue] = useState("");
   const [tempFilterColumn, setTempFilterColumn] = useState(filterColumn);
   const [tempFilterValue, setTempFilterValue] = useState(filterValue);
@@ -47,27 +48,32 @@ console.log("Sytems",systems);
     const permissionFilteredData = useMemo(() => {
       return filterByModulePlantPermission(systems,user,"system_inventory");
     }, [systems, user]);
-
+console.log("permission Filter",permissionFilteredData);
   // Fetch systems from backend
   // Removed direct fetch; data comes from context
 
   // Filtering logic
-  const filteredData  = useMemo(() => {
-          return permissionFilteredData.filter((system) => {
-    if (!filterValue.trim()) return true;
-    const value = filterValue.toLowerCase();
-    switch (filterColumn) {
-      case "hostname_name":
-        return system.host_name?.toLowerCase().includes(value);
-      case "description":
-        return system.description?.toLowerCase().includes(value);
-      case "status":
-        return system.status?.toLowerCase().includes(value);
-      default:
-        return true;
-    }
-  });
-   }, [permissionFilteredData, filterValue, filterColumn]);
+  const filteredData = useMemo(() => {
+         return permissionFilteredData.filter((system) => {
+           if (!filterValue.trim()) return true;
+           const value = filterValue.toLowerCase();
+           console.log("Filter Value and column",filterValue,filterColumn);
+           switch (filterColumn) {
+       case "host_name":
+         return system.host_name
+           ? system.host_name.toLowerCase().includes(value)
+           : false;
+       case "remarks":
+         return system.remarks
+           ? system.remarks.toLowerCase().includes(value)
+           : false;
+       case "status":
+         return system.status?.toLowerCase().includes(value);
+       default:
+         return true;
+     }
+         });
+       }, [permissionFilteredData, filterValue, filterColumn]);
 
 
   const totalPages = Math.max(1, Math.ceil(filteredData.length / rowsPerPage));
@@ -408,12 +414,14 @@ console.log("Filtered Data:", filteredData);
                 )}
               </div>
             </form>
+             <PermissionGuard permission={PERMISSIONS.SYSTEM.CREATE}>
           <button
             className={styles.addBtn}
             onClick={() => navigate("/system-master/add")}
           >
             + Add New
           </button>
+          </PermissionGuard>
           <button
             className={styles.filterBtn}
             onClick={() => setShowFilterPopover((prev) => !prev)}
@@ -806,7 +814,7 @@ console.log("Filtered Data:", filteredData);
                 open={showDeleteModal}
                 name={
                   selectedRow !== null && filteredData[selectedRow]
-                    ? filteredData[selectedRow].system_name ?? "system"
+                    ? filteredData[selectedRow].host_name ?? "system"
                     : "system"
                 }
                 onCancel={() => setShowDeleteModal(false)}
