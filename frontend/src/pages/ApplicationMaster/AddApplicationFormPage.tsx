@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { API_BASE } from "../../utils/api";
 import Select from "react-select";
 import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
@@ -14,6 +14,7 @@ const AddApplicationFormPage: React.FC = () => {
   const token = localStorage.getItem("token");
   const { user } = useAuth();
   const { plants } = usePlantContext();
+  const [inventoryOptions, setInventoryOptions] = useState<any[]>([]);
   const plantOptions = Array.isArray(plants)
     ? plants
       .filter((plant: any) => {
@@ -156,6 +157,22 @@ const AddApplicationFormPage: React.FC = () => {
       return updated;
     });
   };
+  useEffect(() => {
+    fetch(`${API_BASE}/api/systems/list`)
+      .then(res => res.json())
+      .then(data => {
+        const options = data.map((row: any) => ({
+          value: row.equipment_instrument_id,
+          label: `${row.equipment_instrument_id} ( ${row.host_name})`,
+          hostname: row.host_name,
+          system_inventory_id: row.id
+        }));
+        setInventoryOptions(options);
+      })
+      .catch(err => {
+        console.error("Failed to load inventory list", err);
+      });
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -244,6 +261,17 @@ const AddApplicationFormPage: React.FC = () => {
       alert("Invalid credentials. Please try again.");
     }
   };
+useEffect(() => {
+  if (form.application_hmi_type === "HMI") {
+    setForm(prev => ({
+      ...prev,
+      equipment_instrument_id: "",
+      system_name: "",
+      system_inventory_id: ""
+    }));
+  }
+}, [form.application_hmi_type]);
+
 
   return (
     <React.Fragment>
@@ -375,24 +403,7 @@ const AddApplicationFormPage: React.FC = () => {
                       <span className={styles.required}>*</span>
                     </label>
                   </div>
-
-                  <div className={styles.formGroupFloating}>
-
-                    <input
-                      className={styles.input}
-                      name="equipment_instrument_id"
-                      value={form.equipment_instrument_id}
-                      onChange={handleChange}
-                      required
-                      placeholder=""
-                    />
-                    <label className={styles.floatingLabel}>
-                      Equipment/Instrument ID{" "}
-                      <span className={styles.required}>*</span>
-                    </label>
-                  </div>
-
-                  <div className={styles.formGroupFloating}>
+                   <div className={styles.formGroupFloating}>
 
                     <select
                       className={styles.select}
@@ -409,40 +420,78 @@ const AddApplicationFormPage: React.FC = () => {
                       <span className={styles.required}>*</span>
                     </label>
                   </div>
+
+                  <div className={styles.formGroupFloating}>
+
+                    {form.application_hmi_type === "Application" ? (
+                      <Select
+                        classNamePrefix="reactSelect"
+                        isSearchable
+                        options={inventoryOptions}
+                        value={inventoryOptions.find(
+                          opt => opt.value === form.equipment_instrument_id
+                        )}
+                        onChange={(selected: any) => {
+                          if (!selected) return;
+
+                          setForm(prev => ({
+                            ...prev,
+                            equipment_instrument_id: selected.value,
+                            system_name: selected.hostname,
+                            system_inventory_id: selected.system_inventory_id
+                          }));
+                        }}
+                        placeholder="Search Equipment"
+                      />
+                    ) : (
+                      <input
+                        className={styles.input}
+                        name="equipment_instrument_id"
+                        value={form.equipment_instrument_id}
+                        onChange={handleChange}
+                        placeholder="Enter Equipment ID"
+                      />
+                    )}
+
+                    <label className={styles.floatingLabel}>
+                      Equipment / Instrument ID <span className={styles.required}>*</span>
+                    </label>
+                  </div>
+
+
+                 
                 </div>
 
                 {/* Row 3 - 3 Columns */}
                 <div className={styles.rowFields}>
-                  <div className={styles.formGroupFloating}>
+                  {form.application_hmi_type === "Application" && (
+  <>
+    <div className={styles.formGroupFloating}>
+      <input
+        className={styles.input}
+        value={form.system_name}
+        readOnly
+        placeholder=""
+      />
+      <label className={styles.floatingLabel}>
+        System Name (Hostname)
+      </label>
+    </div>
 
-                    <input
-                      className={styles.input}
-                      name="system_name"
-                      value={form.system_name}
-                      onChange={handleChange}
-                      required
-                      placeholder=""
-                    />
-                    <label className={styles.floatingLabel}>
-                      System Name (Hostname){" "}
-                      <span className={styles.required}>*</span>
-                    </label>
-                  </div>
+    <div className={styles.formGroupFloating}>
+      <input
+        className={styles.input}
+        value={form.system_inventory_id}
+        readOnly
+        placeholder=""
+      />
+      <label className={styles.floatingLabel}>
+        System Inventory ID
+      </label>
+    </div>
+  </>
+)}
 
-                  <div className={styles.formGroupFloating}>
-
-                    <input
-                      className={styles.input}
-                      name="system_inventory_id"
-                      value={form.system_inventory_id}
-                      onChange={handleChange}
-                      placeholder=""
-                      type="number"
-                    />
-                    <label className={styles.floatingLabel}>System Inventory ID
-                      <span className={styles.required}>*</span>
-                    </label>
-                  </div>
 
                   <div className={styles.formGroupFloating}>
 
@@ -467,7 +516,7 @@ const AddApplicationFormPage: React.FC = () => {
                 <div className={styles.rowFields} style={{ gridTemplateColumns: '2fr 1fr' }}>
                   <div className={`${styles.formGroupFloating} ${form.role_id.length > 0 ? styles.filled : ""}`}>
                     {/* Floating Label */}
-                    
+
 
                     <Select
                       id="role_id"
@@ -507,8 +556,8 @@ const AddApplicationFormPage: React.FC = () => {
                         }),
                       }}
                     />
-                     <label
-                     className={styles.floatingLabel}
+                    <label
+                      className={styles.floatingLabel}
                       htmlFor="role_id"
                       style={{
                         fontWeight: 500,
@@ -520,7 +569,7 @@ const AddApplicationFormPage: React.FC = () => {
                     >
                       Roles <span className={styles.required}>*</span>
                       {/* Role Lock Toggle */}
-                        <span style={{ marginLeft: 65 }}>
+                      <span style={{ marginLeft: 65 }}>
                         <span
                           className={styles.roleLockToggle}
                           onClick={() => {
@@ -533,7 +582,7 @@ const AddApplicationFormPage: React.FC = () => {
                           <span
                             className={styles.roleLockTrack}
                             style={{
-                              color: roleLocked ? "#f47c20" :"#1569B0",
+                              color: roleLocked ? "#f47c20" : "#1569B0",
                             }}
                           >
                             <span className={styles.roleLockLabel}>

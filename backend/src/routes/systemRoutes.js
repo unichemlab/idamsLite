@@ -3,6 +3,7 @@ const router = express.Router();
 const systemController = require("../controllers/systemController");
 
 // Create, Read, Update, Delete for systems
+router.get("/list", systemController.getSystemInventoryList);
 router.get("/", systemController.getAllSystems);
 router.post("/", systemController.createSystem);
 router.get("/:id", systemController.getSystemById);
