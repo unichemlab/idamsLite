@@ -523,4 +523,24 @@ exports.bulkImportSystemInventory = async (req, res) => {
   }
 };
 
+// GET /api/system-inventory/list
+exports.getSystemInventoryList = async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        id,
+        equipment_instrument_id,
+        host_name
+      FROM system_inventory_master
+      WHERE status = 'ACTIVE'
+    `);
+    res.status(200).json(result.rows);
+  } catch (err) {
+    console.error("❌ Error fetching system inventory:", err);
+    console.log("error error",err);
+    res.status(500).json({ error: "Failed to load system inventory" });
+  }
+};
+
+
 module.exports=exports;
