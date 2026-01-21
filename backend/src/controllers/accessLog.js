@@ -42,6 +42,7 @@ ORDER BY al.created_on DESC;
 
 // Get single access log by ID
 exports.getAccessLogById = async (req, res) => {
+  console.log("request params",req.params);
   const { id } = req.params;
   try {
     const { rows } = await pool.query(
