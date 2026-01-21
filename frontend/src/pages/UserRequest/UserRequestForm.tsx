@@ -848,10 +848,83 @@ const AddUserRequest: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    setValidationError(null);
-    setSuccessMessage(null);
+  setValidationError(null);
+  setSuccessMessage(null);
 
-    const token = localStorage.getItem("token");
+  const token = localStorage.getItem("token");
+
+  // =====================================================
+  // HANDLE BULK DEACTIVATION (NO APPROVAL NEEDED)
+  // =====================================================
+  if (form.accessType === "Bulk De-activation") {
+    if (!form.plant_location || !form.department) {
+      setValidationError("Plant and Department are required for Bulk De-activation");
+      return;
+    }
+
+    if (bulkDeactivationLogs.length === 0) {
+      setValidationError("No active access logs found to deactivate");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      console.log("[BULK DEACTIVATION] Submitting:", {
+        plant_location: form.plant_location,
+        department: form.department,
+        logsCount: bulkDeactivationLogs.length
+      });
+
+      const response = await fetch(
+        `${API_BASE}/api/user-requests/bulk-deactivation`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            request_for_by: form.request_for_by,
+            name: form.name,
+            employee_code: form.employeeCode,
+            employee_location: form.location,
+            plant_location: form.plant_location,
+            department: form.department,
+            remarks: form.remarks || "Bulk deactivation"
+          })
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Bulk deactivation failed");
+      }
+
+      const data = await response.json();
+      
+      console.log("[BULK DEACTIVATION] Success:", data);
+
+      setSuccessMessage(
+        `✅ Successfully deactivated ${data.summary.totalDeactivated} access logs! ` +
+        `Transaction ID: ${data.userRequest.transaction_id}`
+      );
+      setIsSubmitting(false);
+
+      setTimeout(() => {
+        window.location.href = "/user-access-management";
+      }, 2000);
+
+      return; // ⚠️ EXIT EARLY - Don't run normal submission
+    } catch (err) {
+      console.error("[BULK DEACTIVATION] Error:", err);
+      setValidationError(
+        err instanceof Error ? err.message : "Bulk deactivation failed. Please try again."
+      );
+      setIsSubmitting(false);
+      return;
+    }
+  }
 
     // =====================================================
     // BASIC VALIDATIONS
@@ -2606,35 +2679,21 @@ if (tasks.length === 0) {
                       <table className={addUserRequestStyles.table}>
                         <thead>
                           <tr>
-                            <th>Vendor Name</th>
-                            <th>Allocated ID</th>
                             <th>Location</th>
                             <th>Department</th>
                             <th>Application / Equipment</th>
                             <th>Role</th>
-                            <th>Status</th>
                           </tr>
                         </thead>
                         <tbody>
                           {bulkDeactivationLogs.map((log, index) => (
                             <tr key={index}>
-                              <td>{log.vendor_name}</td>
-                              <td>{log.vendor_allocated_id}</td>
+                              
                               <td>{log.location_name}</td>
                               <td>{log.department_name}</td>
                               <td>{log.application_name}</td>
                               <td>{log.role_name}</td>
-                              <td>
-                                <span style={{
-                                  padding: '4px 8px',
-                                  borderRadius: '4px',
-                                  fontSize: '12px',
-                                  backgroundColor: '#4caf50',
-                                  color: 'white'
-                                }}>
-                                  {log.task_status}
-                                </span>
-                              </td>
+                              
                             </tr>
                           ))}
                         </tbody>
