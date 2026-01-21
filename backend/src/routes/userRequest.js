@@ -149,7 +149,7 @@ router.get("/approvers", async (req, res) => {
   }
 });
 
-
+router.post("/bulk-deactivation", authorize(), userRequestController.createBulkDeactivationRequest);
 router.get("/", userRequestController.getAllUserRequests);
 // Search user requests
 router.get("/search", userRequestController.searchUserRequests);

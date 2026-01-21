@@ -1129,3 +1129,228 @@ exports.validateBulkCreation = async (req, res) => {
   }
 };
 
+
+// ============================================================================
+// ADD THIS TO: backend/controllers/userRequest.js
+// ============================================================================
+
+/**
+ * Create Bulk De-activation Request and Tasks
+ * Step 1: Create user_request
+ * Step 2: Create task_requests from active access logs
+ * Step 3: Update access_log status to 'Deactivated'
+ * NO approval workflow - tasks are auto-approved
+ */
+exports.createBulkDeactivationRequest = async (req, res) => {
+  const {
+    request_for_by,
+    name,
+    employee_code,
+    employee_location,
+    plant_location,
+    department,
+    remarks,
+  } = req.body;
+
+  console.log("[BULK DEACTIVATION] Creating request for:", {
+    plant_location,
+    department,
+    name,
+    employee_code,
+  });
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // =====================================================
+    // STEP 1: Fetch Active Access Logs
+    // =====================================================
+   const { rows: accessLogs } = await client.query(
+  `SELECT 
+    al.id AS access_log_id,
+    al.vendor_name,
+    al.vendor_allocated_id,
+    al.application_equip_id,
+    al.department,
+    al.location,
+    al.role,
+    al.task_status,
+    app.display_name AS application_name,
+    d.department_name,
+    p.plant_name,
+    r.role_name
+  FROM access_log al
+  LEFT JOIN application_master app ON al.application_equip_id::text = app.id::text
+  LEFT JOIN department_master d ON al.department::text = d.id::text
+  LEFT JOIN plant_master p ON al.location::text = p.id::text
+  LEFT JOIN role_master r ON al.role::text = r.id::text
+  WHERE al.location::text = $1::text
+    AND al.department::text = $2::text
+    AND al.name ILIKE $3
+    AND al.employee_code ILIKE $4
+  ORDER BY al.id`,
+  [
+    plant_location,
+    department,
+    `%${name}%`,
+    `%${employee_code}%`
+  ]
+);
+
+
+    if (accessLogs.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        error: "No active access logs found for bulk deactivation",
+      });
+    }
+
+    console.log(`[BULK DEACTIVATION] Found ${accessLogs.length} active access logs`);
+
+    // =====================================================
+    // STEP 2: Create User Request (Auto-Approved)
+    // =====================================================
+    const { rows: userRequestRows } = await client.query(
+      `INSERT INTO user_requests (
+        request_for_by,
+        name,
+        employee_code,
+        employee_location,
+        access_request_type,
+        training_status,
+        status,
+        approver1_email,
+        approver1_status,
+        approver2_email,
+        approver2_status,
+        created_on
+      ) VALUES ($1, $2, $3, $4, 'Bulk De-activation', 'No', 'Approved', '', 'Approved', '', 'Approved', NOW())
+      RETURNING *`,
+      [request_for_by, name, employee_code || null, employee_location]
+    );
+
+    const userRequest = userRequestRows[0];
+    console.log("[BULK DEACTIVATION] ✅ User Request Created:", {
+      id: userRequest.id,
+      transaction_id: userRequest.transaction_id,
+      status: userRequest.status
+    });
+
+    // =====================================================
+    // STEP 3: Create Task Requests from Access Logs
+    // =====================================================
+    const createdTasks = [];
+    
+    for (const log of accessLogs) {
+      console.log(`[BULK DEACTIVATION] Creating task for access log ID: ${log.access_log_id}`);
+
+      // Insert task_request
+      const { rows: taskRows } = await client.query(
+  `INSERT INTO task_requests (
+    user_request_id,
+    application_equip_id,
+    department,
+    role,
+    location,
+    reports_to,
+    task_status,
+    remarks,
+    approver1_id,
+    approver2_id,
+    approver1_name,
+    approver2_name,
+    approver1_email,
+    approver2_email,
+    approver1_action,
+    approver2_action,
+    approver1_action_timestamp,
+    approver2_action_timestamp,
+    created_on
+  ) VALUES (
+    $1, $2, $3, $4, $5, $6,
+    'Approved', $7,
+    NULL, NULL,        -- ✅ FIXED
+    'System', 'System',
+    NULL, NULL,        -- ✅ FIXED
+    'Approved', 'Approved',
+    NOW(), NOW(), NOW()
+  )
+  RETURNING *`,
+  [
+    userRequest.id,
+    log.application_equip_id,
+    log.department,
+    log.role,
+    log.location,
+    name,
+    remarks || `Bulk deactivation for ${log.vendor_name} - ${log.application_name}`
+  ]
+);
+
+
+      const task = taskRows[0];
+      createdTasks.push({
+        task_id: task.id,
+        transaction_id: task.transaction_id,
+        application: log.application_name,
+        vendor: log.vendor_name,
+        allocated_id: log.vendor_allocated_id,
+        access_log_id: log.access_log_id
+      });
+
+      console.log(`[BULK DEACTIVATION] ✅ Task Created:`, {
+        task_id: task.id,
+        transaction_id: task.transaction_id,
+        status: task.task_status
+      });
+
+      // =====================================================
+      // STEP 4: Update Access Log Status
+      // =====================================================
+      await client.query(
+        `UPDATE access_log 
+         SET task_status = 'Deactivated',
+             updated_on = NOW()
+         WHERE id = $1`,
+        [log.access_log_id]
+      );
+
+      console.log(`[BULK DEACTIVATION] ✅ Access Log Deactivated: ${log.access_log_id}`);
+    }
+
+    await client.query("COMMIT");
+
+    console.log(`[BULK DEACTIVATION] 🎉 SUCCESS - Deactivated ${createdTasks.length} access logs`);
+
+    // Return complete response
+    res.status(201).json({
+      success: true,
+      message: `Bulk deactivation completed successfully`,
+      userRequest: {
+        id: userRequest.id,
+        transaction_id: userRequest.transaction_id,
+        status: userRequest.status,
+        created_on: userRequest.created_on
+      },
+      summary: {
+        totalDeactivated: createdTasks.length,
+        plant: plant_location,
+        department: department
+      },
+      tasks: createdTasks
+    });
+
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("[BULK DEACTIVATION] ❌ ERROR:", err);
+    res.status(500).json({ 
+      error: "Failed to create bulk deactivation request",
+      details: err.message 
+    });
+  } finally {
+    client.release();
+  }
+};
+
