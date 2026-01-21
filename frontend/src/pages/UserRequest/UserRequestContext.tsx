@@ -11,7 +11,7 @@ import {
 
 export type TaskRequest = {
   task_id?: number;
-  transaction_id?: string; // ✅ add this
+  transaction_id?: string;
   access_request_type?: string;
   application_equip_id: string;
   application_name?: string;
@@ -55,9 +55,9 @@ export type UserRequest = {
   reportsTo: string;
   reportsToOptions: Manager[];
   trainingStatus: "Yes" | "No";
-  attachment?: File | null; // file uploaded
-  attachmentPath?: string; // saved server path
-  attachmentName?: string; // original filename
+  attachment?: File | null;
+  attachmentPath?: string;
+  attachmentName?: string;
   remarks?: string;
   approver1_email: string;
   approver2_email: string[];
@@ -79,12 +79,29 @@ export type UserRequest = {
   updated_on?: string;
 };
 
+// New type for bulk deactivation access log
+export type BulkDeactivationLog = {
+  id: number;
+  vendor_name: string;
+  vendor_allocated_id: string;
+  application_equip_id: string;
+  application_name: string;
+  department: string;
+  department_name: string;
+  location: string;
+  location_name: string;
+  role: string;
+  role_name: string;
+  task_status: string;
+};
+
 type UserRequestContextType = {
   userrequests: UserRequest[];
   request: UserRequest;
   setRequest: React.Dispatch<React.SetStateAction<UserRequest>>;
   fetchUserRequests: () => void;
   fetchUserByEmployeeCode: (employeeCode: string) => Promise<void>;
+  fetchBulkDeactivationLogs: (plant: string, department: string,employeeCode?:string,name?: string) => Promise<BulkDeactivationLog[]>;
   addUserRequest: (req: FormData) => Promise<void>;
   updateUserRequest: (id: number, req: UserRequest) => Promise<void>;
   deleteUserRequest: (id: number) => Promise<void>;
@@ -193,6 +210,41 @@ export const UserRequestProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  // New function to fetch bulk deactivation logs
+  const fetchBulkDeactivationLogs = async (
+    plant: string,
+    department: string,
+    employeeCode?:string,
+     name?: string,
+  ): Promise<BulkDeactivationLog[]> => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(
+        `${API_BASE}/api/access-logs/bulk-deactivation?plant=${plant}&department=${department}&name=${name}&employee_code=${employeeCode}`,
+        {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json"
+          }
+        }
+      );
+      
+      if (!res.ok) {
+        throw new Error("Failed to fetch bulk deactivation logs");
+      }
+      
+      const data = await res.json();
+      return data;
+    } catch (err: any) {
+      setError(err.message);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const updateUserRequest = async (id: number, req: UserRequest) => {
     setLoading(true);
     setError(null);
@@ -231,6 +283,7 @@ export const UserRequestProvider: React.FC<{ children: React.ReactNode }> = ({
         setRequest,
         fetchUserRequests: fetchUserRequestsHandler,
         fetchUserByEmployeeCode,
+        fetchBulkDeactivationLogs,
         addUserRequest,
         updateUserRequest,
         deleteUserRequest,

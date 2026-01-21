@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import Select, { SingleValue, MultiValue } from "react-select";
 import { useNavigate } from "react-router-dom";
-import { useUserRequestContext, UserRequest, TaskRequest, Manager } from "./UserRequestContext";
+import { useUserRequestContext, UserRequest, TaskRequest, Manager, BulkDeactivationLog } from "./UserRequestContext";
 import { FiChevronDown, FiLogOut } from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
 import { fetchPlants, fetchVendors, fetchAccessLogsForFirm } from "../../utils/api";
@@ -39,9 +39,13 @@ const AddUserRequest: React.FC = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-  const { addUserRequest } = useUserRequestContext();
+  const { addUserRequest,fetchBulkDeactivationLogs  } = useUserRequestContext();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+
+  // ===================== Bulk Deactivation State =====================
+  const [bulkDeactivationLogs, setBulkDeactivationLogs] = useState<BulkDeactivationLog[]>([]);
+  const [loadingBulkLogs, setLoadingBulkLogs] = useState(false);
 
   // ===================== Filter + Search State =====================
   const [filterModalOpen, setFilterModalOpen] = useState(false);
@@ -197,6 +201,12 @@ const AddUserRequest: React.FC = () => {
   useEffect(() => {
     console.log("ROLE:", form.role, "MULTI:", isMultipleRoleAllowed, "Application:", applications);
   }, [form.role, isMultipleRoleAllowed]);
+
+
+  
+
+
+
 
   // ===================== Helper Functions =====================
   const truncateText = (text: string | undefined, wordLimit: number = 12): string => {
@@ -875,74 +885,70 @@ const AddUserRequest: React.FC = () => {
 
     try {
       setIsSubmitting(true);
-
       const isBulk = form.accessType === "Bulk New User Creation";
-      const applicationIds = isBulk
-        ? bulkRows.map(r => r.applicationId).filter(Boolean)
-        : [form.applicationId].filter(Boolean);
-
-      if (applicationIds.length === 0) {
-        setValidationError("Please select at least one application.");
-        setIsSubmitting(false);
-        return;
-      }
-
-      console.group("🔐 [VALIDATION] Starting all rule checks");
-
-      // =====================================================
-      // RULE 6: Validate Bulk Creation (if applicable)
-      // =====================================================
-      if (isBulk) {
-        console.log("\n[RULE 6] Validating bulk creation...");
-
-        const bulkValidationRes = await fetch(
-          `${API_BASE}/api/user-requests/validate-bulk`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              plant_location: form.plant_location,
-              department: form.department,
-              applicationIds
-            })
-          }
-        );
-
-        if (!bulkValidationRes.ok) {
-          throw new Error("Bulk validation failed");
-        }
-
-        const bulkData = await bulkValidationRes.json();
-        console.log("[RULE 6] Result:", bulkData);
-
-        if (!bulkData.valid) {
-          console.error("[RULE 6] ❌ FAIL");
-          console.groupEnd();
-          setValidationError(bulkData.message || "Bulk validation failed");
+      const isBulkDeact = form.accessType === "Bulk De-activation";
+      
+      // Define applicationIds outside the conditional block
+      const applicationIds = isBulkDeact 
+        ? [] 
+        : isBulk
+          ? bulkRows.map(r => r.applicationId).filter(Boolean)
+          : [form.applicationId].filter(Boolean);
+      
+      // Skip application validation for bulk deactivation
+      if (!isBulkDeact) {
+        if (applicationIds.length === 0) {
+          setValidationError("Please select at least one application.");
           setIsSubmitting(false);
           return;
         }
 
-        console.log("[RULE 6] ✅ PASS - Bulk validation successful");
-      }
+        // Existing validation logic for non-bulk-deactivation
+        if (isBulk) {
+          const bulkValidationRes = await fetch(
+            `${API_BASE}/api/user-requests/validate-bulk`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                plant_location: form.plant_location,
+                department: form.department,
+                applicationIds
+              })
+            }
+          );
 
+          if (!bulkValidationRes.ok) {
+            throw new Error("Bulk validation failed");
+          }
+
+          const bulkData = await bulkValidationRes.json();
+
+          if (!bulkData.valid) {
+            setValidationError(bulkData.message || "Bulk validation failed");
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      }
       // =====================================================
       // Prepare validation payload
       // =====================================================
-      const validationPayload = {
-        request_for_by: form.request_for_by,
-        name: form.name,
-        vendor_name: Array.isArray(form.vendorName)
-          ? form.vendorName[0] || ""
-          : form.vendorName || "",
-        plant_location: form.plant_location,
-        department: form.department,
-        applicationId: applicationIds,
-        accessType: form.accessType,
-      };
+     // Additional validations for non-bulk-deactivation
+        const validationPayload = {
+          request_for_by: form.request_for_by,
+          name: form.name,
+          vendor_name: Array.isArray(form.vendorName)
+            ? form.vendorName[0] || ""
+            : form.vendorName || "",
+          plant_location: form.plant_location,
+          department: form.department,
+          applicationId: applicationIds,
+          accessType: form.accessType,
+        };
 
       console.log("\nValidation payload:", validationPayload);
 
@@ -1468,7 +1474,36 @@ if (tasks.length === 0) {
       role: log.role || '' // role ID
     }));
   };
+// ===================== Bulk Deactivation: Fetch Logs =====================
+  useEffect(() => {
+    const fetchLogs = async () => {
+      if (
+        isBulkDeactivation &&
+        form.plant_location &&
+        form.department
+      ) {
+        setLoadingBulkLogs(true);
+        try {
+          const logs = await fetchBulkDeactivationLogs(
+            form.plant_location,
+            form.department,
+            form.employeeCode,
+            form.name
+          );
+          setBulkDeactivationLogs(logs);
+        } catch (error) {
+          console.error("Error fetching bulk deactivation logs:", error);
+          setBulkDeactivationLogs([]);
+        } finally {
+          setLoadingBulkLogs(false);
+        }
+      } else {
+        setBulkDeactivationLogs([]);
+      }
+    };
 
+    fetchLogs();
+  }, [form.location, form.department,form.employeeCode,form.name, isBulkDeactivation]);
 
   const handleLogout = () => {
     logout();
@@ -2504,6 +2539,8 @@ if (tasks.length === 0) {
                             Application / Equipment ID <span style={{ color: "red" }}>*</span></label>
                         </div>
                       )}
+
+                       {/* Card 5: Bulk Deactivation */}
                       {!isBulkDeactivation && !isBulkNew && (
                         <div className={addUserRequestStyles.formGroup}>
                           <Select<RoleOption, boolean>
@@ -2543,8 +2580,80 @@ if (tasks.length === 0) {
                     </div>
                   </div>
                 )}
-
-              {/* Card 5 Bulk User Creation */}
+                 {isBulkDeactivation && (
+                <div className={addUserRequestStyles.section}>
+                  <span className={addUserRequestStyles.sectionHeaderTitle}>
+                    Bulk De-activation - Active Access Logs
+                  </span>
+                  
+                  {loadingBulkLogs ? (
+                    <div style={{ padding: "20px", textAlign: "center" }}>
+                      Loading access logs...
+                    </div>
+                  ) : bulkDeactivationLogs.length === 0 ? (
+                    <div style={{
+                      padding: '12px',
+                      backgroundColor: '#fff3cd',
+                      border: '1px solid #ffc107',
+                      borderRadius: '4px',
+                      color: '#856404',
+                      fontSize: '14px'
+                    }}>
+                      No active access logs found for the selected Plant and Department.
+                    </div>
+                  ) : (
+                    <div className={addUserRequestStyles.tableContainer}>
+                      <table className={addUserRequestStyles.table}>
+                        <thead>
+                          <tr>
+                            <th>Vendor Name</th>
+                            <th>Allocated ID</th>
+                            <th>Location</th>
+                            <th>Department</th>
+                            <th>Application / Equipment</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {bulkDeactivationLogs.map((log, index) => (
+                            <tr key={index}>
+                              <td>{log.vendor_name}</td>
+                              <td>{log.vendor_allocated_id}</td>
+                              <td>{log.location_name}</td>
+                              <td>{log.department_name}</td>
+                              <td>{log.application_name}</td>
+                              <td>{log.role_name}</td>
+                              <td>
+                                <span style={{
+                                  padding: '4px 8px',
+                                  borderRadius: '4px',
+                                  fontSize: '12px',
+                                  backgroundColor: '#4caf50',
+                                  color: 'white'
+                                }}>
+                                  {log.task_status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <div style={{
+                        marginTop: '12px',
+                        padding: '10px',
+                        backgroundColor: '#e3f2fd',
+                        borderRadius: '4px',
+                        fontSize: '14px',
+                        color: '#1565c0'
+                      }}>
+                        <strong>{bulkDeactivationLogs.length}</strong> active access log(s) will be deactivated upon submission.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}  
+              {/* Card 6 Bulk User Creation */}
               {form.request_for_by !== "Vendor / OEM" && isBulkNew && (
                 <div className={addUserRequestStyles.section}>
                   <span className={addUserRequestStyles.sectionHeaderTitle}>
