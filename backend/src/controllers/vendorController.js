@@ -121,8 +121,8 @@ exports.createVendor = async (req, res) => {
 // -------------------------------
 exports.updateVendor = async (req, res) => {
   const { id } = req.params;
-  const { vendor_name, description, status } = req.body;
-
+  const { vendor_name, description,vendor_code, status } = req.body;
+console.log("update vendor",req.body);
   const userId = req.user?.id || req.user?.user_id;
   const username = req.user?.username || "Unknown";
 
@@ -139,7 +139,7 @@ exports.updateVendor = async (req, res) => {
 
     const updatedVendor = {
       vendor_name,
-      code,
+      vendor_code,
       description,
       status,
     };
