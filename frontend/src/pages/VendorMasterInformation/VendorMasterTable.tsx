@@ -74,7 +74,7 @@ const VendorMasterTable: React.FC = () => {
         return true;
     }
   });
-
+console.log("filterData vendor",filteredData);
   // Reset to first page when filter changes
   React.useEffect(() => {
     setCurrentPage(1);
@@ -328,8 +328,14 @@ const VendorMasterTable: React.FC = () => {
 
   const handleEdit = useCallback(() => {
     if (selectedRow === null) return;
-    const app = filteredData[selectedRow];
 
+  const app = filteredData.find(v => v.id === selectedRow);
+
+  if (!app) {
+    alert("Selected vendor not found. Please refresh.");
+    return;
+  }
+    console.log("application",app,selectedRow);
     // if (!hasPermission(PERMISSIONS.APPLICATION.UPDATE, app.plant_location_id)) {
     //   alert('You do not have permission to edit applications for this plant');
     //   return;
@@ -343,7 +349,8 @@ const VendorMasterTable: React.FC = () => {
 
   const handleDelete = useCallback(() => {
     if (selectedRow === null) return;
-    const app = filteredData[selectedRow];
+    const app = filteredData.find(v => v.id === selectedRow)
+;
 
     if (!hasPermission(PERMISSIONS.APPLICATION.DELETE)) {
       alert('You do not have permission to delete applications for this plant');
@@ -511,34 +518,31 @@ const VendorMasterTable: React.FC = () => {
                 <tr>
                   <th></th>
                   <th>Vendor Name</th>
-                  {/* <th>Vendor Code</th> */}
+                   <th>Vendor Code</th> 
                   <th>Description</th>
                   <th>Status</th>
                   <th>Activity Logs</th>
                 </tr>
               </thead>
               <tbody>
-                {paginatedData.map((vendor, index) => {
+                {paginatedData.map((vendor:any, index:number) => {
+                  console.log("vendor",vendor,index);
                   const globalIndex = (currentPage - 1) * rowsPerPage + index;
                   return (
+                    
                     <tr
-                      key={globalIndex}
-                      onClick={() => setSelectedRow(globalIndex)}
-                      style={{
-                        background:
-                          selectedRow === globalIndex ? "#f0f4ff" : undefined,
-                      }}
+                      key={vendor.id}
+                     className={selectedRow === vendor.id ? styles.selectedRow : ""}
                     >
                       <td>
                         <input
                           type="radio"
-                          className={styles.radioInput}
-                          checked={selectedRow === globalIndex}
-                          onChange={() => setSelectedRow(globalIndex)}
+                          checked={selectedRow === vendor.id}
+                          onChange={() => setSelectedRow(vendor.id)}
                         />
                       </td>
                       <td>{vendor.name ?? vendor.vendor_name ?? ""}</td>
-                      {/* <td>{vendor.code ?? vendor.vendor_code ?? ""}</td> */}
+                       <td>{vendor.code ?? vendor.vendor_code ?? ""}</td>
                       <td>{vendor.description ?? ""}</td>
                       <td>
                         <span
@@ -586,8 +590,8 @@ const VendorMasterTable: React.FC = () => {
                 <ConfirmDeleteModal
                   open={showDeleteModal}
                   name={
-                    selectedRow !== null && filteredData[selectedRow]
-                      ? filteredData[selectedRow].name ?? "vendor"
+                    selectedRow !== null && filteredData.find(v => v.id === selectedRow)
+                      ? filteredData.find(v => v.id === selectedRow)?.name ?? "vendor"
                       : "vendor"
                   }
                   onCancel={() => setShowDeleteModal(false)}
