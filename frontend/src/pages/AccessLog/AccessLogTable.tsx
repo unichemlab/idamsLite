@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState,useCallback } from "react";
-import { Bell, Settings, User, LogOut, Clock, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 import jsPDF from "jspdf";
 import { useAuth } from "../../context/AuthContext";
 import autoTable from "jspdf-autotable";

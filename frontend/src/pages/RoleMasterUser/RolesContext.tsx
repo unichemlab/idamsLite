@@ -26,6 +26,7 @@ export interface Role {
 const RolesContext = createContext<
   | {
       roles: Role[];
+      refreshRoles: () => void;   // ✅ ADD
       fetchAndSetRoles: () => void;
       addRole: (role: Role) => Promise<void>;
       updateRole: (id: number, role: Role) => Promise<void>;
@@ -34,7 +35,7 @@ const RolesContext = createContext<
   | undefined
 >(undefined);
 
-export function RolesProviderUser({ children }: { children: React.ReactNode }) {
+export function RolesProvider({ children }: { children: React.ReactNode }) {
   const [roles, setRoles] = useState<Role[]>([]);
 
   const fetchAndSetRoles = async () => {
@@ -96,7 +97,7 @@ export function RolesProviderUser({ children }: { children: React.ReactNode }) {
 
   return (
     <RolesContext.Provider
-      value={{ roles, fetchAndSetRoles, addRole, updateRole, deleteRole }}
+      value={{ roles,refreshRoles: fetchAndSetRoles,fetchAndSetRoles, addRole, updateRole, deleteRole }}
     >
       {children}
     </RolesContext.Provider>

@@ -7,7 +7,7 @@ import styles from "../Plant/AddPlantMaster.module.css";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useApplications } from "../../context/ApplicationsContext";
-import { usePlantContext } from "../PlantMaster/PlantContext";
+import { usePlantContext } from "../Plant/PlantContext";
 import { FaLock, FaUnlock } from "react-icons/fa";
 
 const AddApplicationFormPage: React.FC = () => {
@@ -48,7 +48,7 @@ const AddApplicationFormPage: React.FC = () => {
     : [];
 
   const { departments } =
-    require("../DepartmentMaster/DepartmentContext").useDepartmentContext();
+    require("..//DepartmentTable/DepartmentContext").useDepartmentContext();
   const departmentOptions = Array.isArray(departments)
     ? departments.map((dept) => ({
       value: String(dept.id),
@@ -318,6 +318,7 @@ useEffect(() => {
                     <Select
                       classNamePrefix="reactSelect"
                       name="plant_location_id"
+                      required
                       options={plantOptions}
                       value={
                         plantOptions.find(
@@ -347,6 +348,7 @@ useEffect(() => {
                     <Select
                       classNamePrefix="reactSelect"
                       name="department_id"
+                      required
                       options={departmentOptions}
                       value={
                         departmentOptions.find(
@@ -427,6 +429,7 @@ useEffect(() => {
                       <Select
                         classNamePrefix="reactSelect"
                         isSearchable
+                        required
                         options={inventoryOptions}
                         value={inventoryOptions.find(
                           opt => opt.value === form.equipment_instrument_id
@@ -449,6 +452,7 @@ useEffect(() => {
                         name="equipment_instrument_id"
                         value={form.equipment_instrument_id}
                         onChange={handleChange}
+                        required
                         placeholder="Enter Equipment ID"
                       />
                     )}

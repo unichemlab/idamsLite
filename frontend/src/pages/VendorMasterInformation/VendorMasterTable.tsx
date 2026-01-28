@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback } from "react";
-import { useVendorContext } from "../VendorMaster/VendorContext";
+import { useVendorContext } from "../VendorMasterInformation/VendorContext";
 import styles from "../Plant/PlantMasterTable.module.css";
 import paginationStyles from "../../styles/Pagination.module.css";
 import { FaEdit, FaTrash } from "react-icons/fa";
@@ -16,11 +16,12 @@ import login_headTitle2 from "../../assets/login_headTitle2.png";
 import { useAuth } from "../../context/AuthContext";
 import AppHeader from "../../components/Common/AppHeader";
 import { usePermissions } from "../../context/PermissionContext";
+import  useAutoRefresh  from '../../hooks/useAutoRefresh';
 
 // Activity logs from backend
 
 const VendorMasterTable: React.FC = () => {
-  const { vendors, deleteVendor } = useVendorContext();
+  const { vendors, deleteVendor, refreshVendors } = useVendorContext();
   const [selectedRow, setSelectedRow] = React.useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   const [showActivityModal, setShowActivityModal] = React.useState(false);
@@ -41,6 +42,12 @@ const VendorMasterTable: React.FC = () => {
   const { can } = useAbility();
   const { user } = useAuth();
   const { hasPermission } = usePermissions();
+  const refreshCallback = useCallback(() => {
+    console.log("[VendorMaster] 🔄 Auto refreshing vendor list...");
+    refreshVendors();
+  }, [refreshVendors]);
+
+  useAutoRefresh(refreshCallback);
 
   useEffect(() => {
     if (!showFilterPopover) return;
@@ -74,7 +81,7 @@ const VendorMasterTable: React.FC = () => {
         return true;
     }
   });
-console.log("filterData vendor",filteredData);
+  console.log("filterData vendor", filteredData);
   // Reset to first page when filter changes
   React.useEffect(() => {
     setCurrentPage(1);
@@ -329,13 +336,13 @@ console.log("filterData vendor",filteredData);
   const handleEdit = useCallback(() => {
     if (selectedRow === null) return;
 
-  const app = filteredData.find(v => v.id === selectedRow);
+    const app = filteredData.find(v => v.id === selectedRow);
 
-  if (!app) {
-    alert("Selected vendor not found. Please refresh.");
-    return;
-  }
-    console.log("application",app,selectedRow);
+    if (!app) {
+      alert("Selected vendor not found. Please refresh.");
+      return;
+    }
+    console.log("application", app, selectedRow);
     // if (!hasPermission(PERMISSIONS.APPLICATION.UPDATE, app.plant_location_id)) {
     //   alert('You do not have permission to edit applications for this plant');
     //   return;
@@ -350,7 +357,7 @@ console.log("filterData vendor",filteredData);
   const handleDelete = useCallback(() => {
     if (selectedRow === null) return;
     const app = filteredData.find(v => v.id === selectedRow)
-;
+      ;
 
     if (!hasPermission(PERMISSIONS.APPLICATION.DELETE)) {
       alert('You do not have permission to delete applications for this plant');
@@ -518,21 +525,21 @@ console.log("filterData vendor",filteredData);
                 <tr>
                   <th></th>
                   <th>Vendor Name</th>
-                   <th>Vendor Code</th> 
+                  <th>Vendor Code</th>
                   <th>Description</th>
                   <th>Status</th>
                   <th>Activity Logs</th>
                 </tr>
               </thead>
               <tbody>
-                {paginatedData.map((vendor:any, index:number) => {
-                  console.log("vendor",vendor,index);
+                {paginatedData.map((vendor: any, index: number) => {
+                  console.log("vendor", vendor, index);
                   const globalIndex = (currentPage - 1) * rowsPerPage + index;
                   return (
-                    
+
                     <tr
                       key={vendor.id}
-                     className={selectedRow === vendor.id ? styles.selectedRow : ""}
+                      className={selectedRow === vendor.id ? styles.selectedRow : ""}
                     >
                       <td>
                         <input
@@ -542,7 +549,7 @@ console.log("filterData vendor",filteredData);
                         />
                       </td>
                       <td>{vendor.name ?? vendor.vendor_name ?? ""}</td>
-                       <td>{vendor.code ?? vendor.vendor_code ?? ""}</td>
+                      <td>{vendor.code ?? vendor.vendor_code ?? ""}</td>
                       <td>{vendor.description ?? ""}</td>
                       <td>
                         <span

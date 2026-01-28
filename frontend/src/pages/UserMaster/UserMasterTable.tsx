@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef,useCallback } from "react";
 import { AbilityContext } from "../../context/AbilityContext";
 import { useNavigate } from "react-router-dom";
 import styles from "../Plant/PlantMasterTable.module.css";
@@ -6,7 +6,7 @@ import paginationStyles from "../../styles/Pagination.module.css";
 import { FaEdit, FaTrash } from "react-icons/fa";
 import { FaRegClock } from "react-icons/fa6";
 import { useUserContext } from "../../context/UserContext";
-import { useDepartmentContext } from "../DepartmentMaster/DepartmentContext";
+import { useDepartmentContext } from "../DepartmentTable/DepartmentContext";
 import { useAbility } from "../../context/AbilityContext";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -15,11 +15,11 @@ import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
 import unichemLogoBase64 from "../../assets/unichemLogoBase64";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
 import AppHeader from "../../components/Common/AppHeader";
-
+import useAutoRefresh from "../../hooks/useAutoRefresh";
 const UserMasterTable = () => {
   const navigate = useNavigate();
   const ability = useAbility();
-  const { users, deleteUser, currentUser } = useUserContext();
+ const { users, deleteUser, currentUser, refreshUsers } = useUserContext();
   const { departments } = useDepartmentContext();
 
   // Helper to format permissions for display
@@ -110,6 +110,14 @@ const UserMasterTable = () => {
         String(user.employee_id).toLowerCase().includes(value))
     );
   });
+const refreshCallback = useCallback(() => {
+  if (typeof refreshUsers !== "function") return;
+
+  console.log("[UserMaster] 🔄 Auto refreshing users...");
+  refreshUsers();
+}, [refreshUsers]);
+
+useAutoRefresh(refreshCallback);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);

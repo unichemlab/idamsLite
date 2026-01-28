@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate, useParams } from "react-router-dom";
-import { useDepartmentContext } from "../../pages/DepartmentMaster/DepartmentContext";
+import { useDepartmentContext } from "../../pages//DepartmentTable/DepartmentContext";
 import type { Department } from "./DepartmentContext";
 import AppHeader from "../../components/Common/AppHeader";
 import styles from ".././Plant/AddPlantMaster.module.css";

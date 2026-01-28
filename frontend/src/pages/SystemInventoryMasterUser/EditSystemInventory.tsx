@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import AppHeader from "../../components/Common/AppHeader";
 import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
 import { useAuth } from "../../context/AuthContext";
-import { useSystemContext } from "../SystemInventoryMaster/SystemContext";
+import { useSystemContext } from "../SystemInventoryMasterUser/SystemContext";
 import { System } from "../../types/system";
 import { fetchPlants, fetchDepartments } from "../../utils/api";
 import styles from "../Plant/AddPlantMaster.module.css";

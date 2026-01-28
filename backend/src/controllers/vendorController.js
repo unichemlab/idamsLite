@@ -56,18 +56,33 @@ exports.getAllVendors = async (req, res) => {
 // -------------------------------
 // CREATE VENDOR (WITH APPROVAL)
 // -------------------------------
+// CREATE VENDOR (WITH APPROVAL) - FIXED
 exports.createVendor = async (req, res) => {
-  const { vendor_name,code, description, status } = req.body;
+  const { vendor_name, vendor_code, description, status } = req.body;
+  
+  console.log("═══════════════════════════════════════════════════════════");
+  console.log("CREATE VENDOR - DEBUG INFO");
+  console.log("═══════════════════════════════════════════════════════════");
+  console.log("Request Body:", req.body);
+  console.log("Extracted Values:");
+  console.log("  - vendor_name:", vendor_name);
+  console.log("  - vendor_code:", vendor_code);
+  console.log("  - description:", description);
+  console.log("  - status:", status);
+  console.log("═══════════════════════════════════════════════════════════");
+  
   const userId = req.user?.id || req.user?.user_id;
   const username = req.user?.username || "Unknown";
 
   try {
     const newVendor = {
       vendor_name,
+      vendor_code,
       description,
-      code,
       status: status || "ACTIVE",
     };
+
+    console.log("NEW VENDOR OBJECT:", newVendor);
 
     const approvalId = await submitForApproval({
       module: "vendors",
@@ -83,10 +98,29 @@ exports.createVendor = async (req, res) => {
 
     // DIRECT ENTRY (if no approval required)
     if (approvalId === null) {
-      const { rows } = await pool.query(
-        "INSERT INTO vendor_master (vendor_name,vendor_code, description, status) VALUES ($1, $2, $3,$4) RETURNING *",
-        [vendor_name,code, description, status || "ACTIVE"]
-      );
+      console.log("⚡ NO APPROVAL REQUIRED - INSERTING DIRECTLY");
+      
+      // ✅ FIXED: Use vendor_code instead of code
+      const insertQuery = `
+        INSERT INTO vendor_master (vendor_name, vendor_code, description, status) 
+        VALUES ($1, $2, $3, $4) 
+        RETURNING *
+      `;
+      
+      const insertParams = [vendor_name, vendor_code, description, status || "ACTIVE"];
+      
+      console.log("SQL Query:", insertQuery);
+      console.log("SQL Parameters:", insertParams);
+      console.log("  $1 (vendor_name):", vendor_name);
+      console.log("  $2 (vendor_code):", vendor_code);
+      console.log("  $3 (description):", description);
+      console.log("  $4 (status):", status || "ACTIVE");
+      
+      const { rows } = await pool.query(insertQuery, insertParams);
+
+      console.log("✅ DATABASE INSERT SUCCESSFUL!");
+      console.log("INSERTED ROW:", rows[0]);
+      console.log("═══════════════════════════════════════════════════════════");
 
       await logActivity({
         userId,
@@ -104,6 +138,9 @@ exports.createVendor = async (req, res) => {
     }
 
     // APPROVAL FLOW
+    console.log("📋 SUBMITTED FOR APPROVAL - ID:", approvalId);
+    console.log("═══════════════════════════════════════════════════════════");
+    
     res.status(202).json({
       message: "Vendor creation submitted for approval",
       approvalId,
@@ -111,7 +148,8 @@ exports.createVendor = async (req, res) => {
       data: newVendor,
     });
   } catch (err) {
-    console.error("Error creating vendor:", err);
+    console.error("❌ ERROR CREATING VENDOR:", err);
+    console.log("═══════════════════════════════════════════════════════════");
     res.status(500).json({ error: err.message });
   }
 };
@@ -119,10 +157,23 @@ exports.createVendor = async (req, res) => {
 // -------------------------------
 // UPDATE VENDOR (WITH APPROVAL)
 // -------------------------------
+// UPDATE VENDOR (WITH APPROVAL) - FIXED
 exports.updateVendor = async (req, res) => {
   const { id } = req.params;
-  const { vendor_name, description,vendor_code, status } = req.body;
-console.log("update vendor",req.body);
+  const { vendor_name, description, vendor_code, status } = req.body;
+  
+  console.log("═══════════════════════════════════════════════════════════");
+  console.log("UPDATE VENDOR - DEBUG INFO");
+  console.log("═══════════════════════════════════════════════════════════");
+  console.log("Vendor ID:", id);
+  console.log("Request Body:", req.body);
+  console.log("Extracted Values:");
+  console.log("  - vendor_name:", vendor_name);
+  console.log("  - vendor_code:", vendor_code);
+  console.log("  - description:", description);
+  console.log("  - status:", status);
+  console.log("═══════════════════════════════════════════════════════════");
+  
   const userId = req.user?.id || req.user?.user_id;
   const username = req.user?.username || "Unknown";
 
@@ -137,12 +188,16 @@ console.log("update vendor",req.body);
       return res.status(404).json({ error: "Vendor not found" });
     }
 
+    console.log("OLD VALUE FROM DATABASE:", oldValue);
+
     const updatedVendor = {
       vendor_name,
       vendor_code,
       description,
       status,
     };
+
+    console.log("NEW VALUE TO UPDATE:", updatedVendor);
 
     const approvalId = await submitForApproval({
       module: "vendors",
@@ -156,12 +211,38 @@ console.log("update vendor",req.body);
       comments: `Update vendor: ${vendor_name}`,
     });
 
-    // DIRECT UPDATE
+    // DIRECT UPDATE (NO APPROVAL REQUIRED)
     if (approvalId === null) {
-      const { rows } = await pool.query(
-        "UPDATE vendor_master SET vendor_name=$1, description=$2, status=$3,vendor_code=$5, updated_on=NOW() WHERE id=$4 RETURNING *",
-        [vendor_name, description, status, id,code]
-      );
+      console.log("⚡ NO APPROVAL REQUIRED - UPDATING DIRECTLY");
+      
+      // ✅ FIXED: Correct parameter order
+      const updateQuery = `
+        UPDATE vendor_master 
+        SET 
+          vendor_name = $1, 
+          vendor_code = $2, 
+          description = $3, 
+          status = $4, 
+          updated_on = NOW() 
+        WHERE id = $5 
+        RETURNING *
+      `;
+      
+      const updateParams = [vendor_name, vendor_code, description, status, id];
+      
+      console.log("SQL Query:", updateQuery);
+      console.log("SQL Parameters:", updateParams);
+      console.log("  $1 (vendor_name):", vendor_name);
+      console.log("  $2 (vendor_code):", vendor_code);
+      console.log("  $3 (description):", description);
+      console.log("  $4 (status):", status);
+      console.log("  $5 (id):", id);
+      
+      const { rows } = await pool.query(updateQuery, updateParams);
+
+      console.log("✅ DATABASE UPDATE SUCCESSFUL!");
+      console.log("UPDATED ROW:", rows[0]);
+      console.log("═══════════════════════════════════════════════════════════");
 
       await logActivity({
         userId,
@@ -178,6 +259,10 @@ console.log("update vendor",req.body);
       return res.json(rows[0]);
     }
 
+    // APPROVAL FLOW
+    console.log("📋 SUBMITTED FOR APPROVAL - ID:", approvalId);
+    console.log("═══════════════════════════════════════════════════════════");
+    
     res.status(202).json({
       message: "Vendor update submitted for approval",
       approvalId,
@@ -185,7 +270,8 @@ console.log("update vendor",req.body);
       data: updatedVendor,
     });
   } catch (err) {
-    console.error("Error updating vendor:", err);
+    console.error("❌ ERROR UPDATING VENDOR:", err);
+    console.log("═══════════════════════════════════════════════════════════");
     res.status(500).json({ error: err.message });
   }
 };

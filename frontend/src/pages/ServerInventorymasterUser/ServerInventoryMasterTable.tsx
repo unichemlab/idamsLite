@@ -1,11 +1,11 @@
-import React, { useState, useRef, useContext,useMemo } from "react";
+import React, { useState, useRef, useContext,useMemo,useCallback } from "react";
 import styles from "../Plant/PlantMasterTable.module.css";
 import { FaEdit, FaTrash } from "react-icons/fa";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useNavigate } from "react-router-dom";
-import { ServerContext } from "../ServerInventoryMaster/ServerContext";
+import { ServerContext } from "../ServerInventorymasterUser/ServerContext";
 import unichemLogoBase64 from "../../assets/unichemLogoBase64";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
 import { useAuth } from "../../context/AuthContext";
@@ -14,10 +14,12 @@ import {filterByModulePlantPermission } from "../../utils/permissionUtils";
 import { PermissionGuard, PermissionButton } from "../../components/Common/PermissionComponents";
 import { PERMISSIONS } from "../../constants/permissions";
 import { usePermissions } from "../../context/PermissionContext";
+import useAutoRefresh from "../../hooks/useAutoRefresh";
 
 const ServerInventoryMasterTable: React.FC = () => {
   const serverCtx = useContext(ServerContext);
   const servers = serverCtx?.servers ?? [];
+  const refreshServers = serverCtx?.refreshServers ?? [];
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showFilterPopover, setShowFilterPopover] = useState(false);
@@ -58,6 +60,15 @@ const ServerInventoryMasterTable: React.FC = () => {
         });
       }, [permissionFilteredData, filterValue, filterColumn]);
 
+const refreshCallback = useCallback(() => {
+  if (typeof refreshServers !== "function") return;
+
+  console.log("[ServerMaster] 🔄 Auto refreshing servers...");
+  refreshServers();
+}, [refreshServers]);
+
+
+useAutoRefresh(refreshCallback);
 
 
   // PDF Export Handler

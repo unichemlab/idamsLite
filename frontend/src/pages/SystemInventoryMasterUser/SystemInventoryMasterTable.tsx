@@ -1,4 +1,4 @@
-import React, { useState, useRef, useContext,useMemo } from "react";
+import React, { useState, useRef, useContext,useMemo,useCallback } from "react";
 // import styles from "../ApplicationMasterTable/ApplicationMasterTable.module.css";
 import paginationStyles from "../../styles/Pagination.module.css";
 import { FaEdit, FaTrash } from "react-icons/fa";
@@ -8,7 +8,7 @@ import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useNavigate } from "react-router-dom";
-import { SystemContext,System } from "../SystemInventoryMaster/SystemContext";
+import { SystemContext,System } from "../SystemInventoryMasterUser/SystemContext";
 import unichemLogoBase64 from "../../assets/unichemLogoBase64";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
 import { useAuth } from "../../context/AuthContext";
@@ -19,10 +19,12 @@ import { filterByPlantPermission,filterByModulePlantPermission } from "../../uti
 import { fetchApplicationActivityLogs, API_BASE } from "../../utils/api";
 import { PermissionGuard, PermissionButton } from "../../components/Common/PermissionComponents";
 import { PERMISSIONS } from "../../constants/permissions";
+import useAutoRefresh from "../../hooks/useAutoRefresh";
 
 const SystemInventoryMasterTable: React.FC = () => {
   const systemCtx = useContext(SystemContext);
   const systems = systemCtx?.systems ?? [];
+  const refreshSystems =systemCtx?.refreshSystems??[];
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showFilterPopover, setShowFilterPopover] = useState(false);
@@ -75,6 +77,15 @@ console.log("permission Filter",permissionFilteredData);
          });
        }, [permissionFilteredData, filterValue, filterColumn]);
 
+const refreshCallback = useCallback(() => {
+  if (typeof refreshSystems !== "function") return;
+
+  console.log("[SystemMaster] 🔄 Auto refreshing systems...");
+  refreshSystems();
+}, [refreshSystems]);
+
+
+useAutoRefresh(refreshCallback);
 
   const totalPages = Math.max(1, Math.ceil(filteredData.length / rowsPerPage));
   const paginatedData = filteredData.slice(

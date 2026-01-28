@@ -5,7 +5,6 @@ import {
   updateVendorAPI,
   deleteVendorAPI,
 } from "../../utils/api";
-
 export const useVendorContext = () => {
   const ctx = React.useContext(VendorContext);
   if (!ctx)
@@ -18,13 +17,14 @@ export interface Vendor {
   transaction_id?: string;
   name?: string;
   vendor_name?: string;
-  vendor_code?: string;
+  code?: string;
   description?: string;
   status?: "ACTIVE" | "INACTIVE";
 }
 
 interface VendorContextType {
   vendors: Vendor[];
+   refreshVendors: () => void; 
   addVendor: (vendor: Vendor) => void;
   updateVendor: (index: number, updated: Vendor) => void;
   deleteVendor: (index: number) => void;
@@ -47,7 +47,7 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
           id: p.id,
           transaction_id: p.transaction_id,
           name: p.vendor_name, // use vendor_name as name
-          code: p.vendor_code, // use vendor_name as name
+          code: p.vendor_code, // use vendor_code as code
           description: p.description,
           status: p.status,
         }));
@@ -66,6 +66,7 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
   const addVendor = async (vendor: Vendor) => {
     await addVendorAPI({
       vendor_name: vendor.name,
+      vendor_code: vendor.code,
       description: vendor.description,
       status: vendor.status,
     });
@@ -78,6 +79,7 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
     if (!vendor || !vendor.id) return;
     await updateVendorAPI(vendor.id, {
       vendor_name: updated.name,
+      vendor_code: updated.code,
       description: updated.description,
       status: updated.status,
     });
@@ -93,9 +95,15 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <VendorContext.Provider
-      value={{ vendors, addVendor, updateVendor, deleteVendor }}
-    >
+  <VendorContext.Provider
+    value={{
+      vendors,
+      refreshVendors: fetchAndSetVendors,   // ✅ expose refresh
+      addVendor,
+      updateVendor,
+      deleteVendor,
+    }}
+  >
       {children}
     </VendorContext.Provider>
   );

@@ -1,5 +1,5 @@
 import React, { useEffect,useCallback } from "react";
-import { usePlantContext } from "../PlantMaster/PlantContext";
+import { usePlantContext } from "../Plant/PlantContext";
 import styles from "./PlantMasterTable.module.css";
 import paginationStyles from "../../styles/Pagination.module.css";
 import { FaEdit, FaTrash } from "react-icons/fa";
@@ -16,6 +16,8 @@ import AppHeader from "../../components/Common/AppHeader";
 import { PermissionGuard, PermissionButton } from "../../components/Common/PermissionComponents";
 import { PERMISSIONS } from "../../constants/permissions";
 import { usePermissions } from "../../context/PermissionContext";
+import useAutoRefresh from "../../hooks/useAutoRefresh";
+
 export interface ActivityLog {
   id?: number;
   sr_no?: number;
@@ -29,7 +31,7 @@ export interface ActivityLog {
 }
 
 const PlantMasterTable: React.FC = () => {
-const { plants, deletePlant } = usePlantContext();
+const { plants, deletePlant,refreshPlants  } = usePlantContext();
 const [selectedPlantId, setSelectedPlantId] = React.useState<number | null>(null);
 const [selectedRow, setSelectedRow] = React.useState<number | null>(null);
 const [showDeleteModal, setShowDeleteModal] = React.useState(false);
@@ -82,6 +84,12 @@ const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   React.useEffect(() => {
     setCurrentPage(1);
   }, [filterValue]);
+const refreshCallback = useCallback(() => {
+  console.log("[PlantMaster] 🔄 Auto refreshing plants...");
+  refreshPlants();
+}, [refreshPlants]);
+
+useAutoRefresh(refreshCallback);
 
   const totalPages = Math.ceil(filteredData.length / rowsPerPage) || 1;
   const paginatedData = filteredData.slice(

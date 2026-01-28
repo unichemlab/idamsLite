@@ -2,7 +2,7 @@ import React, { useEffect, useRef,useCallback } from "react";
 import { FaTrash, FaRegClock, FaEdit } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { fetchDepartmentActivityLogs } from "../../utils/api";
-import { useDepartmentContext } from "../../pages/DepartmentMaster/DepartmentContext";
+import { useDepartmentContext } from "../../pages//DepartmentTable/DepartmentContext";
 import styles from "../Plant/PlantMasterTable.module.css";
 import paginationStyles from "../../styles/Pagination.module.css";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
@@ -14,9 +14,10 @@ import { useAuth } from "../../context/AuthContext";
 import { PermissionGuard, PermissionButton } from "../../components/Common/PermissionComponents";
 import { PERMISSIONS } from "../../constants/permissions";
 import { usePermissions } from "../../context/PermissionContext";
+import useAutoRefresh from "../../hooks/useAutoRefresh";
 
 const DepartmentMasterTable: React.FC = () => {
-  const { departments, deleteDepartment } = useDepartmentContext();
+ const { departments, deleteDepartment, fetchDepartments } = useDepartmentContext();
   const [selectedRow, setSelectedRow] = React.useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   const [showActivityModal, setShowActivityModal] = React.useState(false);
@@ -62,6 +63,12 @@ const DepartmentMasterTable: React.FC = () => {
   React.useEffect(() => {
     setCurrentPage(1);
   }, [filterValue]);
+const refreshCallback = useCallback(() => {
+  console.log("[DepartmentMaster] 🔄 Auto refreshing departments...");
+  fetchDepartments();
+}, [fetchDepartments]);
+
+useAutoRefresh(refreshCallback);
 
   const totalPages = Math.ceil(filteredData.length / rowsPerPage) || 1;
   const paginatedData = filteredData.slice(

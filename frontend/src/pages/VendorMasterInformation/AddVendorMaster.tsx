@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import ConfirmLoginModal from "./ConfirmLoginModal";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { useVendorContext, Vendor } from "../VendorMaster/VendorContext";
+import { useVendorContext, Vendor } from "../VendorMasterInformation/VendorContext";
 import AppHeader from "../../components/Common/AppHeader";
 import styles from "../Plant/AddPlantMaster.module.css";
 

@@ -108,7 +108,8 @@ const PendingApprovalPage: React.FC = () => {
   const [actionInProgress, setActionInProgress] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-
+// Error state for rejection validation
+  const [rejectError, setRejectError] = useState<string>("");
   // Close menu on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -339,8 +340,18 @@ const PendingApprovalPage: React.FC = () => {
     }
   };
 
-  const handleReject = async () => {
+   const handleReject = async () => {
     if (!selectedRequest || !user?.id) return;
+    
+    // Validate rejection reason is provided and not just whitespace
+    if (!actionComments || !actionComments.trim()) {
+      setRejectError("Please provide a reason for rejection.");
+      return;
+    }
+    
+    // Clear any previous errors
+    setRejectError("");
+    
     setActionInProgress(true);
     try {
       await postApprovalAction(
@@ -348,15 +359,17 @@ const PendingApprovalPage: React.FC = () => {
         "reject",
         {
           approver_id: user.id,
-          comments: actionComments,
+          comments: actionComments.trim(),
         }
       );
       await fetchRequests();
       setOpenRejectDialog(false);
       setSelectedRequest(null);
       setActionComments("");
+      setRejectError("");
     } catch (err) {
       console.error("Error rejecting request:", err);
+      setRejectError("Failed to reject request. Please try again.");
     } finally {
       setActionInProgress(false);
     }
@@ -877,15 +890,24 @@ const PendingApprovalPage: React.FC = () => {
           {renderTaskTable(rejectTasks, rejectTasksLoading)}
 
 
-          {/* Rejection reason */}
+           {/* Rejection reason */}
           <TextField
-            label="Reason for rejection"
+            label="Reason for rejection *"
             fullWidth
             multiline
             rows={4}
             value={actionComments}
-            onChange={(e) => setActionComments(e.target.value)}
+            onChange={(e) => {
+              setActionComments(e.target.value);
+              // Clear error when user starts typing
+              if (rejectError && e.target.value.trim()) {
+                setRejectError("");
+              }
+            }}
             required
+            error={!!rejectError}
+            helperText={rejectError || "Please provide a detailed reason for rejection"}
+            placeholder="Enter the reason for rejecting this request..."
           />
         </DialogContent>
 

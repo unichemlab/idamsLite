@@ -2,7 +2,7 @@ import React, { useContext, useState, useEffect } from "react";
 import ConfirmLoginModal from "./ConfirmLoginModal";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate, useParams } from "react-router-dom";
-import { VendorContext, Vendor } from "../VendorMaster/VendorContext";
+import { VendorContext, Vendor } from "../VendorMasterInformation/VendorContext";
 import AppHeader from "../../components/Common/AppHeader";
 import styles from "../Plant/AddPlantMaster.module.css";
 
@@ -103,12 +103,33 @@ if (index === -1) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+      console.log("═══════════════════════════════════════════════════════════");
+    console.log("📤 SUBMIT BUTTON CLICKED");
+    console.log("Form data to be submitted:", form);
+    console.log("  - name:", form.name);
+    console.log("  - code:", form.code);
+    console.log("  - description:", form.description);
+    console.log("  - status:", form.status);
+    console.log("═══════════════════════════════════════════════════════════");
+
+
     setShowModal(true);
   };
 
 const handleConfirmLogin = (data: Record<string, string>) => {
   if (data.username === (user?.username || "") && data.password) {
-    console.log("FORM SUBMITTING:", form);   // 👈 add this
+
+    console.log("═══════════════════════════════════════════════════════════");
+      console.log("✅ LOGIN CONFIRMED - UPDATING VENDOR");
+      console.log("Final form data being sent:", form);
+      console.log("  - name:", form.name);
+      console.log("  - code:", form.code);
+      console.log("  - description:", form.description);
+      console.log("  - status:", form.status);
+      console.log("Index:", index);
+      console.log("═══════════════════════════════════════════════════════════");
+
     vendorCtx.updateVendor(index, form);
     setShowModal(false);
     navigate("/vendor-information", { state: { activeTab: "vendor" } });

@@ -21,7 +21,7 @@ const EditApplicationFormPage: React.FC = () => {
   const { applicationData } = location.state || {};
 
   const [roles, setRoles] = useState<{ id: string; name: string }[]>([]);
-  const { plants } = require("../PlantMaster/PlantContext").usePlantContext();
+  const { plants } = require("../Plant/PlantContext").usePlantContext();
   const plantOptions = Array.isArray(plants)
     ? plants
       .filter((plant: any) => {
@@ -54,7 +54,7 @@ const EditApplicationFormPage: React.FC = () => {
       }))
     : [];
   const { departments } =
-    require("../DepartmentMaster/DepartmentContext").useDepartmentContext();
+    require("..//DepartmentTable/DepartmentContext").useDepartmentContext();
   const departmentOptions = Array.isArray(departments)
     ? departments.map((dept: any) => ({
       value: String(dept.id),
@@ -323,6 +323,7 @@ const EditApplicationFormPage: React.FC = () => {
 
                     <Select
                       name="plant_location_id"
+                      required
                       options={plantOptions}
                       value={
                         plantOptions.find(
@@ -359,6 +360,7 @@ const EditApplicationFormPage: React.FC = () => {
 
                     <Select
                       name="department_id"
+                      required
                       options={departmentOptions}
                       value={
                         departmentOptions.find(
@@ -447,6 +449,7 @@ const EditApplicationFormPage: React.FC = () => {
                     {form.application_hmi_type === "Application" ? (
                       <Select
                         classNamePrefix="reactSelect"
+                        required
                         isSearchable
                         options={inventoryOptions}
                         value={inventoryOptions.find(
@@ -468,6 +471,7 @@ const EditApplicationFormPage: React.FC = () => {
                       <input
                         className={addStyles.input}
                         name="equipment_instrument_id"
+                        required
                         value={form.equipment_instrument_id}
                         onChange={handleChange}
                         placeholder="Enter Equipment ID"

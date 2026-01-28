@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import PersonIcon from "@mui/icons-material/Person";
 import LogoutIcon from "@mui/icons-material/Logout";
-import styles from "../../pages/ApplicationMasterTable/ApplicationMasterTable.module.css";
+import styles from "../../pages/ApplicationMaster/ApplicationMasterTable.module.css";
 
 const ProfileIconWithLogout: React.FC = () => {
   const [profileOpen, setProfileOpen] = useState(false);

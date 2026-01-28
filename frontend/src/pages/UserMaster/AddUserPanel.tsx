@@ -1,8 +1,8 @@
 // Updated AddUserPanel.tsx
 import React, { useState, useEffect } from "react";
-import { usePlantContext } from "../PlantMaster/PlantContext";
+import { usePlantContext } from "../Plant/PlantContext";
 import { useAuth } from "../../context/AuthContext";
-import { useDepartmentContext } from "../DepartmentMaster/DepartmentContext";
+import { useDepartmentContext } from "../DepartmentTable/DepartmentContext";
 import styles from "../Plant/AddPlantMaster.module.css";
 import ConfirmLoginModal from "components/Common/ConfirmLoginModal";
 import { API_BASE } from "../../utils/api";
@@ -614,7 +614,7 @@ const AddUserPanel = ({
                 true,
                 mode === "edit" && departmentInitiallyPresent
               )}
-              {input("location", "Location")}
+              {input("location", "Location","text",mode==="edit"&& !!form.location)}
               {select("status", "Status", ["Active", "Inactive"], true)}
             </div>
           </div>
