@@ -704,8 +704,8 @@ const PendingApprovalPage: React.FC = () => {
                         <td>{a.access_request_type}</td>
                         <td>{a.vendorFirm || "-"}</td>
                         <td>{a.vendorCode || "-"}</td>
-                        <td>{a.vendorName?.join(", ") || "-"}</td>
-                        <td>{a.allocatedId?.join(", ") || "-"}</td>
+                        <td>{a.vendorName || "-"}</td>
+                        <td>{a.allocatedId || "-"}</td>
                         <td>{a.training_status || "-"}</td>
                   <td>
                     {a.training_attachment ? (
