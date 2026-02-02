@@ -18,6 +18,7 @@ import {
   Tooltip,
 } from "@mui/material";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 interface Task {
   application_equip_id: string;
   application_name: string;
@@ -51,6 +52,10 @@ interface ApprovalAction {
   application_name: string;
   department_name: string;
   role_name: string;
+  vendorFirm?: string;
+  vendorCode?: string;
+  vendorName?: string[];
+  allocatedId?: string[];
   myAction?: string; // What action I took
   myLevel?: 1 | 2; // Which level I acted at
   approver1_status?: string;
@@ -186,6 +191,10 @@ const ApprovalHistoryPage: React.FC = () => {
             approver1_action_timestamp: tr.approver1_action_timestamp,
             approver2_action_timestamp: tr.approver2_action_timestamp,
             role_name: tr.role_name,
+            vendorFirm: tr.vendorFirm,
+            vendorCode: tr.vendorCode,
+            vendorName: tr.vendorName,
+            allocatedId: tr.allocatedId,
             approverName: user.name || user.username || "-",
             approverRole: tr.role_name || tr.approver_role || tr.role || "-",
             plant: tr.plant_name || tr.plant || "-",
@@ -321,6 +330,10 @@ const ApprovalHistoryPage: React.FC = () => {
                     <th>Requestor Location</th>
                     <th>Requestor Department</th>
                     <th>Access Request Type</th>
+                    <th>Vendor Firm</th>
+                    <th>Vendor Code</th>
+                    <th>Vendor Name</th>
+                    <th>Vendor Allocated ID</th>
                     <th>Approval Status</th>
                     <th>My Level</th>
                     <th>Comments</th>
@@ -330,7 +343,7 @@ const ApprovalHistoryPage: React.FC = () => {
                 <tbody>
                   {approvalHistory.length === 0 ? (
                     <tr>
-                      <td colSpan={13} className={tableStyles.emptyState}>
+                      <td colSpan={17} className={tableStyles.emptyState}>
                         No approval history found.
                       </td>
                     </tr>
@@ -345,6 +358,10 @@ const ApprovalHistoryPage: React.FC = () => {
                         <td>{a.requestor_location}</td>
                         <td>{a.requestor_department}</td>
                         <td>{a.access_request_type}</td>
+                        <td>{a.vendorFirm || "-"}</td>
+                        <td>{a.vendorCode || "-"}</td>
+                        <td>{a.vendorName?.join(", ") || "-"}</td>
+                        <td>{a.allocatedId?.join(", ") || "-"}</td>
                         <td>
                           <div style={{ fontSize: "0.65rem" }}>
                             <div>
@@ -409,51 +426,80 @@ const ApprovalHistoryPage: React.FC = () => {
           )}
         </div>
       </main>
-      {modalTasks && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modalContent}>
-            <h3>Task Details</h3>
-            <button className={styles.closeModalBtn} onClick={closeTaskModal}>
-              ×
-            </button>
-            <table className={styles.modalTable}>
-              <thead>
-                <tr>
-                  <th>Transaction ID</th>
-                  <th>Application / Equip ID</th>
-                  <th>Department</th>
-                  <th>Role</th>
-                  <th>Location</th>
-                  <th>Reports To</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {modalTasks.map((task, idx) => (
-                  <tr key={idx}>
-                    <td>{task.transaction_id}</td>
-                    <td>{task.application_name}</td>
-                    <td>{task.department_name}</td>
-                    <td>{task.role_name}</td>
-                    <td>{task.location_name}</td>
-                    <td>{task.reports_to}</td>
-                    <td>
-                      <span
-                        className={`${styles.statusBadge} ${
-                          task.task_status === "Pending"
-                            ? styles.pending
-                            : task.task_status === "Approved"
-                            ? styles.approved
-                            : styles.rejected
-                        }`}
-                      >
-                        {task.task_status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+     {modalTasks && (
+        <div className={styles.modalOverlay} onClick={closeTaskModal}>
+          <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+
+            {/* Header */}
+            <div className={styles.modalHeader}>
+              <div className={styles.modalHeaderLeft}>
+                <div className={styles.modalIconWrap}>
+                  <VisibilityOutlinedIcon fontSize="small" style={{ color: "#fff" }} />
+                </div>
+                <div>
+                  <p className={styles.modalTitle}>Task Details</p>
+                  <p className={styles.modalSubtitle}>
+                    Linked tasks for this request
+                  </p>
+                </div>
+                <span className={styles.taskCountBadge}>{modalTasks.length}</span>
+              </div>
+              <button className={styles.closeModalBtn} onClick={closeTaskModal}>
+                ×
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className={styles.modalBody}>
+              {modalTasks.length === 0 ? (
+                <p style={{ textAlign: "center", color: "#94a3b8", padding: "32px 0", margin: 0, fontSize: 14 }}>
+                  No tasks found for this request.
+                </p>
+              ) : (
+                <table className={styles.modalTable}>
+                  <thead>
+                    <tr>
+                      <th>Transaction ID</th>
+                      <th>Application / Equip ID</th>
+                      <th>Department</th>
+                      <th>Role</th>
+                      <th>Location</th>
+                      <th>Reports To</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {modalTasks.map((task, idx) => (
+                      <tr key={idx}>
+                        <td>{task.transaction_id}</td>
+                        <td>{task.application_name}</td>
+                        <td>{task.department_name}</td>
+                        <td>{task.role_name}</td>
+                        <td>{task.location_name}</td>
+                        <td>{task.reports_to}</td>
+                        <td>
+                          <span
+                            className={`${styles.statusBadge} ${
+                              task.task_status === "Pending"
+                                ? styles.pending
+                                : task.task_status === "Approved"
+                                  ? styles.approved
+                                  : styles.rejected
+                            }`}
+                          >
+                            {task.task_status === "Pending" && "⏳ "}
+                            {task.task_status === "Approved" && "✓ "}
+                            {task.task_status === "Rejected" && "✕ "}
+                            {task.task_status}
+                          </span>
+                        </td>
+                       
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
         </div>
       )}
