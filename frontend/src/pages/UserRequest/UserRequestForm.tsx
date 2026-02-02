@@ -25,7 +25,9 @@ type BulkRow = {
   role: string[];
 };
 const AddUserRequest: React.FC = () => {
+  const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const errorRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close menu when clicking outside
@@ -202,6 +204,14 @@ const AddUserRequest: React.FC = () => {
     console.log("ROLE:", form.role, "MULTI:", isMultipleRoleAllowed, "Application:", applications);
   }, [form.role, isMultipleRoleAllowed]);
 
+useEffect(() => {
+  if (validationError && errorRef.current) {
+    errorRef.current.scrollIntoView({ 
+      behavior: 'smooth', 
+      block: 'center' 
+    });
+  }
+}, [validationError]);
 
   
 
@@ -416,19 +426,24 @@ const AddUserRequest: React.FC = () => {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const files = Array.from(e.target.files);
-      if (files.length > 1) {
-        alert("You can only upload one file.");
-        return;
-      }
-      if (files[0].size > 4 * 1024 * 1024 * 1024) {
-        alert("The file size must be less than or equal to 4GB.");
-        return;
-      }
-      setAttachments(files);
-    }
-  };
+  if (!e.target.files) return;
+
+  const files = Array.from(e.target.files);
+
+  if (files.length > 1) {
+    alert("You can only upload one file.");
+    e.target.value = "";
+    return;
+  }
+
+  if (files[0].size > MAX_FILE_SIZE) {
+    alert("The file size must be less than or equal to 4 MB.");
+    e.target.value = "";
+    return;
+  }
+
+  setAttachments(files);
+};
 
   const handleAddRow = () => {
     if (bulkRows.length < 7) {
@@ -2137,8 +2152,58 @@ if (tasks.length === 0) {
             style={{ width: "100%" }}
           >
             <div className={addUserRequestStyles.scrollFormContainer}>
-              {/* Card 1 */}
-              <div className={addUserRequestStyles.section}>
+  {/* ========== VALIDATION ERROR - MOVED TO TOP ========== */}
+  {validationError && (
+    <div 
+      ref={errorRef}
+      style={{
+        padding: "15px 20px",
+        background: "#fdecea",
+        color: "#b71c1c",
+        border: "2px solid #f5c6cb",
+        borderRadius: "8px",
+        marginBottom: "20px",
+        fontSize: "14px",
+        fontWeight: "500",
+        boxShadow: "0 2px 8px rgba(183, 28, 28, 0.15)",
+        animation: "slideDown 0.3s ease-out",
+        display: "flex",
+        alignItems: "center",
+        gap: "10px"
+      }}
+    >
+      <span style={{ fontSize: "20px" }}>⚠️</span>
+      <div>
+        <strong style={{ display: "block", marginBottom: "4px" }}>Validation Error</strong>
+        {validationError}
+      </div>
+    </div>
+  )}
+
+  {/* ========== SUCCESS MESSAGE - ALSO AT TOP ========== */}
+  {successMessage && (
+    <div style={{
+      padding: "15px 20px",
+      background: "#e6f4ea",
+      color: "#1e7e34",
+      border: "2px solid #c3e6cb",
+      borderRadius: "8px",
+      marginBottom: "20px",
+      fontSize: "14px",
+      fontWeight: "500",
+      boxShadow: "0 2px 8px rgba(30, 126, 52, 0.15)",
+      animation: "slideDown 0.3s ease-out",
+      display: "flex",
+      alignItems: "center",
+      gap: "10px"
+    }}>
+      <span style={{ fontSize: "20px" }}>✅</span>
+      <div>{successMessage}</div>
+    </div>
+  )}
+
+  {/* Card 1 */}
+  <div className={addUserRequestStyles.section}>
                 <span className={addUserRequestStyles.sectionHeaderTitle}>
                   Requestor Details
                 </span>
@@ -2855,31 +2920,6 @@ if (tasks.length === 0) {
                 </div>
               )}
             </div>
-            {validationError && (
-              <div style={{
-                padding: "10px",
-                background: "#fdecea",
-                color: "#b71c1c",
-                border: "1px solid #f5c6cb",
-                borderRadius: "4px",
-                marginBottom: "10px"
-              }}>
-                {validationError}
-              </div>
-            )}
-
-            {successMessage && (
-              <div style={{
-                padding: "10px",
-                background: "#e6f4ea",
-                color: "#1e7e34",
-                border: "1px solid #c3e6cb",
-                borderRadius: "4px",
-                marginBottom: "10px"
-              }}>
-                {successMessage}
-              </div>
-            )}
 
 
             {/* Move the footer buttons to the top */}
