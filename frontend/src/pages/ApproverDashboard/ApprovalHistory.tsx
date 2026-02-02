@@ -360,8 +360,8 @@ const ApprovalHistoryPage: React.FC = () => {
                         <td>{a.access_request_type}</td>
                         <td>{a.vendorFirm || "-"}</td>
                         <td>{a.vendorCode || "-"}</td>
-                        <td>{a.vendorName?.join(", ") || "-"}</td>
-                        <td>{a.allocatedId?.join(", ") || "-"}</td>
+                        <td>{a.vendorName || "-"}</td>
+                        <td>{a.allocatedId || "-"}</td>
                         <td>
                           <div style={{ fontSize: "0.65rem" }}>
                             <div>
