@@ -32,6 +32,7 @@ export type { System };
 ========================= */
 interface SystemContextType {
   systems: System[];
+  refreshSystems: () => void;
   addSystem: (system: System) => Promise<void>;
   updateSystem: (index: number, updated: System) => Promise<void>;
   deleteSystem: (index: number) => Promise<void>;
@@ -62,9 +63,11 @@ export const SystemProvider = ({ children }: { children: ReactNode }) => {
 
         transaction_id: p.transaction_id,
         plant_location_id: p.plant_location_id,
+        plant_name: p.plant_name,
         user_location: p.user_location,
         building_location: p.building_location,
         department_id: p.department_id,
+        department_name: p.department_name,
         allocated_to_user_name: p.allocated_to_user_name,
         host_name: p.host_name,
 
@@ -222,7 +225,7 @@ export const SystemProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <SystemContext.Provider
-      value={{ systems, addSystem, updateSystem, deleteSystem }}
+      value={{ systems,refreshSystems: fetchAndSetSystems, addSystem, updateSystem, deleteSystem }}
     >
       {children}
     </SystemContext.Provider>

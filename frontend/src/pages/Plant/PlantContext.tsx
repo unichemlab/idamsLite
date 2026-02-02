@@ -49,7 +49,7 @@ interface PlantContextType {
   plants: Plant[];
   addPlant: (plant: Plant) => Promise<ApprovalResponse | Plant>;
   updatePlant: (index: number, updated: Plant) => Promise<ApprovalResponse | Plant>;
-  deletePlant: (index: number) => Promise<ApprovalResponse | void>;
+  deletePlant: (index: number) => void;
   refreshPlants: () => void;
 }
 
@@ -63,7 +63,7 @@ export const PlantContext = createContext<PlantContextType | undefined>(
 // ------------------------
 // Provider
 // ------------------------
-export const PlantProviderUser = ({ children }: { children: ReactNode }) => {
+export const PlantProvider = ({ children }: { children: ReactNode }) => {
   const [plants, setPlants] = useState<Plant[]>([]);
 
   // Normalize API → UI
@@ -162,7 +162,7 @@ export const PlantProviderUser = ({ children }: { children: ReactNode }) => {
       throw new Error("Plant not found");
     }
 
-     await deletePlantAPI(plant.id);
+    const response = await deletePlantAPI(plant.id);
     
 
     // if (response?.status === "PENDING_APPROVAL") {
@@ -175,11 +175,10 @@ export const PlantProviderUser = ({ children }: { children: ReactNode }) => {
   // ------------------------
   // Refresh
   // ------------------------
-  const refreshPlants = () => fetchAndSetPlants();
 
   return (
     <PlantContext.Provider
-      value={{ plants, addPlant, updatePlant, deletePlant, refreshPlants }}
+      value={{ plants, addPlant, updatePlant, deletePlant, refreshPlants: fetchAndSetPlants }}
     >
       {children}
     </PlantContext.Provider>

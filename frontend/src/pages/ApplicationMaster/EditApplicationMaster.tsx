@@ -5,8 +5,8 @@ import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
 import AppHeader from "../../components/Common/AppHeader";
 import addStyles from "../Plant/AddPlantMaster.module.css";
 import Select from "react-select";
-import { usePlantContext } from "../PlantMaster/PlantContext";
-import { useDepartmentContext } from "../DepartmentMaster/DepartmentContext";
+import { usePlantContext } from "../Plant/PlantContext";
+import { useDepartmentContext } from "..//DepartmentTable/DepartmentContext";
 import { useAuth } from "../../context/AuthContext";
 
 const EditApplicationMaster: React.FC = () => {

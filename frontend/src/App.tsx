@@ -3,7 +3,7 @@ import React from "react";
 import { BrowserRouter } from "react-router-dom";
 import "./App.module.css";
 
-import { DepartmentProvider } from "pages/DepartmentMaster/DepartmentContext";
+import { DepartmentProvider } from "pages/DepartmentTable/DepartmentContext";
 import { FormProvider } from "./context/FormContext";
 import { AuthProvider } from "./context/AuthContext";
 import { PermissionProvider } from "./context/PermissionContext";
@@ -11,12 +11,11 @@ import { RolesProvider } from "./RoleMaster/RolesContext";
 import { UserProvider } from "./context/UserContext";
 import { ApplicationsProvider } from "./context/ApplicationsContext";
 import { ApproverProvider } from "./context/ApproverContext";
-import { PlantProvider } from "pages/PlantMaster/PlantContext";
-import { PlantProviderUser } from "pages/Plant/PlantContext";
-import { VendorProvider } from "pages/VendorMaster/VendorContext";
-import { ActivityLogProvider } from "pages/ActivityMasterTable/ActivityLogContext";
-import { SystemProvider } from "pages/SystemInventoryMaster/SystemContext";
-import { ServerProvider } from "pages/ServerInventoryMaster/ServerContext";
+import { PlantProvider } from "pages/Plant/PlantContext";
+import { VendorProvider } from "pages/VendorMasterInformation/VendorContext";
+import { ActivityLogProvider } from "pages/ActivityMaster/ActivityLogContext";
+import { SystemProvider } from "pages/SystemInventoryMasterUser/SystemContext";
+import { ServerProvider } from "pages/ServerInventorymasterUser/ServerContext";
 import { TaskProvider } from "pages/TaskClosureTracking/TaskContext";
 import { UserRequestProvider } from "pages/UserRequest/UserRequestContext";
 import {NetworkProvider} from "./context/NetworkContext";
@@ -33,7 +32,7 @@ const App: React.FC = () => {
         <AuthProvider>
           <PermissionProvider>
             <PlantProvider>
-              <PlantProviderUser>
+             
                 <UserRequestProvider>
                   <ActivityLogProvider>
                     <TaskProvider>
@@ -66,7 +65,7 @@ const App: React.FC = () => {
                     </TaskProvider>
                   </ActivityLogProvider>
                 </UserRequestProvider>
-              </PlantProviderUser>
+              
             </PlantProvider>
           </PermissionProvider>
         </AuthProvider>

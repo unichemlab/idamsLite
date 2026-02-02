@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
 import AppHeader from "../../components/Common/AppHeader";
 import addStyles from "../Plant/AddPlantMaster.module.css";
-import { useDepartmentContext } from "../DepartmentMaster/DepartmentContext";
+import { useDepartmentContext } from "..//DepartmentTable/DepartmentContext";
 import { useAuth } from "../../context/AuthContext";
 
 const AddApplicationMaster: React.FC = () => {

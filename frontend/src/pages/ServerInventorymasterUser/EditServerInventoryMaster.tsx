@@ -1,8 +1,7 @@
 import React, { useContext, useState, useEffect } from "react";
 import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
 import { useNavigate, useParams } from "react-router-dom";
-import { ServerContext } from "../ServerInventoryMaster/ServerContext";
-import { Server } from "../ServerInventoryMaster/ServerContext";
+import { ServerContext,Server } from "../ServerInventorymasterUser/ServerContext";
 import { useAuth } from "../../context/AuthContext";
 import AppHeader from "../../components/Common/AppHeader";
 import { fetchPlants } from "../../utils/api";

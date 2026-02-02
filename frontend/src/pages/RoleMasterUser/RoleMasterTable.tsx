@@ -7,7 +7,7 @@ import styles from "../Plant/PlantMasterTable.module.css";
 import paginationStyles from "../../styles/Pagination.module.css";
 import { FaEdit, FaTrash, FaRegClock } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
-import { useRoles } from "../../RoleMaster/RolesContext";
+import { useRoles } from "./RolesContext";
 import { useAbility } from "../../context/AbilityContext";
 import { fetchRoleActivityLogs } from "../../utils/api";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
@@ -15,6 +15,8 @@ import AppHeader from "../../components/Common/AppHeader";
 import { PermissionGuard, PermissionButton } from "../../components/Common/PermissionComponents";
 import { PERMISSIONS } from "../../constants/permissions";
 import { usePermissions } from "../../context/PermissionContext";
+import useAutoRefresh from "../../hooks/useAutoRefresh";
+
 interface RoleMasterTableProps {
   onAdd?: () => void;
   onEdit?: (id: number) => void;
@@ -24,7 +26,7 @@ export default function RoleMasterTable({
   onAdd,
   onEdit,
 }: RoleMasterTableProps) {
-  const { roles, deleteRole } = useRoles();
+  const { roles, deleteRole,refreshRoles  } = useRoles();
   const [selectedRow, setSelectedRow] = React.useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   const [showActivityModal, setShowActivityModal] = React.useState(false);
@@ -79,6 +81,12 @@ export default function RoleMasterTable({
       img.onerror = reject;
     });
   };
+const refreshCallback = useCallback(() => {
+  console.log("[RoleMaster] 🔄 Auto refreshing roles...");
+  refreshRoles();
+}, [refreshRoles]);
+
+useAutoRefresh(refreshCallback);
 
   // PDF Export Handler for Role Table
   const handleExportPDF = async () => {

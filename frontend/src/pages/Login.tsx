@@ -4,6 +4,21 @@ import styles from "./Login.module.css";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
+/**
+ * Login Component - Fully Responsive
+ * 
+ * Breakpoints:
+ * - Extra small: < 360px
+ * - Small mobile: 360px - 400px
+ * - Mobile: 400px - 600px
+ * - Tablet: 600px - 768px
+ * - Large tablet: 768px - 1024px
+ * - Desktop: > 1024px
+ * - Very large: > 1440px
+ * 
+ * Also handles landscape orientation for mobile devices
+ */
+
 // Logo heading with centered image and improved design
 const LogoHeading = () => (
   <div className={styles.logoHeading}>
@@ -12,11 +27,6 @@ const LogoHeading = () => (
         src={loginHeadTitle}
         alt="IDAMS LITE"
         className={styles.logoLiteImg}
-        style={{
-          height: "3.4rem",
-          marginLeft: "0.6em",
-          verticalAlign: "middle",
-        }}
       />
       <span className={styles.version}>version-1.0</span>
     </div>
@@ -27,94 +37,16 @@ const LogoHeading = () => (
 const Login: React.FC = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
-  // useLocation in this project may not accept a generic type argument depending on
-  // the installed react-router types, so read the state and cast when used.
   const location = useLocation();
   const { login, error, loading, user } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await login(username, password);
+    await login(username.toLowerCase().trim(), password.trim());
   };
 
-  // React.useEffect(() => {
-  //   if (!user) return;
-
-  //   if (user.status.toUpperCase() !== "ACTIVE") return;
-
-  //   // If backend determined this user is an approver, send them to approver dashboard
-  //   if ((user as any).isApprover) {
-  //     navigate("/approver", { replace: true });
-  //     return;
-  //   }
-
-  //   // Get return path if one was saved during auth redirect
-  //   const returnPath = location.state?.from;
-
-  //   // Role names used across the app
-  //   type RoleName =
-  //     | "SuperAdmin"
-  //     | "PlantITAdmin"
-  //     | "Approver"
-  //     | "AuditReviewer"
-  //     | "PlantUser";
-
-  //   // Role-based landing pages
-  //   const RoleLandingPages: Record<RoleName, string> = {
-  //     SuperAdmin: "/superadmin",
-  //     PlantITAdmin: "/plantadmin",
-  //     Approver: "/approver",
-  //     AuditReviewer: "/reports",
-  //     PlantUser: "/user-access-management",
-  //   };
-
-  //   // Get highest role priority map
-  //   const RoleHierarchy: Record<RoleName, number> = {
-  //     SuperAdmin: 5,
-  //     PlantITAdmin: 4,
-  //     Approver: 3,
-  //     AuditReviewer: 2,
-  //     PlantUser: 1,
-  //   };
-
-  //   // Map role IDs to names (align with AbilityContext role mapping)
-  //   const roleMap: Record<number, RoleName | undefined> = {
-  //     1: "SuperAdmin",
-  //     2: "PlantITAdmin",
-  //     3: "AuditReviewer",
-  //     4: "Approver",
-  //     5: "PlantUser",
-  //   };
-
-  //   // Get role names and find highest priority
-  //   const roleIds: number[] = Array.isArray(user.role_id)
-  //     ? user.role_id
-  //     : typeof user.role_id === "number"
-  //     ? [user.role_id]
-  //     : [];
-
-  //   const roleNames = roleIds
-  //     .map((id) => roleMap[id])
-  //     .filter(Boolean) as RoleName[];
-  //   const highestRole = roleNames.reduce(
-  //     (highest: RoleName, current: RoleName) => {
-  //       return (RoleHierarchy[current] || 0) > (RoleHierarchy[highest] || 0)
-  //         ? current
-  //         : highest;
-  //     },
-  //     "PlantUser"
-  //   );
-
-  //   // Determine target - prefer return path if exists and user has permission
-  //   const defaultTarget =
-  //     RoleLandingPages[highestRole] || "/user-access-management";
-  //   const target = returnPath || defaultTarget;
-
-  //   if (location.pathname !== target) {
-  //     navigate(target, { replace: true });
-  //   }
-  // }, [user, navigate, location.pathname, location.state?.from]);
   React.useEffect(() => {
     if (!user) return;
 
@@ -124,39 +56,25 @@ const Login: React.FC = () => {
     const roleIds: number[] = Array.isArray(user.role_id)
       ? user.role_id
       : typeof user.role_id === "number"
-      ? [user.role_id]
-      : [];
-    // Prefer routing by explicit approver flag if present (set from AuthContext workflow check)
-  
+        ? [user.role_id]
+        : [];
+
     let target = "/homepage";
 
-   if (roleIds.includes(1)) {
+    if (roleIds.includes(1)) {
       target = "/homepage";
-    } else  {
+    } else {
       target = "/homepage";
     }
 
-
-
-    // if (user.isApprover||user.isITBin) {
-    //   target = "/approver";
-    // } else if (user.isITBin) {
-    //   target = "/task";
-    // }
-    // else if (roleIds.includes(1)) {
-    //   target = "/home";
-    // } else if (roleIds.includes(2)) {
-    //   target = "/plantadmin";
-    // } else if (roleIds.includes(3)) {
-    //   // legacy role-based approver mapping (role 3)
-    //   target = "/approver";
-    // }
-console.log("pathname",location.pathname);
-console.log("target",target);
+    console.log("pathname", location.pathname);
+    console.log("target", target);
+    
     if (location.pathname !== target) {
       navigate(target, { replace: true });
     }
   }, [user, navigate, location.pathname, location.state?.from]);
+
   return (
     <div className={styles.loginBackground}>
       <div className={styles.container}>
@@ -183,37 +101,55 @@ console.log("target",target);
                 aria-required="true"
               />
             </div>
-            <div className={styles.inputGroup}>
+
+            <div className={styles.passwordWrapper}>
               <label htmlFor="password" className={styles.inputLabel}>
                 Password
               </label>
               <input
                 id="password"
                 className={styles.input}
-                type="password"
+                type={showPassword ? "text" : "password"}
                 placeholder="Enter your password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => setPassword(e.target.value.trim())}
                 autoComplete="current-password"
                 aria-required="true"
               />
+              <span
+                className={styles.eyeIcon}
+                onClick={() => setShowPassword(!showPassword)}
+                role="button"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                tabIndex={0}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    setShowPassword(!showPassword);
+                  }
+                }}
+              >
+                {showPassword ? "👁️" : "👁️‍🗨️"}
+              </span>
             </div>
+
             {error && (
               <div className={styles.error} role="alert">
                 {error}
               </div>
             )}
+
             {loading && (
               <div className={styles.error} role="status">
                 Logging in...
               </div>
             )}
+
             <button
               className={styles.loginButton}
               type="submit"
-              aria-label="Login"
+              disabled={loading}
             >
-              Login
+              {loading ? <span className={styles.loader}></span> : "Login"}
             </button>
           </form>
         </main>

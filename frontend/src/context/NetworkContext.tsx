@@ -83,10 +83,12 @@ export type { Network };
 ========================= */
 interface NetworkContextType {
   networks: Network[];
+  refreshNetworks: () => Promise<void>;   // ✅ ADD
   addNetwork: (network: Network) => Promise<void>;
   updateNetwork: (index: number, updated: Network) => Promise<void>;
   deleteNetwork: (index: number) => Promise<void>;
 }
+
 
 /* =========================
    CONTEXT
@@ -209,8 +211,15 @@ export const NetworkProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <NetworkContext.Provider
-      value={{ networks, addNetwork, updateNetwork, deleteNetwork }}
-    >
+  value={{
+    networks,
+    refreshNetworks: fetchAndSetNetworks,   // ✅ ADD
+    addNetwork,
+    updateNetwork,
+    deleteNetwork,
+  }}
+>
+
       {children}
     </NetworkContext.Provider>
   );

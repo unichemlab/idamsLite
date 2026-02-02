@@ -18,10 +18,13 @@ import { filterByModulePlantPermission } from "../../utils/permissionUtils";
 import { PermissionGuard, PermissionButton } from "../../components/Common/PermissionComponents";
 import { PERMISSIONS } from "../../constants/permissions";
 import { usePermissions } from "../../context/PermissionContext";
+import useAutoRefresh from "../../hooks/useAutoRefresh";
 
 const NetworkMasterTable: React.FC = () => {
   const networkCtx = useContext(NetworkContext);
-  const networks = networkCtx?.networks ?? [];
+const networks = networkCtx?.networks ?? [];
+const refreshNetworks = networkCtx?.refreshNetworks;
+
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showFilterPopover, setShowFilterPopover] = useState(false);
@@ -66,6 +69,13 @@ const NetworkMasterTable: React.FC = () => {
       }
     });
   }, [permissionFilteredData, filterValue, filterColumn]);
+const refreshCallback = React.useCallback(() => {
+  if (!refreshNetworks) return;
+  console.log("[NetworkMaster] 🔄 Auto refreshing networks...");
+  refreshNetworks();
+}, [refreshNetworks]);
+
+useAutoRefresh(refreshCallback);
 
   const totalPages = Math.max(1, Math.ceil(filteredData.length / rowsPerPage));
   const paginatedData = filteredData.slice(

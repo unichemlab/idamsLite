@@ -6,8 +6,8 @@ import AppHeader from "../../components/Common/AppHeader";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
 import { PermissionGuard, PermissionButton } from "../../components/Common/PermissionComponents";
 import { useApplications } from "../../context/ApplicationsContext";
-import { useDepartmentContext } from "../DepartmentMaster/DepartmentContext";
-import { usePlantContext } from "../PlantMaster/PlantContext";
+import { useDepartmentContext } from "..//DepartmentTable/DepartmentContext";
+import { usePlantContext } from "../Plant/PlantContext";
 import { useAuth } from "../../context/AuthContext";
 import { usePermissions } from "../../context/PermissionContext";
 import { filterByPlantPermission,filterByModulePlantPermission } from "../../utils/permissionUtils";
@@ -16,6 +16,7 @@ import { PERMISSIONS } from "../../constants/permissions";
 import styles from "../Plant/PlantMasterTable.module.css";
 import paginationStyles from "../../styles/Pagination.module.css";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
+import useAutoRefresh from "../../hooks/useAutoRefresh";
 
 export default function ApplicationMasterTable() {
   const [showActivityModal, setShowActivityModal] = React.useState(false);
@@ -31,7 +32,7 @@ export default function ApplicationMasterTable() {
   const [tempFilterValue, setTempFilterValue] = React.useState(filterValue);
   const popoverRef = React.useRef<HTMLDivElement | null>(null);
   
-  const { applications, setApplications } = useApplications();
+  const { applications, setApplications, refreshApplications } = useApplications();
   const { departments } = useDepartmentContext();
   const { plants } = usePlantContext();
   const { user } = useAuth();
@@ -47,6 +48,12 @@ export default function ApplicationMasterTable() {
     const plant = plants.find((p) => p.id === id);
     return plant ? plant.name || plant.plant_name || id : id;
   }, [plants]);
+ const refreshCallback = useCallback(() => {
+  console.log("[ApplicationMaster] 🔄 Auto refreshing applications...");
+  refreshApplications();
+}, [refreshApplications]);
+
+useAutoRefresh(refreshCallback);
 
   // Close filter popover on outside click
   React.useEffect(() => {

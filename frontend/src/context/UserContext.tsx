@@ -27,6 +27,7 @@ export interface UserWithLogs extends UserForm {
 
 interface UserContextType {
   users: UserWithLogs[];
+  refreshUsers: () => Promise<void>;   // ✅ ADD
   addUser: (user: UserForm) => Promise<void>;
   editUser: (userId: string, user: UserForm) => Promise<void>;
   deleteUser: (idx: number) => void;
@@ -613,9 +614,17 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   return (
-    <UserContext.Provider
-      value={{ users, addUser, editUser, deleteUser, currentUser }}
-    >
+   <UserContext.Provider
+  value={{
+    users,
+    refreshUsers: fetchUsers,   // ✅ ADD
+    addUser,
+    editUser,
+    deleteUser,
+    currentUser,
+  }}
+>
+
       {children}
     </UserContext.Provider>
   );
