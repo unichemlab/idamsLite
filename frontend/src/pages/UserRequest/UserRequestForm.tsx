@@ -511,7 +511,19 @@ const AddUserRequest: React.FC = () => {
 
       const data = await res.json();
       console.log("data", data);
-      setFilterResults(data);
+      const mappedData = data.map((item: any) => ({
+  ...item,
+
+  // 🔥 backend → frontend mapping
+  vendorName: item.vendor_name ? [item.vendor_name] : [],
+  vendorFirm: item.vendor_firm || "",
+  vendorCode: item.vendor_code || "",
+  allocatedId: item.vendor_allocated_id
+    ? [item.vendor_allocated_id]
+    : [],
+}));
+
+setFilterResults(mappedData);
       // ✅ Close filter modal and open result modal
       setFilterModalOpen(false);
       setResultModalOpen(true);
@@ -1582,7 +1594,7 @@ if (tasks.length === 0) {
     logout();
     navigate("/");
   };
-
+ console.log("filter requests to display:", filterResults);
   // ===================== JSX =====================
   return (
     <div className={addUserRequestStyles["main-container"]}>
@@ -1766,6 +1778,9 @@ if (tasks.length === 0) {
                       <th>Location</th>
                       <th>Department</th>
                       <th>Access Type</th>
+                      <th>Vendor Firm</th>
+                      <th>Vendor Code</th>
+                      <th>Vendor Name</th>
                       <th>Approver status & Comment</th>
                       <th>Created On</th>
                       <th>Status</th>
@@ -1789,7 +1804,9 @@ if (tasks.length === 0) {
                             <td>{a.tasks?.[0]?.location}</td>
                             <td>{a.tasks?.[0]?.department || "—"}</td>
                             <td>{a.accessType || "—"}</td>
-
+                            <td>{a.vendorFirm || "—"}</td>
+                            <td>{a.vendorCode || "—"}</td>
+                            <td>{a.vendorName || "—"}</td>
                             <td>
                               <div style={{ fontSize: "0.55rem", lineHeight: '1.5', minWidth: '250px' }}>
                                 {/* Approver 1 */}
