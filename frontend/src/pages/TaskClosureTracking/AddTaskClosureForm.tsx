@@ -402,23 +402,23 @@ const TaskClosureForm = () => {
               <div className={addUserRequestStyles.sixCol}>
                 <div className={addUserRequestStyles.formGroup}>
                   <input name="ritmNumber" value={formData.ritmNumber} readOnly />
-                  <label>RITM Number</label>
+                  <label htmlFor="ritmNumber" className={addUserRequestStyles.floatingLabel}>RITM Number</label>
                 </div>
                 <div className={addUserRequestStyles.formGroup}>
                   <input name="requestBy" value={formData.requestBy} readOnly />
-                  <label>Request For / By *</label>
+                  <label htmlFor="requestBy" className={addUserRequestStyles.floatingLabel}>Request For / By *</label>
                 </div>
                 <div className={addUserRequestStyles.formGroup}>
                   <input name="name" value={formData.name} readOnly />
-                  <label>Opened By *</label>
+                  <label htmlFor="name" className={addUserRequestStyles.floatingLabel}>Opened By *</label>
                 </div>
                 <div className={addUserRequestStyles.formGroup}>
                   <input name="employeeCode" value={formData.employeeCode} readOnly />
-                  <label>Employee Code</label>
+                  <label htmlFor="employeeCode" className={addUserRequestStyles.floatingLabel}>Employee Code</label>
                 </div>
                 <div className={addUserRequestStyles.formGroup}>
                   <input name="location" value={formData.location} readOnly />
-                  <label>User Location</label>
+                  <label htmlFor="location" className={addUserRequestStyles.floatingLabel}>User Location</label>
                 </div>
                 <div className={addUserRequestStyles.formGroup}>
                   <input
@@ -432,33 +432,33 @@ const TaskClosureForm = () => {
                     }
                     readOnly
                   />
-                  <label>Created On</label>
+                  <label htmlFor="task_created" className={addUserRequestStyles.floatingLabel}>Created On</label>
                 </div>
               </div>
 
               <div className={addUserRequestStyles.sixCol}>
                 <div className={`${addUserRequestStyles.formGroup} ${addUserRequestStyles.span2}`}>
                   <input name="access_request_type" value={formData.access_request_type} readOnly />
-                  <label>Access Request Type</label>
+                  <label htmlFor="access_request_type" className={addUserRequestStyles.floatingLabel}>Access Request Type</label>
                 </div>
                 <div className={`${addUserRequestStyles.formGroup} ${addUserRequestStyles.span2}`}>
                   <input name="plant_name" value={formData.plant_name} readOnly />
-                  <label>Req. App. Plant</label>
+                  <label htmlFor="plant_name" className={addUserRequestStyles.floatingLabel}>Req. App. Plant</label>
                 </div>
                 <div className={`${addUserRequestStyles.formGroup} ${addUserRequestStyles.span2}`}>
                   <input name="department" value={formData.department} readOnly />
-                  <label>Req. App. Department</label>
+                  <label htmlFor="department" className={addUserRequestStyles.floatingLabel}>Req. App. Department</label>
                 </div>
               </div>
 
               <div className={addUserRequestStyles.sixCol}>
                 <div className={`${addUserRequestStyles.formGroup} ${addUserRequestStyles.span2}`}>
                   <input name="applicationName" value={formData.applicationName} readOnly />
-                  <label>Application Name / Equipment ID *</label>
+                  <label htmlFor="applicationName" className={addUserRequestStyles.floatingLabel}>Application Name / Equipment ID *</label>
                 </div>
                 <div className={`${addUserRequestStyles.formGroup} ${addUserRequestStyles.span2}`}>
                   <input name="assignmentGroup" value={formData.assignmentGroup} readOnly />
-                  <label>Assignment Plant IT Group</label>
+                  <label htmlFor="assignmentGroup" className={addUserRequestStyles.floatingLabel}>Assignment Plant IT Group</label>
                 </div>
                 <div className={addUserRequestStyles.formGroup}>
                   <input
@@ -470,11 +470,11 @@ const TaskClosureForm = () => {
                       color: "#2563eb",
                     }}
                   />
-                  <label>Requested Role *</label>
+                  <label htmlFor="requestedRole" className={addUserRequestStyles.floatingLabel}>Requested Role *</label>
                 </div>
                 <div className={addUserRequestStyles.formGroup}>
                   <input name="status" value={formData.status} readOnly />
-                  <label>Status</label>
+                  <label htmlFor="status" className={addUserRequestStyles.floatingLabel}>Status</label>
                 </div>
               </div>
             </div>
@@ -485,7 +485,7 @@ const TaskClosureForm = () => {
               <div className={addUserRequestStyles.sixCol}>
                 <div className={addUserRequestStyles.formGroup}>
                   <input name="tasknumber" value={formData.taskNumber} readOnly />
-                  <label>Task Number</label>
+                  <label htmlFor="tasknumber" className={addUserRequestStyles.floatingLabel}>Task Number</label>
                 </div>
 
                 <div className={addUserRequestStyles.formGroup}>
@@ -499,7 +499,7 @@ const TaskClosureForm = () => {
                     <option value="Pending">Pending</option>
                     <option value="Closed">Closed</option>
                   </select>
-                  <label>Request Status</label>
+                  <label htmlFor="requestStatus" className={addUserRequestStyles.floatingLabel}>Request Status</label>
                 </div>
 
                 <div className={`${addUserRequestStyles.formGroup} ${addUserRequestStyles.span2}`}>
@@ -516,7 +516,7 @@ const TaskClosureForm = () => {
                       </option>
                     ))}
                   </select>
-                  <label htmlFor="assignedTo">Assigned To</label>
+                  <label htmlFor="assignedTo" className={addUserRequestStyles.floatingLabel}>Assigned To</label>
                 </div>
 
                 {/* ========================================
@@ -537,7 +537,7 @@ const TaskClosureForm = () => {
                       </option>
                     ))}
                   </select>
-                  <label htmlFor="access">
+                  <label htmlFor="access" className={addUserRequestStyles.floatingLabel}>
                     Access *
                   </label>
                 </div>
@@ -551,7 +551,7 @@ const TaskClosureForm = () => {
                       onChange={handleChange}
                       className={addUserRequestStyles.passwordInput}
                     />
-                    <label>Password</label>
+                    <label htmlFor="password" className={addUserRequestStyles.floatingLabel}>Password</label>
                     <span
                       className={addUserRequestStyles.eyeIcon}
                       onClick={() => setShowPassword((prev) => !prev)}
@@ -569,7 +569,7 @@ const TaskClosureForm = () => {
                     value={formData.allocatedId}
                     onChange={handleChange}
                   />
-                  <label>Allocated ID</label>
+                  <label htmlFor="allocatedId" className={addUserRequestStyles.floatingLabel}>Allocated ID</label>
                   {formData.allocatedId !== formData.employeeCode && (
                     <p className={addUserRequestStyles.warningText}>
                       ⚠️ Do you want to update previous records with this new ID?
@@ -594,7 +594,7 @@ const TaskClosureForm = () => {
                           : undefined,
                     }}
                   />
-                  <label>
+                  <label htmlFor="roleGranted" className={addUserRequestStyles.floatingLabel}>
                     Role Granted *
                   </label>
                   {formData.roleGranted &&
@@ -639,7 +639,7 @@ const TaskClosureForm = () => {
                     <option value="Permanent">Permanent</option>
                     <option value="Temporary">Temporary</option>
                   </select>
-                  <label>User Type</label>
+                  <label htmlFor="userRequestType" className={addUserRequestStyles.floatingLabel}>User Type</label>
                 </div>
 
                 {formData.userRequestType === "Temporary" && (
@@ -652,7 +652,7 @@ const TaskClosureForm = () => {
                         readOnly
                         className={addUserRequestStyles.inputField}
                       />
-                      <label>From Date</label>
+                      <label htmlFor="fromDate" className={addUserRequestStyles.floatingLabel}>From Date</label>
                     </div>
                     <div className={addUserRequestStyles.formGroup}>
                       <input
@@ -664,7 +664,7 @@ const TaskClosureForm = () => {
                         className={addUserRequestStyles.inputField}
                         required
                       />
-                      <label>To Date</label>
+                      <label htmlFor="toDate" className={addUserRequestStyles.floatingLabel}>To Date</label>
                     </div>
                   </div>
                 )}
@@ -676,7 +676,7 @@ const TaskClosureForm = () => {
                     onChange={handleChange}
                     rows={1}
                   />
-                  <label>Additional Information</label>
+                  <label htmlFor="additionalInfo" className={addUserRequestStyles.floatingLabel}>Additional Information</label>
                 </div>
 
                 <div className={addUserRequestStyles.formGroup}>
@@ -686,7 +686,7 @@ const TaskClosureForm = () => {
                     onChange={handleChange}
                     rows={1}
                   />
-                  <label>Remarks</label>
+                  <label htmlFor="remarks" className={addUserRequestStyles.floatingLabel}>Remarks</label>
                 </div>
               </div>
             </div>

@@ -1366,5 +1366,61 @@ textarea[readonly] {
   width: 100%;
 }
 
+/* ================= Floating Label Support ================= */
+
+.formGroup {
+  position: relative;
+}
+
+/* Common floating label */
+.floatingLabel {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
+  font-size: 0.9rem;
+  color: #6b7280;
+  background: #fff;
+  padding: 0 4px;
+  pointer-events: none;
+  transition: all 0.2s ease;
+}
+
+/* Move label on focus */
+.formGroup input:focus ~ .floatingLabel,
+.formGroup select:focus ~ .floatingLabel,
+.formGroup textarea:focus ~ .floatingLabel {
+  top: -2px;
+  left: 10px;
+  font-size: 0.8rem;
+  color: #007bff;
+}
+
+/* Move label when value exists */
+.formGroup input:not(:placeholder-shown) ~ .floatingLabel,
+.formGroup textarea:not(:placeholder-shown) ~ .floatingLabel,
+.formGroup select:not([value=""]) ~ .floatingLabel {
+  top: -2px;
+  left: 10px;
+  font-size: 0.8rem;
+  color: #007bff;
+}
+
+label.floatingLabel {
+    top: -2px;
+    left: 10px;
+    font-size: 0.8rem;
+    color: #007bff;
+}
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
 
