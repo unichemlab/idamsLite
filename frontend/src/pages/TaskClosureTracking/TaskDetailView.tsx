@@ -69,27 +69,27 @@ const TaskDetailView: React.FC = () => {
             <div className={addUserRequestStyles.sixCol}>
               <div className={addUserRequestStyles.formGroup}>
                 <input value={taskData.ritmNumber} readOnly />
-                <label>RITM Number</label>
+                <label htmlFor="ritmNumber" className={addUserRequestStyles.floatingLabel}>RITM Number</label>
               </div>
 
               <div className={addUserRequestStyles.formGroup}>
                 <input value={taskData.request_for_by} readOnly />
-                <label>Request For / By</label>
+                <label htmlFor="requestForBy" className={addUserRequestStyles.floatingLabel}>Request For / By</label>
               </div>
 
               <div className={addUserRequestStyles.formGroup}>
                 <input value={taskData.name} readOnly />
-                <label>Opened By</label>
+                <label htmlFor="openedBy" className={addUserRequestStyles.floatingLabel}>Opened By</label>
               </div>
 
               <div className={addUserRequestStyles.formGroup}>
                 <input value={taskData.employee_code} readOnly />
-                <label>Employee Code</label>
+                <label htmlFor="employeeCode" className={addUserRequestStyles.floatingLabel}>Employee Code</label>
               </div>
 
               <div className={addUserRequestStyles.formGroup}>
                 <input value={taskData.employee_location} readOnly />
-                <label>Location</label>
+                <label htmlFor="location" className={addUserRequestStyles.floatingLabel}>Location</label>
               </div>
 
               <div className={addUserRequestStyles.formGroup}>
@@ -103,26 +103,26 @@ const TaskDetailView: React.FC = () => {
                   }
                   readOnly
                 />
-                <label>Created On</label>
+                <label htmlFor="createdOn" className={addUserRequestStyles.floatingLabel}>Created On</label>
               </div>
             </div>
 
             <div className={addUserRequestStyles.sixCol}>
               <div className={addUserRequestStyles.formGroup}>
                 <input value={taskData.access_request_type} readOnly />
-                <label>Access Request Type</label>
+                <label htmlFor="accessRequestType" className={addUserRequestStyles.floatingLabel}>Access Request Type</label>
               </div>
               <div className={addUserRequestStyles.formGroup}>
                 <input value={task.plant_name || ""} readOnly />
-                <label>Req. App. Plant</label>
+                <label htmlFor="plantName" className={addUserRequestStyles.floatingLabel}>Req. App. Plant</label>
               </div>
               <div className={addUserRequestStyles.formGroup}>
                 <input value={task.department_name || ""} readOnly />
-                <label>Req. App. Department</label>
+                <label htmlFor="department" className={addUserRequestStyles.floatingLabel}>Req. App. Department</label>
               </div>
               <div className={addUserRequestStyles.formGroup}>
                 <input value={task.application_name || ""} readOnly />
-                <label>Application Name</label>
+                <label htmlFor="applicationName" className={addUserRequestStyles.floatingLabel}>Application Name</label>
               </div>
             </div>
           </div>
@@ -133,17 +133,17 @@ const TaskDetailView: React.FC = () => {
             <div className={addUserRequestStyles.sixCol}>
               <div className={addUserRequestStyles.formGroup}>
                 <input value={task.taskNumber} readOnly />
-                <label>Task Number</label>
+                <label htmlFor="taskNumber" className={addUserRequestStyles.floatingLabel}>Task Number</label>
               </div>
 
               <div className={addUserRequestStyles.formGroup}>
                 <input value={task.role_name || ""} readOnly />
-                <label>Requested Role</label>
+                <label htmlFor="requestedRole" className={addUserRequestStyles.floatingLabel}>Requested Role</label>
               </div>
 
               <div className={addUserRequestStyles.formGroup}>
                 <input value={task.task_status} readOnly />
-                <label>Task Status</label>
+                <label htmlFor="taskStatus" className={addUserRequestStyles.floatingLabel}>Task Status</label>
               </div>
 
               <div className={addUserRequestStyles.formGroup}>
@@ -157,7 +157,7 @@ const TaskDetailView: React.FC = () => {
                   }
                   readOnly
                 />
-                <label>Last Updated</label>
+                <label htmlFor="lastUpdated" className={addUserRequestStyles.floatingLabel}>Last Updated</label>
               </div>
 
               <div className={addUserRequestStyles.formGroup}>
@@ -167,7 +167,7 @@ const TaskDetailView: React.FC = () => {
                   rows={2}
                   className={addUserRequestStyles.readonlyTextarea}
                 />
-                <label>Remarks</label>
+                <label htmlFor="remarks" className={addUserRequestStyles.floatingLabel}>Remarks</label>
               </div>
             </div>
           </div>
@@ -184,7 +184,7 @@ const TaskDetailView: React.FC = () => {
                   value={taskData.it_admin_group?.assignment_it_group || ""}
                   readOnly
                 />
-                <label>IT Assignment Group</label>
+                <label htmlFor="itAssignmentGroup" className={addUserRequestStyles.floatingLabel}>IT Assignment Group</label>
               </div>
 
               <div className={addUserRequestStyles.formGroup}>
@@ -201,7 +201,7 @@ const TaskDetailView: React.FC = () => {
                   rows={3}
                   className={addUserRequestStyles.readonlyTextarea}
                 />
-                <label>IT Admin Users</label>
+                <label htmlFor="itAdminUsers" className={addUserRequestStyles.floatingLabel}>IT Admin Users</label>
               </div>
             </div>
           </div>

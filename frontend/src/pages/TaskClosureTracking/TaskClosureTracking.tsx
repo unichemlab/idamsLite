@@ -8,7 +8,7 @@ import headerStyles from "../../pages/HomePage/homepageUser.module.css";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { FaChevronDown, FaChevronRight } from "react-icons/fa";
-import { FiUser,FiSettings,FiLogOut,FiChevronDown,FiMapPin,FiMail,FiBriefcase,FiShield } from "react-icons/fi";
+import { FiUser, FiSettings, FiLogOut, FiChevronDown, FiMapPin, FiMail, FiBriefcase, FiShield } from "react-icons/fi";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -44,12 +44,14 @@ const TaskTable: React.FC = () => {
   const [expandedRequests, setExpandedRequests] = useState<string[]>([]);
   const [filterColumn] = useState<keyof TaskLog>("application_name");
   const [filterValue] = useState("");
+  const [taskStatusFilter, setTaskStatusFilter] = useState<"ALL" | "Pending" | "Approved" | "Completed" | "Rejected">("ALL");
+
   const [showFilterPopover, setShowFilterPopover] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 10;
   const navigate = useNavigate();
   const popoverRef = useRef<HTMLDivElement | null>(null);
-  
+
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -150,7 +152,15 @@ const TaskTable: React.FC = () => {
     return acc;
   }, {});
 
-  const requestIds = Object.keys(groupedLogs);
+  const requestIds = Object.keys(groupedLogs).filter((requestId) => {
+    if (taskStatusFilter === "ALL") return true;
+
+    const firstTask = groupedLogs[requestId][0];
+    const statusInfo = getTaskDisplayStatus(firstTask);
+
+    return statusInfo.displayStatus === taskStatusFilter;
+  });
+
   const totalPages = Math.ceil(requestIds.length / rowsPerPage);
   const paginatedRequests = requestIds.slice(
     (currentPage - 1) * rowsPerPage,
@@ -302,12 +312,34 @@ const TaskTable: React.FC = () => {
 
         <div className={styles.headerTopRow}>
           <div className={styles.controls}>
-            <button
-              className={styles.filterBtn}
-              onClick={() => setShowFilterPopover((prev) => !prev)}
-            >
-              🔍 Filter
-            </button>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {["ALL", "Pending Approval", "Approved", "Completed", "Rejected"].map((status) => (
+                <button
+                  key={status}
+                  onClick={() => {
+                    setTaskStatusFilter(status as any);
+                    setCurrentPage(1);
+                  }}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 6,
+                    border:
+                      taskStatusFilter === status
+                        ? "1px solid #2563eb"
+                        : "1px solid #d0d5dd",
+                    backgroundColor:
+                      taskStatusFilter === status ? "#2563eb" : "#ffffff",
+                    color: taskStatusFilter === status ? "#fff" : "#344054",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    fontSize: 13,
+                  }}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
+
             <button onClick={handleExportPDF} className={styles.exportPdfBtn}>
               🗎 Export PDF
             </button>
@@ -345,7 +377,7 @@ const TaskTable: React.FC = () => {
                   const tasks = groupedLogs[requestId];
                   const firstTask = tasks[0];
                   const statusInfo = getTaskDisplayStatus(firstTask);
-console.log('Rendering requestId:', requestId, 'with tasks:', tasks);
+                  console.log('Rendering requestId:', requestId, 'with tasks:', tasks);
                   return (
                     <React.Fragment key={requestId}>
                       <tr
@@ -381,8 +413,8 @@ console.log('Rendering requestId:', requestId, 'with tasks:', tasks);
                                     firstTask.approver1_status === "Approved"
                                       ? "#16a34a"
                                       : firstTask.approver1_status === "Rejected"
-                                      ? "#dc2626"
-                                      : "#f59e0b",
+                                        ? "#dc2626"
+                                        : "#f59e0b",
                                   fontWeight: 600,
                                 }}
                               >
@@ -397,12 +429,12 @@ console.log('Rendering requestId:', requestId, 'with tasks:', tasks);
                                     firstTask.approver2_status === "Approved"
                                       ? "#16a34a"
                                       : firstTask.approver2_status === "Rejected"
-                                      ? "#dc2626"
-                                      : "#f59e0b",
+                                        ? "#dc2626"
+                                        : "#f59e0b",
                                   fontWeight: 600,
                                 }}
                               >
-                                 {firstTask.approver1_status === "Rejected" ?'N/A':firstTask.approver2_status || "Pending"}
+                                {firstTask.approver1_status === "Rejected" ? 'N/A' : firstTask.approver2_status || "Pending"}
                               </span>
                             </div>
                           </div>
@@ -466,8 +498,8 @@ console.log('Rendering requestId:', requestId, 'with tasks:', tasks);
                                               taskStatus.displayStatus === "Completed"
                                                 ? "View completed task details"
                                                 : taskStatus.canComplete
-                                                ? "Click to complete task"
-                                                : `View only - ${taskStatus.reason}`
+                                                  ? "Click to complete task"
+                                                  : `View only - ${taskStatus.reason}`
                                             }
                                           >
                                             {task.task_request_transaction_id || "-"}
