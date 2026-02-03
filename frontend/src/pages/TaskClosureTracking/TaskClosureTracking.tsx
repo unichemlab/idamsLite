@@ -223,7 +223,7 @@ const TaskTable: React.FC = () => {
 
   return (
     <div className={styles["main-container"]}>
-      <main className={styles["main-content"]}>
+      <div className={styles["main-content"]}>
         <header className={headerStyles["main-header"]}>
           <div className={headerStyles.navLeft}>
             <div className={headerStyles.logoWrapper}>
@@ -309,7 +309,7 @@ const TaskTable: React.FC = () => {
             )}
           </div>
         </header>
-
+        <div className={styles.contentArea}>
         <div className={styles.headerTopRow}>
           <div className={styles.controls}>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -340,9 +340,9 @@ const TaskTable: React.FC = () => {
               ))}
             </div>
 
-            <button onClick={handleExportPDF} className={styles.exportPdfBtn}>
+            {/* <button onClick={handleExportPDF} className={styles.exportPdfBtn}>
               🗎 Export PDF
-            </button>
+            </button> */}
           </div>
         </div>
 
@@ -735,7 +735,8 @@ const TaskTable: React.FC = () => {
             </button>
           </div>
         </div>
-      </main>
+        </div>
+      </div>
     </div>
   );
 };
