@@ -55,12 +55,17 @@ async function submitForApproval({
       });
 
       if (duplicate) {
-        const field = duplicate.column.replace(/_/g, " ").toUpperCase();
+        const field = duplicate.column
+          ? duplicate.column.replace(/_/g, " ").toUpperCase()
+          : "RECORD";
+
+        const value = duplicate.value ?? "provided value";
 
         throw {
-          message: `Duplicate value detected. ${field} "${duplicate.value}" already exists. Please edit the existing record instead of creating a new one.`
+          message: `Duplicate value detected. ${field} "${value}" already exists. Please edit the existing record instead of creating a new one.`
         };
       }
+
 
     }
 
