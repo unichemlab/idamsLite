@@ -48,11 +48,26 @@ const TaskClosureForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  
+
   const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { id } = useParams();
   const { user, logout } = useAuth();
+
+  const roleGrantAccessTypes = [
+    "New User Creation",
+    "Modify Access",
+    "Bulk New User Creation",
+  ];
+  const isRoleGrantAccess = roleGrantAccessTypes.includes(formData.access_request_type);
+
+  const passwordAccessTypes = [
+    "New User Creation",
+    "Password Reset",
+    "Account Unlock and Password Reset",
+    "Bulk New User Creation",
+  ];
+  const isPasswordAccess = passwordAccessTypes.includes(formData.access_request_type);
 
   // ========================================
   // RULE 12 & 13: Determine allowed access options
@@ -70,6 +85,7 @@ const TaskClosureForm = () => {
       "Account Unlock and Password Reset",
       "Bulk New User Creation",
     ];
+
 
     // RULE 13: These request types can only use "Revoked" or "Not Processed"
     const revokeAccessTypes = [
@@ -110,9 +126,9 @@ const TaskClosureForm = () => {
       fetchTaskById(id)
         .then((data) => {
           console.log("Task data:", data);
-          
+
           const initialAccess = data.access || "Not Processed";
-          
+
           setFormData({
             requestBy: data.request_for_by || "",
             employeeCode: data.employee_code || "",
@@ -127,7 +143,7 @@ const TaskClosureForm = () => {
             requestStatus: data.requestStatus || "Assigned",
             taskNumber: data.tasks[0].taskNumber || "",
             assignmentGroup: data.it_admin_group.assignment_it_group || "",
-            assignedTo: data.assignedTo || "",
+            assignedTo: data.tasks?.[0]?.assigned_to?.toString() || "",
             allocatedId: data.employee_code || "",
             roleGranted: data.roleGranted || "",
             access: initialAccess,
@@ -138,8 +154,8 @@ const TaskClosureForm = () => {
             status: data.status || "",
             access_request_type: data.access_request_type || "",
             userRequestType: data.userRequestType || "",
-            fromDate: new Date().toISOString().split("T")[0],
-            toDate: "",
+            fromDate: data.fromDate ? new Date(data.fromDate).toISOString().split("T")[0] : "",
+            toDate: data.toDate ? new Date(data.toDate).toISOString().split("T")[0] : "",
           });
 
           setItAdminUsers(data.it_admin_users || []);
@@ -153,7 +169,7 @@ const TaskClosureForm = () => {
   ) => {
     const { name, value } = e.target;
     setFormData((prev: any) => ({ ...prev, [name]: value }));
-    
+
     // Clear validation errors when user makes changes
     setValidationErrors([]);
   };
@@ -251,10 +267,10 @@ const TaskClosureForm = () => {
 
     if (!validation.isValid) {
       setValidationErrors(validation.errors);
-      
+
       // Scroll to top to show errors
       window.scrollTo({ top: 0, behavior: "smooth" });
-      
+
       return;
     }
 
@@ -511,9 +527,9 @@ const TaskClosureForm = () => {
                   >
                     <option value="">-- Select Assignee --</option>
                     {itAdminUsers.map((user) => (
-                      <option key={user.user_id} value={user.user_id}>
-                        {user.employee_name} ({user.email})
-                      </option>
+                     <option key={user.user_id} value={String(user.user_id)}>
+                         {user.employee_name} ({user.email})
+                        </option>
                     ))}
                   </select>
                   <label htmlFor="assignedTo" className={addUserRequestStyles.floatingLabel}>Assigned To</label>
@@ -541,25 +557,26 @@ const TaskClosureForm = () => {
                     Access *
                   </label>
                 </div>
-
-                <div className={addUserRequestStyles.formGroup}>
-                  <div className={addUserRequestStyles.passwordWrapper}>
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      name="password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      className={addUserRequestStyles.passwordInput}
-                    />
-                    <label htmlFor="password" className={addUserRequestStyles.floatingLabel}>Password</label>
-                    <span
-                      className={addUserRequestStyles.eyeIcon}
-                      onClick={() => setShowPassword((prev) => !prev)}
-                    >
-                      {showPassword ? "🙈" : "👁️"}
-                    </span>
+                {isPasswordAccess && (
+                  <div className={addUserRequestStyles.formGroup}>
+                    <div className={addUserRequestStyles.passwordWrapper}>
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        name="password"
+                        value={formData.password}
+                        onChange={handleChange}
+                        className={addUserRequestStyles.passwordInput}
+                      />
+                      <label htmlFor="password" className={addUserRequestStyles.floatingLabel}>Password</label>
+                      <span
+                        className={addUserRequestStyles.eyeIcon}
+                        onClick={() => setShowPassword((prev) => !prev)}
+                      >
+                        {showPassword ? "🙈" : "👁️"}
+                      </span>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               <div className={addUserRequestStyles.sixCol}>
@@ -583,13 +600,14 @@ const TaskClosureForm = () => {
                 <div className={addUserRequestStyles.formGroup}>
                   <input
                     name="roleGranted"
-                    value={formData.roleGranted}
+                    value={isRoleGrantAccess ? formData.roleGranted : formData.requestedRole}
                     onChange={handleChange}
+                    readOnly={!isRoleGrantAccess}
                     required
                     style={{
                       borderColor:
                         formData.roleGranted &&
-                        formData.roleGranted !== formData.requestedRole
+                          formData.roleGranted !== formData.requestedRole
                           ? "#dc2626"
                           : undefined,
                     }}
@@ -615,26 +633,29 @@ const TaskClosureForm = () => {
                   <select
                     name="userRequestType"
                     value={formData.userRequestType || ""}
+                    disabled
                     onChange={(e) => {
                       const value = e.target.value;
-                      handleChange(e);
-                      if (value === "Temporary") {
-                        const today = new Date().toISOString().split("T")[0];
-                        setFormData((prev: any) => ({
-                          ...prev,
-                          fromDate: today,
-                          toDate: "",
-                        }));
-                      } else {
-                        setFormData((prev: any) => ({
-                          ...prev,
-                          fromDate: "",
-                          toDate: "",
-                        }));
-                      }
+
+                      setFormData((prev: any) => ({
+                        ...prev,
+                        userRequestType: value,
+                        ...(value === "Temporary"
+                          ? {
+                            fromDate:
+                              prev.fromDate ||
+                              new Date().toISOString().split("T")[0],
+                            toDate: prev.toDate || "",
+                          }
+                          : {
+                            fromDate: "",
+                            toDate: "",
+                          }),
+                      }));
                     }}
                     className={addUserRequestStyles.selectBox}
                   >
+
                     <option value="">-- Select User Type --</option>
                     <option value="Permanent">Permanent</option>
                     <option value="Temporary">Temporary</option>
@@ -658,6 +679,7 @@ const TaskClosureForm = () => {
                       <input
                         type="date"
                         name="toDate"
+                        readOnly
                         value={formData.toDate || ""}
                         min={formData.fromDate}
                         onChange={handleChange}
