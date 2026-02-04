@@ -84,7 +84,7 @@ const AddUserRequest: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
- 
+  
   // ===================== Main Form State =====================
   const [form, setForm] = useState<UserRequest>({
     request_for_by: "Self",
@@ -116,7 +116,7 @@ const AddUserRequest: React.FC = () => {
   });
   console.log("form data", form);
 
- // ── Auto-clear validation errors when user changes relevant fields ──
+// ── Auto-clear validation errors when user changes relevant fields ──
   useEffect(() => {
     if (validationError || duplicateRoleError) {
       setValidationError(null);
@@ -1859,7 +1859,7 @@ const AddUserRequest: React.FC = () => {
   //   • a submission is already in-flight
   //   • there is an active validationError (from backend or frontend checks)
   //   • Modify Access: duplicateRoleError is set (user has not changed the role)
-  //   • Modify Access: no access-log was found (can't modify what doesn't exist)
+  //   • For access types that require existing log: no access-log was found
   //   • required fields are still empty
   const isSubmitDisabled = (() => {
     // already submitting
@@ -1871,9 +1871,19 @@ const AddUserRequest: React.FC = () => {
     // duplicateRoleError ONLY blocks Modify Access (for New/Bulk-New it's just informational)
     if (form.accessType === "Modify Access" && duplicateRoleError) return true;
 
-    // Modify Access + no access-log found → nothing to modify
+    // Access types that REQUIRE an existing access-log to operate on
+    const requiresExistingLog = [
+      "Modify Access",
+      "Password Reset",
+      "Account Unlock",
+      "Account Unlock and Password Reset",
+      "Active / Enable User Access",
+      "Deactivation / Disable / Remove User Access",
+    ];
+
+    // Block submission if access type requires existing log but none was found
     if (
-      form.accessType === "Modify Access" &&
+      requiresExistingLog.includes(form.accessType) &&
       !isVendorModify &&                          // vendor-modify has its own flow
       form.plant_location &&
       form.department &&
@@ -3244,11 +3254,12 @@ const AddUserRequest: React.FC = () => {
                                       {!accessLogRoleFound && (
                                         <div style={{
                                           marginTop: '6px', padding: '10px 12px',
-                                          backgroundColor: '#fff3cd', border: '1px solid #ffc107',
-                                          borderRadius: '4px', color: '#856404', fontSize: '13px'
+                                          backgroundColor: '#fdecea', border: '2px solid #f5c6cb',
+                                          borderRadius: '4px', color: '#b71c1c',
+                                          fontSize: '13px', fontWeight: '500'
                                         }}>
-                                          ⚠️ No access log data found for the selected Plant, Department &amp; Application.
-                                          The data has not been submitted yet.
+                                          ⛔ No access log data found for the selected Plant, Department &amp; Application for this user.
+                                          Cannot process request without existing access.
                                         </div>
                                       )}
                                     </>
