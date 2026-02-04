@@ -543,6 +543,7 @@ const EditApplicationFormPage: React.FC = () => {
                       id="role_id"
                       isMulti
                       isSearchable
+                      required
                       name="role_id"
                       options={roles.map((r) => ({
                         value: r.id,

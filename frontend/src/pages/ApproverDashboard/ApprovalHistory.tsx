@@ -334,6 +334,8 @@ const ApprovalHistoryPage: React.FC = () => {
                     <th>Vendor Code</th>
                     <th>Vendor Name</th>
                     <th>Vendor Allocated ID</th>
+                    <th>Training Status</th>
+                    <th>Training Attachment</th>
                     <th>Approval Status</th>
                     <th>My Level</th>
                     <th>Comments</th>
@@ -362,6 +364,24 @@ const ApprovalHistoryPage: React.FC = () => {
                         <td>{a.vendorCode || "-"}</td>
                         <td>{a.vendorName || "-"}</td>
                         <td>{a.allocatedId || "-"}</td>
+                         <td>{a.training_status || "-"}</td>
+                                          <td>
+                                            {a.training_attachment ? (
+                                              <a
+                                                href={`${API_BASE}/api/user-requests/${a.id}/attachment`}
+                                                download={a.training_attachment}
+                                                style={{ display: "inline-flex", alignItems: "center" }}
+                                                title={`Download ${a.training_attachment}`}
+                                              >
+                                                <PictureAsPdfIcon
+                                                  fontSize="small"
+                                                  style={{ color: "#e53935" }}
+                                                />
+                                              </a>
+                                            ) : (
+                                              "-"
+                                            )}
+                                          </td>
                         <td>
                           <div style={{ fontSize: "0.65rem" }}>
                             <div>

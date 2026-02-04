@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
 import { useNavigate } from "react-router-dom";
-import { useRoles } from "../../RoleMaster/RolesContext";
+import { useRoles } from "./RolesContext";
 import type { Role } from "../../RoleMaster/RolesContext";
 import { useAuth } from "../../context/AuthContext";
 import AppHeader from "../../components/Common/AppHeader";

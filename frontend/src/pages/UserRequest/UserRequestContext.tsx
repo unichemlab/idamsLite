@@ -68,6 +68,9 @@ export type UserRequest = {
   vendorFirm: string;
   vendorCode: string;
   allocatedId: string[];
+  userRequestType?: "Permanent" | "Temporary" | "";
+   fromDate: string;
+toDate: string;
   bulkEntries?: {
     location: string;
     department: string;
@@ -142,6 +145,9 @@ export const UserRequestProvider: React.FC<{ children: React.ReactNode }> = ({
     allocatedId: [],
     status: "Pending",
     tasks: [],
+    userRequestType: "" as "Permanent" | "Temporary" | "",
+    fromDate: "",
+    toDate: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
