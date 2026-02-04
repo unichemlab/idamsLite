@@ -59,7 +59,7 @@ exports.getAllTasks = async (req, res) => {
     // User should be available from authorize middleware
     const user = req.user;
     console.log("request user", user);
-    
+
     if (!user) {
       return res.status(401).json({ error: "User not authenticated" });
     }
@@ -92,7 +92,7 @@ exports.getAllTasks = async (req, res) => {
     // APPROVER FILTERS - CORRECTED VERSION
     // ===============================================
     console.log("Approver", isApprover);
-    
+
     if (isApprover && !isSuperAdmin) {
       console.log("Applying approver filters for user:", user.id);
       const approverConditions = [];
@@ -102,13 +102,13 @@ exports.getAllTasks = async (req, res) => {
         // Push email FIRST, then use that index
         params.push(user.email);
         const emailParamIndex = params.length; // This is now the correct index
-        
+
         // All email checks use the SAME parameter
         approverConditions.push(`ur.approver1_email = $${emailParamIndex}`);
         approverConditions.push(`tr.approver1_email = $${emailParamIndex}`);
         approverConditions.push(`ur.approver2_email = $${emailParamIndex}`);
         approverConditions.push(`tr.approver2_email = $${emailParamIndex}`);
-        
+
         console.log("Added email-based approver conditions:", {
           email: user.email,
           paramIndex: emailParamIndex,
@@ -199,7 +199,7 @@ exports.getAllTasks = async (req, res) => {
     // ===============================================
     console.log("user ITBin", user?.isITBin);
     console.log("user itPlantIds", user?.itPlantIds);
-    
+
     if (user?.isITBin && user.itPlantIds?.length > 0) {
       params.push(user.itPlantIds);
       whereClauses.push(`p.id = ANY($${params.length})`);
@@ -211,9 +211,9 @@ exports.getAllTasks = async (req, res) => {
     // ===============================================
     if (params.includes(undefined) || params.includes(null)) {
       console.error("❌ ERROR: params array contains undefined/null values:", params);
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: "Invalid query parameters",
-        details: "User authentication data is incomplete" 
+        details: "User authentication data is incomplete"
       });
     }
 
@@ -287,15 +287,24 @@ exports.getAllTasks = async (req, res) => {
       LEFT JOIN role_master r ON tr.role = r.id
       LEFT JOIN plant_master p ON tr.location = p.id
       LEFT JOIN application_master app ON tr.application_equip_id = app.id
-      LEFT JOIN task_closure tc ON tc.transaction_id = ur.transaction_id
+      LEFT JOIN task_closure tc ON tc.ritm_number = ur.transaction_id
       LEFT JOIN user_master um ON tc.assigned_to = um.id
       ${whereSQL}
       ORDER BY tr.created_on DESC, ur.id;
     `;
 
     const { rows } = await client.query(query, params);
-    console.log(`✅ Fetched ${rows.length} tasks`);
-    
+    console.table(
+      rows.map(r => ({
+        task_id: r.task_id,
+        transaction_id: r.task_request_transaction_id,
+        access: r.access,
+        task_status: r.task_status,
+        plant: r.plant_name,
+        assigned_to: r.assigned_to_name
+      }))
+    );
+
     res.json(rows);
   } catch (err) {
     console.error("❌ Error fetching all tasks:", err);
@@ -340,7 +349,7 @@ exports.updateTask = async (req, res) => {
       LEFT JOIN application_master app ON tr.application_equip_id = app.id
       WHERE tr.id = $1
     `;
-    
+
     const { rows: existingRows } = await client.query(existingTaskQuery, [id]);
     if (existingRows.length === 0) {
       await client.query("ROLLBACK");
@@ -353,7 +362,7 @@ exports.updateTask = async (req, res) => {
     if (requestStatus === 'Closed' || requestStatus === 'Completed') {
       if (existingTask.approver1_status !== 'Approved' || existingTask.approver2_status !== 'Approved') {
         await client.query("ROLLBACK");
-        return res.status(403).json({ 
+        return res.status(403).json({
           error: 'Cannot complete task. Both approvers must approve first.',
           details: {
             approver1_status: existingTask.approver1_status,
@@ -690,6 +699,9 @@ exports.getUserTaskRequestById = async (req, res) => {
           ur.status AS user_request_status,
           ur.approver1_status,
           ur.approver2_status,
+          ur.user_request_type,
+          ur.from_date AS user_request_from_date,
+          ur.to_date AS user_request_to_date,
           ur.created_on,
           tr.id AS task_id,
           tr.transaction_id AS task_request_transaction_id,
@@ -810,6 +822,9 @@ exports.getUserTaskRequestById = async (req, res) => {
       training_status: rows[0].training_status,
       training_attachment: rows[0].training_attachment,
       training_attachment_name: rows[0].training_attachment_name,
+      userRequestType: rows[0].user_request_type,
+      fromDate: rows[0].user_request_from_date,
+      toDate: rows[0].user_request_to_date,
       vendor_name: rows[0].vendor_name,
       vendor_firm: rows[0].vendor_firm,
       vendor_code: rows[0].vendor_code,
@@ -844,7 +859,7 @@ exports.getUserTaskRequestById = async (req, res) => {
       it_admin_group: itAdminGroup,
       it_admin_users: itAdminUsers,
     };
-  console.log(res.json(userRequest));
+    console.log(res.json(userRequest));
     res.json(userRequest);
   } catch (err) {
     console.error("Error in getUserTaskRequestById:", err);
@@ -1030,7 +1045,7 @@ exports.getUserTaskRequestByEmployeeCOde = async (req, res) => {
       it_admin_group: itAdminGroup,
       it_admin_users: itAdminUsers,
     };
-  console.log(res.json(userRequest));
+    console.log(res.json(userRequest));
     res.json(userRequest);
   } catch (err) {
     console.error("Error in getUserTaskRequestById:", err);

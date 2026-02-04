@@ -44,7 +44,7 @@ const TaskTable: React.FC = () => {
   const [expandedRequests, setExpandedRequests] = useState<string[]>([]);
   const [filterColumn] = useState<keyof TaskLog>("application_name");
   const [filterValue] = useState("");
-  const [taskStatusFilter, setTaskStatusFilter] = useState<"ALL" | "Pending" | "Approved" | "Completed" | "Rejected">("ALL");
+  const [taskStatusFilter, setTaskStatusFilter] = useState<"ALL" | "Pending" | "Approved" |"Assigned"| "Completed" | "Rejected">("ALL");
 
   const [showFilterPopover, setShowFilterPopover] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -151,7 +151,7 @@ const TaskTable: React.FC = () => {
     acc[key].push(log);
     return acc;
   }, {});
-
+console.log('Grouped Logs:', groupedLogs);
   const requestIds = Object.keys(groupedLogs).filter((requestId) => {
     if (taskStatusFilter === "ALL") return true;
 
@@ -166,7 +166,7 @@ const TaskTable: React.FC = () => {
     (currentPage - 1) * rowsPerPage,
     currentPage * rowsPerPage
   );
-
+console.log('Paginated Requests:', paginatedRequests);
   const toggleExpand = (requestId: string) => {
     setExpandedRequests((prev) =>
       prev.includes(requestId)
