@@ -8,7 +8,7 @@ const transporter = nodemailer.createTransport({
   secure: true, // SSL
   auth: {
     user: "nishant1.singh@unichemlabs.com",
-    pass: "Admin@123",
+    pass: "Mail$2026",
   },
   tls: {
     rejectUnauthorized: false, // ignore cert issues for testing
@@ -17,19 +17,24 @@ const transporter = nodemailer.createTransport({
   debug: true,
 });
 
-const sendEmail = async ({ to, subject, html, attachments = [] }) => {
+const sendEmail = async ({ subject, html, attachments = [] }) => {
   try {
     await transporter.sendMail({
       from: `"IDMASLite UAM Notification" <nishant1.singh@unichemlabs.com>`,
-      to:`nishant1.singh@unichemlabs.com`,
+      to: [
+        "nishant1.singh@unichemlabs.com",
+        "ashish.sachania@unichemlabs.com"
+      ],
       subject,
       html,
       attachments,
     });
-    console.log(`Email sent to ${to}`);
+
+    console.log("Email sent successfully");
   } catch (err) {
     console.error("Email sending failed:", err.message);
   }
 };
+
 
 module.exports = { sendEmail };
