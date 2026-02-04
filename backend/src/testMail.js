@@ -8,7 +8,7 @@ const transporter = nodemailer.createTransport({
   secure: true, // SSL
   auth: {
     user: "nishant1.singh@unichemlabs.com",
-    pass: "Admin@1234",
+    pass: "Mail$2026",
   },
   tls: {
     rejectUnauthorized: false, // ignore cert issues for testing
