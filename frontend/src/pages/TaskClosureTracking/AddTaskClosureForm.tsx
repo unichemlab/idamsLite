@@ -178,6 +178,14 @@ const TaskClosureForm = () => {
     logout();
     navigate("/login");
   };
+useEffect(() => {
+  if (!isRoleGrantAccess) {
+    setFormData((prev: typeof formData) => ({
+      ...prev,
+      roleGranted: prev.requestedRole
+    }));
+  }
+}, [isRoleGrantAccess, formData.requestedRole]);
 
   // ========================================
   // VALIDATION RULES
