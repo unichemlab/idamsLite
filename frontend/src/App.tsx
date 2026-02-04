@@ -7,7 +7,7 @@ import { DepartmentProvider } from "pages/DepartmentTable/DepartmentContext";
 import { FormProvider } from "./context/FormContext";
 import { AuthProvider } from "./context/AuthContext";
 import { PermissionProvider } from "./context/PermissionContext";
-import { RolesProvider } from "./RoleMaster/RolesContext";
+import { RolesProvider } from "pages/RoleMasterUser/RolesContext";
 import { UserProvider } from "./context/UserContext";
 import { ApplicationsProvider } from "./context/ApplicationsContext";
 import { ApproverProvider } from "./context/ApproverContext";

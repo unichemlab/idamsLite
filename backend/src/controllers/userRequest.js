@@ -224,6 +224,7 @@ exports.getAllUserRequests = async (req, res) => {
 // Inside your existing exports.createUserRequest
 exports.createUserRequest = async (req, res) => {
   try {
+    
     const {
       request_for_by,
       name,
@@ -238,6 +239,9 @@ exports.createUserRequest = async (req, res) => {
       status,
       approver1_email, // send email to Approver 1
       approver2_email, // send email to Approver 2
+       user_request_type,
+        from_date,
+        to_date,
     } = req.body;
 
     // Parse tasks safely
@@ -258,8 +262,9 @@ exports.createUserRequest = async (req, res) => {
       (request_for_by, name, employee_code, employee_location, access_request_type,
        training_status, training_attachment, training_attachment_name,
        vendor_name, vendor_firm, vendor_code, vendor_allocated_id, status,
-       approver1_email, approver1_status, approver2_email, approver2_status, created_on)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'Pending',$15,'Pending',NOW())
+       approver1_email, approver1_status, approver2_email, approver2_status, created_on,
+       user_request_type,from_date,to_date)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'Pending',$15,'Pending',NOW(),$16,$17,$18)
       RETURNING *`,
       [
         request_for_by,
@@ -277,11 +282,14 @@ exports.createUserRequest = async (req, res) => {
         status || "Pending",
         approver1_email,
         approver2_email,
+        user_request_type || null,
+        from_date || null,
+        to_date || null,
       ]
     );
 
     const userRequest = rows[0];
-
+console.log("Created user request:", userRequest);
     // Fetch approval workflow for this location/department to get approver details
     const workflowQuery = `
       SELECT awm.approver_1_id, awm.approver_2_id, 
@@ -1059,13 +1067,19 @@ exports.checkInFlightRequest = async (req, res) => {
  * - Maximum 7 applications from same Plant + Department
  */
 exports.validateBulkCreation = async (req, res) => {
-  const { plant_location, department, applicationIds } = req.body;
+  const { plant_location, department } = req.body;
 
-  console.log("[RULE 6 - BULK VALIDATION]", {
-    plant_location,
-    department,
-    applicationCount: applicationIds?.length
-  });
+// remove duplicates
+const applicationIds = [...new Set(req.body.applicationIds)];
+
+ console.log("[RULE 6 - BULK VALIDATION]", {
+  plant_location,
+  department,
+  receivedCount: req.body.applicationIds?.length,
+  uniqueCount: applicationIds.length,
+  applicationIds
+});
+
 
   try {
     // Check count
@@ -1107,15 +1121,16 @@ exports.validateBulkCreation = async (req, res) => {
         AND app.department_id::text = $2::text`,
       [applicationIds, department]
     );
+console.log("Fetched applications for validation:", rows); 
+console.log("Expected application IDs:", applicationIds);
+   if (rows.length !== applicationIds.length) {
+  return res.json({
+    valid: false,
+    rule: "RULE_6",
+    message: "All applications must belong to the same department"
+  });
+}
 
-    if (rows.length !== applicationIds.length) {
-      console.log("[RULE 6] ❌ FAIL - Applications from different departments");
-      return res.json({ 
-        valid: false,
-        rule: "RULE_6",
-        message: "All applications must belong to the same department" 
-      });
-    }
 
     console.log("[RULE 6] ✅ PASS - Bulk validation successful");
     res.json({ 
@@ -1353,4 +1368,5 @@ exports.createBulkDeactivationRequest = async (req, res) => {
     client.release();
   }
 };
+
 

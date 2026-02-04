@@ -593,29 +593,29 @@ const AddUserPanel = ({
                 "fullName",
                 "Full Name",
                 "text",
-                mode === "edit" && !!form.fullName
+                mode === "edit"
               )}
               {input(
                 "email",
                 "Email",
                 "email",
-                mode === "edit" && !!form.email
+                mode === "edit" 
               )}
               {input(
                 "empCode",
                 "Employee Code",
                 "text",
-                mode === "edit" && !!form.empCode
+                mode === "edit"
               )}
               {select(
                 "department",
                 "Department",
                 ["IT", "QA", "HR", "Production", "Finance"],
                 true,
-                mode === "edit" && departmentInitiallyPresent
+                mode === "edit"
               )}
-              {input("location", "Location","text",mode==="edit"&& !!form.location)}
-              {select("status", "Status", ["Active", "Inactive"], true)}
+              {input("location", "Location","text",mode==="edit")}
+              {select("status", "Status", ["Active", "Inactive"],true,mode==="edit")}
             </div>
           </div>
 

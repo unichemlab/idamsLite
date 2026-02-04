@@ -4,7 +4,7 @@ const accessLogController = require("../controllers/accessLog");
 const authorize = require("../middleware/authorize");
 
 // ⚠️ IMPORTANT: Specific routes MUST come BEFORE parameterized routes like /:id
-
+router.get("/by-user", authorize(), accessLogController.getAccessLogsByUser);
 // Get activity logs for access log module
 router.get("/activity-logs/all", authorize(), accessLogController.getAccessLogActivityLogs);
 
