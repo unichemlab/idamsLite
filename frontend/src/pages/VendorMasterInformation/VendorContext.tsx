@@ -62,37 +62,64 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
     fetchAndSetVendors();
   }, []);
 
+const getErrorMessage = (err: any): string =>
+  err?.response?.data?.message ||
+  err?.response?.data?.error ||
+  err?.message ||
+  "Something went wrong";
+
+
+
   // Add vendor via API
   const addVendor = async (vendor: Vendor) => {
+  try {
     await addVendorAPI({
       vendor_name: vendor.name,
       vendor_code: vendor.code,
       description: vendor.description,
       status: vendor.status,
     });
+
     fetchAndSetVendors();
-  };
+  } catch (err: any) {
+    throw new Error(getErrorMessage(err));
+  }
+};
+
 
   // Update vendor via API
   const updateVendor = async (index: number, updated: Vendor) => {
-    const vendor = vendors[index];
-    if (!vendor || !vendor.id) return;
+  const vendor = vendors[index];
+  if (!vendor || !vendor.id) return;
+
+  try {
     await updateVendorAPI(vendor.id, {
       vendor_name: updated.name,
       vendor_code: updated.code,
       description: updated.description,
       status: updated.status,
     });
+
     fetchAndSetVendors();
-  };
+  } catch (err: any) {
+    throw new Error(getErrorMessage(err));
+  }
+};
+
 
   // Delete vendor via API
   const deleteVendor = async (index: number) => {
-    const vendor = vendors[index];
-    if (!vendor || !vendor.id) return;
+  const vendor = vendors[index];
+  if (!vendor || !vendor.id) return;
+
+  try {
     await deleteVendorAPI(vendor.id);
     fetchAndSetVendors();
-  };
+  } catch (err: any) {
+    throw new Error(getErrorMessage(err));
+  }
+};
+
 
   return (
   <VendorContext.Provider

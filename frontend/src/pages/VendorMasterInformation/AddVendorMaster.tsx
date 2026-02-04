@@ -105,15 +105,28 @@ const AddVendorMaster: React.FC = () => {
     setShowModal(true);
   };
 
-  const handleConfirmLogin = (data: Record<string, string>) => {
-    if (data.username === (user?.username || "") && data.password) {
-      addVendor(form);
-      setShowModal(false);
-      navigate("/vendor-information", { state: { activeTab: "vendor" } });
-    } else {
-      alert("Invalid credentials. Please try again.");
-    }
-  };
+ const handleConfirmLogin = async (data: Record<string, string>) => {
+  if (data.username !== (user?.username || "") || !data.password) {
+    alert("Invalid credentials. Please try again.");
+    return;
+  }
+
+  try {
+    await addVendor(form);   // ✅ wait for API result
+
+    setShowModal(false);
+    navigate("/vendor-information", {
+      state: { activeTab: "vendor" },
+    });
+  } catch (err: any) {
+    // ✅ show backend duplicate message
+    alert(`Record already exists. Please edit the existing record instead of creating a new one.`);
+    navigate("/vendor-information", {
+      state: { activeTab: "vendor" },});
+    // OR 
+    // toast.error(err.message);
+  }
+};
 
   return (
     <div className={styles.pageWrapper}>
