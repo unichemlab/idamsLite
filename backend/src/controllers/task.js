@@ -294,16 +294,6 @@ exports.getAllTasks = async (req, res) => {
     `;
 
     const { rows } = await client.query(query, params);
-    console.table(
-      rows.map(r => ({
-        task_id: r.task_id,
-        transaction_id: r.task_request_transaction_id,
-        access: r.access,
-        task_status: r.task_status,
-        plant: r.plant_name,
-        assigned_to: r.assigned_to_name
-      }))
-    );
 
     res.json(rows);
   } catch (err) {
