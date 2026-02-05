@@ -23,7 +23,7 @@ const sendEmail = async ({ subject, html, attachments = [] }) => {
       from: `"IDMASLite UAM Notification" <nishant1.singh@unichemlabs.com>`,
       to: [
         "nishant1.singh@unichemlabs.com",
-        "ashish.sachania@unichemlabs.com"
+         to
       ],
       subject,
       html,
