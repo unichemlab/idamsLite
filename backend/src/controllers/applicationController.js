@@ -76,8 +76,6 @@ const generateUniqueTransactionId = async () => {
     // Generate next transaction ID
     const nextNum = maxNum + 1;
     const transactionId = `APP${String(nextNum).padStart(7, "0")}`;
-    
-    console.log(`📝 Generated transaction_id: ${transactionId} (max found: ${maxNum})`);
     return transactionId;
   } catch (err) {
     console.error("Error generating transaction_id:", err);
@@ -93,18 +91,13 @@ exports.getAllApplications = async (req, res) => {
     const result = await db.query(
       "SELECT * FROM application_master WHERE status='ACTIVE' ORDER BY id ASC"
     );
-    console.log('Total applications fetched:', result.rows.length);
-    console.log('User:', req.user ? { id: req.user.user_id, role_id: req.user.role_id } : 'undefined');
-    
     // 🔥 Super Admin sees ALL data - no filtering
     if (isSuperAdmin(req.user)) {
-      console.log("✅ Super admin - returning all applications:", result.rows.length);
       return res.status(200).json(result.rows);
     }
     
     // 🔥 Filter by user's plant access for non-super-admins
     const filteredApps = filterByPlantAccess(result.rows, req.user);
-    console.log("📊 Filtered applications:", filteredApps.length, "of", result.rows.length);
     
     res.status(200).json(filteredApps);
   } catch (err) {
@@ -259,8 +252,6 @@ exports.addApplication = async (req, res) => {
       status,
     };
 
-    console.log("📤 Creating application with transaction_id:", transaction_id);
-
     // Submit for approval
     const approvalId = await submitForApproval({
       module: "application",
@@ -275,7 +266,6 @@ exports.addApplication = async (req, res) => {
     });
 
     if (approvalId !== null) {
-      console.log("✅ Application submitted for approval with ID:", approvalId);
       return res.status(202).json({
         message: "Application creation submitted for approval",
         approvalId,
@@ -310,8 +300,6 @@ exports.addApplication = async (req, res) => {
         status,
       ]
     );
-
-    console.log("✅ Application created directly with ID:", result.rows[0].id);
 
     auditLog(req, "application_master", result.rows[0].id, "INSERT", {}, result.rows[0], "new application");
 
@@ -569,8 +557,6 @@ exports.bulkImportApplications = async (req, res) => {
         record.system_name = record.system_name || null;
         record.system_inventory_id = record.system_inventory_id || null;
 
-        console.log(`Processing application record ${i + 1}/${records.length}:`, record.display_name);
-
         // Submit for approval
         const approvalId = await submitForApproval({
           module: "application",
@@ -586,11 +572,9 @@ exports.bulkImportApplications = async (req, res) => {
 
         if (approvalId) {
           approvalIds.push(approvalId);
-          console.log(`Record ${i + 1}: Created approval ID ${approvalId}`);
         } else {
           // If no approval workflow, record was created directly
           approvalIds.push({ direct: true, record: i + 1 });
-          console.log(`Record ${i + 1}: Created directly (no approval required)`);
         }
 
       } catch (error) {
@@ -602,8 +586,6 @@ exports.bulkImportApplications = async (req, res) => {
         });
       }
     }
-
-    console.log(`Bulk import completed: ${approvalIds.length} successful, ${errors.length} failed`);
 
     await logActivity({
       userId,
@@ -737,7 +719,6 @@ exports.getApplicationActivityLogs = async (req, res) => {
 
     // 🔥 Super Admin sees ALL logs - no filtering
     if (isSuperAdmin(req.user)) {
-      console.log("✅ Super admin - returning all activity logs:", rows.length);
       return res.json(rows);
     }
 
@@ -770,8 +751,6 @@ exports.getApplicationActivityLogs = async (req, res) => {
       // Check if user can access this plant
       return canAccessPlant(req.user, plantId);
     });
-
-    console.log("📊 Filtered activity logs:", filteredRows.length, "of", rows.length);
     res.json(filteredRows);
   } catch (err) {
     res.status(500).json({ error: err.message });
