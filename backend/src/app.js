@@ -89,51 +89,44 @@ app.use("/api/plant-itsupport", plantITSupportRoutes);
 app.use("/api/approvals", approvalsRoutes);
 app.use("/api/rbac", rbacRoutes);
 app.use('/api', bulkImportRoutes);
-app.use("/api/master-approvals",masterApprovalRoutes);
+app.use("/api/master-approvals", masterApprovalRoutes);
 // Use AD sync routes
 app.use(adSyncRoutes);
 app.use("/api/workflows", workflowRoutes);
+const USER_ATTRIBUTES = [
+  "distinguishedName",
+  "displayName",
+  "employeeID",
+  "employeeId",
+  "sAMAccountName",
+  "mail",
+  "department",
+  "company",
+  "title",
+  "mobile",
+  "manager",
+  "directReports",
+  "physicalDeliveryOfficeName",
+  "userAccountControl"
+];
 
-app.get("/api/ad-users-sync", async (req, res) => {
-  let totalRecords = 0,
-    insertedRecords = 0,
-    updatedRecords = 0,
-    failedRecords = 0,
-    syncStatus = "Success",
-    errorMessage = null;
+const normalizeADValue = (val) => {
+  if (!val) return "";
+  if (Array.isArray(val)) return val[0];
+  if (Buffer.isBuffer(val)) return val.toString("utf8");
+  return String(val);
+};
+const LDAP_FILTER =
+  "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(employeeID=*))";
 
+const ACTIVE_EMPLOYEE_FILTER =
+  "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(employeeID=*))";
+
+
+
+app.get("/api/ad-users", async (req, res) => {
   try {
-    const ou = req.query.ou || "OU=BADDI"; // dynamic OU support
-    const baseDN = `OU=BADDI,DC=uniwin,DC=local`;
-
-    // ----------------------------
-    // Fetch previous last_sync for OU
-    // ----------------------------
-    let lastSyncTime = null;
-    try {
-      const lastSyncResult = await pool.query(
-        `SELECT last_sync FROM ad_sync_status WHERE ou = $1`,
-        [ou]
-      );
-      lastSyncTime = lastSyncResult.rows[0]?.last_sync || null;
-    } catch (err) {
-      console.warn("Could not fetch last sync timestamp:", err.message);
-    }
-
-    // ----------------------------
-    // Build LDAP filter for incremental sync
-    // ----------------------------
-    let ldapFilter = "(objectClass=user)";
-    if (lastSyncTime) {
-      const pad = (n) => (n < 10 ? "0" + n : n);
-      const dt = lastSyncTime;
-      const ldapDate = `${dt.getUTCFullYear()}${pad(dt.getUTCMonth() + 1)}${pad(
-        dt.getUTCDate()
-      )}${pad(dt.getUTCHours())}${pad(dt.getUTCMinutes())}${pad(
-        dt.getUTCSeconds()
-      )}.0Z`;
-      ldapFilter = `(&(objectClass=user)(whenChanged>=${ldapDate}))`;
-    }
+    const baseDN = "DC=uniwin,DC=local";
 
     const ad = new ActiveDirectory({
       url: AD_SERVER,
@@ -142,213 +135,119 @@ app.get("/api/ad-users-sync", async (req, res) => {
       baseDN,
     });
 
-    const managerCache = {};
-
-    const getManager = async (managerDN) => {
-      if (!managerDN) return null;
-      if (managerCache[managerDN]) return managerCache[managerDN];
-
-      return new Promise((resolve) => {
-        ad.find(
-          {
-            baseDN,
-            filter: `(distinguishedName=${managerDN})`,
-            attributes: ["*"],
-          },
-          (err, result) => {
-            if (err || !result?.users?.length) return resolve(null);
-            const m = result.users[0];
-            const info = {
-              dn: m.distinguishedName,
-              cn: m.cn,
-              sAMAccountName: m.sAMAccountName,
-              title: m.title || "",
-              department: m.department || "",
-              mail: m.mail || "",
-              managerDN: m.manager || null,
-            };
-            managerCache[managerDN] = info;
-            resolve(info);
-          }
-        );
-      });
-    };
-console.log("Using LDAP filter:", baseDN, ldapFilter);
-    // ----------------------------
-    // Fetch AD users incrementally
-    // ----------------------------
     ad.find(
       {
         baseDN,
-        filter: ldapFilter,
-        attributes: ["*"],
+        filter: LDAP_FILTER,
+        attributes: USER_ATTRIBUTES,
         scope: "sub",
+        paged: {
+          pageSize: 500,
+          pagePause: false,
+        },
       },
-      async (err, results) => {
+      (err, results) => {
         if (err) {
-          syncStatus = "Failed";
-          errorMessage = err.message;
-
-          await pool.query(
-            `INSERT INTO ad_sync_log 
-              (ou, total_records, inserted_records, updated_records, failed_records, status, error_message, last_sync)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-            [ou, 0, 0, 0, 0, syncStatus, errorMessage, lastSyncTime]
-          );
-
           return res.status(500).json({
             status: false,
-            message: "❌ LDAP query error: " + err,
+            message: "❌ LDAP query error",
+            error: err.message,
+          });
+        }
+
+        const users = results?.users || [];
+        if (!users.length) {
+          return res.json({
+            status: true,
+            message: "✅ No users found",
             users: [],
           });
         }
 
-        const users = results.users || [];
-        totalRecords = users.length;
-        console.log(`Fetched ${totalRecords} user(s) from AD for OU: ${ou}`);
-        for (const u of users) {
-          try {
-            let manager = null;
-            let managersManager = null;
-
-            if (u.manager) {
-              manager = await getManager(u.manager);
-              if (manager?.managerDN)
-                managersManager = await getManager(manager.managerDN);
-            }
-
-            const userObj = {
-              employee_name: u.displayName || "",
-              employee_code: u.employeeID || "",
-              location: u.physicalDeliveryOfficeName || "",
-              company: u.company || "",
-              department: u.department || "",
-              mobile: u.mobile || "",
-              designation: u.title || "",
-              employee_id: u.sAMAccountName || "",
-              email: u.mail || "",
-              direct_reporting: u.directReports || [],
-              reporting_manager: manager,
-              managers_manager: managersManager,
-              status:
-                (parseInt(u.userAccountControl || 0) & 0x2) === 0x2
-                  ? "Inactive"
-                  : "Active",
-            };
-
-            // UPSERT by employee_code
-            const result = await pool.query(
-              `INSERT INTO user_master (
-                  employee_name, employee_id, employee_code, department, location,
-                  direct_reporting, reporting_manager, managers_manager,
-                  status, company, mobile, email, designation, last_sync, updated_on
-                )
-                VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9,$10,$11,$12,$13,NOW(),NOW())
-                ON CONFLICT (employee_code)
-                DO UPDATE SET
-                  employee_name = EXCLUDED.employee_name,
-                  employee_id = EXCLUDED.employee_id,
-                  department = EXCLUDED.department,
-                  location = EXCLUDED.location,
-                  direct_reporting = EXCLUDED.direct_reporting,
-                  reporting_manager = EXCLUDED.reporting_manager,
-                  managers_manager = EXCLUDED.managers_manager,
-                  status = EXCLUDED.status,
-                  company = EXCLUDED.company,
-                  mobile = EXCLUDED.mobile,
-                  email = EXCLUDED.email,
-                  designation = EXCLUDED.designation,
-                  last_sync = NOW(),
-                  updated_on = NOW()
-                WHERE user_master.employee_name IS DISTINCT FROM EXCLUDED.employee_name
-                   OR user_master.employee_id IS DISTINCT FROM EXCLUDED.employee_id
-                   OR user_master.department IS DISTINCT FROM EXCLUDED.department
-                   OR user_master.location IS DISTINCT FROM EXCLUDED.location
-                   OR user_master.direct_reporting IS DISTINCT FROM EXCLUDED.direct_reporting
-                   OR user_master.reporting_manager IS DISTINCT FROM EXCLUDED.reporting_manager
-                   OR user_master.managers_manager IS DISTINCT FROM EXCLUDED.managers_manager
-                   OR user_master.status IS DISTINCT FROM EXCLUDED.status
-                   OR user_master.company IS DISTINCT FROM EXCLUDED.company
-                   OR user_master.mobile IS DISTINCT FROM EXCLUDED.mobile
-                   OR user_master.email IS DISTINCT FROM EXCLUDED.email
-                   OR user_master.designation IS DISTINCT FROM EXCLUDED.designation`,
-              [
-                userObj.employee_name,
-                userObj.employee_id,
-                userObj.employee_code,
-                userObj.department,
-                userObj.location,
-                JSON.stringify(userObj.direct_reporting),
-                JSON.stringify(userObj.reporting_manager),
-                JSON.stringify(userObj.managers_manager),
-                userObj.status,
-                userObj.company,
-                userObj.mobile,
-                userObj.email,
-                userObj.designation,
-              ]
-            );
-
-            if (result.rowCount === 1) insertedRecords++;
-            else updatedRecords++;
-          } catch (userErr) {
-            failedRecords++;
-            console.error("Failed to sync user:", u.sAMAccountName, userErr);
+        // 🔥 DN → User map (core optimization)
+        const userByDN = {};
+        users.forEach((u) => {
+          if (u.distinguishedName) {
+            userByDN[u.distinguishedName] = u;
           }
-        }
+        });
 
-        // ----------------------------
-        // Update last sync timestamp for this OU
-        // ----------------------------
-        await pool.query(
-          `INSERT INTO ad_sync_status (ou, last_sync)
-           VALUES ($1, NOW())
-           ON CONFLICT (ou) DO UPDATE SET last_sync = EXCLUDED.last_sync`,
-          [ou]
-        );
+        const response = users.map((u) => {
+          const manager = userByDN[u.manager] || null;
+          const managersManager =
+            manager && manager.manager
+              ? userByDN[manager.manager] || null
+              : null;
 
-        // ----------------------------
-        // Log sync in ad_sync_log with previous last_sync
-        // ----------------------------
-        await pool.query(
-          `INSERT INTO ad_sync_log 
-            (ou, total_records, inserted_records, updated_records, failed_records, status, error_message, last_sync)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-          [
-            ou,
-            totalRecords,
-            insertedRecords,
-            updatedRecords,
-            failedRecords,
-            syncStatus,
-            errorMessage,
-            lastSyncTime,
-          ]
-        );
+          const directReports = Array.isArray(u.directReports)
+            ? u.directReports
+              .map((dn) => userByDN[dn])
+              .filter(Boolean)
+              .map((dr) => ({
+                dn: dr.distinguishedName,
+                displayName: dr.displayName || "",
+                employee_id: dr.sAMAccountName || "",
+                email: dr.mail || "",
+                employee_code: normalizeADValue(
+                  dr.employeeID || dr.employeeId
+                ),
+              }))
+            : [];
+
+          return {
+            employee_name: u.displayName || "",
+            employee_code: normalizeADValue(
+              u.employeeID || u.employeeId
+            ),
+            location: u.physicalDeliveryOfficeName || "",
+            company: u.company || "",
+            department: u.department || "",
+            mobile: u.mobile || "",
+            designation: u.title || "",
+            employee_id: u.sAMAccountName || "",
+            email: u.mail || "",
+            direct_reporting: directReports,
+            reporting_manager: manager
+              ? {
+                employee_name: manager.displayName || "",
+                employee_id: manager.sAMAccountName || "",
+                email: manager.mail || "",
+                employee_code: normalizeADValue(
+                  manager.employeeID || manager.employeeId
+                ),
+              }
+              : null,
+            managers_manager: managersManager
+              ? {
+                employee_name: managersManager.displayName || "",
+                employee_id: managersManager.sAMAccountName || "",
+                email: managersManager.mail || "",
+              }
+              : null,
+            status:
+              (parseInt(u.userAccountControl || 0) & 0x2) === 0x2
+                ? "Inactive"
+                : "Active",
+          };
+        });
 
         return res.json({
           status: true,
-          message: `✅ Synced ${totalRecords} user(s). Inserted: ${insertedRecords}, Updated: ${updatedRecords}, Failed: ${failedRecords}`,
-          users: users,
+          message: `✅ Fetched ${response.length} users (optimized, paged)`,
+          users: response,
           baseDN,
         });
       }
     );
   } catch (err) {
-    console.error(err);
-    await pool.query(
-      `INSERT INTO ad_sync_log 
-        (ou, total_records, inserted_records, updated_records, failed_records, status, error_message, last_sync)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      ["N/A", 0, 0, 0, 0, "Failed", err.message, null]
-    );
-    res.status(500).json({
+    return res.status(500).json({
       status: false,
-      message: "❌ Sync failed: " + err.message,
-      users: [],
+      message: "❌ Unexpected server error",
+      error: err.message,
     });
   }
 });
+
 
 // API: Check AD connection
 // -----------------------------
@@ -488,16 +387,15 @@ app.get("/api/ad-ous-tree", async (req, res) => {
         const fetchObjectsForOU = async (ouNode) => {
           return new Promise((resolve) => {
             let userFilter = "(objectClass=user)";
-            if (only === "active")
+
+            if (only === "active") {
               userFilter =
-                "(&" +
-                userFilter +
-                "(!(userAccountControl:1.2.840.113556.1.4.803:=2)))";
-            else if (only === "disabled")
+                "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(|(employeeID=*)(employeeId=*)))";
+            } else if (only === "disabled") {
               userFilter =
-                "(&" +
-                userFilter +
-                "(userAccountControl:1.2.840.113556.1.4.803:=2))";
+                "(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=2)(|(employeeID=*)(employeeId=*)))";
+            }
+
 
             ad.find(
               {
@@ -717,143 +615,281 @@ app.get("/api/ad-ous-list", (req, res) => {
   );
 });
 
-// -----------------------------
-// API: Fetch first 100 AD users with manager info
-// -----------------------------
-app.get("/api/ad-users", async (req, res) => {
-  try {
-    const baseDN = "OU=BADDI,DC=uniwin,DC=local";
+app.get("/api/ad-ous-with-employees", (req, res) => {
+  const baseDN = "DC=uniwin,DC=local";
 
-    const config = {
+  const ad = new ActiveDirectory({
+    url: AD_SERVER,
+    username: AD_USER,
+    password: AD_PASSWORD,
+    baseDN,
+  });
+
+  ad.find(
+    {
+      baseDN,
+      filter:
+        "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(employeeID=*))",
+      scope: "sub",
+      attributes: ["distinguishedName"],
+      paged: { pageSize: 500, pagePause: false },
+    },
+    (err, result) => {
+      if (err) {
+        return res.status(500).json({
+          status: false,
+          message: "LDAP error",
+          error: err.message,
+        });
+      }
+
+      const users = result?.users || [];
+      const ouMap = {}; // OU DN → { name, dn, employee_count }
+
+      users.forEach((u) => {
+        if (!u.distinguishedName) return;
+
+        const parts = u.distinguishedName.split(",");
+
+        parts.forEach((p) => {
+          if (p.startsWith("OU=")) {
+            const ouName = p.replace("OU=", "");
+            const ouDN = parts.slice(parts.indexOf(p)).join(",");
+
+            if (!ouMap[ouDN]) {
+              ouMap[ouDN] = {
+                ou_name: ouName,
+                ou_dn: ouDN,
+                employee_count: 0,
+              };
+            }
+            ouMap[ouDN].employee_count += 1;
+          }
+        });
+      });
+
+      const ous = Object.values(ouMap);
+      const totalUsers = users.length; // ✅ correct & simple
+
+      return res.json({
+        status: true,
+        message: `Fetched ${ous.length} OU(s) having active employees`,
+        summary: {
+          total_ous: ous.length,
+          total_users: totalUsers,
+        },
+        ous,
+      });
+    }
+  );
+});
+
+/**
+ * Get all OUs with active employee counts
+ * Improved version with better error handling and structure
+ */
+app.get("/api/ad-ous-with-employees1", async (req, res) => {
+  const baseDN = "DC=uniwin,DC=local";
+
+  try {
+    const ad = new ActiveDirectory({
       url: AD_SERVER,
       username: AD_USER,
       password: AD_PASSWORD,
       baseDN,
-    };
+    });
 
-    const ad = new ActiveDirectory(config);
-    const managerCache = {}; // cache for manager lookups
-
-    // Helper to fetch manager by DN
-    const getUserByDN = async (userDN) => {
-      if (!userDN) return null;
-
-      // Check cache for managers
-      if (managerCache[userDN]) return managerCache[userDN];
-
-      return new Promise((resolve) => {
+    // Wrap AD find in Promise for better error handling
+    const getUsers = () => {
+      return new Promise((resolve, reject) => {
         ad.find(
           {
             baseDN,
-            filter: `(distinguishedName=${userDN})`,
-            attributes: ["*"],
+            filter:
+              "(&(objectCategory=person)(objectClass=user)" +
+              "(!(userAccountControl:1.2.840.113556.1.4.803:=2))" +
+              "(sAMAccountName=*))", // FIXED: Only users with sAMAccountName
+            scope: "sub",
+            attributes: ["distinguishedName", "sAMAccountName"],
+            paged: { pageSize: 500, pagePause: false },
           },
           (err, result) => {
-            if (err || !result || !result.users || !result.users.length)
-              return resolve(null);
-            const u = result.users[0];
-            const userInfo = {
-              dn: u.distinguishedName,
-              displayName: u.displayName || "",
-              sAMAccountName: u.sAMAccountName || "",
-              email: u.mail || "",
-              employeeCode: u.employeeID,
-              managerDN: u.manager || null,
-            };
-            managerCache[userDN] = userInfo;
-            resolve(userInfo);
+            if (err) return reject(err);
+            resolve(result);
           }
         );
       });
     };
 
-    // Fetch all users
-    ad.find(
-      {
-        baseDN,
-        filter: "(objectClass=user)",
-        attributes: ["*"],
-        scope: "sub",
-      },
-      async (err, results) => {
-        if (err) {
-          return res.status(500).json({
-            status: false,
-            message: "❌ LDAP query error: " + err,
-            users: [],
-          });
-        }
+    const result = await getUsers();
+    const users = result?.users || [];
 
-        if (!results || !results.users || results.users.length === 0) {
-          return res.json({
-            status: true,
-            message: "✅ No users found",
-            users: [],
-            baseDN,
-          });
-        }
+    console.log(`[OU Fetch] Found ${users.length} active users with valid sAMAccountName`);
 
-        // Take first 100 users
-        const first100 = results.users;
+    const ouMap = {}; // OU DN → { ou_name, ou_dn, employee_count, employees }
 
-        // Add manager and manager's manager
-        const usersWithManagers = [];
-        for (const u of first100) {
-          // Manager
-          let manager = null;
-          let managersManager = null;
-          if (u.manager) {
-            manager = await getUserByDN(u.manager);
-            if (manager?.managerDN) {
-              managersManager = await getUserByDN(manager.managerDN);
-            }
+    users.forEach((u) => {
+      if (!u.distinguishedName || !u.sAMAccountName) return;
+
+      const parts = u.distinguishedName.split(",");
+
+      // Process each OU in the DN hierarchy
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        
+        if (part.startsWith("OU=")) {
+          const ouName = part.replace("OU=", "");
+          // Build OU DN from this point to the end
+          const ouDN = parts.slice(i).join(",");
+
+          if (!ouMap[ouDN]) {
+            ouMap[ouDN] = {
+              ou_name: ouName,
+              ou_dn: ouDN,
+              employee_count: 0,
+              employees: new Set(), // Track unique employees
+            };
           }
-
-          // Direct Reports
-          let directReportsExpanded = [];
-          if (Array.isArray(u.directReports)) {
-            directReportsExpanded = await Promise.all(
-              u.directReports.map((drDN) => getUserByDN(drDN))
-            );
-            directReportsExpanded = directReportsExpanded.filter(Boolean);
-          }
-
-          usersWithManagers.push({
-            employee_name: u.displayName || "",
-            employee_code: u.employeeID || "",
-            location: u.physicalDeliveryOfficeName || "",
-            company: u.company || "",
-            department: u.department || "",
-            mobile: u.mobile || "",
-            designation: u.title || "",
-            employee_id: u.sAMAccountName || "",
-            email: u.mail || "",
-            direct_reporting: directReportsExpanded,
-            reporting_manager: manager,
-            managers_manager: managersManager,
-            status:
-              ((parseInt(u.userAccountControl || 0) & 0x2) === 0x2) == false
-                ? "Active"
-                : "Inactive",
-          });
+          
+          // Add employee to this OU (prevents double counting)
+          ouMap[ouDN].employees.add(u.sAMAccountName);
+          ouMap[ouDN].employee_count = ouMap[ouDN].employees.size;
         }
-
-        return res.json({
-          status: true,
-          message: `✅ Fetched ${usersWithManagers.length} user(s) with manager info`,
-          users: usersWithManagers,
-          baseDN,
-        });
       }
-    );
+    });
+
+    // Convert to array and remove the employees Set
+    const ous = Object.values(ouMap).map(ou => ({
+      ou_name: ou.ou_name,
+      ou_dn: ou.ou_dn,
+      employee_count: ou.employee_count
+    }));
+
+    // Sort by employee count descending
+    ous.sort((a, b) => b.employee_count - a.employee_count);
+
+    const totalUsers = users.length;
+
+    console.log(`[OU Fetch] Returning ${ous.length} OUs`);
+
+    return res.json({
+      status: true,
+      message: `Fetched ${ous.length} OU(s) having active employees`,
+      summary: {
+        total_ous: ous.length,
+        total_users: totalUsers,
+      },
+      ous,
+    });
+    
   } catch (err) {
-    res.status(500).json({
+    console.error("[OU Fetch Error]", err);
+    return res.status(500).json({
       status: false,
-      message: "❌ Error detecting Base DN: " + err,
-      users: [],
+      message: "LDAP error",
+      error: err.message,
     });
   }
 });
+
+/**
+ * Alternative: Get only top-level OUs with direct employee counts
+ */
+app.get("/api/ad-ous-top-level", async (req, res) => {
+  const baseDN = "DC=uniwin,DC=local";
+
+  try {
+    const ad = new ActiveDirectory({
+      url: process.env.AD_SERVER,
+      username: process.env.AD_USER,
+      password: process.env.AD_PASSWORD,
+      baseDN,
+    });
+
+    const getUsers = () => {
+      return new Promise((resolve, reject) => {
+        ad.find(
+          {
+            baseDN,
+            filter:
+              "(&(objectCategory=person)(objectClass=user)" +
+              "(!(userAccountControl:1.2.840.113556.1.4.803:=2))" +
+              "(sAMAccountName=*))",
+            scope: "sub",
+            attributes: ["distinguishedName", "sAMAccountName"],
+            paged: { pageSize: 500, pagePause: false },
+          },
+          (err, result) => {
+            if (err) return reject(err);
+            resolve(result);
+          }
+        );
+      });
+    };
+
+    const result = await getUsers();
+    const users = result?.users || [];
+
+    const ouMap = {};
+
+    users.forEach((u) => {
+      if (!u.distinguishedName || !u.sAMAccountName) return;
+
+      const parts = u.distinguishedName.split(",");
+
+      // Find the FIRST (top-level) OU
+      for (let i = 0; i < parts.length; i++) {
+        if (parts[i].startsWith("OU=")) {
+          const ouName = parts[i].replace("OU=", "");
+          const ouDN = parts.slice(i).join(",");
+
+          if (!ouMap[ouDN]) {
+            ouMap[ouDN] = {
+              ou_name: ouName,
+              ou_dn: ouDN,
+              employee_count: 0,
+              employees: new Set(),
+            };
+          }
+
+          ouMap[ouDN].employees.add(u.sAMAccountName);
+          ouMap[ouDN].employee_count = ouMap[ouDN].employees.size;
+          
+          break; // Only count in top-level OU
+        }
+      }
+    });
+
+    const ous = Object.values(ouMap).map(ou => ({
+      ou_name: ou.ou_name,
+      ou_dn: ou.ou_dn,
+      employee_count: ou.employee_count
+    }));
+
+    ous.sort((a, b) => b.employee_count - a.employee_count);
+
+    return res.json({
+      status: true,
+      message: `Fetched ${ous.length} top-level OU(s)`,
+      summary: {
+        total_ous: ous.length,
+        total_users: users.length,
+      },
+      ous,
+    });
+    
+  } catch (err) {
+    console.error("[OU Fetch Error]", err);
+    return res.status(500).json({
+      status: false,
+      message: "LDAP error",
+      error: err.message,
+    });
+  }
+});
+
+
+
 
 app.get("/api/ad-disabled-users", async (req, res) => {
   try {

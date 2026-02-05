@@ -313,7 +313,7 @@ console.log('Paginated Requests:', paginatedRequests);
         <div className={styles.headerTopRow}>
           <div className={styles.controls}>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {["ALL", "Pending Approval", "Approved", "Completed", "Rejected"].map((status) => (
+              {["ALL", "Pending Approval", "Approved", "Assigned","Completed", "Rejected"].map((status) => (
                 <button
                   key={status}
                   onClick={() => {
