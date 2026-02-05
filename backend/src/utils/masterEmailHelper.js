@@ -49,7 +49,7 @@ async function sendApprovalEmail({
     }[action] || action;
 
     const appUrl = process.env.REACT_APP_API_URL || "http://localhost:3000";
-    const approvalUrl = `${appUrl}/admin-approvals/${approvalId}`;
+    const approvalUrl = `${appUrl}/admin-approval/${approvalId}`;
 
     // Format record data for email
     const recordSummary = recordData
