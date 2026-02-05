@@ -2551,7 +2551,8 @@ const AddUserRequest: React.FC = () => {
                     <label htmlFor="trainingStatus" className={addUserRequestStyles.floatingLabel}>
                       Training Completed <span style={{ color: "red" }}>*</span></label>
                   </div>
-                  {form.trainingStatus === "Yes" && (
+                  {form.trainingStatus === "Yes" && (form.accessType === "New User Creation" ||
+        form.accessType === "Bulk New User Creation")&& (
                     <div className={addUserRequestStyles.formGroup}>
                       <input
                         type="file"

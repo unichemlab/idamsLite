@@ -101,13 +101,15 @@ const UserMasterTable = () => {
     if (!filterValue.trim()) return true;
     const value = filterValue.toLowerCase();
     return (
-      (user.employee_name &&
-        user.employee_name.toLowerCase().includes(value)) ||
+      (user.employee_name && user.employee_name.toLowerCase().includes(value)) ||
       (user.email && user.email.toLowerCase().includes(value)) ||
-      (user.employee_code &&
-        user.employee_code.toLowerCase().includes(value)) ||
-      (user.employee_id &&
-        String(user.employee_id).toLowerCase().includes(value))
+      (user.employee_code && user.employee_code.toLowerCase().includes(value)) ||
+      (user.employee_id && String(user.employee_id).toLowerCase().includes(value))||
+      (user.location && user.location.toLowerCase().includes(value))||
+      (user.designation && user.designation.toLowerCase().includes(value))||
+      (user.status && user.status.toLowerCase().includes(value))||
+      (user.company && user.company.toLowerCase().includes(value))||
+      (user.department && String(user.department).toLowerCase().includes(value))
     );
   });
 const refreshCallback = useCallback(() => {
@@ -141,60 +143,72 @@ useAutoRefresh(refreshCallback);
       img.onerror = reject;
     });
   };
-
-  // PDF Export Handler (updated to match RoleMasterTable design)
-  const handleExportPDF = async () => {
-    const doc = new jsPDF({ orientation: "landscape" });
-    const today = new Date();
-    const fileName = `UserMaster_${today.toISOString().split("T")[0]}.pdf`;
-
-    // --- HEADER BAR ---
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const pageMargin = 14;
-    const headerHeight = 28;
-    doc.setFillColor(0, 82, 155);
-    doc.rect(0, 0, pageWidth, headerHeight, "F");
-
-    // Logo
-    let logoWidth = 0;
-    let logoHeight = 0;
-    if (login_headTitle2) {
-      try {
-        const img = await loadImage(login_headTitle2);
-        const maxLogoHeight = headerHeight * 0.6;
-        const scale = maxLogoHeight / img.height;
-        logoWidth = img.width * scale;
-        logoHeight = img.height * scale;
-        const logoY = headerHeight / 2 - logoHeight / 2;
-        doc.addImage(img, "PNG", pageMargin, logoY, logoWidth, logoHeight);
-      } catch (e) {
-        console.warn("Logo load failed", e);
+  /* -------------------- PDF Export User Master -------------------- */
+  
+      const handleExportPDF = useCallback(async () => {
+      const jsPDF = (await import("jspdf")).default;
+      const autoTable = (await import("jspdf-autotable")).default;
+      const doc = new jsPDF({ orientation: "portrait" });
+      const today = new Date();
+      const fileName = `UserMaster_${today.toISOString().split("T")[0]}.pdf`;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const pageMargin = 14;
+      const headerHeight = 15;
+  
+      // Header background
+      doc.setFillColor(0, 82, 155);
+      doc.rect(0, 0, pageWidth, headerHeight, "F");
+  
+      // Add logo if available
+      let logoWidth = 0;
+      let logoHeight = 0;
+      if (login_headTitle2) {
+        try {
+          const loadImage = (src: string): Promise<HTMLImageElement> => {
+            return new Promise((resolve, reject) => {
+              const img = new Image();
+              img.crossOrigin = "anonymous";
+              img.onload = () => resolve(img);
+              img.onerror = reject;
+              img.src = src;
+            });
+          };
+          
+          const img = await loadImage(login_headTitle2);
+          const maxLogoHeight = headerHeight * 0.6;
+          const scale = maxLogoHeight / img.height;
+          logoWidth = img.width * scale;
+          logoHeight = img.height * scale;
+          const logoY = headerHeight / 2 - logoHeight / 2;
+          doc.addImage(img, "PNG", pageMargin, logoY, logoWidth, logoHeight);
+        } catch (e) {
+          console.warn("Logo load failed", e);
+        }
       }
-    }
-
-    // Title + Exported by on the same line
-    doc.setFontSize(16);
-    doc.setTextColor(255, 255, 255);
-    const titleX = pageMargin + logoWidth + 10;
-    const titleY = headerHeight / 2 + 5;
-    doc.text("User Master", titleX, titleY);
-
-    doc.setFontSize(9);
-    doc.setTextColor(220, 230, 245);
-    const exportedByName =
-      (currentUser && (currentUser.name || currentUser.username)) ||
-      "Unknown User";
-    const exportedText = `Exported by: ${exportedByName}  On: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
-    const textWidth = doc.getTextWidth(exportedText);
-    doc.text(exportedText, pageWidth - pageMargin - textWidth, titleY);
-
-    doc.setDrawColor(0, 82, 155);
-    doc.setLineWidth(0.5);
-    doc.line(0, headerHeight, pageWidth, headerHeight);
-
-    // --- TABLE ---
-    const headers = [
+  
+      // Title
+      doc.setFontSize(16);
+      doc.setTextColor(255, 255, 255);
+      const titleX = pageMargin + logoWidth -5;
+      const titleY = headerHeight / 2 + 5;
+      doc.text("User Master Report", titleX, titleY);
+  
+      // Export info
+      doc.setFontSize(9);
+      doc.setTextColor(220, 230, 245);
+      const exportedByName = (currentUser && (currentUser.name || currentUser.username)) || "Unknown User";
+      const exportedText = `Exported by: ${exportedByName}  On: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
+      const textWidth = doc.getTextWidth(exportedText);
+      doc.text(exportedText, pageWidth - pageMargin - textWidth, titleY);
+  
+      // Header line
+      doc.setDrawColor(0, 82, 155);
+      doc.setLineWidth(0.5);
+      doc.line(0, headerHeight, pageWidth, headerHeight);
+  
+      // Table headers
+     const headers = [
       [
         "User Name",
         "Email",
@@ -204,11 +218,11 @@ useAutoRefresh(refreshCallback);
         "Designation",
         "Status",
         "Company",
-        "Permissions",
       ],
     ];
-
-    const rows = filteredUsers.map((u: any) => [
+  
+      // Table rows
+      const rows = filteredUsers.map((u: any) => [
       u.employee_name ?? "-",
       u.email ?? "-",
       u.employee_code ?? "-",
@@ -222,50 +236,56 @@ useAutoRefresh(refreshCallback);
       u.designation ?? "-",
       u.status ?? "-",
       u.company ?? "-",
-      formatPermissions(u),
     ]);
+  
+      // Generate table
+      autoTable(doc, {
+        head: headers,
+        body: rows,
+        startY: headerHeight + 8,
+        styles: { 
+          fontSize: 7, 
+          cellPadding: 2.5, 
+          halign: "left", 
+          valign: "middle", 
+          textColor: 80,
+          lineColor: [220, 220, 220],
+          lineWidth: 0.1,
+        },
+        headStyles: { 
+          fillColor: [11, 99, 206], 
+          textColor: 255, 
+          fontStyle: "bold", 
+          fontSize: 8,
+          halign: "center",
+        },
+        alternateRowStyles: { 
+          fillColor: [240, 245, 255] 
+        },
+        margin: { left: pageMargin, right: pageMargin },
+        tableWidth: "auto",
+       
+      });
+  
+      // Footer
+      const pageCount = (doc as any).getNumberOfPages?.() || (doc as any).internal?.getNumberOfPages?.() || 1;
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.3);
+      
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.line(pageMargin, pageHeight - 15, pageWidth - pageMargin, pageHeight - 15);
+        doc.setFontSize(8);
+        doc.setTextColor(100);
+        doc.text("Unichem Laboratories", pageMargin, pageHeight - 10);
+        doc.text(`Page ${i} of ${pageCount}`, pageWidth - pageMargin - 30, pageHeight - 10);
+      }
+  
+      doc.save(fileName);
+    }, [filteredUsers, currentUser, login_headTitle2]);
 
-    autoTable(doc, {
-      head: headers,
-      body: rows,
-      startY: headerHeight + 8,
-      styles: {
-        fontSize: 11,
-        cellPadding: 3,
-        halign: "left",
-        valign: "middle",
-      },
-      headStyles: {
-        fillColor: [11, 99, 206],
-        textColor: 255,
-        fontStyle: "bold",
-      },
-      alternateRowStyles: {
-        fillColor: [240, 245, 255],
-      },
-      margin: { left: pageMargin, right: pageMargin },
-      tableWidth: "auto",
-    });
 
-    // --- FOOTER ---
-    const pageCount =
-      (doc as any).getNumberOfPages?.() ||
-      (doc as any).internal?.getNumberOfPages?.() ||
-      1;
-    doc.setFontSize(9);
-    doc.setTextColor(100);
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.text("Unichem Laboratories", pageMargin, pageHeight - 6);
-      doc.text(
-        `Page ${i} of ${pageCount}`,
-        pageWidth - pageMargin - 30,
-        pageHeight - 6
-      );
-    }
 
-    doc.save(fileName);
-  };
 
   return (
     <AbilityContext.Provider value={ability}>
@@ -320,14 +340,6 @@ useAutoRefresh(refreshCallback);
                   + Add New
                 </button>
               )}
-              <button
-                className={styles.filterBtn}
-                onClick={() => setShowFilterPopover((prev) => !prev)}
-                type="button"
-                aria-label="Filter users"
-              >
-                🔍 Filter
-              </button>
               {(isSuperAdmin || ability.can("update:users")) && (
                 <button
                   className={`${styles.btn} ${styles.editBtn}`}

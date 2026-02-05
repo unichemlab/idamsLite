@@ -74,7 +74,7 @@ const AddApplicationMaster: React.FC = () => {
       )}
 
       <div className={addStyles.pageWrapper}>
-        <AppHeader title="Application Master Management" />
+        <AppHeader title="Application Master Management2" />
 
         <div className={addStyles.contentArea}>
           {/* Breadcrumb */}

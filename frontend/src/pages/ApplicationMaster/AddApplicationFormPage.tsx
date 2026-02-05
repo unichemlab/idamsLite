@@ -174,10 +174,32 @@ const AddApplicationFormPage: React.FC = () => {
       });
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setShowModal(true);
-  };
+ // In handleSubmit - both files
+const handleSubmit = (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  // ✅ Validate roles are selected
+  if (!form.role_id || form.role_id.length === 0) {
+    alert("Please select at least one role before saving.");
+    return;
+  }
+  
+  setShowModal(true);
+};
+
+// In handleRoleLockToggle - AddApplicationFormPage
+const handleRoleLockToggle = () => {
+  if (!roleLocked) {
+    // ✅ Validate roles before locking
+    if (!form.role_id || form.role_id.length === 0) {
+      alert("Please select at least one role before locking.");
+      return;
+    }
+    setRoleLocked(true);
+  } else {
+    setRoleLocked(false);
+  }
+};
 
   // AddApplicationFormPage.tsx - Updated handleConfirm function
 
@@ -577,10 +599,7 @@ useEffect(() => {
                       <span style={{ marginLeft: 65 }}>
                         <span
                           className={styles.roleLockToggle}
-                          onClick={() => {
-                            if (roleLocked) setRoleLocked(false);
-                            else setRoleLocked(true);
-                          }}
+                          onClick={() => { handleRoleLockToggle(); }}
                           tabIndex={0}
                           aria-label="Role Lock Toggle"
                         >

@@ -92,7 +92,7 @@ app.use("/api/rbac", rbacRoutes);
 app.use('/api', bulkImportRoutes);
 app.use("/api/master-approvals", masterApprovalRoutes);
 // Use AD sync routes
-app.use(adSyncRoutes);
+app.use('/api', adSyncRoutes);
 app.use("/api/workflows", workflowRoutes);
 
 app.get("/api/tech-stack", (req, res) => {
