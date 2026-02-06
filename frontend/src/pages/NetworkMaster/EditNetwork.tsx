@@ -259,22 +259,23 @@ const validateForm = () => {
                 </div>
 
                 {/* System Details */}
-                <div className={styles.section}>
-                  <span className={styles.sectionHeaderTitle}>System Details</span>
+               <div className={styles.section}>
+                  <span className={styles.sectionHeaderTitle}>Device Details</span>
                   <div className={styles.rowFields}>
-                    {input("device_type", "Device Type")}
+                    {/* Dual Power Source(ATS /Yes/NO) */}
+                   {input("device_type", "Device Type")}
                     {input("device_model", "Device Model")}
-                    {input("make_vendor", "Make/Vendor")}
-                    {select("dual_power_source", "Dual Power Source", ['Yes','No','ATS'], false, false, false, false)}
-                    {input("trunk_port", "Trunk Port")}
-                    {select("stack", "Stack", [], false, false, false, true)}
-                   {form.stack && input("stack_switch_details", "Stack Switch Details")}
-                    {input("neighbor_switch_ip", "Neighbor Switch IP")}
-                    {select("sfp_fiber_tx", "SFP/Fiber TX", ['Fiber','TX'], false, false, false, false)}
-                    {input("neighbor_port", "Neighbor Port")}
-                    {select("poe_non_poe", "POE/Non-POE", ['PoE','Non-POE'], false, false, false, false)}
                     {input("serial_no", "Serial No")}
                     {input("ios_version", "IOS Version")}
+                    {input("make_vendor", "Make/Vendor")}
+                    {select("poe_non_poe", "POE/Non-POE", ['PoE','Non-POE'], false, false, false, false)}
+                    {select("dual_power_source", "Dual Power Source", ['Yes','No','ATS'], false, false, false, false)}
+                    {select("stack", "Stack", [], false, false, false, true)}
+                    {form.stack && input("stack_switch_details", "Stack Switch Details")}
+                    {input("neighbor_switch_ip", "Neighbor Switch IP")}
+                    {input("neighbor_port", "Neighbor Port")}
+                    {input("trunk_port", "Trunk Port")}
+                    {select("sfp_fiber_tx", "SFP/Fiber TX", ['Fiber','TX'], false, false, false, false)}
                     {input("uptime", "Uptime")}
                     {input("verify_date", "Verify Date", "date")}
                   </div>

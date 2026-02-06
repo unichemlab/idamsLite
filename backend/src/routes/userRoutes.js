@@ -28,6 +28,7 @@ router.put('/:userId/plant-permissions', userPlantPermissionController.setUserPl
 
 router.get("/users/:employeeCode", userController.getUserByEmployeeCode);
 router.get('/department', userController.getUserByDepartment);
+router.get('/userList', userController.getAllUser);
 router.get('/department/:department', userController.getUserByDepartment);
 router.get("/users/:id", userController.getUsersById);
 router.get("/approvers", async (req, res) => {

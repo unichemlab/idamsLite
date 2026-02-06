@@ -209,7 +209,7 @@ const AddVendorMaster: React.FC = () => {
               </div>
 
               {/* Description */}
-              <div className={styles.formGroup} style={{ width: "100%" }}>
+              <div className={styles.formGroup} style={{ width: "100%",padding:15 }}>
                 <div className={styles.formGroupFloating}>
                   <textarea
                     name="description"

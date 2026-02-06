@@ -3,6 +3,8 @@ const router = express.Router();
 const systemController = require("../controllers/systemController");
 
 // Create, Read, Update, Delete for systems
+router.get("/:systemId/validate-inactivate", systemController.validateSystemInactivation);
+
 router.get("/list", systemController.getSystemInventoryList);
 router.get("/", systemController.getAllSystems);
 router.post("/", systemController.createSystem);

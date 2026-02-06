@@ -17,13 +17,13 @@ const transporter = nodemailer.createTransport({
   debug: true,
 });
 
-const sendEmail = async ({ subject, html, attachments = [] }) => {
+const sendEmail = async ({ to,subject, html, attachments = [] }) => {
   try {
     await transporter.sendMail({
       from: `"IDMASLite UAM Notification" <nishant1.singh@unichemlabs.com>`,
       to: [
         "nishant1.singh@unichemlabs.com",
-         to
+        "ashish.sachania@unichemlabs.com"
       ],
       subject,
       html,

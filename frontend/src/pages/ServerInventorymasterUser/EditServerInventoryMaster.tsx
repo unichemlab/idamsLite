@@ -4,20 +4,25 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ServerContext,Server } from "../ServerInventorymasterUser/ServerContext";
 import { useAuth } from "../../context/AuthContext";
 import AppHeader from "../../components/Common/AppHeader";
-import { fetchPlants } from "../../utils/api";
+import { fetchPlants,fetchVendors } from "../../utils/api";
 import styles from "../Plant/AddPlantMaster.module.css";
 
 interface Plant {
   id: number;
   plant_name: string;
 }
-
+interface Vendor {
+  id: number;
+  vendor_name: string;
+  vendor_code: string;
+}
 const EditServerInventory: React.FC = () => {
   const { user } = useAuth();
   const { id } = useParams();
   const serverCtx = useContext(ServerContext);
   const navigate = useNavigate();
   const [plants, setPlants] = useState<Plant[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
 
   // Find server by id
   const server = serverCtx?.servers.find((s: Server) => String(s.id) === id);
@@ -82,8 +87,11 @@ const EditServerInventory: React.FC = () => {
   const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
-    fetchPlants().then(setPlants);
-  }, []);
+        Promise.all([fetchPlants(), fetchVendors()]).then(([p,v]) => {
+          setPlants(p);
+          setVendors(v);
+        });
+      }, []);
 
   if (!serverCtx || id === undefined || !server) return <div>Server not found</div>;
 
@@ -273,7 +281,7 @@ const EditServerInventory: React.FC = () => {
                 <div className={styles.section}>
                   <span className={styles.sectionHeaderTitle}>Commercial Details</span>
                   <div className={styles.rowFields}>
-                    {input("purchase_po", "Purchase PO", "number")}
+                    {input("purchase_po", "Purchase PO")}
                     {input("purchase_date", "Purchased Date", "date")}
                     {input("sap_asset_no", "SAP Asset No")}
                     {input("warranty_new_start_date", "Warranty New Start Date", "date")}
@@ -290,7 +298,7 @@ const EditServerInventory: React.FC = () => {
                     {input("application", "Application")}
                     {input("application_version", "Application Version")}
                     {input("application_oem", "Application OEM")}
-                    {input("application_vendor", "Application Vendor")}
+                                           {select("application_vendor", "Application Vendor", vendors, { value: (v) => v.id, label: (v) => v.vendor_name }, true)}
                   </div>
                 </div>
 

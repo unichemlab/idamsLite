@@ -919,5 +919,21 @@ export const fetchUserById = async (id: number) => {
   }
 };
 
+  export async function fetchUsers(): Promise<any[]> {
+  try {
+    const data = await request("/api/users/userList");
+    // Map API fields to frontend model
+    return data.map((user: any) => ({
+      id: user.id,
+      name: user.employee_name || "",
+      email: user.email || "",
+      status: user.status || "ACTIVE",
+    }));
+  } catch (error) {
+    console.error("API fetchUsers error:", error);
+    throw error;
+  }
+};
+
 
 
