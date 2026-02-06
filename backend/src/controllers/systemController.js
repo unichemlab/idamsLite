@@ -542,5 +542,24 @@ exports.getSystemInventoryList = async (req, res) => {
   }
 };
 
+exports.validateSystemInactivation = async (req, res) => {
+  const { systemId } = req.params;
+console.log("Validating inactivation for system ID:", systemId);
+  const result = await pool.query(
+    `
+    SELECT 1
+    FROM application_master
+    WHERE system_inventory_id = $1
+      AND status = 'ACTIVE'
+    LIMIT 1
+    `,
+    [systemId]
+  );
+
+  res.json({
+    canInactivate: result.rows.length === 0
+  });
+};
+
 
 module.exports=exports;

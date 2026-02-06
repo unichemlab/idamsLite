@@ -102,6 +102,7 @@ const EditDeptFormPage: React.FC = () => {
                       value={form.name}
                       onChange={handleChange}
                       required
+                      readOnly
                       className={styles.input}
                       placeholder="Enter department name"
                     />

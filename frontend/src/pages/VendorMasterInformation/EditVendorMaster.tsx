@@ -215,10 +215,12 @@ const handleConfirmLogin = (data: Record<string, string>) => {
                   <input
                     type="text"
                     name="name"
+                    disabled
                     value={form.name}
                     onChange={handleChange}
                     className={styles.input}
                     required
+                    readOnly
                     placeholder=" "
                   />
                   <label className={styles.floatingLabel}>

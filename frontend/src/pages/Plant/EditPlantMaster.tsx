@@ -140,6 +140,7 @@ const EditPlantMaster: React.FC = () => {
                       value={form.name}
                       onChange={handleChange}
                       required
+                      readOnly
                       className={styles.input}
                       placeholder="Enter plant name"
                     />
@@ -154,6 +155,7 @@ const EditPlantMaster: React.FC = () => {
                       value={form.location}
                       onChange={handleChange}
                       required
+                      readOnly
                       className={styles.input}
                       placeholder="Enter location"
                     />

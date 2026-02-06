@@ -523,5 +523,36 @@ exports.getUsersById = async (req, res) => {
 
 
 
+exports.getAllUser = async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+      id,
+        employee_name,
+        employee_code,
+        location,
+        department,
+        reporting_manager,
+        managers_manager,
+        email
+      FROM public.user_master
+      ORDER BY employee_name ASC;
+    `;
+
+    const result = await db.query(query);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: "No users found" });
+    }
+      // ✅ Return all users, not just one
+    res.json(result.rows);
+  } catch (err) {
+    console.error("[GET ALL USERS ERROR]", err);
+    res.status(500).json({ error: "Failed to fetch users" });
+  }
+};
+
+
+
 
 

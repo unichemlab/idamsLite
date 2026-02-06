@@ -1,5 +1,5 @@
 // src/types/system.ts - Shared System type definition
-
+export type SystemStatus = "ACTIVE" | "INACTIVE";
 export interface System {
   id: number;
   transaction_id: string;
@@ -70,7 +70,7 @@ export interface System {
   amc_expiry_date?: string;
   sap_asset_no?: string;
   remarks?: string;
-  status?: string;
+  status?: SystemStatus;
   created_on?: string;
   updated_on?: string;
   system_name?: string;

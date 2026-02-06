@@ -126,6 +126,7 @@ export default function EditRoleFormPage({
                     value={form.name}
                     onChange={handleFormChange}
                     required
+                  readOnly
                     className={styles.input}
                   />
                   <label className={styles.floatingLabel}>
