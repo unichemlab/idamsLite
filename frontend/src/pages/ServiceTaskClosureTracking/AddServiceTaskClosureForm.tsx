@@ -44,7 +44,7 @@ const TaskClosureForm = () => {
 
     const handleLogout = () => {
         logout();
-        navigate("/login");
+        navigate("/");
     };
 
     // Fetch task if editing

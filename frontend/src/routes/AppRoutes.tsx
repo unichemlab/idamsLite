@@ -79,6 +79,10 @@ import TaskDetailView from "pages/TaskClosureTracking/TaskDetailView";
 import Home from "pages/HomePage/homepageUser";
 import PendingApprovalPage from "pages/ApproverDashboard/PendingApproval";
 import ApprovalHistoryPage from "pages/ApproverDashboard/ApprovalHistory";
+/************************AD Sync Dashboard************************************* */
+ import ADSyncDashboard from "../components/ADSyncDashboard";
+
+/***************************************************************** */
 import { Dashboard } from "@mui/icons-material";
 
 // ✅ IMPORT AUTO-REFRESH MIDDLEWARE
@@ -149,6 +153,7 @@ const allowedRoutes = [
   "/access-request/:id",
   "/access-log",
   "/dashboard",
+  "/ad-sync-dashboard",
   "/plant-master",
   "/plant-master/add",
   "/plant-master/edit/:id",
@@ -343,6 +348,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <DashboardMain/>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/ad-sync-dashboard"
+          element={
+            <ProtectedRoute>
+              <ADSyncDashboard />
             </ProtectedRoute>
           }
         />

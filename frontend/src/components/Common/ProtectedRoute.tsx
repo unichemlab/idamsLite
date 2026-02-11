@@ -20,7 +20,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   permissions,
   requireAll = false,
   plantId,
-  fallbackPath = '/login',
+  fallbackPath = '/',
   showUnauthorized = false,
 }) => {
   const { user, loading } = useAuth();

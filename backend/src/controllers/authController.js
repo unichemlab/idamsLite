@@ -37,6 +37,15 @@ function logDebug(...args) {
     console.log("[AUTH DEBUG]", ...args);
   }
 }
+function getClientInfo(req) {
+  return {
+    ip:
+      req.headers["x-forwarded-for"]?.split(",")[0] ||
+      req.socket.remoteAddress ||
+      null,
+    device: req.headers["user-agent"] || "UNKNOWN",
+  };
+}
 
 exports.login = async (req, res) => {
   const { username, password } = req.body;
@@ -116,10 +125,29 @@ exports.login = async (req, res) => {
       authenticated = true;
     }
 
-    if (!authenticated) {
-      logDebug(`Authentication failed for ${username}`);
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
+   if (!authenticated) {
+  logDebug(`Authentication failed for ${username}`);
+
+  const { ip, device } = getClientInfo(req);
+
+  await db.query(
+    `
+    INSERT INTO user_login_log
+    (transaction_id, employee_code, action, description,
+     ip_address, device, success, login_time)
+    VALUES ($1,$2,'LOGIN','Invalid credentials',$3,$4,false,NOW())
+    `,
+    [
+      `USRL${Date.now()}`,
+      username,
+      ip,
+      device,
+    ]
+  );
+
+  return res.status(401).json({ message: "Invalid credentials" });
+}
+
 
     // ---------------- Normalize role_id ----------------
     let roleIds = [];
@@ -135,6 +163,32 @@ exports.login = async (req, res) => {
     user.role_id = roleIds;
 
     logDebug("User login successful:", { username, roleIds });
+    
+    // ===============================================
+// LOGIN AUDIT LOG (SUCCESS)
+// ===============================================
+const { ip, device } = getClientInfo(req);
+
+const loginTxnId = `USRL${Date.now()}`;
+
+await db.query(
+  `
+  INSERT INTO user_login_log
+  (transaction_id, user_id, employee_code, action, description,
+   ip_address, device, success, login_time, location)
+  VALUES ($1,$2,$3,'LOGIN',$4,$5,$6,true,NOW(),$7)
+  `,
+  [
+    loginTxnId,
+    user.id,
+    user.employee_code,
+    "User logged in successfully",
+    ip,
+    device,
+    user.location || null,
+  ]
+);
+
 
     // ===============================================
     // Fetch IT BIN Admin Status & Plant IDs
@@ -507,6 +561,7 @@ exports.login = async (req, res) => {
 
     return res.json({
       token,
+      login_transaction_id: loginTxnId, // 👈 ADD THIS
       user: {
         id: user.id || user.user_id,
         username: user.employee_id,
@@ -543,6 +598,38 @@ exports.login = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
+exports.logout = async (req, res) => {
+  try {
+    const { transaction_id } = req.body;
+
+    if (!transaction_id) {
+      return res.status(400).json({ message: "Transaction ID required" });
+    }
+
+    const result = await db.query(
+      `
+      UPDATE user_login_log
+      SET 
+        logout_time = NOW(),
+        action = 'LOGOUT',
+        description = 'User logged out successfully'
+      WHERE transaction_id = $1
+      `,
+      [transaction_id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: "Login record not found" });
+    }
+
+    return res.json({ message: "Logout recorded successfully" });
+  } catch (err) {
+    console.error("[LOGOUT ERROR]", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 
 /**
  * GET /api/auth/permissions

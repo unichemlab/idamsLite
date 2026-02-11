@@ -71,6 +71,7 @@ export interface AuthUser {
   itPlantIds?: number[];
   plantPermissions?: PlantPermission[];
   permittedPlantIds?: number[];
+  login_transaction_id:string;
 }
 
 interface AuthContextType {
@@ -593,6 +594,7 @@ console.log("Auth data after data login",data.user);
         plantPermissions: tokenPlantPermissions,
         permittedPlantIds: tokenPlantIds,
         isSuperAdmin,
+        login_transaction_id: data.login_transaction_id
       };
 
       setUser(authUser);
@@ -690,18 +692,48 @@ console.log("Auth data after data login",data.user);
     }
   };
 
-  const logout = () => {
+  // const logout = () => {
+  //   setUser(null);
+  //   setPermissions([]);
+  //   try {
+  //     localStorage.clear();
+  //     sessionStorage.clear();
+  //     window.location.href = "/";
+  //   } catch (e) {
+  //     console.warn("Error during logout cleanup:", e);
+  //     window.location.href = "/";
+  //   }
+  // };
+
+ const logout = async () => {
+  try {
+    const stored = localStorage.getItem("authUser");
+    const parsed = stored ? JSON.parse(stored) : null;
+
+    const transaction_id = parsed?.login_transaction_id;
+
+    if (transaction_id) {
+      await fetch(`${API_BASE}/api/auth/logout`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({ transaction_id }),
+      });
+    }
+  } catch (err) {
+    console.warn("Logout API failed:", err);
+  } finally {
     setUser(null);
     setPermissions([]);
-    try {
-      localStorage.clear();
-      sessionStorage.clear();
-      window.location.href = "/";
-    } catch (e) {
-      console.warn("Error during logout cleanup:", e);
-      window.location.href = "/";
-    }
-  };
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.href = "/";
+  }
+};
+
+
 
   if (loading) {
     return null;
