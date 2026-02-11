@@ -211,6 +211,7 @@ const ATTRS = [
   "userAccountControl",
   "whenChanged",
   "whenCreated",
+  "directReports",
 ];
 
 /* ================= SANITIZERS ================= */
@@ -337,8 +338,9 @@ const parseManagerInfo = async (managerDN) => {
         const managerObj = {
           dn: managerDN,
           employee_id: safe(m.sAMAccountName),
-          employee_code: safe(m.employeeID),
-          name: safe(m.displayName),
+          sAMAccountName: safe(m.sAMAccountName),
+          employeeCode: safe(m.employeeID),
+          displayName: safe(m.displayName),
           email: safe(m.mail),
           department: safe(m.department),
           designation: safe(m.title),
@@ -605,6 +607,7 @@ if (u.manager) {
           employee_code: employeeCode,
           department: safe(u.department),
           location: safe(u.physicalDeliveryOfficeName),
+          direct_reporting: directReports,
           reporting_manager: reportingManager
   ? JSON.stringify(reportingManager)
   : null,

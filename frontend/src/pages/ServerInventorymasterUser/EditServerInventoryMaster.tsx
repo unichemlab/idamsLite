@@ -303,7 +303,7 @@ const plantOptions = Array.isArray(plants)
                 <div className={styles.section}>
                   <span className={styles.sectionHeaderTitle}>Commercial Details</span>
                   <div className={styles.rowFields}>
-                    {input("purchase_po", "Purchase PO", "number")}
+                    {input("purchase_po", "Purchase PO")}
                     {input("purchase_date", "Purchased Date", "date")}
                     {input("sap_asset_no", "SAP Asset No")}
                     {input("warranty_new_start_date", "Warranty New Start Date", "date")}
