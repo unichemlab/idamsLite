@@ -178,7 +178,7 @@ async function sendSyncEmail(runData, ouResults) {
     const html = generateEmailBody(runData, ouResults);
 
     await transporter.sendMail({
-      from: '"AD Sync Service" <ad-sync@company.com>',
+      from: '"AD Sync Service" <nishant1.singh@unichemlabs.com>',
       to: [process.env.ALERT_EMAIL, "nishant1.singh@unichemlabs.com",
         "ashish.sachania@unichemlabs.com"],
       subject,
@@ -292,19 +292,69 @@ const generateTransactionId = async () => {
 /**
  * Parse manager DN to extract manager information
  */
-const parseManagerInfo = (managerDN) => {
+// Manager cache (avoid repeated LDAP hits)
+const managerCache = new Map();
+
+const parseManagerInfo = async (managerDN) => {
   if (!managerDN) return null;
 
-  // Return the DN as-is for now - actual parsing would happen in a separate AD query
-  return {
-    dn: managerDN,
-    displayName: null,
-    email: null,
-    employee_id: null,
-    employeeCode: null,
-    managerDN: managerDN
-  };
+  if (managerCache.has(managerDN)) {
+    return managerCache.get(managerDN);
+  }
+
+  const ad = new ActiveDirectory({
+    url: process.env.AD_SERVER,
+    username: process.env.AD_USER,
+    password: process.env.AD_PASSWORD,
+    baseDN: "DC=uniwin,DC=local",
+  });
+
+  return new Promise((resolve) => {
+    ad.find(
+      {
+        baseDN: managerDN,
+        scope: "base", // 🔥 VERY IMPORTANT
+        attributes: [
+          "displayName",
+          "mail",
+          "sAMAccountName",
+          "employeeID",
+          "manager",
+          "department",
+          "title",
+          "company",
+          "physicalDeliveryOfficeName",
+        ],
+      },
+      (err, result) => {
+        if (err || !result?.users?.length) {
+          managerCache.set(managerDN, null);
+          return resolve(null);
+        }
+
+        const m = result.users[0];
+
+        const managerObj = {
+          dn: managerDN,
+          employee_id: safe(m.sAMAccountName),
+          employee_code: safe(m.employeeID),
+          name: safe(m.displayName),
+          email: safe(m.mail),
+          department: safe(m.department),
+          designation: safe(m.title),
+          company: safe(m.company),
+          location: safe(m.physicalDeliveryOfficeName),
+          managerDN: m.manager || null,
+        };
+
+        managerCache.set(managerDN, managerObj);
+        resolve(managerObj);
+      }
+    );
+  });
 };
+
+
 
 /* ================= GET ALL OUs WITH EMPLOYEES ================= */
 
@@ -528,8 +578,25 @@ const syncSingleOU = async (ouPath, runId) => {
         //   transactionId = await generateTransactionId();
         // }
 
-        const managerInfo = parseManagerInfo(u.manager);
-        const reportingManager = managerInfo ? JSON.stringify(managerInfo) : null;
+        let reportingManager = null;
+let managersManager = null;
+
+if (u.manager) {
+  const mgr = await parseManagerInfo(u.manager);
+
+  if (mgr) {
+    reportingManager = mgr;
+
+    // 🔥 Get Manager's Manager
+    if (mgr.managerDN) {
+      const mgr2 = await parseManagerInfo(mgr.managerDN);
+      if (mgr2) {
+        managersManager = mgr2;
+      }
+    }
+  }
+}
+
 
         batch.push({
          // transaction_id: transactionId,
@@ -538,8 +605,14 @@ const syncSingleOU = async (ouPath, runId) => {
           employee_code: employeeCode,
           department: safe(u.department),
           location: safe(u.physicalDeliveryOfficeName),
-          reporting_manager: reportingManager,
-          managers_manager: reportingManager, // Same as reporting_manager for now
+          reporting_manager: reportingManager
+  ? JSON.stringify(reportingManager)
+  : null,
+
+managers_manager: managersManager
+  ? JSON.stringify(managersManager)
+  : null,
+
           status: status,
           company: safe(u.company),
           mobile: safe(u.mobile),
@@ -656,7 +729,9 @@ const syncAllOUs = async (req, res, triggeredBy = 'MANUAL') => {
   const startTime = new Date();
   
   // ✅ Truncate triggered_by to fit VARCHAR(50) constraint
-  const safeTriggeredBy = String(triggeredBy).substring(0, 50);
+  //const safeTriggeredBy = String(triggeredBy).substring(0, 50);
+  const safeTriggeredBy = triggeredBy;
+    
 
   console.log("\n========================================");
   console.log(`🔄 STARTING AD SYNC (Run ID: ${runId})`);
@@ -1077,7 +1152,22 @@ const autoSyncChanges = async (req, res) => {
         transactionId = await generateTransactionId();
       }
 
-      const managerInfo = parseManagerInfo(u.manager);
+      let reportingManager = null;
+let managersManager = null;
+
+if (u.manager) {
+  const mgr = await parseManagerInfo(u.manager);
+
+  if (mgr) {
+    reportingManager = mgr;
+
+    if (mgr.managerDN) {
+      const mgr2 = await parseManagerInfo(mgr.managerDN);
+      if (mgr2) managersManager = mgr2;
+    }
+  }
+}
+
 
       await pool.query(
         `INSERT INTO user_master 
@@ -1107,8 +1197,9 @@ const autoSyncChanges = async (req, res) => {
           safe(u.employeeID),
           safe(u.department),
           safe(u.physicalDeliveryOfficeName),
-          managerInfo ? JSON.stringify(managerInfo) : null,
-          managerInfo ? JSON.stringify(managerInfo) : null,
+          reportingManager ? JSON.stringify(reportingManager) : null,
+managersManager ? JSON.stringify(managersManager) : null,
+
           status,
           safe(u.company),
           safe(u.mobile),
