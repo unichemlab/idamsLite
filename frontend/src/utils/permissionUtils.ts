@@ -158,12 +158,16 @@ export const filterByModulePlantPermission = <
   }
 
   const allowedPlantIds = new Set<number>();
-
-  if (Array.isArray(user.plantPermissions)) {
-    user.plantPermissions
-      .filter((pp: any) => pp.moduleId?.trim() === moduleId)
-      .forEach((pp: any) => allowedPlantIds.add(Number(pp.plantId)));
-  }
+user.plantPermissions
+  .filter((pp: any) => {
+    const match = pp.moduleId?.trim() === moduleId;
+    console.log(`Checking moduleId: '${pp.moduleId}' against '${moduleId}' →`, match);
+    return match;
+  })
+  .forEach((pp: any) => {
+    console.log("Adding plantId:", pp.plantId, "→ Number:", Number(pp.plantId));
+    allowedPlantIds.add(Number(pp.plantId));
+  });
 
   return data.filter((item) => {
     const plantId = Number(item.plant_location_id || item.plant_id || item.plantId);
