@@ -623,8 +623,8 @@ const plantOptions = Array.isArray(plants)
                         {select("application_vendor", "Application Vendor", vendors, { value: (v) => v.id, label: (v) => v.vendor_name }, true)}
                         {input("database_version", "Database Version (if installed)", "text", true)}
                         {select("date_time_sync_available", "Date Time Sync Available", [], false, false, false, true)}
-                        {select("backup_type", "Backup Type", ["Manual", "Auto", "Commvault Client Of Server"], true)}
-                        {select("backup_frequency_days", "Backup Frequency", ["Weekly", "Fothnight", "Monthly", "Yearly"], true)}
+                        {select("backup_type", "Backup Type", ["Manual", "Auto", "Commvault Client Of Server","NA"], true)}
+                        {select("backup_frequency_days", "Backup Frequency", ["Daily","Weekly", "Fothnight", "Monthly", "Yearly"], true)}
                         {input("backup_path", "Backup Path", "text", true)}
                         {input("backup_tool", "Backup Tool with Version", "text", true)}
                         {select("backup_procedure_available", "Backup Procedure Available", [], false, false, false, true)}
