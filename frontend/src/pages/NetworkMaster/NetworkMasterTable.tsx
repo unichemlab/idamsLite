@@ -49,7 +49,7 @@ const refreshNetworks = networkCtx?.refreshNetworks;
   }, [filterValue, filterColumn]);
 
   const permissionFilteredData = useMemo(() => {
-    return filterByModulePlantPermission(networks, user, "network");
+    return filterByModulePlantPermission(networks, user, "network_master");
   }, [networks, user]);
 
   // Filtering logic
