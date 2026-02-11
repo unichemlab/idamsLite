@@ -48,7 +48,7 @@ console.log("Sytems",systems);
   }, [filterValue, filterColumn]);
 
     const permissionFilteredData = useMemo(() => {
-      return filterByModulePlantPermission(systems,user,"system_management");
+      return filterByModulePlantPermission(systems,user,"system_master");
     }, [systems, user]);
 console.log("permission Filter",permissionFilteredData);
   // Fetch systems from backend
