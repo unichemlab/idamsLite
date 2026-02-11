@@ -554,11 +554,14 @@ exports.getSystemInventoryList = async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
-        id,
-        equipment_instrument_id,
-        host_name
-      FROM system_inventory_master
-      WHERE status = 'ACTIVE'
+  id,
+  equipment_instrument_id,
+  host_name
+FROM system_inventory_master
+WHERE status = 'ACTIVE'
+  AND user_management_applicable = true
+  AND category_gxp = 'GxP';
+
     `);
     res.status(200).json(result.rows);
   } catch (err) {

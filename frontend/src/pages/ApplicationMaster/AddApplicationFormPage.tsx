@@ -57,6 +57,9 @@ const AddApplicationFormPage: React.FC = () => {
     : [];
 
   const [roleLocked, setRoleLocked] = useState(false);
+  const generateDisplayName = (data: FormType) => {
+    return `${data.application_hmi_name || ""} | ${data.application_hmi_version || ""} | ${data.equipment_instrument_id || ""}`;
+  };
 
   const username = user?.username || "";
   const [showModal, setShowModal] = useState(false);
@@ -123,40 +126,66 @@ const AddApplicationFormPage: React.FC = () => {
   }, [token]);
 
 
+  // const handleChange = (
+  //   e: React.ChangeEvent<
+  //     HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+  //   >
+  // ) => {
+  //   const target = e.target as HTMLInputElement | HTMLSelectElement;
+  //   const { name, value, type } = target;
+  //   const checked =
+  //     type === "checkbox" ? (target as HTMLInputElement).checked : undefined;
+  //   setForm((prev) => {
+  //     const updated = {
+  //       ...prev,
+  //       [name]: type === "checkbox" ? checked : value,
+  //     };
+  //     // Auto-generate display_name from three fields
+  //     if (
+  //       [
+  //         "application_hmi_name",
+  //         "application_hmi_version",
+  //         "equipment_instrument_id",
+  //       ].includes(name)
+  //     ) {
+  //       console.log("Updated",updated);
+  //       updated.display_name = `${name === "application_hmi_name" ? value : updated.application_hmi_name
+  //         } | ${name === "application_hmi_version"
+  //           ? value
+  //           : updated.application_hmi_version
+  //         } | ${name === "equipment_instrument_id"
+  //           ? value
+  //           : updated.equipment_instrument_id
+  //         }`;
+  //     }
+
+  //     return updated;
+  //   });
+  // };
+
   const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
-    const target = e.target as HTMLInputElement | HTMLSelectElement;
-    const { name, value, type } = target;
-    const checked =
-      type === "checkbox" ? (target as HTMLInputElement).checked : undefined;
+    const { name, value, type } = e.target;
+    const checked = type === "checkbox" ? (e.target as HTMLInputElement).checked : undefined;
+
     setForm((prev) => {
       const updated = {
         ...prev,
         [name]: type === "checkbox" ? checked : value,
       };
-      // Auto-generate display_name from three fields
+
+      // Auto update display_name if relevant field changes
       if (
-        [
-          "application_hmi_name",
-          "application_hmi_version",
-          "equipment_instrument_id",
-        ].includes(name)
+        ["application_hmi_name", "application_hmi_version", "equipment_instrument_id"].includes(name)
       ) {
-        updated.display_name = `${name === "application_hmi_name" ? value : updated.application_hmi_name
-          } | ${name === "application_hmi_version"
-            ? value
-            : updated.application_hmi_version
-          } | ${name === "equipment_instrument_id"
-            ? value
-            : updated.equipment_instrument_id
-          }`;
+        updated.display_name = generateDisplayName(updated);
       }
+
       return updated;
     });
   };
+
   useEffect(() => {
     fetch(`${API_BASE}/api/systems/list`)
       .then(res => res.json())
@@ -174,32 +203,32 @@ const AddApplicationFormPage: React.FC = () => {
       });
   }, []);
 
- // In handleSubmit - both files
-const handleSubmit = (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  // ✅ Validate roles are selected
-  if (!form.role_id || form.role_id.length === 0) {
-    alert("Please select at least one role before saving.");
-    return;
-  }
-  
-  setShowModal(true);
-};
+  // In handleSubmit - both files
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
 
-// In handleRoleLockToggle - AddApplicationFormPage
-const handleRoleLockToggle = () => {
-  if (!roleLocked) {
-    // ✅ Validate roles before locking
+    // ✅ Validate roles are selected
     if (!form.role_id || form.role_id.length === 0) {
-      alert("Please select at least one role before locking.");
+      alert("Please select at least one role before saving.");
       return;
     }
-    setRoleLocked(true);
-  } else {
-    setRoleLocked(false);
-  }
-};
+
+    setShowModal(true);
+  };
+
+  // In handleRoleLockToggle - AddApplicationFormPage
+  const handleRoleLockToggle = () => {
+    if (!roleLocked) {
+      // ✅ Validate roles before locking
+      if (!form.role_id || form.role_id.length === 0) {
+        alert("Please select at least one role before locking.");
+        return;
+      }
+      setRoleLocked(true);
+    } else {
+      setRoleLocked(false);
+    }
+  };
 
   // AddApplicationFormPage.tsx - Updated handleConfirm function
 
@@ -283,16 +312,16 @@ const handleRoleLockToggle = () => {
       alert("Invalid credentials. Please try again.");
     }
   };
-useEffect(() => {
-  if (form.application_hmi_type === "HMI") {
-    setForm(prev => ({
-      ...prev,
-      equipment_instrument_id: "",
-      system_name: "",
-      system_inventory_id: ""
-    }));
-  }
-}, [form.application_hmi_type]);
+  useEffect(() => {
+    if (form.application_hmi_type === "HMI") {
+      setForm(prev => ({
+        ...prev,
+        equipment_instrument_id: "",
+        system_name: "",
+        system_inventory_id: ""
+      }));
+    }
+  }, [form.application_hmi_type]);
 
 
   return (
@@ -427,7 +456,7 @@ useEffect(() => {
                       <span className={styles.required}>*</span>
                     </label>
                   </div>
-                   <div className={styles.formGroupFloating}>
+                  <div className={styles.formGroupFloating}>
 
                     <select
                       className={styles.select}
@@ -459,15 +488,23 @@ useEffect(() => {
                         onChange={(selected: any) => {
                           if (!selected) return;
 
-                          setForm(prev => ({
-                            ...prev,
-                            equipment_instrument_id: selected.value,
-                            system_name: selected.hostname,
-                            system_inventory_id: selected.system_inventory_id
-                          }));
+                          setForm(prev => {
+                            const updated = {
+                              ...prev,
+                              equipment_instrument_id: selected.value,
+                              system_name: selected.hostname,
+                              system_inventory_id: selected.system_inventory_id
+                            };
+
+                            // 🔥 Regenerate display_name here
+                            updated.display_name = generateDisplayName(updated);
+
+                            return updated;
+                          });
                         }}
                         placeholder="Search Equipment"
                       />
+
                     ) : (
                       <input
                         className={styles.input}
@@ -485,38 +522,38 @@ useEffect(() => {
                   </div>
 
 
-                 
+
                 </div>
 
                 {/* Row 3 - 3 Columns */}
                 <div className={styles.rowFields}>
                   {form.application_hmi_type === "Application" && (
-  <>
-    <div className={styles.formGroupFloating}>
-      <input
-        className={styles.input}
-        value={form.system_name}
-        readOnly
-        placeholder=""
-      />
-      <label className={styles.floatingLabel}>
-        System Name (Hostname)
-      </label>
-    </div>
+                    <>
+                      <div className={styles.formGroupFloating}>
+                        <input
+                          className={styles.input}
+                          value={form.system_name}
+                          readOnly
+                          placeholder=""
+                        />
+                        <label className={styles.floatingLabel}>
+                          System Name (Hostname)
+                        </label>
+                      </div>
 
-    <div className={styles.formGroupFloating}>
-      <input
-        className={styles.input}
-        value={form.system_inventory_id}
-        readOnly
-        placeholder=""
-      />
-      <label className={styles.floatingLabel}>
-        System Inventory ID
-      </label>
-    </div>
-  </>
-)}
+                      <div className={styles.formGroupFloating}>
+                        <input
+                          className={styles.input}
+                          value={form.system_inventory_id}
+                          readOnly
+                          placeholder=""
+                        />
+                        <label className={styles.floatingLabel}>
+                          System Inventory ID
+                        </label>
+                      </div>
+                    </>
+                  )}
 
 
                   <div className={styles.formGroupFloating}>

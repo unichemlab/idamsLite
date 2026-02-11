@@ -153,41 +153,69 @@ const EditApplicationFormPage: React.FC = () => {
         console.error("Role fetch error:", err);
       });
   }, [token]);
+  const generateDisplayName = (data: FormType) => {
+    return `${data.application_hmi_name || ""} | ${data.application_hmi_version || ""} | ${data.equipment_instrument_id || ""}`;
+  };
+
+
+  // const handleChange = (
+  //   e: React.ChangeEvent<
+  //     HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+  //   >
+  // ) => {
+  //   const target = e.target as HTMLInputElement | HTMLSelectElement;
+  //   const { name, value, type } = target;
+  //   const checked =
+  //     type === "checkbox" ? (target as HTMLInputElement).checked : undefined;
+  //   setForm((prev) => {
+  //     const updated = {
+  //       ...prev,
+  //       [name]: type === "checkbox" ? checked : value,
+  //     };
+  //     if (
+  //       [
+  //         "application_hmi_name",
+  //         "application_hmi_version",
+  //         "equipment_instrument_id",
+  //       ].includes(name)
+  //     ) {
+  //       updated.display_name = `${name === "application_hmi_name" ? value : updated.application_hmi_name
+  //         } | ${name === "application_hmi_version"
+  //           ? value
+  //           : updated.application_hmi_version
+  //         } | ${name === "equipment_instrument_id"
+  //           ? value
+  //           : updated.equipment_instrument_id
+  //         }`;
+  //     }
+  //     return updated;
+  //   });
+  // };
 
 
   const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
-    const target = e.target as HTMLInputElement | HTMLSelectElement;
-    const { name, value, type } = target;
+    const { name, value, type } = e.target;
     const checked =
-      type === "checkbox" ? (target as HTMLInputElement).checked : undefined;
+      type === "checkbox" ? (e.target as HTMLInputElement).checked : undefined;
+
     setForm((prev) => {
       const updated = {
         ...prev,
         [name]: type === "checkbox" ? checked : value,
       };
+
       if (
-        [
-          "application_hmi_name",
-          "application_hmi_version",
-          "equipment_instrument_id",
-        ].includes(name)
+        ["application_hmi_name", "application_hmi_version", "equipment_instrument_id"].includes(name)
       ) {
-        updated.display_name = `${name === "application_hmi_name" ? value : updated.application_hmi_name
-          } | ${name === "application_hmi_version"
-            ? value
-            : updated.application_hmi_version
-          } | ${name === "equipment_instrument_id"
-            ? value
-            : updated.equipment_instrument_id
-          }`;
+        updated.display_name = generateDisplayName(updated);
       }
+
       return updated;
     });
   };
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -253,22 +281,22 @@ const EditApplicationFormPage: React.FC = () => {
     }
   };
 
- useEffect(() => {
-     fetch(`${API_BASE}/api/systems/list`)
-       .then(res => res.json())
-       .then(data => {
-         const options = data.map((row: any) => ({
-           value: row.equipment_instrument_id,
-           label: `${row.equipment_instrument_id} ( ${row.host_name})`,
-           hostname: row.host_name,
-           system_inventory_id: row.id
-         }));
-         setInventoryOptions(options);
-       })
-       .catch(err => {
-         console.error("Failed to load inventory list", err);
-       });
-   }, []);
+  useEffect(() => {
+    fetch(`${API_BASE}/api/systems/list`)
+      .then(res => res.json())
+      .then(data => {
+        const options = data.map((row: any) => ({
+          value: row.equipment_instrument_id,
+          label: `${row.equipment_instrument_id} ( ${row.host_name})`,
+          hostname: row.host_name,
+          system_inventory_id: row.id
+        }));
+        setInventoryOptions(options);
+      })
+      .catch(err => {
+        console.error("Failed to load inventory list", err);
+      });
+  }, []);
 
 
   return (
@@ -458,15 +486,23 @@ const EditApplicationFormPage: React.FC = () => {
                         onChange={(selected: any) => {
                           if (!selected) return;
 
-                          setForm(prev => ({
-                            ...prev,
-                            equipment_instrument_id: selected.value,
-                            system_name: selected.hostname,
-                            system_inventory_id: selected.system_inventory_id
-                          }));
+                          setForm(prev => {
+                            const updated = {
+                              ...prev,
+                              equipment_instrument_id: selected.value,
+                              system_name: selected.hostname,
+                              system_inventory_id: selected.system_inventory_id
+                            };
+
+                            // 🔥 IMPORTANT: regenerate display_name
+                            updated.display_name = generateDisplayName(updated);
+
+                            return updated;
+                          });
                         }}
                         placeholder="Search Equipment"
                       />
+
                     ) : (
                       <input
                         className={addStyles.input}
