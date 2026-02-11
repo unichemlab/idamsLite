@@ -85,7 +85,7 @@ const AddSystemInventory: React.FC = () => {
     antivirus: "",
     antivirus_version: "",
     backup_type: "",
-    backup_frequency_days: 0,
+    backup_frequency_days: "",
     backup_path: "",
     backup_tool: "",
     backup_procedure_available: false,

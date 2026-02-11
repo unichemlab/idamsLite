@@ -46,7 +46,7 @@ export interface System {
   antivirus?: string;
   antivirus_version?: string;
   backup_type?: string;
-  backup_frequency_days?: number;
+  backup_frequency_days?: string;
   backup_path?: string;
   backup_tool?: string;
   backup_procedure_available?: boolean;
