@@ -179,8 +179,7 @@ async function sendSyncEmail(runData, ouResults) {
 
     await transporter.sendMail({
       from: '"AD Sync Service" <nishant1.singh@unichemlabs.com>',
-      to: [process.env.ALERT_EMAIL, "nishant1.singh@unichemlabs.com",
-        "ashish.sachania@unichemlabs.com"],
+      to: [process.env.ALERT_EMAIL, "nishant1.singh@unichemlabs.com"],
       subject,
       html,
     });
