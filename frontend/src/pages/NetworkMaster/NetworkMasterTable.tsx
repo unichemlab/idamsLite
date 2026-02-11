@@ -543,6 +543,7 @@ const handleExportPDF = async () => {
             >
               🔍 Filter
             </button>
+           <PermissionGuard permission={PERMISSIONS.NETWORK.UPDATE}>
             <button
               className={`${styles.btn} ${styles.editBtn}`}
               onClick={() => {
@@ -553,6 +554,8 @@ const handleExportPDF = async () => {
             >
               <FaEdit size={14} /> Edit
             </button>
+             </PermissionGuard>
+             <PermissionGuard permission={PERMISSIONS.NETWORK.DELETE}>
             <button
               className={`${styles.btn} ${styles.deleteBtn}`}
               disabled={selectedRow === null}
@@ -560,6 +563,7 @@ const handleExportPDF = async () => {
             >
               <FaTrash size={14} /> Delete
             </button>
+            </PermissionGuard>
             <button
               className={styles.exportBtn}
               type="button"

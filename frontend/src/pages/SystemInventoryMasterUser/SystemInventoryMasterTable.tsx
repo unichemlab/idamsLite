@@ -441,6 +441,7 @@ console.log("Filtered Data:", filteredData);
           >
             🔍 Filter
           </button>
+          <PermissionGuard permission={PERMISSIONS.SYSTEM.UPDATE}>
           <button
             className={`${styles.btn} ${styles.editBtn}`}
             onClick={() => {
@@ -451,6 +452,8 @@ console.log("Filtered Data:", filteredData);
           >
             <FaEdit size={14} /> Edit
           </button>
+          </PermissionGuard>
+          <PermissionGuard permission={PERMISSIONS.SYSTEM.DELETE}>
           <button
             className={`${styles.btn} ${styles.deleteBtn}`}
             disabled={selectedRow === null}
@@ -459,6 +462,7 @@ console.log("Filtered Data:", filteredData);
           >
             <FaTrash size={14} /> Delete
           </button>
+          </PermissionGuard>
           <button
             className={styles.exportBtn}
             aria-label="Export table to PDF"
