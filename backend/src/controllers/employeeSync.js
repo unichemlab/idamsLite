@@ -211,7 +211,6 @@ const ATTRS = [
   "userAccountControl",
   "whenChanged",
   "whenCreated",
-  "directReports",
 ];
 
 /* ================= SANITIZERS ================= */
@@ -607,7 +606,6 @@ if (u.manager) {
           employee_code: employeeCode,
           department: safe(u.department),
           location: safe(u.physicalDeliveryOfficeName),
-          direct_reporting: directReports,
           reporting_manager: reportingManager
   ? JSON.stringify(reportingManager)
   : null,
