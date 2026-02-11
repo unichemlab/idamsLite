@@ -64,7 +64,7 @@ const AddServerInventory: React.FC = () => {
     reduce_rpo_time: "",
     server_to_so_timeline: "",
     purchase_date: "",
-    purchase_po: 0,
+    purchase_po: "",
     warranty_new_start_date: "",
     amc_warranty_expiry_date: "",
     sap_asset_no: false,
@@ -294,7 +294,7 @@ const plantOptions = Array.isArray(plants)
                 <div className={styles.section}>
                   <span className={styles.sectionHeaderTitle}>Commercial Details</span>
                   <div className={styles.rowFields}>
-                    {input("purchase_po", "Purchase PO",)}
+                    {input("purchase_po", "Purchase PO")}
                     {input("purchase_date", "Purchased Date", "date")}
                     {input("sap_asset_no", "SAP Asset No")}
                     {input("warranty_new_start_date", "Warranty New Start Date", "date")}

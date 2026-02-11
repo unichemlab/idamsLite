@@ -61,7 +61,7 @@ export interface Server {
   reduce_rpo_time?: string;
   server_to_so_timeline?: string;
   purchase_date?: string;
-  purchase_po?: number;
+  purchase_po?: string;
   warranty_new_start_date?: string;
   amc_warranty_expiry_date?: string;
   sap_asset_no?: boolean | string;

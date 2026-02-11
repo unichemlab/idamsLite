@@ -68,7 +68,7 @@ const EditServerInventory: React.FC = () => {
     reduce_rpo_time: server?.reduce_rpo_time ?? "",
     server_to_so_timeline: server?.server_to_so_timeline ?? "",
     purchase_date: server?.purchase_date ?? "",
-    purchase_po: server?.purchase_po ?? 0,
+    purchase_po: server?.purchase_po ?? "",
     warranty_new_start_date: server?.warranty_new_start_date ?? "",
     amc_warranty_expiry_date: server?.amc_warranty_expiry_date ?? "",
     sap_asset_no: server?.sap_asset_no ?? false,
