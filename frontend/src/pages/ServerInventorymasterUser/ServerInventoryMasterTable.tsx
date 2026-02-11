@@ -36,7 +36,7 @@ const ServerInventoryMasterTable: React.FC = () => {
   // Removed direct fetch; data comes from context
  // Filter by plant permissions first
   const permissionFilteredData = useMemo(() => {
-    return filterByModulePlantPermission(servers,user,"server_master");
+    return filterByModulePlantPermission(servers,user,"server_management");
   }, [servers, user]);
 
     const filteredData = useMemo(() => {
