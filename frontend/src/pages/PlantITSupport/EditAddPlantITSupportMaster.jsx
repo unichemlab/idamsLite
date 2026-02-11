@@ -20,7 +20,7 @@ const EditTransaction = () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     })
-      .then(() => navigate("/plant-itsupport"))
+      .then(() => navigate("/task-closure-bin"))
       .catch(console.error);
   };
 

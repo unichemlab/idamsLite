@@ -111,7 +111,7 @@ const TransactionForm = ({ transaction }) => {
 
       if (res.ok) {
         alert("Transaction saved successfully!");
-        navigate("/plant-itsupport");
+        navigate("/task-closure-bin");
       } else {
         const text = await res.text();
         alert("Error saving transaction: " + text);
@@ -262,7 +262,7 @@ const TransactionForm = ({ transaction }) => {
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
           <button
             type="button"
-            onClick={() => navigate("/plant-itsupport")}
+            onClick={() => navigate("/task-closure-bin")}
             style={{
               padding: "8px 16px",
               borderRadius: 6,
