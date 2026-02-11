@@ -3,7 +3,26 @@
 const { logActivity } = require("../utils/activityLogger");
 const { submitForApproval } = require("../utils/masterApprovalHelper");
 const pool = require("../config/db");
+const { filterByPlantAccess, canAccessPlant } = require("../middleware/permissionMiddleware");
 
+
+
+/**
+ * Check if user is super admin
+ */
+const isSuperAdmin = (user) => {
+  if (!user) return false;
+  
+  // Check role_id directly
+  if (user.role_id === 1) return true;
+  if (Array.isArray(user.role_id) && user.role_id.includes(1)) return true;
+  
+  // Check roles array
+  if (Array.isArray(user.roles) && user.roles.includes(1)) return true;
+  if (user.roles === 1) return true;
+  
+  return false;
+};
 // ------------------------------
 // GET ALL NETWORKS WITH RELATIONS
 // ------------------------------
@@ -18,7 +37,15 @@ exports.getAllNetworks = async (req, res) => {
       WHERE n.status = 'ACTIVE'
       ORDER BY n.id DESC
     `);
-    res.json(result.rows);
+    // 🔥 Super Admin sees ALL data - no filtering
+       if (isSuperAdmin(req.user)) {
+         return res.status(200).json(result.rows);
+       }
+       
+       // 🔥 Filter by user's plant access for non-super-admins
+       const filteredApps = filterByPlantAccess(result.rows, req.user);
+       
+       res.status(200).json(filteredApps);
   } catch (err) {
     console.error("Error fetching networks:", err);
     res.status(500).json({ error: err.message });
