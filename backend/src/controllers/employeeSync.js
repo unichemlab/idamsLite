@@ -731,9 +731,8 @@ const syncAllOUs = async (req, res, triggeredBy = 'MANUAL') => {
   
   // ✅ Truncate triggered_by to fit VARCHAR(50) constraint
   //const safeTriggeredBy = String(triggeredBy).substring(0, 50);
-  const safeTriggeredBy = triggeredBy;
+  const safeTriggeredBy = 'MANUAL';
     
-
   console.log("\n========================================");
   console.log(`🔄 STARTING AD SYNC (Run ID: ${runId})`);
   console.log(`⏰ Triggered by: ${safeTriggeredBy}`);
