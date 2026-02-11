@@ -76,6 +76,39 @@ const AddServerInventory: React.FC = () => {
   useEffect(() => {
     fetchPlants().then(setPlants);
   }, []);
+  
+const plantOptions = Array.isArray(plants)
+    ? plants
+      .filter((plant: any) => {
+        // 🔥 Super Admin → all plants
+        if (
+          user?.role_id === 1 ||
+          (Array.isArray(user?.role_id) && user?.role_id.includes(1)) ||
+          user?.isSuperAdmin
+        ) {
+          return true;
+        }
+
+        const plantId = Number(plant.id);
+
+        // 🔒 IT Bin access
+        // if (user?.isITBin && Array.isArray(user?.itPlantIds)) {
+        //   return user.itPlantIds.includes(plantId);
+        // }
+
+        // 🔒 Normal permitted plants
+        if (Array.isArray(user?.permittedPlantIds)) {
+          return user?.permittedPlantIds.includes(plantId);
+        }
+
+        return false;
+      })
+      .map((plant: any) => ({
+        value: String(plant.id),
+        label: plant.plant_name || plant.name || String(plant.id),
+      }))
+    : [];
+
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -252,7 +285,7 @@ const AddServerInventory: React.FC = () => {
                 <div className={styles.section}>
                   <span className={styles.sectionHeaderTitle}>User Details</span>
                   <div className={styles.rowFields}>
-                    {select("plant_location_id", "Plant Location", plants, { value: (p) => p.id, label: (p) => p.plant_name }, true)}
+                    {select("plant_location_id", "Plant Location", plantOptions, { value: (p) => p.value, label: (p) => p.label }, true)}
                     {input("server_owner", "Server Owner")}
                   </div>
                 </div>
