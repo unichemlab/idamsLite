@@ -32,7 +32,7 @@ const ImportVendor: React.FC = () => {
   const [invalidRecords, setInvalidRecords] = useState<ImportRecord[]>([]);
   const [showResults, setShowResults] = useState(false);
 
-  const requiredFields = ['vendor_name','vendor_code', 'description', 'status'];
+  const requiredFields = ['vendor_name', 'description', 'status'];
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {

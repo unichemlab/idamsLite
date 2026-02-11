@@ -28,7 +28,7 @@ exports.getVendorActivityLogs = async (req, res) => {
           r.action = r.action || parsed.action;
           r.action_performed_by =
             r.action_performed_by || parsed.userId || r.user_id;
-        } catch (e) {}
+        } catch (e) { }
       }
       return r;
     });
@@ -59,7 +59,7 @@ exports.getAllVendors = async (req, res) => {
 // CREATE VENDOR (WITH APPROVAL) - FIXED
 exports.createVendor = async (req, res) => {
   const { vendor_name, vendor_code, description, status } = req.body;
-  
+
   console.log("═══════════════════════════════════════════════════════════");
   console.log("CREATE VENDOR - DEBUG INFO");
   console.log("═══════════════════════════════════════════════════════════");
@@ -70,7 +70,7 @@ exports.createVendor = async (req, res) => {
   console.log("  - description:", description);
   console.log("  - status:", status);
   console.log("═══════════════════════════════════════════════════════════");
-  
+
   const userId = req.user?.id || req.user?.user_id;
   const username = req.user?.username || "Unknown";
 
@@ -99,23 +99,23 @@ exports.createVendor = async (req, res) => {
     // DIRECT ENTRY (if no approval required)
     if (approvalId === null) {
       console.log("⚡ NO APPROVAL REQUIRED - INSERTING DIRECTLY");
-      
+
       // ✅ FIXED: Use vendor_code instead of code
       const insertQuery = `
         INSERT INTO vendor_master (vendor_name, vendor_code, description, status) 
         VALUES ($1, $2, $3, $4) 
         RETURNING *
       `;
-      
+
       const insertParams = [vendor_name, vendor_code, description, status || "ACTIVE"];
-      
+
       console.log("SQL Query:", insertQuery);
       console.log("SQL Parameters:", insertParams);
       console.log("  $1 (vendor_name):", vendor_name);
       console.log("  $2 (vendor_code):", vendor_code);
       console.log("  $3 (description):", description);
       console.log("  $4 (status):", status || "ACTIVE");
-      
+
       const { rows } = await pool.query(insertQuery, insertParams);
 
       console.log("✅ DATABASE INSERT SUCCESSFUL!");
@@ -140,7 +140,7 @@ exports.createVendor = async (req, res) => {
     // APPROVAL FLOW
     console.log("📋 SUBMITTED FOR APPROVAL - ID:", approvalId);
     console.log("═══════════════════════════════════════════════════════════");
-    
+
     res.status(202).json({
       message: "Vendor creation submitted for approval",
       approvalId,
@@ -161,7 +161,7 @@ exports.createVendor = async (req, res) => {
 exports.updateVendor = async (req, res) => {
   const { id } = req.params;
   const { vendor_name, description, vendor_code, status } = req.body;
-  
+
   console.log("═══════════════════════════════════════════════════════════");
   console.log("UPDATE VENDOR - DEBUG INFO");
   console.log("═══════════════════════════════════════════════════════════");
@@ -173,7 +173,7 @@ exports.updateVendor = async (req, res) => {
   console.log("  - description:", description);
   console.log("  - status:", status);
   console.log("═══════════════════════════════════════════════════════════");
-  
+
   const userId = req.user?.id || req.user?.user_id;
   const username = req.user?.username || "Unknown";
 
@@ -214,7 +214,7 @@ exports.updateVendor = async (req, res) => {
     // DIRECT UPDATE (NO APPROVAL REQUIRED)
     if (approvalId === null) {
       console.log("⚡ NO APPROVAL REQUIRED - UPDATING DIRECTLY");
-      
+
       // ✅ FIXED: Correct parameter order
       const updateQuery = `
         UPDATE vendor_master 
@@ -227,9 +227,9 @@ exports.updateVendor = async (req, res) => {
         WHERE id = $5 
         RETURNING *
       `;
-      
+
       const updateParams = [vendor_name, vendor_code, description, status, id];
-      
+
       console.log("SQL Query:", updateQuery);
       console.log("SQL Parameters:", updateParams);
       console.log("  $1 (vendor_name):", vendor_name);
@@ -237,7 +237,7 @@ exports.updateVendor = async (req, res) => {
       console.log("  $3 (description):", description);
       console.log("  $4 (status):", status);
       console.log("  $5 (id):", id);
-      
+
       const { rows } = await pool.query(updateQuery, updateParams);
 
       console.log("✅ DATABASE UPDATE SUCCESSFUL!");
@@ -262,7 +262,7 @@ exports.updateVendor = async (req, res) => {
     // APPROVAL FLOW
     console.log("📋 SUBMITTED FOR APPROVAL - ID:", approvalId);
     console.log("═══════════════════════════════════════════════════════════");
-    
+
     res.status(202).json({
       message: "Vendor update submitted for approval",
       approvalId,
@@ -338,6 +338,57 @@ exports.deleteVendor = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+// ============================================================
+// AUTO GENERATE VENDOR CODE (BACKEND SAFE VERSION)
+// ============================================================
+const generateVendorCode = async (vendorName) => {
+  if (!vendorName || !vendorName.trim()) return "";
+
+  const words = vendorName
+    .trim()
+    .split(" ")
+    .map(w => w.replace(/[^a-zA-Z0-9]/g, ""))
+    .filter(Boolean);
+
+  if (words.length === 0) return "";
+
+  let combined = words[0];
+
+  if (combined.length < 3 && words.length > 1) {
+    combined = combined + words[1];
+  }
+
+  combined = combined.toUpperCase();
+
+  if (combined.length < 3) return "";
+
+  const prefix = combined.substring(0, 4);
+  const year = new Date().getFullYear();
+
+  // 🔐 Get latest existing code for this prefix
+  const { rows } = await pool.query(
+    `SELECT vendor_code 
+     FROM vendor_master 
+     WHERE vendor_code LIKE $1
+     ORDER BY vendor_code DESC
+     LIMIT 1`,
+    [`VEN-${year}-${prefix}-%`]
+  );
+
+  let counter = 1;
+
+  if (rows.length > 0) {
+    const lastCode = rows[0].vendor_code;
+    const lastNumber = parseInt(lastCode.split("-").pop(), 10);
+    counter = lastNumber + 1;
+  }
+
+  return `VEN-${year}-${prefix}-${String(counter).padStart(3, "0")}`;
+};
+
+
+
 // ------------------------------
 // BULK IMPORT VENDORS
 // ------------------------------
@@ -356,10 +407,20 @@ exports.bulkImportVendors = async (req, res) => {
 
     for (let i = 0; i < records.length; i++) {
       try {
+        // const record = { ...records[i] };
+
+        // // Set default status
+        // record.status = record.status || 'ACTIVE';
+
         const record = { ...records[i] };
-        
-        // Set default status
-        record.status = record.status || 'ACTIVE';
+
+        record.status = record.status || "ACTIVE";
+
+        // ✅ AUTO GENERATE CODE IF NOT PROVIDED
+        if (!record.vendor_code && record.vendor_name) {
+          record.vendor_code = await generateVendorCode(record.vendor_name);
+        }
+
 
         // Submit for approval
         const approvalId = await submitForApproval({
