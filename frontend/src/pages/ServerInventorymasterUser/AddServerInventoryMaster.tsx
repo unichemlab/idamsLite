@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from "react";
-import AppHeader from "../../components/Common/AppHeader";
+import React, { useState, useEffect } from "react";
 import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
-import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { useSystemContext } from "../SystemInventoryMasterUser/SystemContext";
-import { System } from "../../types/system";
-import { fetchPlants, fetchDepartments, fetchUsers,fetchVendors } from "../../utils/api";
+import { useNavigate } from "react-router-dom";
+import { useServerContext, Server } from "../ServerInventorymasterUser/ServerContext";
+import AppHeader from "../../components/Common/AppHeader";
+import { fetchPlants } from "../../utils/api";
 import styles from "../Plant/AddPlantMaster.module.css";
 
 interface Plant {
@@ -13,112 +12,69 @@ interface Plant {
   plant_name: string;
 }
 
-interface Department {
-  id: number;
-  name: string;
-}
-
-interface User {
-  id: number;
-  name: string;
-}
-interface Vendor {
-  id: number;
-  vendor_name: string;
-  vendor_code: string;
-}
-
-const AddSystemInventory: React.FC = () => {
-  const { addSystem } = useSystemContext();
-  const { user } = useAuth();
+const AddServerInventory: React.FC = () => {
+  const { addServer } = useServerContext();
   const navigate = useNavigate();
-
   const [plants, setPlants] = useState<Plant[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const { user } = useAuth();
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const [form, setForm] = useState<System>({
-    id: 0,
-    transaction_id: "",
+  // Handle input changes for all fields
+  const [form, setForm] = useState<Partial<Server>>({
     plant_location_id: undefined,
-    user_location: "",
-    building_location: "",
-    department_id: "",
-    allocated_to_user_name: "",
+    rack_number: "",
+    server_owner: "",
+    type_tower_rack_mounted: "",
+    server_rack_location_area: "",
+    asset_no: "",
     host_name: "",
     make: "",
     model: "",
     serial_no: "",
-    processor: "",
-    ram_capacity: "",
-    hdd_capacity: "",
+    os: "",
+    physical_server_host_name: "",
+    idrac_ilo: "",
     ip_address: "",
-    other_software: "",
-    windows_activated: false,
-    os_version_service_pack: "",
-    architecture: "",
-    type_of_asset: "",
-    category_gxp: "",
-    gamp_category: "",
-    instrument_equipment_name: "",
-    equipment_instrument_id: "",
-    instrument_owner: "",
-    service_tag: "",
-    warranty_status: "",
-    warranty_end_date: "",
-    connected_no_of_equipments: 0,
-    application_name: "",
+    part_no: false,
+    application: "",
     application_version: "",
     application_oem: "",
     application_vendor: "",
-    user_management_applicable: false,
-    application_onboard: "",
-    system_process_owner: "",
-    database_version: "",
+    system_owner: "",
+    vm_display_name: "",
+    vm_type: "",
+    vm_os: "",
+    vm_version: "",
+    vm_server_ip: "",
     domain_workgroup: "",
-    connected_through: "",
-    specific_vlan: "",
-    ip_address_type: "",
-    date_time_sync_available: false,
+    windows_activated: 0,
+    backup_agent: "",
     antivirus: "",
-    antivirus_version: "",
-    backup_type: "",
-    backup_frequency_days: 0,
-    backup_path: "",
-    backup_tool: "",
-    backup_procedure_available: false,
-    folder_deletion_restriction: false,
-    remote_tool_available: false,
-    os_administrator: "",
-    system_running_with: "",
-    audit_trail_adequacy: "",
-    user_roles_availability: false,
-    user_roles_challenged: false,
-    system_managed_by: "",
-    planned_upgrade_fy2526: false,
-    eol_eos_upgrade_status: "",
-    system_current_status: "",
-    purchase_po: "",
-    purchase_vendor_name: "",
-    amc_vendor_name: "",
-    renewal_po: "",
-    warranty_period: "",
-    amc_start_date: "",
-    amc_expiry_date: "",
-    sap_asset_no: "",
+    category_gxp: "",
+    current_status: "",
+    server_managed_by: false,
+    remarks_application_usage: "",
+    start_date: "",
+    end_date: "",
+    aging: "",
+    environment: "",
+    server_critility: "",
+    database_appplication: "",
+    current_rpo: false,
+    reduce_rpo_time: "",
+    server_to_so_timeline: "",
+    purchase_date: "",
+    purchase_po: 0,
+    warranty_new_start_date: "",
+    amc_warranty_expiry_date: "",
+    sap_asset_no: false,
+    amc_vendor: false,
     remarks: "",
     status: "ACTIVE",
   });
 
   useEffect(() => {
-    Promise.all([fetchPlants(), fetchDepartments(), fetchUsers(), fetchVendors()]).then(([p, d, u,v]) => {
-      setPlants(p);
-      setDepartments(d);
-      setUsers(u);
-      setVendors(v);
-    });
+    fetchPlants().then(setPlants);
   }, []);
 
   const handleChange = (
@@ -130,18 +86,11 @@ const AddSystemInventory: React.FC = () => {
 
     let finalValue: any = value;
 
-    // ✅ checkbox → boolean
     if (type === "checkbox") {
       finalValue = (e.target as HTMLInputElement).checked;
-    }
-
-    // ✅ number input → number
-    else if (type === "number") {
+    } else if (type === "number") {
       finalValue = Number(value);
-    }
-
-    // ✅ select boolean → boolean
-    else if (value === "true") {
+    } else if (value === "true") {
       finalValue = true;
     } else if (value === "false") {
       finalValue = false;
@@ -159,214 +108,35 @@ const AddSystemInventory: React.FC = () => {
   };
 
   const handleConfirm = async () => {
-    await addSystem(form);
-    setShowConfirm(false);
-    navigate("/system-master");
+    try {
+      await addServer(form as Server);
+      setShowConfirm(false);
+      navigate("/server-master");
+    } catch (error) {
+      console.error("Error adding server:", error);
+      alert("Failed to add server. Please try again.");
+    }
   };
 
-  const input = (
-    name: keyof System,
-    label: string,
-    type = "text",
-    isRequired: boolean = false,
-    isDisabled: boolean = false
-  ) => (
+  const handleCancel = () => {
+    setShowConfirm(false);
+  };
+
+  const input = (name: keyof Server, label: string, type = "text") => (
     <div className={styles.formGroupFloating}>
       <input
         type={type}
         name={name}
         value={form[name] as any}
         onChange={handleChange}
-        required={isRequired}
-        disabled={isDisabled}
         className={styles.input}
       />
-      <label className={styles.floatingLabel}>
-        {label}
-        {isRequired && <span className={styles.required}> *</span>}
-      </label>
+      <label className={styles.floatingLabel}>{label}</label>
     </div>
   );
- 
-  const isUnderWarranty = form.warranty_status === "Under Warranty";
-  const isOutOfWarranty = form.warranty_status === "Out Of Warranty";
 
-const isFieldRequired = (field: keyof System) =>
-  REQUIRED_FIELDS[form.type_of_asset as string]?.includes(field) ?? false;
-
-  const isWindowsRequired = ["Desktop", "Laptop", "Toughbook"].includes(
-    form.type_of_asset || ""
-  );
-
-  const REQUIRED_FIELDS: Record<string, (keyof System)[]> = {
-  Desktop: [
-    "host_name",
-    "make",
-    "model",
-    "serial_no",
-    "processor",
-    "architecture",
-    "ram_capacity",
-    "hdd_capacity",
-    "os_version_service_pack",
-    "windows_activated",
-    "domain_workgroup",
-    "connected_through",
-    "ip_address_type",
-    "ip_address",
-    "specific_vlan",
-  "other_software",
-    "antivirus",
-    "antivirus_version",
-    "os_administrator",
-    "system_running_with",
-    "system_managed_by",
-    "eol_eos_upgrade_status"
-  ],
-
-  Laptop: [
-    "host_name",
-    "make",
-    "model",
-    "serial_no",
-    "processor",
-    "architecture",
-    "ram_capacity",
-    "hdd_capacity",
-    "os_version_service_pack",
-    "windows_activated",
-    "domain_workgroup",
-    "connected_through",
-    "ip_address_type",
-    "ip_address",
-    "specific_vlan",
-  "other_software",
-    "antivirus",
-    "antivirus_version",
-    "os_administrator",
-    "system_running_with",
-    "system_managed_by",
-    "eol_eos_upgrade_status"
-  ],
-
-  Toughbook: [
-    "host_name",
-    "make",
-    "model",
-    "serial_no",
-    "processor",
-    "architecture",
-    "ram_capacity",
-    "hdd_capacity",
-    "os_version_service_pack",
-    "windows_activated",
-    "domain_workgroup",
-    "connected_through",
-    "ip_address_type",
-    "ip_address",
-  "other_software",
-    "antivirus",
-    "os_administrator",
-    "system_running_with",
-    "eol_eos_upgrade_status"
-  ],
-
-  HMI: [
-    "make",
-    "model",
-    "serial_no",
-    "ram_capacity",
-    "hdd_capacity",
-    "connected_through",
-    "ip_address_type",
-    "ip_address",
-  "other_software",
-    "eol_eos_upgrade_status"
-  ],
-
-  SCADA: [
-    "make",
-    "model",
-    "serial_no",
-    "ram_capacity",
-    "hdd_capacity",
-    "connected_through",
-    "ip_address_type",
-    "ip_address",
-  "other_software",
-    "eol_eos_upgrade_status"
-  ],
-
-  IPC: [
-    "host_name",
-    "make",
-    "model",
-    "serial_no",
-    "processor",
-    "architecture",
-    "ram_capacity",
-    "hdd_capacity",
-    "os_version_service_pack",
-    "windows_activated",
-    "domain_workgroup",
-    "connected_through",
-    "ip_address_type",
-    "ip_address",
-    "specific_vlan",
-  "other_software",
-    "antivirus",
-    "antivirus_version",
-    "os_administrator",
-    "system_running_with",
-    "system_managed_by",
-    "eol_eos_upgrade_status"
-  ],
-
-  TABs: [
-      "host_name",
-    "make",
-    "model",
-    "serial_no",
-    "processor",
-    "architecture",
-    "ram_capacity",
-    "hdd_capacity",
-    "connected_through",
-    "ip_address_type",
-    "ip_address",
-  "other_software",
-    "eol_eos_upgrade_status"
-  ],
-
-  Scanner: [
-    "make",
-    "model",
-    "serial_no",
-    "hdd_capacity",
-    "connected_through",
-    "ip_address_type",
-    "ip_address",
-    "eol_eos_upgrade_status"
-  ],
-
-  Printer: [
-    "make",
-    "model",
-    "serial_no",
-    "hdd_capacity",
-    "connected_through",
-    "ip_address_type",
-    "ip_address",
-    "eol_eos_upgrade_status"
-  ]
-};
-
-
-
-
-  // ✅ Check if GxP is selected
-  const isGxPSelected = form.category_gxp === "GxP";
-
+  const isVirtualSelected = form.vm_type === "Virtual";
+  
   type OptionValue = string | number;
 
   type GenericSelectOption<T> = {
@@ -375,7 +145,7 @@ const isFieldRequired = (field: keyof System) =>
   };
 
   const select = <T,>(
-    name: keyof System,
+    name: keyof Server,
     label: string,
     options: T[] = [],
     mapperOrRequired?: GenericSelectOption<T> | boolean,
@@ -383,7 +153,6 @@ const isFieldRequired = (field: keyof System) =>
     isDisabled: boolean = false,
     isBoolean: boolean = false
   ) => {
-    // ✅ support old & new signatures
     const mapper =
       typeof mapperOrRequired === "object" ? mapperOrRequired : undefined;
 
@@ -441,166 +210,130 @@ const isFieldRequired = (field: keyof System) =>
   };
 
   return (
-    <>
+    <React.Fragment>
       {showConfirm && (
         <ConfirmLoginModal
           username={user?.username || ""}
           onConfirm={handleConfirm}
-          onCancel={() => setShowConfirm(false)}
+          onCancel={handleCancel}
         />
       )}
-
       <div className={styles.pageWrapper}>
         <AppHeader title="Server Inventory Management" />
 
         <div className={styles.contentArea}>
+          {/* Breadcrumb */}
+          <div className={styles.breadcrumb}>
+            <span
+              className={styles.breadcrumbLink}
+              onClick={() =>
+                navigate("/server-master", { state: { activeTab: "server" } })
+              }
+            >
+              Server Master
+            </span>
+            <span className={styles.breadcrumbSeparator}>›</span>
+            <span className={styles.breadcrumbCurrent}>Add Server</span>
+          </div>
+
           <div className={styles.formCard}>
             <div className={styles.formHeader}>
-              <h2>Add System Inventory</h2>
+              <h2>Add New Server</h2>
+              <p>Enter Server details to add a new record to the system</p>
             </div>
-
-            <form className={styles.form} onSubmit={handleSubmit} style={{ padding: 10 }}>
+            <form
+              className={styles.form}
+              onSubmit={handleSubmit}
+              style={{ padding: 10 }}
+            >
               <div className={styles.scrollFormContainer}>
+                
+                {/* User Details Section */}
                 <div className={styles.section}>
-                  <span className={styles.sectionHeaderTitle}>
-                    User Details
-                  </span>
+                  <span className={styles.sectionHeaderTitle}>User Details</span>
                   <div className={styles.rowFields}>
                     {select("plant_location_id", "Plant Location", plants, { value: (p) => p.id, label: (p) => p.plant_name }, true)}
-                    {input("user_location", "User Location")}
-                    {input("building_location", "Building Location")}
-                    {select("department_id", "Department", departments, { value: (p) => p.id, label: (p) => p.name }, true)}
-                    {select("allocated_to_user_name", "Allocated To", users, { value: (u) => u.id, label: (u) => u.name }, true)}
+                    {input("server_owner", "Server Owner")}
                   </div>
                 </div>
 
+                {/* Commercial Details Section */}
                 <div className={styles.section}>
-                  <span className={styles.sectionHeaderTitle}>
-                    Commercial Details
-                  </span>
+                  <span className={styles.sectionHeaderTitle}>Commercial Details</span>
                   <div className={styles.rowFields}>
-                    {input("purchase_po", "Purchase PO")}
-                    {input("purchase_vendor_name", "Purchase Vendor")}
-                    {select("warranty_status", "Warranty Status", ["Under Warranty", "Out Of Warranty"], true)}
-                    {input(
-                      "warranty_period",
-                      "Warranty Period (Months)",
-                      "number",
-                      isUnderWarranty
-                    )}
-
-                    {input(
-                      "warranty_end_date",
-                      "Warranty End Date",
-                      "date",
-                      isUnderWarranty
-                    )}
-
-                    {input(
-                      "amc_vendor_name",
-                      "AMC Vendor",
-                      "text",
-                      isOutOfWarranty
-                    )}
-
-                    {input(
-                      "amc_start_date",
-                      "AMC Start Date",
-                      "date",
-                      isOutOfWarranty
-                    )}
-
-                    {input(
-                      "amc_expiry_date",
-                      "AMC End Date",
-                      "date",
-                      isOutOfWarranty
-                    )}
-                    {input("renewal_po", "Renewal PO")}
+                    {input("purchase_po", "Purchase PO", "number")}
+                    {input("purchase_date", "Purchased Date", "date")}
                     {input("sap_asset_no", "SAP Asset No")}
+                    {input("warranty_new_start_date", "Warranty New Start Date", "date")}
+                    {input("amc_warranty_expiry_date", "AMC/Warranty Expiry Date", "date")}
+                    {input("amc_vendor", "AMC Vendor")}
+                    {input("asset_no", "Asset No")}
                   </div>
                 </div>
 
+                {/* Application Details Section */}
                 <div className={styles.section}>
-                  <span className={styles.sectionHeaderTitle}>
-                    System Details
-                  </span>
+                  <span className={styles.sectionHeaderTitle}>Application Details</span>
                   <div className={styles.rowFields}>
-                    {select("type_of_asset", "Type of Asset", ["Desktop", "Laptop", "Toughbook", "HMI", "SCADA", "IPC", "TABs", "Scanner", "Printer"], true)}
-                    {input("host_name", "Host Name", "text", isFieldRequired("host_name"))}
-                    {input("make", "Make", "text", isFieldRequired("make"))}
-                    {input("model", "Model", "text", isFieldRequired("model"))}
-                    {input("serial_no", "Serial No", "text", isFieldRequired("serial_no"))}
-                    {input("processor", "Processor", "text", isFieldRequired("processor"))}
-                     {select("architecture", "Architecture", ["32 bit", "64 bit"], isFieldRequired("architecture"))}
-                    {input("ram_capacity", "RAM Capacity", "text", isFieldRequired("ram_capacity"))}
-                    {input("hdd_capacity", "HDD Capacity", "text", isFieldRequired("hdd_capacity"))}
-                    {input("os_version_service_pack", "OS Version / SP", "text", isFieldRequired("os_version_service_pack"))}
-                    {select("windows_activated", "Windows Activated", [], false, isWindowsRequired, !isWindowsRequired, isFieldRequired("windows_activated"))}
-                    {input("domain_workgroup", "Domain / Workgroup", "text", isFieldRequired("domain_workgroup"))}
-                    {select("connected_through", "Connected Through", ["LAN", "WiFi"], isFieldRequired("connected_through"))}
-                     {select("ip_address_type", "IP Address Type", ["Static", "DHCP", "Other"], isFieldRequired("ip_address_type"))}
-                    {input("ip_address", "IP Address", "text", isFieldRequired("ip_address"))}
-                    {input("specific_vlan", "Specific VLAN", "text", isFieldRequired("specific_vlan"))}
-                    {input("other_software", "Other Software", "text", isFieldRequired("other_software"))}
-                    {input("antivirus", "Antivirus", "text", isFieldRequired("antivirus"))}
-                    {input("antivirus_version", "Antivirus Version", "text", isFieldRequired("antivirus_version"))}
-                   {input("os_administrator", "OS Administrator", "text", isFieldRequired("os_administrator"))}
-                    {select("system_running_with", "System Running With", ["Active Directory", "Local"], isFieldRequired("system_running_with"))}
-                    {select("system_managed_by", "System Managed By", ["Information Technology", "Engineering"], isFieldRequired("system_managed_by"))}
-                    {select("eol_eos_upgrade_status", "Upgrade Status", ["End of Life", "End of Support/Sale"], isFieldRequired("eol_eos_upgrade_status"))}
+                    {input("application", "Application")}
+                    {input("application_version", "Application Version")}
+                    {input("application_oem", "Application OEM")}
+                    {input("application_vendor", "Application Vendor")}
                   </div>
                 </div>
 
+                {/* Server Details Section */}
                 <div className={styles.section}>
-                  <span className={styles.sectionHeaderTitle}>
-                    Equipment Details
-                  </span>
+                  <span className={styles.sectionHeaderTitle}>Server Details</span>
                   <div className={styles.rowFields}>
-                    {select("category_gxp", "Category", ["GxP", "Non-GxP", "Network"], true)}
+                    {input("rack_number", "Rack Number")}
+                    {select("type_tower_rack_mounted", "Mounted Type", ["Tower", "Rack"], true)}
+                    {input("server_rack_location_area", "Server/Rack Location")}
+                    {select("vm_type", "Server Type", ["Physical", "Virtual"], true)}
+                    {input("host_name", "Host Name")}
+                    {input("make", "Make")}
+                    {input("model", "Model")}
+                    {input("serial_no", "Serial No")}
+                    {input("os", "Operating System")}
+                    {input("idrac_ilo", "IDRAC/ILO")}
+                    {input("ip_address", "IP Address")}
+                    {select("part_no", "Part Number", [], false, false, false, true)}
+                    {input("system_owner", "System Owner")}
+                    {select("domain_workgroup", "Domain Name", ["Domain", "Work Group CORP Domain", "GXP"], true)}
+                    {select("windows_activated", "Windows Activated", [], false, false, false, true)}
+                    {select("backup_agent", "Backup Agent", ["VEEAM", "Acronis"], true)}
+                    {select("antivirus", "Antivirus", ["CS", "TM", "McAfee", "Symantec"], true)}
+                    {select("category_gxp", "Category", ["GxP", "Non-GxP"], true)}
+                    {input("current_status", "Current Status of Server")}
+                    {select("server_managed_by", "Server Managed By", ["IT", "ESD"], true)}
+                    {input("remarks_application_usage", "Remarks for Application Usage")}
+                    {input("start_date", "Start Date", "date")}
+                    {input("end_date", "End Date", "date")}
+                    {input("aging", "Aging")}
+                    {input("environment", "Environment")}
+                    {input("server_critility", "Server Critility")}
+                    {input("database_appplication", "Database/Application")}
+                    {select("current_rpo", "Current RPO", [], false, false, false, true)}
+                    {input("reduce_rpo_time", "Reduce RPO Time from 24 Hrs")}
+                    {input("server_to_so_timeline", "Server to SO Timeline")}
 
-                    {/* ✅ Show these fields only when GxP is selected */}
-                    {isGxPSelected && (
+                    {/* Virtual Machine fields - shown only when Virtual is selected */}
+                    {isVirtualSelected && (
                       <>
-                        {input("system_process_owner", "System Owner / Process Owner","text",true)}
-                        {input("instrument_equipment_name", "Instrument / Equipment Name","text",true)}
-                        {input("equipment_instrument_id", "Equipment / Instrument ID","text",true)}
-                        {input("instrument_owner", "Instrument Owner","text",true)}
-                        {input("service_tag", "Service Tag","text",true)}
-                        {input("connected_no_of_equipments", "Connected No. of Equipments", "number",true)}
-                        {select("system_current_status", "System Current Status", ["Validated", "Retired"], true)}
-                        {input("gamp_category", "GAMP Category","text",true)}
-                        {select("application_onboard", "Application Onboard", ["Manual", "Automated"], true)}
-                        {input("application_name", "Application Name", "text",true)}
-                        {input("application_version", "Application Version", "text",true)}
-                        {input("application_oem", "Application OEM", "text",true)}
-                         {select("application_vendor", "Application Vendor", vendors, { value: (v) => v.id, label: (v) => v.vendor_name }, true)}
-                        {input("database_version", "Database Version (if installed)","text",true)}
-                        {select("date_time_sync_available", "Date Time Sync Available", [], false, false, false, true)}
-                        {select("backup_type", "Backup Type", ["Manual", "Auto", "Commvault Client Of Server"], true)}
-                        {select("backup_frequency_days", "Backup Frequency", ["Weekly", "Fothnight", "Monthly", "Yearly"], true)}
-                        {input("backup_path", "Backup Path","text",true)}
-                        {input("backup_tool", "Backup Tool with Version","text",true)}
-                        {select("backup_procedure_available", "Backup Procedure Available", [], false, false, false, true)}
-                        {select("folder_deletion_restriction", "Folder Deletion Restriction", [], false, false, false, true)}
-                        {select("remote_tool_available", "Remote Tool Available", [], false, false, false, true)}
-                        {input("audit_trail_adequacy", "Audit Trail Adequacy","text",true)}
-                        {select("user_roles_availability", "User Roles Availability", [], false, false, false, true)}
-                        {select("user_roles_challenged", "User Roles Challenged", [], false, false, false, true)}
-                        {select("planned_upgrade_fy2526", "Planned Upgrade FY25-26", [], false, false, false, true)}
-                        {select("user_management_applicable", "User Management Applicable", [], false, false, false, true)}
+                        {input("physical_server_host_name", "Physical Server Host Name")}
+                        {input("vm_display_name", "VM Display Name")}
+                        {input("vm_os", "Virtual Machine OS")}
+                        {input("vm_version", "Virtual Machine Version")}
+                        {input("vm_server_ip", "Virtual Machine Server IP")}
                       </>
                     )}
                   </div>
                 </div>
 
+                {/* Additional Details Section */}
                 <div className={styles.section}>
-                  <span className={styles.sectionHeaderTitle}>
-                    Additional Details
-                  </span>
+                  <span className={styles.sectionHeaderTitle}>Additional Details</span>
                   <div className={styles.rowFields}>
-
-
                     <div className={styles.formGroupFloating} style={{ flex: "1 1 100%" }}>
                       <textarea
                         name="remarks"
@@ -613,6 +346,7 @@ const isFieldRequired = (field: keyof System) =>
                     {select("status", "Status", ["ACTIVE", "INACTIVE"], true)}
                   </div>
                 </div>
+
               </div>
 
               <div className={styles.formFotter}>
@@ -625,7 +359,9 @@ const isFieldRequired = (field: keyof System) =>
                     margin: 15,
                   }}
                 >
-                  <button type="submit" className={styles.saveBtn}>Save</button>
+                  <button type="submit" className={styles.saveBtn}>
+                    Save
+                  </button>
                   <button
                     type="button"
                     className={styles.cancelBtn}
@@ -639,8 +375,8 @@ const isFieldRequired = (field: keyof System) =>
           </div>
         </div>
       </div>
-    </>
+    </React.Fragment>
   );
 };
 
-export default AddSystemInventory;
+export default AddServerInventory;
