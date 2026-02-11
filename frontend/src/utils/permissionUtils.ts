@@ -100,15 +100,56 @@ export const filterByPlantPermission = <T extends { plant_location_id?: number; 
 };
 
 
+// export const filterByModulePlantPermission = <
+//   T extends { plant_location_id?: number; plant_id?: number; plantId?: number }
+// >(
+//   data: T[],
+//   user: any,
+//   moduleId: string
+// ): T[] => {
+//   if (!user) return [];
+//  if (
+//     user.role_id === 1 ||
+//     (Array.isArray(user.role_id) && user.role_id.includes(1)) ||
+//     user.isSuperAdmin === true
+//   ) {
+//     return data;
+//   }
+
+//   const allowedPlantIds = new Set<number>();
+
+//   // 1️⃣ Collect plants allowed for THIS module
+//   if (Array.isArray(user.plantPermissions)) {
+//     user.plantPermissions
+//       .filter((pp: any) => pp.moduleId === moduleId)
+//       .forEach((pp: any) => allowedPlantIds.add(pp.plantId));
+//   }
+
+//   // 2️⃣ IT BIN override (optional – only if business allows)
+//   // if (user.isITBin && Array.isArray(user.itPlantIds)) {
+//   //   user.itPlantIds.forEach((id: number) => allowedPlantIds.add(id));
+//   // }
+
+//   // 3️⃣ Filter records
+//   return data.filter((item) => {
+//     const plantId =
+//       item.plant_location_id || item.plant_id || item.plantId;
+
+//     if (!plantId) return true;
+//     return allowedPlantIds.has(plantId);
+//   });
+// };
+
 export const filterByModulePlantPermission = <
-  T extends { plant_location_id?: number; plant_id?: number; plantId?: number }
+  T extends { plant_location_id?: number | string; plant_id?: number | string; plantId?: number | string }
 >(
   data: T[],
   user: any,
   moduleId: string
 ): T[] => {
   if (!user) return [];
- if (
+
+  if (
     user.role_id === 1 ||
     (Array.isArray(user.role_id) && user.role_id.includes(1)) ||
     user.isSuperAdmin === true
@@ -118,28 +159,19 @@ export const filterByModulePlantPermission = <
 
   const allowedPlantIds = new Set<number>();
 
-  // 1️⃣ Collect plants allowed for THIS module
   if (Array.isArray(user.plantPermissions)) {
     user.plantPermissions
-      .filter((pp: any) => pp.moduleId === moduleId)
-      .forEach((pp: any) => allowedPlantIds.add(pp.plantId));
+      .filter((pp: any) => pp.moduleId?.trim() === moduleId)
+      .forEach((pp: any) => allowedPlantIds.add(Number(pp.plantId)));
   }
 
-  // 2️⃣ IT BIN override (optional – only if business allows)
-  // if (user.isITBin && Array.isArray(user.itPlantIds)) {
-  //   user.itPlantIds.forEach((id: number) => allowedPlantIds.add(id));
-  // }
-
-  // 3️⃣ Filter records
   return data.filter((item) => {
-    const plantId =
-      item.plant_location_id || item.plant_id || item.plantId;
+    const plantId = Number(item.plant_location_id || item.plant_id || item.plantId);
 
     if (!plantId) return true;
     return allowedPlantIds.has(plantId);
   });
 };
-
 
 
 
