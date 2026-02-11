@@ -34,8 +34,6 @@ const app = express();
 // Configure CORS to allow both localhost and deployed frontend
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://pharmacorp-app-production.up.railway.appE",
-  "https://idams-lite.vercel.app",
 ];
 
 app.use(
@@ -55,14 +53,15 @@ app.use(express.json());
 // Request metadata middleware
 const requestMetadata = require("./middleware/requestMeta");
 app.use(requestMetadata);
-
+const PORT = process.env.PORT || 4000;
 // -----------------------------
 // Hardcoded AD credentials (for testing)
 // -----------------------------
 const AD_SERVER = process.env.AD_SERVER;
 const AD_USER = process.env.AD_USER;
 const AD_PASSWORD = process.env.AD_PASSWORD || process.env.AD_Password;
-
+const API_BASE =
+  process.env.REACT_APP_API_URL || "http://localhost:4000";
 console.log("Connecting to AD:", AD_SERVER);
 
 // Static file serving middleware (ensuring uploads folder is correctly handled)
@@ -1095,5 +1094,37 @@ app.get("/api/current-user", (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 4000;
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+/* ================= START SERVER ================= */
+
+app.listen(PORT, () => {
+  console.log(`\n🚀 Server running on port ${PORT}`);
+  console.log(`📊 API: ${API_BASE}/api/ad-sync`);
+  console.log(`💚 Health: ${API_BASE}/health\n`);
+
+  // Auto-start cron job on server startup (optional)
+  if (process.env.AUTO_START_CRON === 'true') {
+    const schedule = process.env.CRON_SCHEDULE || '0 2 * * *';
+    console.log('⏰ Auto-starting cron job...');
+    startCronJob(schedule);
+  }
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM signal received: closing HTTP server');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT signal received: closing HTTP server');
+  process.exit(0);
+});
+
+
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

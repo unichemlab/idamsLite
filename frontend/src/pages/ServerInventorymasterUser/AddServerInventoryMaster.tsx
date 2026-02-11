@@ -451,7 +451,7 @@ const isFieldRequired = (field: keyof System) =>
       )}
 
       <div className={styles.pageWrapper}>
-        <AppHeader title="System Inventory Management" />
+        <AppHeader title="Server Inventory Management" />
 
         <div className={styles.contentArea}>
           <div className={styles.formCard}>
@@ -629,7 +629,7 @@ const isFieldRequired = (field: keyof System) =>
                   <button
                     type="button"
                     className={styles.cancelBtn}
-                    onClick={() => navigate("/system-master")}
+                    onClick={() => navigate("/server-master")}
                   >
                     Cancel
                   </button>

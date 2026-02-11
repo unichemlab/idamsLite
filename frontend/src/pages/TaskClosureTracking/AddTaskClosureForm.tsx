@@ -176,7 +176,7 @@ const TaskClosureForm = () => {
 
   const handleLogout = () => {
     logout();
-    navigate("/login");
+    navigate("/");
   };
 useEffect(() => {
   if (!isRoleGrantAccess) {

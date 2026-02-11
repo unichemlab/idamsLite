@@ -108,12 +108,12 @@ export const MENU_CONFIG: MenuItem[] = [
       {
         label: "System Inventory",
         route: "/system-master",
-        permission: "read:system_inventory",
+        permission: "read:system_master",
       },
       {
         label: "Server Inventory",
         route: "/server-master",
-        permission: "read:server_inventory",
+        permission: "read:server_management",
       },
       {
         label: "User Master",
