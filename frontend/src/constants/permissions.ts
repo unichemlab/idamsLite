@@ -19,18 +19,18 @@ export const PERMISSIONS = {
     APPROVE: "approve:network_master",
   },
   SYSTEM: {
-    CREATE: "create:server_inventory",
-    READ: "read:server_inventory",
-    UPDATE: "update:server_inventory",
-    DELETE: "delete:server_inventory",
-    APPROVE: "approve:server_inventory",
+    CREATE: "create:system_master",
+    READ: "read:system_master",
+    UPDATE: "update:system_master",
+    DELETE: "delete:system_master",
+    APPROVE: "approve:system_master",
   },
   SERVER: {
-    CREATE: "create:server_inventory",
-    READ: "read:server_inventory",
-    UPDATE: "update:server_inventory",
-    DELETE: "delete:server_inventory",
-    APPROVE: "approve:server_inventory",
+    CREATE: "create:server_management",
+    READ: "read:server_management",
+    UPDATE: "update:server_management",
+    DELETE: "delete:server_management",
+    APPROVE: "approve:server_management",
   },
 
   PLANT: {
