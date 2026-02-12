@@ -21,6 +21,7 @@ import AddTaskClosureBINMaster from "../pages/TaskClosureBin/AddPlantITSupportMa
 /**************new master************* */
 import DashboardMain from "../pages/Dashboard/dashboard";
 import AccessLog from "../pages/AccessLog/AccessLogTable";
+import ActivteUserLog from "../pages/AccessLog/ActiveUserLog"
 /*************************Plant master************************ */
 import PlantMasterUserTable from "../pages/Plant/PlantMasterTable";
 import AddPlantMasterUser from "../pages/Plant/AddPlantMaster";
@@ -187,6 +188,7 @@ const allowedRoutes = [
    "/vendor-information/edit/:id",
    "/vendor-information/import",
    "/access-logs",
+   "/active-user-logs",
    "/activity-log",
    "/admin-approval",
    "/admin-approval/:id",
@@ -657,6 +659,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <AccessLog />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/active-user-logs"
+          element={
+            <ProtectedRoute>
+              <ActivteUserLog />
             </ProtectedRoute>
           }
         />

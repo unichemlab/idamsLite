@@ -139,7 +139,7 @@ export const ServerProvider = ({ children }: { children: ReactNode }) => {
           server_to_so_timeline: p.server_to_so_timeline,
           purchase_date: p.purchase_date,
           purchase_po: p.purchase_po,
-          warranty_new_start_date: p.warranty_new_start_date,
+          warranty_new_start_date: p.warranty_start_date,
           amc_warranty_expiry_date: p.amc_warranty_expiry_date,
           sap_asset_no: p.sap_asset_no,
           amc_vendor: p.amc_vendor,

@@ -146,28 +146,53 @@ const plantOptions = Array.isArray(plants)
 
   if (!form) return null;
 
+ const formatDateForInput = (dateStr?: string | null) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value, type } = e.target;
+  e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+) => {
+  const { name, value, type } = e.target;
 
-    let finalValue: any = value;
+  let finalValue: any = value;
 
-    if (type === "checkbox") {
-      finalValue = (e.target as HTMLInputElement).checked;
-    } else if (type === "number") {
-      finalValue = Number(value);
-    } else if (value === "true") {
-      finalValue = true;
-    } else if (value === "false") {
-      finalValue = false;
+  if (type === "checkbox") {
+    finalValue = (e.target as HTMLInputElement).checked;
+  } else if (type === "number") {
+    finalValue = Number(value);
+  } else if (value === "true") {
+    finalValue = true;
+  } else if (value === "false") {
+    finalValue = false;
+  }
+
+  setForm((prev) => {
+    if (!prev) return prev;
+
+    const updatedForm = { ...prev, [name]: finalValue };
+
+    // ✅ If start date changes, check expiry date
+    if (name === "amc_start_date" && updatedForm.amc_expiry_date) {
+      const start = new Date(finalValue);
+      const expiry = new Date(updatedForm.amc_expiry_date);
+
+      // If expiry is before new start, reset it
+      if (expiry <= start) {
+        updatedForm.amc_expiry_date = "";
+      }
     }
 
-    setForm({
-      ...form,
-      [name]: finalValue,
-    });
-  };
+    return updatedForm;
+  });
+};
+
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -213,20 +238,52 @@ const plantOptions = Array.isArray(plants)
 
 
   const input = (
-    name: keyof System,
-    label: string,
-    type = "text",
-    isRequired: boolean = false,
-    isDisabled: boolean = false
-  ) => (
+  name: keyof System,
+  label: string,
+  type: string = "text",
+  isRequired: boolean = false,
+  isDisabled: boolean = false
+) => {
+  const isStartDate = name === "amc_start_date";
+  const isExpiryDate = name === "amc_expiry_date";
+
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, "0");
+  const dd = String(today.getDate()).padStart(2, "0");
+  const minToday = `${yyyy}-${mm}-${dd}`;
+
+  const getNextDay = (dateStr?: string) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    date.setDate(date.getDate() + 1);
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  // Determine min value dynamically
+  let minValue: string | undefined;
+   if (isExpiryDate) {
+    const startValue = form?.amc_start_date;
+    minValue = startValue ? getNextDay(startValue) : minToday;
+  }
+
+  return (
     <div className={styles.formGroupFloating}>
       <input
         type={type}
         name={name}
-        value={form[name] as any}
+      value={
+            type === "date"
+              ? formatDateForInput(form[name] as string)
+              : (form[name] as any) || ""
+          }
         onChange={handleChange}
         required={isRequired}
         disabled={isDisabled}
+        min={type === "date" ? minValue : undefined} // only for date inputs
         className={styles.input}
       />
       <label className={styles.floatingLabel}>
@@ -235,6 +292,8 @@ const plantOptions = Array.isArray(plants)
       </label>
     </div>
   );
+};
+
 
   const isUnderWarranty = form.warranty_status === "Under Warranty";
   const isOutOfWarranty = form.warranty_status === "Out Of Warranty";

@@ -815,4 +815,90 @@ exports.getAccessLogsByUser = async (req, res) => {
   }
 };
 
+// In your API route
+exports.getAllActiveUserLogs = async (req, res) => {
+   console.log("Query params:", req.query);
+ const { plant_id, department_id, application_id, page = 1, limit = 10, search, value } = req.query;
+
+  // Validation - check if required parameters are present
+  if (!plant_id || !department_id || !application_id) {
+    return res.status(400).json({ 
+      success: false, 
+      message: "Missing required query parameters: plant_id, department_id, application_id" 
+    });
+  }
+  
+
+  try {
+    let query = `
+      SELECT DISTINCT ON (
+        CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
+        CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
+        al.location,
+        al.department,
+        al.application_equip_id
+      )
+        al.*,
+        tc.assigned_to,
+        tc.ritm_number,
+        tc.task_number,
+        am.display_name AS application_name,
+        dm.department_name,
+        rm.role_name,
+        pm.plant_name AS location_name,
+        um.employee_name AS assigned_to_name
+
+      FROM access_log al
+
+      LEFT JOIN application_master am ON al.application_equip_id = am.id
+      LEFT JOIN department_master dm ON al.department = dm.id
+      LEFT JOIN role_master rm ON al.role = rm.id
+      LEFT JOIN plant_master pm ON al.location = pm.id
+
+      LEFT JOIN task_closure tc 
+        ON al.task_transaction_id = tc.task_number
+        AND al.ritm_transaction_id = tc.ritm_number
+
+      LEFT JOIN user_master um 
+        ON tc.assigned_to = um.id
+
+      WHERE al.location = $1 
+        AND al.department = $2 
+        AND al.application_equip_id = $3
+    `;
+
+    const params = [plant_id, department_id, application_id];
+    let paramIndex = 4;
+
+    // Add search filter if provided
+    if (search && value) {
+      query += ` AND al.${search} ILIKE $${paramIndex}`;
+      params.push(`%${value}%`);
+      paramIndex++;
+    }
+
+    query += `
+      ORDER BY 
+        CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
+        CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
+        al.location,
+        al.department,
+        al.application_equip_id,
+        al.id DESC
+    `;
+
+    // Add pagination
+    const offset = (page - 1) * limit;
+    query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(limit, offset);
+
+    const result = await pool.query(query, params);
+    
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching access logs:', error);
+    res.status(500).json({ error: 'Failed to fetch access logs' });
+  }
+};
+
 module.exports = exports;

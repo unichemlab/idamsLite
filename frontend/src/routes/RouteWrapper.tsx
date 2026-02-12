@@ -19,6 +19,7 @@ const LISTING_PATHS = [
   '/system-master',
   '/vendor-information',
   '/access-logs',
+  '/active-user-logs',
   '/activity-log',
   '/admin-approval',
   '/task',

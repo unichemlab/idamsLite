@@ -28,7 +28,7 @@ const EditNetwork: React.FC = () => {
   useEffect(() => {
     fetchPlants().then(setPlants);
   }, []);
-const plantOptions = Array.isArray(plants)
+  const plantOptions = Array.isArray(plants)
     ? plants
       .filter((plant: any) => {
         // 🔥 Super Admin → all plants
@@ -66,6 +66,15 @@ const plantOptions = Array.isArray(plants)
 
   if (!form) return null;
 
+  const formatDateForInput = (dateStr?: string | null) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
@@ -77,6 +86,8 @@ const plantOptions = Array.isArray(plants)
       finalValue = (e.target as HTMLInputElement).checked;
     } else if (type === "number") {
       finalValue = Number(value);
+    } else if (type === "date") {
+      finalValue = value ? value : null; // keep YYYY-MM-DD string, or null if empty
     } else if (value === "true") {
       finalValue = true;
     } else if (value === "false") {
@@ -91,74 +102,73 @@ const plantOptions = Array.isArray(plants)
 
 
   // ================= VALIDATION HELPERS =================
-const isValidIP = (ip: string) => {
-  const regex =
-    /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
-  return regex.test(ip);
-};
+  const isValidIP = (ip: string) => {
+    const regex =
+      /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
+    return regex.test(ip);
+  };
 
-const validateForm = () => {
-  if (!form?.plant_location_id) {
-    alert("Plant Location is required");
-    return false;
-  }
+  const validateForm = () => {
+    if (!form?.plant_location_id) {
+      alert("Plant Location is required");
+      return false;
+    }
 
-  if (!form?.host_name) {
-    alert("Host Name is required");
-    return false;
-  }
+    if (!form?.host_name) {
+      alert("Host Name is required");
+      return false;
+    }
 
-  if (!isValidIP(form.device_ip || "")) {
-    alert("Invalid Device IP address");
-    return false;
-  }
+    if (!isValidIP(form.device_ip || "")) {
+      alert("Invalid Device IP address");
+      return false;
+    }
 
-  if (!form?.device_type) {
-    alert("Device Type is required");
-    return false;
-  }
+    if (!form?.device_type) {
+      alert("Device Type is required");
+      return false;
+    }
 
-  if (!form?.serial_no) {
-    alert("Serial No is required");
-    return false;
-  }
+    if (!form?.serial_no) {
+      alert("Serial No is required");
+      return false;
+    }
 
-  if (!form?.verify_date) {
-    alert("Verify Date is required");
-    return false;
-  }
+    if (!form?.verify_date) {
+      alert("Verify Date is required");
+      return false;
+    }
 
-  // Conditional validations
-  if (form.stack && !form.stack_switch_details) {
-    alert("Stack Switch Details is required when Stack = Yes");
-    return false;
-  }
+    // Conditional validations
+    if (form.stack && !form.stack_switch_details) {
+      alert("Stack Switch Details is required when Stack = Yes");
+      return false;
+    }
 
-  if (form.under_amc && !form.amc_vendor) {
-    alert("AMC Vendor is required when Under AMC = Yes");
-    return false;
-  }
+    if (form.under_amc && !form.amc_vendor) {
+      alert("AMC Vendor is required when Under AMC = Yes");
+      return false;
+    }
 
-  // Date validation
-  if (
-    form.warranty_start_date &&
-    form.amc_warranty_expiry_date &&
-    new Date(form.amc_warranty_expiry_date) <
-      new Date(form.warranty_start_date)
-  ) {
-    alert("AMC / Warranty Expiry Date cannot be before Warranty Start Date");
-    return false;
-  }
+    if (form.warranty_start_date && form.amc_warranty_expiry_date) {
+      const start = new Date(form.warranty_start_date + "T00:00:00");
+      const expiry = new Date(form.amc_warranty_expiry_date + "T00:00:00");
 
-  return true;
-};
-// ======================================================
+      if (expiry.getTime() <= start.getTime()) {
+        alert("AMC / Warranty Expiry Date must be greater than Warranty Start Date");
+        return false;
+      }
+    }
+
+    return true;
+  };
+  // ======================================================
 
   const submit = (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!validateForm()) return;
-  setConfirm(true);
-};
+    e.preventDefault();
+    if (!validateForm()) return;
+    setConfirm(true);
+  };
 
 
   const confirmSubmit = async () => {
@@ -167,18 +177,46 @@ const validateForm = () => {
     navigate("/network-master");
   };
 
-  const input = (name: keyof Network, label: string, type = "text") => (
-    <div className={styles.formGroupFloating}>
-      <input
-        className={styles.input}
-        type={type}
-        name={name}
-        value={(form as any)[name] ?? ""}
-        onChange={handleChange}
-      />
-      <label className={styles.floatingLabel}>{label}</label>
-    </div>
-  );
+  const input = (name: keyof Network, label: string, type = "text") => {
+    const isExpiryDate = name === "amc_warranty_expiry_date";
+
+    const getNextDay = (dateStr?: string) => {
+      if (!dateStr) return "";
+
+      const date = new Date(dateStr);
+      date.setDate(date.getDate() + 1);
+
+      // Extract YYYY-MM-DD safely
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, "0"); // Months are 0-indexed
+      const dd = String(date.getDate()).padStart(2, "0");
+
+      return `${yyyy}-${mm}-${dd}`;
+    };
+
+    return (
+      <div className={styles.formGroupFloating}>
+        <input
+          type={type}
+          name={name}
+          value={
+            type === "date"
+              ? formatDateForInput(form[name] as string)
+              : (form[name] as any) || ""
+          }
+          onChange={handleChange}
+          className={styles.input}
+          // ✅ dynamically set min as one day after warranty_start_date
+          min={
+            isExpiryDate && form.warranty_start_date
+              ? getNextDay(form.warranty_start_date)
+              : undefined
+          }
+        />
+        <label className={styles.floatingLabel}>{label}</label>
+      </div>
+    );
+  };
 
   type OptionValue = string | number;
 
@@ -214,8 +252,8 @@ const validateForm = () => {
               ? (form as any)[name] === true
                 ? "true"
                 : (form as any)[name] === false
-                ? "false"
-                : ""
+                  ? "false"
+                  : ""
               : ((form as any)[name] || "")
           }
           onChange={handleChange}
@@ -274,12 +312,12 @@ const validateForm = () => {
 
             <form onSubmit={submit} className={styles.form} style={{ padding: 10 }}>
               <div className={styles.scrollFormContainer}>
-                
+
                 {/* Location Details */}
                 <div className={styles.section}>
                   <span className={styles.sectionHeaderTitle}>Location Details</span>
                   <div className={styles.rowFields}>
-                   {select("plant_location_id", "Plant Location", plantOptions,
+                    {select("plant_location_id", "Plant Location", plantOptions,
                       { value: (p) => p.value, label: (p) => p.label }, true)}
                     {input("area", "Area")}
                     {input("rack", "Rack")}
@@ -289,23 +327,23 @@ const validateForm = () => {
                 </div>
 
                 {/* System Details */}
-               <div className={styles.section}>
+                <div className={styles.section}>
                   <span className={styles.sectionHeaderTitle}>Device Details</span>
                   <div className={styles.rowFields}>
                     {/* Dual Power Source(ATS /Yes/NO) */}
-                   {input("device_type", "Device Type")}
+                    {input("device_type", "Device Type")}
                     {input("device_model", "Device Model")}
                     {input("serial_no", "Serial No")}
                     {input("ios_version", "IOS Version")}
                     {input("make_vendor", "Make/Vendor")}
-                    {select("poe_non_poe", "POE/Non-POE", ['PoE','Non-POE'], false, false, false, false)}
-                    {select("dual_power_source", "Dual Power Source", ['Yes','No','ATS'], false, false, false, false)}
+                    {select("poe_non_poe", "POE/Non-POE", ['PoE', 'Non-POE'], false, false, false, false)}
+                    {select("dual_power_source", "Dual Power Source", ['Yes', 'No', 'ATS'], false, false, false, false)}
                     {select("stack", "Stack", [], false, false, false, true)}
                     {form.stack && input("stack_switch_details", "Stack Switch Details")}
                     {input("neighbor_switch_ip", "Neighbor Switch IP")}
                     {input("neighbor_port", "Neighbor Port")}
                     {input("trunk_port", "Trunk Port")}
-                    {select("sfp_fiber_tx", "SFP/Fiber TX", ['Fiber','TX'], false, false, false, false)}
+                    {select("sfp_fiber_tx", "SFP/Fiber TX", ['Fiber', 'TX'], false, false, false, false)}
                     {input("uptime", "Uptime")}
                     {input("verify_date", "Verify Date", "date")}
                   </div>
@@ -315,7 +353,7 @@ const validateForm = () => {
                 <div className={styles.section}>
                   <span className={styles.sectionHeaderTitle}>Commercial</span>
                   <div className={styles.rowFields}>
-                   {input("purchased_po", "Purchase PO")}
+                    {input("purchased_po", "Purchase PO")}
                     {input("purchased_date", "Purchased Date", "date")}
                     {input("purchase_vendor", "Purchase Vendor")}
                     {input("sap_asset_no", "SAP Asset No")}
@@ -323,7 +361,7 @@ const validateForm = () => {
                     {input("warranty_start_date", "Warranty Start Date", "date")}
                     {input("amc_warranty_expiry_date", "AMC/Warranty Expiry Date", "date")}
                     {select("under_amc", "Under AMC", [], false, false, false, true)}
-                   {form.under_amc && input("amc_vendor", "AMC Vendor")}
+                    {form.under_amc && input("amc_vendor", "AMC Vendor")}
                   </div>
                 </div>
 

@@ -110,35 +110,70 @@ const plantOptions = Array.isArray(plants)
     : [];
 
 
-  const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >
-  ) => {
-    const { name, value, type } = e.target;
+ const handleChange = (
+  e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+) => {
+  const { name, value, type } = e.target;
 
-    let finalValue: any = value;
+  let finalValue: any = value;
 
-    if (type === "checkbox") {
-      finalValue = (e.target as HTMLInputElement).checked;
-    } else if (type === "number") {
-      finalValue = Number(value);
-    } else if (value === "true") {
-      finalValue = true;
-    } else if (value === "false") {
-      finalValue = false;
+  if (type === "checkbox") {
+    finalValue = (e.target as HTMLInputElement).checked;
+  } else if (type === "number") {
+    finalValue = Number(value);
+  } else if (value === "true") {
+    finalValue = true;
+  } else if (value === "false") {
+    finalValue = false;
+  }
+
+  setForm((prev) => {
+    const updatedForm = { ...prev, [name]: finalValue };
+
+    // ⚡ Ensure end_date > start_date
+    if (name === "start_date" && updatedForm.end_date) {
+      const start = new Date(finalValue);
+      const end = new Date(updatedForm.end_date);
+      if (end <= start) {
+        updatedForm.end_date = ""; // reset end_date if invalid
+      }
     }
 
-    setForm((prev) => ({
-      ...prev,
-      [name]: finalValue,
-    }));
-  };
+    // ⚡ Ensure amc_warranty_expiry_date > warranty_new_start_date
+    if (name === "warranty_new_start_date" && updatedForm.amc_warranty_expiry_date) {
+      const start = new Date(finalValue);
+      const expiry = new Date(updatedForm.amc_warranty_expiry_date);
+      if (expiry <= start) {
+        updatedForm.amc_warranty_expiry_date = ""; // reset expiry if invalid
+      }
+    }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setShowConfirm(true);
-  };
+    return updatedForm;
+  });
+};
+
+
+ const handleSubmit = (e: React.FormEvent) => {
+  e.preventDefault();
+
+  const start = new Date(form.start_date || "");
+  const end = new Date(form.end_date || "");
+  const warrantyStart = new Date(form.warranty_new_start_date || "");
+  const warrantyEnd = new Date(form.amc_warranty_expiry_date || "");
+
+  if (end <= start) {
+    alert("End Date must be greater than Start Date");
+    return;
+  }
+
+  if (warrantyEnd <= warrantyStart) {
+    alert("AMC/Warranty Expiry Date must be greater than Warranty Start Date");
+    return;
+  }
+
+  setShowConfirm(true);
+};
+
 
   const handleConfirm = async () => {
     try {
@@ -155,18 +190,64 @@ const plantOptions = Array.isArray(plants)
     setShowConfirm(false);
   };
 
-  const input = (name: keyof Server, label: string, type = "text") => (
+  const input = (
+  name: keyof Server,
+  label: string,
+  type: string = "text",
+  isRequired: boolean = false,
+  isDisabled: boolean = false
+) => {
+  const isStartDate = name === "warranty_new_start_date" || name === "start_date";
+  const isExpiryDate = name === "amc_warranty_expiry_date" || name === "end_date";
+
+  // Today's date in YYYY-MM-DD
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, "0");
+  const dd = String(today.getDate()).padStart(2, "0");
+  const minToday = `${yyyy}-${mm}-${dd}`;
+
+  // Helper to get the next day after a date
+  const getNextDay = (dateStr?: string) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    date.setDate(date.getDate() + 1);
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  // Set min value dynamically
+  let minValue: string | undefined;
+   if (isExpiryDate) {
+    const startField =
+      name === "amc_warranty_expiry_date" ? "warranty_new_start_date" : "start_date";
+    minValue = form[startField] ? getNextDay(form[startField]) : minToday;
+  }
+
+  return (
     <div className={styles.formGroupFloating}>
       <input
         type={type}
         name={name}
         value={form[name] as any}
         onChange={handleChange}
+        required={isRequired}
+        disabled={isDisabled}
+        min={type === "date" ? minValue : undefined} // only for date inputs
         className={styles.input}
       />
-      <label className={styles.floatingLabel}>{label}</label>
+      <label className={styles.floatingLabel}>
+        {label}
+        {isRequired && <span className={styles.required}> *</span>}
+      </label>
     </div>
   );
+};
+
+
+
 
   const isVirtualSelected = form.vm_type === "Virtual";
   
@@ -340,7 +421,7 @@ const plantOptions = Array.isArray(plants)
                     {input("current_status", "Current Status of Server")}
                     {select("server_managed_by", "Server Managed By", ["IT", "ESD"], true)}
                     {input("remarks_application_usage", "Remarks for Application Usage")}
-                    {input("start_date", "Start Date", "date")}
+                     {input("start_date", "Start Date", "date")}
                     {input("end_date", "End Date", "date")}
                     {input("aging", "Aging")}
                     {input("environment", "Environment")}
@@ -393,7 +474,7 @@ const plantOptions = Array.isArray(plants)
                   }}
                 >
                   <button type="submit" className={styles.saveBtn}>
-                    Save
+                    Save1
                   </button>
                   <button
                     type="button"
