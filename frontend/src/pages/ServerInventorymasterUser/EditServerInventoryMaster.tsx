@@ -118,29 +118,48 @@ const plantOptions = Array.isArray(plants)
   if (!serverCtx || id === undefined || !server) return <div>Server not found</div>;
 
   const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >
-  ) => {
-    const { name, value, type } = e.target;
+  e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+) => {
+  const { name, value, type } = e.target;
 
-    let finalValue: any = value;
+  let finalValue: any = value;
 
-    if (type === "checkbox") {
-      finalValue = (e.target as HTMLInputElement).checked;
-    } else if (type === "number") {
-      finalValue = Number(value);
-    } else if (value === "true") {
-      finalValue = true;
-    } else if (value === "false") {
-      finalValue = false;
+  if (type === "checkbox") {
+    finalValue = (e.target as HTMLInputElement).checked;
+  } else if (type === "number") {
+    finalValue = Number(value);
+  } else if (value === "true") {
+    finalValue = true;
+  } else if (value === "false") {
+    finalValue = false;
+  }
+
+  setForm((prev) => {
+    const updatedForm = { ...prev, [name]: finalValue };
+
+    // 🔹 Automatically adjust dependent dates
+    if (name === "start_date" && prev.end_date) {
+      const start = new Date(finalValue);
+      const end = new Date(prev.end_date);
+      if (end < start) {
+        // set end_date to same as start_date
+        updatedForm.end_date = finalValue;
+      }
     }
 
-    setForm((prev) => ({
-      ...prev,
-      [name]: finalValue,
-    }));
-  };
+    if (name === "warranty_new_start_date" && prev.amc_warranty_expiry_date) {
+      const start = new Date(finalValue);
+      const expiry = new Date(prev.amc_warranty_expiry_date);
+      if (expiry < start) {
+        // set amc_warranty_expiry_date to same as start
+        updatedForm.amc_warranty_expiry_date = finalValue;
+      }
+    }
+
+    return updatedForm;
+  });
+};
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,23 +178,80 @@ const plantOptions = Array.isArray(plants)
       }
     }
   };
+const formatDateForInput = (dateStr?: string | null) => {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return ""; // invalid date
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
 
   const handleCancel = () => {
     setShowConfirm(false);
   };
 
-  const input = (name: keyof Server, label: string, type = "text") => (
+  const input = (
+  name: keyof Server,
+  label: string,
+  type: string = "text",
+  isRequired: boolean = false,
+  isDisabled: boolean = false
+) => {
+  const isStartDate = name === "warranty_new_start_date" || name === "start_date";
+  const isExpiryDate = name === "amc_warranty_expiry_date" || name === "end_date";
+
+  // Today's date in YYYY-MM-DD
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, "0");
+  const dd = String(today.getDate()).padStart(2, "0");
+  const minToday = `${yyyy}-${mm}-${dd}`;
+
+  // Helper to get the next day after a date
+  const getNextDay = (dateStr?: string) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    date.setDate(date.getDate() + 1);
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  // Set min value dynamically
+  let minValue: string | undefined;
+  if (isExpiryDate) {
+    const startField =
+      name === "amc_warranty_expiry_date" ? "warranty_new_start_date" : "start_date";
+    minValue = form[startField] ? getNextDay(form[startField]) : minToday;
+  }
+
+  return (
     <div className={styles.formGroupFloating}>
       <input
         type={type}
         name={name}
-        value={form[name] as any}
+        value={
+          type === "date"
+            ? formatDateForInput(form[name] as string) // 🔹 ensure proper YYYY-MM-DD
+            : (form[name] as any) || ""
+        }
         onChange={handleChange}
+        required={isRequired}
+        disabled={isDisabled}
+        min={type === "date" ? minValue : undefined}
         className={styles.input}
       />
-      <label className={styles.floatingLabel}>{label}</label>
+      <label className={styles.floatingLabel}>
+        {label}
+        {isRequired && <span className={styles.required}> *</span>}
+      </label>
     </div>
   );
+};
+
 
   const isVirtualSelected = form.vm_type === "Virtual";
 

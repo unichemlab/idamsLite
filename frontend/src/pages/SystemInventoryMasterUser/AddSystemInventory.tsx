@@ -183,24 +183,81 @@ const AddSystemInventory: React.FC = () => {
         label: plant.plant_name || plant.name || String(plant.id),
       }))
     : [];
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateForm()) return; // ✅ stop submission if invalid
     setShowConfirm(true);
   };
 
+  const validateForm = (): boolean => {
+  // Warranty End Date must be after start date
+  if (form.warranty_status === "Under Warranty") {
+    if (!form.warranty_end_date) {
+      alert("Warranty End Date is required for assets under warranty");
+      return false;
+    }
+  }
+
+  if (form.warranty_status === "Out Of Warranty") {
+    if (form.amc_start_date && form.amc_expiry_date) {
+      const start = new Date(form.amc_start_date);
+      const expiry = new Date(form.amc_expiry_date);
+
+      if (expiry.getTime() <= start.getTime()) {
+        alert("AMC Expiry Date must be greater than AMC Start Date");
+        return false;
+      }
+    }
+  }
+
+  return true;
+};
+
+
   const handleConfirm = async () => {
     await addSystem(form);
+    
     setShowConfirm(false);
     navigate("/system-master");
   };
 
   const input = (
-    name: keyof System,
-    label: string,
-    type = "text",
-    isRequired: boolean = false,
-    isDisabled: boolean = false
-  ) => (
+  name: keyof System,
+  label: string,
+  type: string = "text",
+  isRequired: boolean = false,
+  isDisabled: boolean = false
+) => {
+  const isStartDate =  name === "amc_start_date";
+  const isExpiryDate = name === "amc_expiry_date";
+
+  // Get today in YYYY-MM-DD format
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, "0");
+  const dd = String(today.getDate()).padStart(2, "0");
+  const minToday = `${yyyy}-${mm}-${dd}`;
+
+  // Get next day of a date
+  const getNextDay = (dateStr?: string) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    date.setDate(date.getDate() + 1);
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  // Determine min value dynamically
+  let minValue: string | undefined;
+   if (isExpiryDate) {
+    const startField =  "amc_start_date";
+    minValue =  getNextDay(form[startField]) ; // expiry > start
+  }
+
+  return (
     <div className={styles.formGroupFloating}>
       <input
         type={type}
@@ -209,6 +266,7 @@ const AddSystemInventory: React.FC = () => {
         onChange={handleChange}
         required={isRequired}
         disabled={isDisabled}
+        min={type === "date" ? minValue : undefined} // only set min for date inputs
         className={styles.input}
       />
       <label className={styles.floatingLabel}>
@@ -217,6 +275,8 @@ const AddSystemInventory: React.FC = () => {
       </label>
     </div>
   );
+};
+
  
   const isUnderWarranty = form.warranty_status === "Under Warranty";
   const isOutOfWarranty = form.warranty_status === "Out Of Warranty";

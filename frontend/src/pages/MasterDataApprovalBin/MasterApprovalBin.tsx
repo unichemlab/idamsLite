@@ -64,10 +64,10 @@ const MasterApprovalBin: React.FC = () => {
   const [actionComments, setActionComments] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 10;
-  useEffect(() => {
-    loadApprovals();
-  }, [filter]);
-
+useEffect(() => {
+  setCurrentPage(1);   // Reset page
+  loadApprovals();
+}, [filter]);
   const loadApprovals = async () => {
     try {
       setLoading(true);
@@ -273,7 +273,7 @@ const MasterApprovalBin: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {approvals.map((approval) => (
+                {pageData.map((approval) => (
                   <tr key={approval.id}>
                     <td>{approval.id}</td>
                     <td>{approval.module.toUpperCase()}</td>

@@ -6,7 +6,7 @@ import React, {
   useEffect,
   useCallback,
 } from "react";
-import { fetchPermissionsAPI, loginAPI, API_BASE,fetchCorporateWorkflows } from "../utils/api";
+import { fetchPermissionsAPI, loginAPI, API_BASE, fetchCorporateWorkflows } from "../utils/api";
 import AbilityProvider from "./AbilityContext";
 
 // Interface for workflow data
@@ -39,7 +39,7 @@ interface ApproverDetectionResult {
   isApprover: boolean;
   isApprover1: boolean;
   isWorkflowApprover: boolean;
-   isCorporateApprover?:boolean;
+  isCorporateApprover?: boolean;
   approverPlants?: number[];
 }
 
@@ -60,7 +60,7 @@ export interface AuthUser {
   isApprover?: boolean;
   isApprover1?: boolean;
   isWorkflowApprover?: boolean;
-  isCorporateApprover?:boolean;
+  isCorporateApprover?: boolean;
   isITBin?: boolean;
   isSuperAdmin?: boolean;
   roleName?: string;
@@ -71,7 +71,7 @@ export interface AuthUser {
   itPlantIds?: number[];
   plantPermissions?: PlantPermission[];
   permittedPlantIds?: number[];
-  login_transaction_id:string;
+  login_transaction_id: string;
 }
 
 interface AuthContextType {
@@ -248,8 +248,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             wf.approver_4_id,
             wf.approver_5_id,
           ];
-          return approverIds.some((id) => id === String(userId));
+
+          return approverIds.some((id) => {
+            if (!id) return false;
+
+            // Split comma-separated values
+            const idArray = String(id)
+              .split(",")
+              .map((i) => i.trim());
+
+            return idArray.includes(String(userId));
+          });
         });
+
 
         if (matchingWorkflows.length > 0) {
           const plants = [
@@ -273,7 +284,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     []
   );
 
-  
+
 
   /**
    * Combined approver check
@@ -284,12 +295,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       const isApprover1 = await checkApprover1Status(userEmail, token);
       const workflowResult = await checkWorkflowApproverStatus(userId, token);
-      const dataCorporate=await fetchCorporateWorkflows(userId,'CORPORATE','Administration');
-console.log("data corporate",dataCorporate); 
+      const dataCorporate = await fetchCorporateWorkflows(userId, 'CORPORATE', 'Administration');
+      console.log("data corporate", dataCorporate);
       const result: ApproverDetectionResult = {
         isApprover: isApprover1 || workflowResult.found,
         isApprover1,
-        isCorporateApprover:(dataCorporate.length > 0)?true:false,
+        isCorporateApprover: (dataCorporate.length > 0) ? true : false,
         isWorkflowApprover: workflowResult.found,
         approverPlants: workflowResult.plants,
       };
@@ -415,17 +426,17 @@ console.log("data corporate",dataCorporate);
           if (token && (!tokenPermissions.length || !tokenPlantPermissions.length)) {
             try {
               const freshPerms = await fetchPermissions();
-              
+
               if (!mounted) return;
 
               setUser((prev) =>
                 prev
                   ? {
-                      ...prev,
-                      permissions: freshPerms.permissions,
-                      plantPermissions: freshPerms.plantPermissions,
-                      permittedPlantIds: freshPerms.permittedPlantIds,
-                    }
+                    ...prev,
+                    permissions: freshPerms.permissions,
+                    plantPermissions: freshPerms.plantPermissions,
+                    permittedPlantIds: freshPerms.permittedPlantIds,
+                  }
                   : null
               );
 
@@ -457,13 +468,13 @@ console.log("data corporate",dataCorporate);
                 setUser((prev) =>
                   prev
                     ? {
-                        ...prev,
-                        isApprover: true,
-                        isApprover1: approverResult.isApprover1,
-                        isWorkflowApprover: approverResult.isWorkflowApprover,
-                         isCorporateApprover: approverResult.isCorporateApprover,
-                        approverPlants: approverResult.approverPlants,
-                      }
+                      ...prev,
+                      isApprover: true,
+                      isApprover1: approverResult.isApprover1,
+                      isWorkflowApprover: approverResult.isWorkflowApprover,
+                      isCorporateApprover: approverResult.isCorporateApprover,
+                      approverPlants: approverResult.approverPlants,
+                    }
                     : null
                 );
 
@@ -475,7 +486,7 @@ console.log("data corporate",dataCorporate);
                     isApprover: true,
                     isApprover1: approverResult.isApprover1,
                     isWorkflowApprover: approverResult.isWorkflowApprover,
-                     isCorporateApprover: approverResult.isCorporateApprover,
+                    isCorporateApprover: approverResult.isCorporateApprover,
                     approverPlants: approverResult.approverPlants,
                   })
                 );
@@ -515,7 +526,7 @@ console.log("data corporate",dataCorporate);
       if (!data.user || !data.token) {
         throw new Error("Invalid login response: missing user or token");
       }
-console.log("Auth data after data login",data.user);
+      console.log("Auth data after data login", data.user);
       const roleMap: Record<string, number> = {
         superAdmin: 1,
         plantAdmin: 2,
@@ -610,11 +621,11 @@ console.log("Auth data after data login",data.user);
           setUser((prev) =>
             prev
               ? {
-                  ...prev,
-                  permissions: freshPerms.permissions,
-                  plantPermissions: freshPerms.plantPermissions,
-                  permittedPlantIds: freshPerms.permittedPlantIds,
-                }
+                ...prev,
+                permissions: freshPerms.permissions,
+                plantPermissions: freshPerms.plantPermissions,
+                permittedPlantIds: freshPerms.permittedPlantIds,
+              }
               : prev
           );
 
@@ -642,13 +653,13 @@ console.log("Auth data after data login",data.user);
           setUser((prev) =>
             prev
               ? {
-                  ...prev,
-                  isApprover: true,
-                  isApprover1: approverResult.isApprover1,
-                  isWorkflowApprover: approverResult.isWorkflowApprover,
-                   isCorporateApprover: approverResult.isCorporateApprover,
-                  approverPlants: approverResult.approverPlants,
-                }
+                ...prev,
+                isApprover: true,
+                isApprover1: approverResult.isApprover1,
+                isWorkflowApprover: approverResult.isWorkflowApprover,
+                isCorporateApprover: approverResult.isCorporateApprover,
+                approverPlants: approverResult.approverPlants,
+              }
               : prev
           );
 
@@ -660,7 +671,7 @@ console.log("Auth data after data login",data.user);
               isApprover: true,
               isApprover1: approverResult.isApprover1,
               isWorkflowApprover: approverResult.isWorkflowApprover,
-               isCorporateApprover: approverResult.isCorporateApprover,
+              isCorporateApprover: approverResult.isCorporateApprover,
               approverPlants: approverResult.approverPlants,
             })
           );
@@ -705,33 +716,33 @@ console.log("Auth data after data login",data.user);
   //   }
   // };
 
- const logout = async () => {
-  try {
-    const stored = localStorage.getItem("authUser");
-    const parsed = stored ? JSON.parse(stored) : null;
+  const logout = async () => {
+    try {
+      const stored = localStorage.getItem("authUser");
+      const parsed = stored ? JSON.parse(stored) : null;
 
-    const transaction_id = parsed?.login_transaction_id;
+      const transaction_id = parsed?.login_transaction_id;
 
-    if (transaction_id) {
-      await fetch(`${API_BASE}/api/auth/logout`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: JSON.stringify({ transaction_id }),
-      });
+      if (transaction_id) {
+        await fetch(`${API_BASE}/api/auth/logout`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({ transaction_id }),
+        });
+      }
+    } catch (err) {
+      console.warn("Logout API failed:", err);
+    } finally {
+      setUser(null);
+      setPermissions([]);
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = "/";
     }
-  } catch (err) {
-    console.warn("Logout API failed:", err);
-  } finally {
-    setUser(null);
-    setPermissions([]);
-    localStorage.clear();
-    sessionStorage.clear();
-    window.location.href = "/";
-  }
-};
+  };
 
 
 

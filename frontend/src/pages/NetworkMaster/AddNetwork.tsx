@@ -57,13 +57,13 @@ const AddNetwork: React.FC = () => {
     amc_vendor: "",
     remarks: "",
     status: "ACTIVE",
-    
+
   });
 
   useEffect(() => {
     fetchPlants().then(setPlants);
   }, []);
-const plantOptions = Array.isArray(plants)
+  const plantOptions = Array.isArray(plants)
     ? plants
       .filter((plant: any) => {
         // 🔥 Super Admin → all plants
@@ -103,21 +103,28 @@ const plantOptions = Array.isArray(plants)
 
     let finalValue: any = value;
 
-    // ✅ checkbox → boolean
     if (type === "checkbox") {
       finalValue = (e.target as HTMLInputElement).checked;
-    }
-
-    // ✅ number input → number
-    else if (type === "number") {
+    } else if (type === "number") {
       finalValue = Number(value);
-    }
-
-    // ✅ select boolean → boolean
-    else if (value === "true") {
+    } else if (value === "true") {
       finalValue = true;
     } else if (value === "false") {
       finalValue = false;
+    }
+
+    // 🔹 If warranty_start_date changes, reset invalid expiry
+    if (name === "warranty_start_date") {
+      setForm((prev) => ({
+        ...prev,
+        warranty_start_date: value,
+        amc_warranty_expiry_date:
+          prev.amc_warranty_expiry_date &&
+            prev.amc_warranty_expiry_date <= value
+            ? ""
+            : prev.amc_warranty_expiry_date,
+      }));
+      return;
     }
 
     setForm((prev) => ({
@@ -126,11 +133,12 @@ const plantOptions = Array.isArray(plants)
     }));
   };
 
- const handleSubmit = (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!validateForm()) return;
-  setShowConfirm(true);
-};
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+    setShowConfirm(true);
+  };
 
   const handleConfirm = async () => {
     await addNetwork(form);
@@ -138,18 +146,58 @@ const plantOptions = Array.isArray(plants)
     navigate("/network-master");
   };
 
-  const input = (name: keyof Network, label: string, type = "text") => (
-    <div className={styles.formGroupFloating}>
-      <input
-        type={type}
-        name={name}
-        value={form[name] as any}
-        onChange={handleChange}
-        className={styles.input}
-      />
-      <label className={styles.floatingLabel}>{label}</label>
-    </div>
-  );
+  // const input = (name: keyof Network, label: string, type = "text") => (
+  //   <div className={styles.formGroupFloating}>
+  //     <input
+  //       type={type}
+  //       name={name}
+  //       value={form[name] as any}
+  //       onChange={handleChange}
+  //       className={styles.input}
+  //     />
+  //     <label className={styles.floatingLabel}>{label}</label>
+  //   </div>
+  // );
+
+  const input = (name: keyof Network, label: string, type = "text") => {
+    const isExpiryDate = name === "amc_warranty_expiry_date";
+
+    const getNextDay = (dateStr?: string) => {
+      if (!dateStr) return "";
+
+      const date = new Date(dateStr);
+      date.setDate(date.getDate() + 1);
+
+      // Extract YYYY-MM-DD safely
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, "0"); // Months are 0-indexed
+      const dd = String(date.getDate()).padStart(2, "0");
+
+      return `${yyyy}-${mm}-${dd}`;
+    };
+
+    return (
+      <div className={styles.formGroupFloating}>
+        <input
+          type={type}
+          name={name}
+          value={(form[name] as any) || ""}
+          onChange={handleChange}
+          className={styles.input}
+          // ✅ dynamically set min as one day after warranty_start_date
+          min={
+            isExpiryDate && form.warranty_start_date
+              ? getNextDay(form.warranty_start_date)
+              : undefined
+          }
+        />
+        <label className={styles.floatingLabel}>{label}</label>
+      </div>
+    );
+  };
+
+
+
 
   type OptionValue = string | number;
 
@@ -222,69 +270,71 @@ const plantOptions = Array.isArray(plants)
       </div>
     );
   };
-// ================= VALIDATION HELPERS =================
-const isValidIP = (ip: string) => {
-  const regex =
-    /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
-  return regex.test(ip);
-};
+  // ================= VALIDATION HELPERS =================
+  const isValidIP = (ip: string) => {
+    const regex =
+      /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
+    return regex.test(ip);
+  };
 
-const validateForm = () => {
-  if (!form?.plant_location_id) {
-    alert("Plant Location is required");
-    return false;
-  }
+  const validateForm = () => {
+    if (!form?.plant_location_id) {
+      alert("Plant Location is required");
+      return false;
+    }
 
-  if (!form?.host_name) {
-    alert("Host Name is required");
-    return false;
-  }
+    if (!form?.host_name) {
+      alert("Host Name is required");
+      return false;
+    }
 
-  if (!isValidIP(form.device_ip || "")) {
-    alert("Invalid Device IP address");
-    return false;
-  }
+    if (!isValidIP(form.device_ip || "")) {
+      alert("Invalid Device IP address");
+      return false;
+    }
 
-  if (!form?.device_type) {
-    alert("Device Type is required");
-    return false;
-  }
+    if (!form?.device_type) {
+      alert("Device Type is required");
+      return false;
+    }
 
-  if (!form?.serial_no) {
-    alert("Serial No is required");
-    return false;
-  }
+    if (!form?.serial_no) {
+      alert("Serial No is required");
+      return false;
+    }
 
-  if (!form?.verify_date) {
-    alert("Verify Date is required");
-    return false;
-  }
+    if (!form?.verify_date) {
+      alert("Verify Date is required");
+      return false;
+    }
 
-  // Conditional validations
-  if (form.stack && !form.stack_switch_details) {
-    alert("Stack Switch Details is required when Stack = Yes");
-    return false;
-  }
+    // Conditional validations
+    if (form.stack && !form.stack_switch_details) {
+      alert("Stack Switch Details is required when Stack = Yes");
+      return false;
+    }
 
-  if (form.under_amc && !form.amc_vendor) {
-    alert("AMC Vendor is required when Under AMC = Yes");
-    return false;
-  }
+    if (form.under_amc && !form.amc_vendor) {
+      alert("AMC Vendor is required when Under AMC = Yes");
+      return false;
+    }
+    console.log("Form data", form);
+    // Date validation
+    // Date validation
+    if (form.warranty_start_date && form.amc_warranty_expiry_date) {
+      const start = new Date(form.warranty_start_date + "T00:00:00");
+      const expiry = new Date(form.amc_warranty_expiry_date + "T00:00:00");
 
-  // Date validation
-  if (
-    form.warranty_start_date &&
-    form.amc_warranty_expiry_date &&
-    new Date(form.amc_warranty_expiry_date) <
-      new Date(form.warranty_start_date)
-  ) {
-    alert("AMC / Warranty Expiry Date cannot be before Warranty Start Date");
-    return false;
-  }
+      if (expiry.getTime() <= start.getTime()) {
+        alert("AMC / Warranty Expiry Date must be greater than Warranty Start Date");
+        return false;
+      }
+    }
 
-  return true;
-};
-// ======================================================
+
+    return true;
+  };
+  // ======================================================
 
   return (
     <>
@@ -326,19 +376,19 @@ const validateForm = () => {
                   <span className={styles.sectionHeaderTitle}>Device Details</span>
                   <div className={styles.rowFields}>
                     {/* Dual Power Source(ATS /Yes/NO) */}
-                   {input("device_type", "Device Type")}
+                    {input("device_type", "Device Type")}
                     {input("device_model", "Device Model")}
                     {input("serial_no", "Serial No")}
                     {input("ios_version", "IOS Version")}
                     {input("make_vendor", "Make/Vendor")}
-                    {select("poe_non_poe", "POE/Non-POE", ['PoE','Non-POE'], false, false, false, false)}
-                    {select("dual_power_source", "Dual Power Source", ['Yes','No','ATS'], false, false, false, false)}
+                    {select("poe_non_poe", "POE/Non-POE", ['PoE', 'Non-POE'], false, false, false, false)}
+                    {select("dual_power_source", "Dual Power Source", ['Yes', 'No', 'ATS'], false, false, false, false)}
                     {select("stack", "Stack", [], false, false, false, true)}
                     {form.stack && input("stack_switch_details", "Stack Switch Details")}
                     {input("neighbor_switch_ip", "Neighbor Switch IP")}
                     {input("neighbor_port", "Neighbor Port")}
                     {input("trunk_port", "Trunk Port")}
-                    {select("sfp_fiber_tx", "SFP/Fiber TX", ['Fiber','TX'], false, false, false, false)}
+                    {select("sfp_fiber_tx", "SFP/Fiber TX", ['Fiber', 'TX'], false, false, false, false)}
                     {input("uptime", "Uptime")}
                     {input("verify_date", "Verify Date", "date")}
                   </div>
@@ -348,7 +398,7 @@ const validateForm = () => {
                 <div className={styles.section}>
                   <span className={styles.sectionHeaderTitle}>Commercial</span>
                   <div className={styles.rowFields}>
-                  {input("purchased_po", "Purchase PO")}
+                    {input("purchased_po", "Purchase PO")}
                     {input("purchased_date", "Purchased Date", "date")}
                     {input("purchase_vendor", "Purchase Vendor")}
                     {input("sap_asset_no", "SAP Asset No")}
@@ -356,7 +406,7 @@ const validateForm = () => {
                     {input("warranty_start_date", "Warranty Start Date", "date")}
                     {input("amc_warranty_expiry_date", "AMC/Warranty Expiry Date", "date")}
                     {select("under_amc", "Under AMC", [], false, false, false, true)}
-                   {form.under_amc && input("amc_vendor", "AMC Vendor")}
+                    {form.under_amc && input("amc_vendor", "AMC Vendor")}
                   </div>
                 </div>
 

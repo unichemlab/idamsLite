@@ -7,7 +7,7 @@ const authorize = require("../middleware/authorize");
 router.get("/by-user", authorize(), accessLogController.getAccessLogsByUser);
 // Get activity logs for access log module
 router.get("/activity-logs/all", authorize(), accessLogController.getAccessLogActivityLogs);
-
+router.get("/active-user-logs", authorize(), accessLogController.getAccessLogsByUser);
 // Get access logs by vendor firm
 router.get("/firm/:vendor_firm", authorize(), accessLogController.getAccessLogByFirm);
 
