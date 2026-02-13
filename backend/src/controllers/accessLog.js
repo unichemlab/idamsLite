@@ -816,6 +816,119 @@ exports.getAccessLogsByUser = async (req, res) => {
 };
 
 // In your API route
+// exports.getAllActiveUserLogs = async (req, res) => {
+//   console.log("=== DEBUG START ===");
+//   console.log("Full URL:", req.originalUrl);
+//   console.log("Query params:", req.query);
+//   console.log("plant_id:", req.query.plant_id, "Type:", typeof req.query.plant_id);
+//   console.log("department_id:", req.query.department_id, "Type:", typeof req.query.department_id);
+//   console.log("application_id:", req.query.application_id, "Type:", typeof req.query.application_id);
+//   console.log("=== DEBUG END ===");
+
+//   const { plant_id, department_id, application_id, page = 1, limit = 10, search, value } = req.query;
+
+//   // Validation - check if required parameters are present
+//   if (!plant_id || !department_id || !application_id) {
+//     console.log("❌ Validation failed - missing params");
+//     return res.status(400).json({ 
+//       success: false, 
+//       message: "Missing required query parameters: plant_id, department_id, application_id",
+//       received: { plant_id, department_id, application_id }
+//     });
+//   }
+
+//   console.log("✅ Validation passed");
+
+//   try {
+//     let query = `
+//       SELECT DISTINCT ON (
+//         CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
+//         CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
+//         al.location,
+//         al.department,
+//         al.application_equip_id,
+//         al.role
+//       )
+//         al.*,
+//         tc.assigned_to,
+//         tc.allocated_id,
+//         tc.ritm_number,
+//         tc.task_number,
+//         am.display_name AS application_name,
+//         dm.department_name,
+//         rm.role_name,
+//         pm.plant_name AS location_name,
+//         um.employee_name AS assigned_to_name
+
+//       FROM access_log al
+
+//       LEFT JOIN application_master am ON al.application_equip_id = am.id
+//       LEFT JOIN department_master dm ON al.department = dm.id
+//       LEFT JOIN role_master rm ON al.role = rm.id
+//       LEFT JOIN plant_master pm ON al.location = pm.id
+
+//       LEFT JOIN task_closure tc 
+//         ON al.task_transaction_id = tc.task_number
+//         AND al.ritm_transaction_id = tc.ritm_number
+
+//       LEFT JOIN user_master um 
+//         ON tc.assigned_to = um.id
+
+//       WHERE al.location = $1 
+//         AND al.department = $2 
+//         AND al.application_equip_id = $3
+//     `;
+
+//     const params = [plant_id, department_id, application_id];
+//     let paramIndex = 4;
+
+//     // Add search filter if provided
+//     if (search && value) {
+//       query += ` AND al.${search} ILIKE $${paramIndex}`;
+//       params.push(`%${value}%`);
+//       paramIndex++;
+//     }
+
+//     query += `
+//       ORDER BY 
+//         CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
+//         CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
+//         al.location,
+//         al.department,
+//         al.application_equip_id,
+//         al.role,
+//         al.id DESC
+//     `;
+
+//     // Add pagination
+//     const offset = (parseInt(page) - 1) * parseInt(limit);
+//     query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+//     params.push(parseInt(limit), offset);
+
+//     console.log("📊 Executing query with params:", params);
+
+//     const result = await pool.query(query, params);
+    
+//     console.log("✅ Query successful, rows returned:", result.rows.length);
+
+//     res.json({
+//       success: true,
+//       data: result.rows,
+//       total: result.rows.length,
+//       page: parseInt(page),
+//       limit: parseInt(limit)
+//     });
+    
+//   } catch (error) {
+//     console.error('❌ Error fetching access logs:', error);
+//     res.status(500).json({ 
+//       success: false, 
+//       error: 'Failed to fetch access logs',
+//       message: error.message 
+//     });
+//   }
+// };
+
 exports.getAllActiveUserLogs = async (req, res) => {
   console.log("=== DEBUG START ===");
   console.log("Full URL:", req.originalUrl);
@@ -830,8 +943,8 @@ exports.getAllActiveUserLogs = async (req, res) => {
   // Validation - check if required parameters are present
   if (!plant_id || !department_id || !application_id) {
     console.log("❌ Validation failed - missing params");
-    return res.status(400).json({ 
-      success: false, 
+    return res.status(400).json({
+      success: false,
       message: "Missing required query parameters: plant_id, department_id, application_id",
       received: { plant_id, department_id, application_id }
     });
@@ -846,35 +959,30 @@ exports.getAllActiveUserLogs = async (req, res) => {
         CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
         al.location,
         al.department,
-        al.application_equip_id
+        al.application_equip_id,
+        al.role
       )
         al.*,
         tc.assigned_to,
         tc.allocated_id,
         tc.ritm_number,
         tc.task_number,
+        tc.access,
         am.display_name AS application_name,
         dm.department_name,
         rm.role_name,
         pm.plant_name AS location_name,
         um.employee_name AS assigned_to_name
-
       FROM access_log al
-
       LEFT JOIN application_master am ON al.application_equip_id = am.id
       LEFT JOIN department_master dm ON al.department = dm.id
       LEFT JOIN role_master rm ON al.role = rm.id
       LEFT JOIN plant_master pm ON al.location = pm.id
-
-      LEFT JOIN task_closure tc 
-        ON al.task_transaction_id = tc.task_number
-        AND al.ritm_transaction_id = tc.ritm_number
-
-      LEFT JOIN user_master um 
-        ON tc.assigned_to = um.id
-
-      WHERE al.location = $1 
-        AND al.department = $2 
+      LEFT JOIN task_closure tc ON al.task_transaction_id = tc.task_number 
+                                AND al.ritm_transaction_id = tc.ritm_number
+      LEFT JOIN user_master um ON tc.assigned_to = um.id
+      WHERE al.location = $1
+        AND al.department = $2
         AND al.application_equip_id = $3
     `;
 
@@ -889,24 +997,33 @@ exports.getAllActiveUserLogs = async (req, res) => {
     }
 
     query += `
-      ORDER BY 
+      ORDER BY
         CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
         CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
         al.location,
         al.department,
         al.application_equip_id,
+        al.role,
         al.id DESC
+    `;
+
+    // Wrap in subquery to filter out deactivated records and check access is granted
+    const wrappedQuery = `
+      SELECT * FROM (
+        ${query}
+      ) AS active_users
+      WHERE (active_users.task_status != 'Deactivated' OR active_users.task_status IS NULL)
+        AND (LOWER(active_users.access) = 'granted' OR active_users.access IS NULL)
     `;
 
     // Add pagination
     const offset = (parseInt(page) - 1) * parseInt(limit);
-    query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    const finalQuery = wrappedQuery + ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(parseInt(limit), offset);
 
     console.log("📊 Executing query with params:", params);
+    const result = await pool.query(finalQuery, params);
 
-    const result = await pool.query(query, params);
-    
     console.log("✅ Query successful, rows returned:", result.rows.length);
 
     res.json({
@@ -916,13 +1033,13 @@ exports.getAllActiveUserLogs = async (req, res) => {
       page: parseInt(page),
       limit: parseInt(limit)
     });
-    
+
   } catch (error) {
     console.error('❌ Error fetching access logs:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       error: 'Failed to fetch access logs',
-      message: error.message 
+      message: error.message
     });
   }
 };
