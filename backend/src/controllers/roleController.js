@@ -85,7 +85,7 @@ exports.getRoleActivityLogs = async (req, res) => {
 // -------------------------------
 exports.getAllRoles = async (req, res) => {
   try {
-    const { rows } = await pool.query("SELECT * FROM role_master where status='ACTIVE' ORDER BY id");
+    const { rows } = await pool.query("SELECT * FROM role_master where status='ACTIVE' ORDER BY role_name ASC");
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });

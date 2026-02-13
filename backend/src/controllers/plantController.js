@@ -42,7 +42,7 @@ exports.getAllPlants = async (req, res) => {
   try {
     // Only return approved plants (not those pending approval)
     const { rows } = await pool.query(
-      "SELECT * FROM plant_master where status='ACTIVE' ORDER BY id"
+      "SELECT * FROM plant_master where status='ACTIVE' ORDER BY plant_name ASC"
     );
     res.json(rows);
   } catch (err) {

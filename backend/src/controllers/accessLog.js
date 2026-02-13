@@ -953,37 +953,133 @@ exports.getAllActiveUserLogs = async (req, res) => {
   console.log("✅ Validation passed");
 
   try {
+    // Use a CTE to determine query type based on latest entries per user+location+dept+app
     let query = `
-      SELECT DISTINCT ON (
-        CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
-        CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
-        al.location,
-        al.department,
-        al.application_equip_id,
-        al.role
+      WITH latest_entries AS (
+        SELECT DISTINCT ON (
+          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
+          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
+          al.location,
+          al.department,
+          al.application_equip_id
+        )
+          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END as user_name,
+          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END as user_code,
+          al.location,
+          al.department,
+          al.application_equip_id,
+          al.access_request_type
+        FROM access_log al
+        WHERE al.location = $1
+          AND al.department = $2
+          AND al.application_equip_id = $3
+        ORDER BY
+          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
+          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
+          al.location,
+          al.department,
+          al.application_equip_id,
+          al.id DESC
+      ),
+      regular_users AS (
+        SELECT DISTINCT ON (
+          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
+          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
+          al.location,
+          al.department,
+          al.application_equip_id,
+          al.role
+        )
+          al.*,
+          tc.assigned_to,
+          tc.allocated_id,
+          tc.ritm_number,
+          tc.task_number,
+          tc.access,
+          am.display_name AS application_name,
+          dm.department_name,
+          rm.role_name,
+          pm.plant_name AS location_name,
+          um.employee_name AS assigned_to_name
+        FROM access_log al
+        LEFT JOIN application_master am ON al.application_equip_id = am.id
+        LEFT JOIN department_master dm ON al.department = dm.id
+        LEFT JOIN role_master rm ON al.role = rm.id
+        LEFT JOIN plant_master pm ON al.location = pm.id
+        LEFT JOIN task_closure tc ON al.task_transaction_id = tc.task_number 
+                                  AND al.ritm_transaction_id = tc.ritm_number
+        LEFT JOIN user_master um ON tc.assigned_to = um.id
+        INNER JOIN latest_entries le ON 
+          (CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END) = le.user_name
+          AND (CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END) = le.user_code
+          AND al.location = le.location
+          AND al.department = le.department
+          AND al.application_equip_id = le.application_equip_id
+        WHERE al.location = $1
+          AND al.department = $2
+          AND al.application_equip_id = $3
+          AND le.access_request_type != 'Modify Access'
+        ORDER BY
+          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
+          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
+          al.location,
+          al.department,
+          al.application_equip_id,
+          al.role,
+          al.id DESC
+      ),
+      modification_users AS (
+        SELECT DISTINCT ON (
+          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
+          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
+          al.location,
+          al.department,
+          al.application_equip_id
+        )
+          al.*,
+          tc.assigned_to,
+          tc.allocated_id,
+          tc.ritm_number,
+          tc.task_number,
+          tc.access,
+          am.display_name AS application_name,
+          dm.department_name,
+          rm.role_name,
+          pm.plant_name AS location_name,
+          um.employee_name AS assigned_to_name
+        FROM access_log al
+        LEFT JOIN application_master am ON al.application_equip_id = am.id
+        LEFT JOIN department_master dm ON al.department = dm.id
+        LEFT JOIN role_master rm ON al.role = rm.id
+        LEFT JOIN plant_master pm ON al.location = pm.id
+        LEFT JOIN task_closure tc ON al.task_transaction_id = tc.task_number 
+                                  AND al.ritm_transaction_id = tc.ritm_number
+        LEFT JOIN user_master um ON tc.assigned_to = um.id
+        INNER JOIN latest_entries le ON 
+          (CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END) = le.user_name
+          AND (CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END) = le.user_code
+          AND al.location = le.location
+          AND al.department = le.department
+          AND al.application_equip_id = le.application_equip_id
+        WHERE al.location = $1
+          AND al.department = $2
+          AND al.application_equip_id = $3
+          AND le.access_request_type = 'Modify Access'
+        ORDER BY
+          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
+          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
+          al.location,
+          al.department,
+          al.application_equip_id,
+          al.id DESC
       )
-        al.*,
-        tc.assigned_to,
-        tc.allocated_id,
-        tc.ritm_number,
-        tc.task_number,
-        tc.access,
-        am.display_name AS application_name,
-        dm.department_name,
-        rm.role_name,
-        pm.plant_name AS location_name,
-        um.employee_name AS assigned_to_name
-      FROM access_log al
-      LEFT JOIN application_master am ON al.application_equip_id = am.id
-      LEFT JOIN department_master dm ON al.department = dm.id
-      LEFT JOIN role_master rm ON al.role = rm.id
-      LEFT JOIN plant_master pm ON al.location = pm.id
-      LEFT JOIN task_closure tc ON al.task_transaction_id = tc.task_number 
-                                AND al.ritm_transaction_id = tc.ritm_number
-      LEFT JOIN user_master um ON tc.assigned_to = um.id
-      WHERE al.location = $1
-        AND al.department = $2
-        AND al.application_equip_id = $3
+      SELECT * FROM (
+        SELECT * FROM regular_users
+        UNION ALL
+        SELECT * FROM modification_users
+      ) AS combined_results
+      WHERE (combined_results.task_status != 'Deactivated' OR combined_results.task_status IS NULL)
+        AND (LOWER(combined_results.access) = 'granted' OR combined_results.access IS NULL)
     `;
 
     const params = [plant_id, department_id, application_id];
@@ -991,38 +1087,20 @@ exports.getAllActiveUserLogs = async (req, res) => {
 
     // Add search filter if provided
     if (search && value) {
-      query += ` AND al.${search} ILIKE $${paramIndex}`;
+      query += ` AND combined_results.${search} ILIKE $${paramIndex}`;
       params.push(`%${value}%`);
       paramIndex++;
     }
 
-    query += `
-      ORDER BY
-        CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
-        CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
-        al.location,
-        al.department,
-        al.application_equip_id,
-        al.role,
-        al.id DESC
-    `;
-
-    // Wrap in subquery to filter out deactivated records and check access is granted
-    const wrappedQuery = `
-      SELECT * FROM (
-        ${query}
-      ) AS active_users
-      WHERE (active_users.task_status != 'Deactivated' OR active_users.task_status IS NULL)
-        AND (LOWER(active_users.access) = 'granted' OR active_users.access IS NULL)
-    `;
+    query += ` ORDER BY combined_results.id DESC`;
 
     // Add pagination
     const offset = (parseInt(page) - 1) * parseInt(limit);
-    const finalQuery = wrappedQuery + ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(parseInt(limit), offset);
 
     console.log("📊 Executing query with params:", params);
-    const result = await pool.query(finalQuery, params);
+    const result = await pool.query(query, params);
 
     console.log("✅ Query successful, rows returned:", result.rows.length);
 
