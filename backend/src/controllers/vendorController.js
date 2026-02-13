@@ -45,7 +45,7 @@ exports.getVendorActivityLogs = async (req, res) => {
 exports.getAllVendors = async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT * FROM vendor_master ORDER BY id"
+      "SELECT * FROM vendor_master ORDER BY vendor_name ASC"
     );
     res.json(rows);
   } catch (err) {

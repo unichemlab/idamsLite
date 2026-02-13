@@ -92,23 +92,60 @@ const WorkflowBuilder: React.FC = () => {
 
   // Check if current selection is Corporate Administration
   const isCorporateAdmin = workflowType === "CORPORATE" && selectedCorporate === "Administration";
+  
+  const getUniqueUsers = (users: any[]): any[] => {
+  const seen = new Set<string>();
+  const unique: any[] = [];
+
+  users.forEach((u) => {
+    // Define unique key: prefer email, fallback employee_code, fallback employee_id
+    const key =
+      u.email?.toLowerCase() ||
+      u.employee_code?.toString() ||
+      u.employee_id?.toString();
+
+    if (!key) return; // skip if no identifier
+
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(u);
+    }
+  });
+
+  return unique;
+};
+
+
 
   // Build userOptions from the user context (normalize various id fields)
   useEffect(() => {
-    setUserOptions(
-      Array.isArray(users)
-        ? users.map((u: any) => ({
-            value: String(
-              u.id ?? u.user_id ?? u.employee_id ?? u.employee_code ?? ""
-            ),
-            label: `${u.employee_name || u.fullName || u.name || ""} ${
-              u.employee_code ? `| ${u.employee_code}` : ""
-            }`.trim(),
-            user: u,
-          }))
-        : []
-    );
-  }, [users]);
+  if (!Array.isArray(users)) {
+    setUserOptions([]);
+    return;
+  }
+
+  const filteredUsers = users
+    .filter((u: any) => {
+      const isActive =
+        u.is_active === true ||
+        u.is_active === 1 ||
+        u.status === "Active";
+
+      const hasEmployeeCode =
+        u.employee_code &&
+        String(u.employee_code).trim() !== "";
+
+      return isActive && hasEmployeeCode;
+    })
+    .map((u: any) => ({
+      value: String(u.id),
+      label: `${u.employee_name} (${u.email} - ${u.employee_code})`,
+      user: u,
+    }));
+
+  setUserOptions(filteredUsers);
+}, [users]);
+
 
   // Load plants
   useEffect(() => {
