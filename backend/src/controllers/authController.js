@@ -246,36 +246,36 @@ await db.query(
     });
 
     // ---------------- Dynamic Role Assignment ----------------
-    const dynamicRoleQuery = `
-      SELECT rm.id, rm.role_name
-      FROM role_master rm
-      WHERE rm.id = (
-        SELECT role
-        FROM access_log
-        WHERE employee_code = $1
-        ORDER BY created_on DESC
-        LIMIT 1
-      )
-    `;
-    const dynamicRoleResult = await db.query(dynamicRoleQuery, [
-      user.employee_code,
-    ]);
-    if (dynamicRoleResult.rows.length > 0) {
-      user.role_id = [dynamicRoleResult.rows[0].id];
-      user.roles = [
-        {
-          id: dynamicRoleResult.rows[0].id,
-          name: dynamicRoleResult.rows[0].role_name,
-        },
-      ];
-    } else {
-      logDebug("No dynamic role found for user:", user.employee_code);
-    }
+    // const dynamicRoleQuery = `
+    //   SELECT rm.id, rm.role_name
+    //   FROM role_master rm
+    //   WHERE rm.id = (
+    //     SELECT role
+    //     FROM access_log
+    //     WHERE employee_code = $1
+    //     ORDER BY created_on DESC
+    //     LIMIT 1
+    //   )
+    // `;
+    // const dynamicRoleResult = await db.query(dynamicRoleQuery, [
+    //   user.employee_code,
+    // ]);
+    // if (dynamicRoleResult.rows.length > 0) {
+    //   user.role_id = [dynamicRoleResult.rows[0].id];
+    //   user.roles = [
+    //     {
+    //       id: dynamicRoleResult.rows[0].id,
+    //       name: dynamicRoleResult.rows[0].role_name,
+    //     },
+    //   ];
+    // } else {
+    //   logDebug("No dynamic role found for user:", user.employee_code);
+    // }
 
-    logDebug("Dynamic role assigned:", {
-      roleId: user.role_id,
-      roles: user.roles,
-    });
+    // logDebug("Dynamic role assigned:", {
+    //   roleId: user.role_id,
+    //   roles: user.roles,
+    // });
 
     // ---------------- Fetch user permissions ----------------
     let permissions = [];

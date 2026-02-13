@@ -850,6 +850,7 @@ exports.getAllActiveUserLogs = async (req, res) => {
       )
         al.*,
         tc.assigned_to,
+        tc.allocated_id,
         tc.ritm_number,
         tc.task_number,
         am.display_name AS application_name,
