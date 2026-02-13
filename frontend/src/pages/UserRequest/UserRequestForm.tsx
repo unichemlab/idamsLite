@@ -1616,13 +1616,17 @@ const AddUserRequest: React.FC = () => {
         }
 
         const data = await res.json();
-        console.log("[ACCESS-LOG ROLE] Fetched log data:", data.data[0]?.role);
+        console.log("[ACCESS-LOG ROLE] Fetched log data:", data.data);
 
-        if (data.data[0]?.role) {
-          const roleArr = Array.isArray(data.data[0].role)
-            ? data.data[0].role
-            : [data.data[0].role];
-          const roleStrArr: string[] = roleArr.map(String);
+        // ✅ FIX: Handle multiple access log records, not just the first one
+        if (data.data && data.data.length > 0) {
+          // Extract all role IDs from all access log records
+          const allRoles = data.data
+            .map((log: any) => log.role)
+            .filter((role: any) => role !== null && role !== undefined);
+          
+          // Convert all roles to strings (roles are numbers in the API response)
+          const roleStrArr: string[] = allRoles.map(String);
 
           setAccessLogRoleFound(true);
           setExistingAccessLogRoles(roleStrArr); // save for comparison in separate effect
@@ -1636,7 +1640,7 @@ const AddUserRequest: React.FC = () => {
               .filter(Boolean)
               .join(", ");
             setDuplicateRoleError(
-              `Access is already provided for role: ${roleLabels || roleStrArr.join(", ")}. ` +
+              `Access is already provided for role${roleStrArr.length > 1 ? 's' : ''}: ${roleLabels || roleStrArr.join(", ")}. ` +
               `Please select a different role to modify access.`
             );
           } else if (
