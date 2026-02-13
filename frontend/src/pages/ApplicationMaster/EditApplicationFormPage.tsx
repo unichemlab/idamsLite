@@ -8,6 +8,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useApplications } from "../../context/ApplicationsContext";
 import { useAuth } from "../../context/AuthContext";
 import { FaLock, FaUnlock } from "react-icons/fa";
+import { sortByString } from "../../utils/sortHelpers";
 
 const EditApplicationFormPage: React.FC = () => {
   const token = localStorage.getItem("token");
@@ -142,10 +143,10 @@ const EditApplicationFormPage: React.FC = () => {
       .then((data) => {
         if (Array.isArray(data)) {
           setRoles(
-            data.map((r: any) => ({
+            sortByString(data.map((r: any) => ({
               id: String(r.id),
               name: r.role_name,
-            }))
+            })),"name","asc")
           );
         }
       })
@@ -291,7 +292,7 @@ const EditApplicationFormPage: React.FC = () => {
           hostname: row.host_name,
           system_inventory_id: row.id
         }));
-        setInventoryOptions(options);
+        setInventoryOptions(sortByString(options,"equipment_instrument_id","asc"));
       })
       .catch(err => {
         console.error("Failed to load inventory list", err);

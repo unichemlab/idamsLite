@@ -94,25 +94,35 @@ const WorkflowBuilder: React.FC = () => {
   const isCorporateAdmin = workflowType === "CORPORATE" && selectedCorporate === "Administration";
   
   const getUniqueUsers = (users: any[]): any[] => {
-  const seen = new Set<string>();
-  const unique: any[] = [];
+  const seen = new Map<string, any>();
 
   users.forEach((u) => {
-    // Define unique key: prefer email, fallback employee_code, fallback employee_id
-    const key =
-      u.email?.toLowerCase() ||
-      u.employee_code?.toString() ||
-      u.employee_id?.toString();
+    // Use email as primary unique key (more reliable than employee_code which might be swapped)
+    const email = u.email?.toLowerCase()?.trim();
+    
+    if (!email) return; // skip if no email
 
-    if (!key) return; // skip if no identifier
-
-    if (!seen.has(key)) {
-      seen.add(key);
-      unique.push(u);
+    // Keep the first occurrence or prioritize the one with numeric employee_code
+    if (!seen.has(email)) {
+      seen.set(email, u);
+    } else {
+      const existing = seen.get(email);
+      
+      // Prioritize records with numeric employee_code over non-numeric ones
+      const isCurrentNumeric = /^\d+$/.test(String(u.employee_code || '').trim());
+      const isExistingNumeric = /^\d+$/.test(String(existing.employee_code || '').trim());
+      
+      if (isCurrentNumeric && !isExistingNumeric) {
+        // Current has numeric code, existing doesn't - use current
+        seen.set(email, u);
+      } else if (isCurrentNumeric === isExistingNumeric && u.id < existing.id) {
+        // Both numeric or both non-numeric - use the one with lower ID
+        seen.set(email, u);
+      }
     }
   });
 
-  return unique;
+  return Array.from(seen.values());
 };
 
 
@@ -124,24 +134,29 @@ const WorkflowBuilder: React.FC = () => {
     return;
   }
 
-  const filteredUsers = users
-    .filter((u: any) => {
-      const isActive =
-        u.is_active === true ||
-        u.is_active === 1 ||
-        u.status === "Active";
+  // First filter for active users with employee_code
+  const activeUsersWithCode = users.filter((u: any) => {
+    const isActive =
+      u.is_active === true ||
+      u.is_active === 1 ||
+      u.status === "Active";
 
-      const hasEmployeeCode =
-        u.employee_code &&
-        String(u.employee_code).trim() !== "";
+    const hasEmployeeCode =
+      u.employee_code &&
+      String(u.employee_code).trim() !== "";
 
-      return isActive && hasEmployeeCode;
-    })
-    .map((u: any) => ({
-      value: String(u.id),
-      label: `${u.employee_name} (${u.email} - ${u.employee_code})`,
-      user: u,
-    }));
+    return isActive && hasEmployeeCode;
+  });
+
+  // Remove duplicates using employee_code as the primary unique key
+  const uniqueUsers = getUniqueUsers(activeUsersWithCode);
+
+  // Map to user options
+  const filteredUsers = uniqueUsers.map((u: any) => ({
+    value: String(u.id),
+    label: `${u.employee_name} (${u.email} - ${u.employee_code})`,
+    user: u,
+  }));
 
   setUserOptions(filteredUsers);
 }, [users]);
