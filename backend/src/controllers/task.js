@@ -93,9 +93,9 @@ exports.getAllTasks = async (req, res) => {
     // ===============================================
     console.log("Approver", isApprover);
 
+    const approverConditions = [];
     if (isApprover && !isSuperAdmin) {
       console.log("Applying approver filters for user:", user.id);
-      const approverConditions = [];
 
       // Check 1: Approver by email (for both approver1 and approver2)
       if (user.email && typeof user.email === 'string' && user.email.trim() !== '') {
@@ -145,16 +145,6 @@ exports.getAllTasks = async (req, res) => {
       } catch (workflowErr) {
         console.error("Error fetching workflow plants:", workflowErr);
       }
-
-      // Add all approver conditions with OR logic
-      if (approverConditions.length > 0) {
-        whereClauses.push(`(${approverConditions.join(" OR ")})`);
-        console.log("Final approver conditions:", approverConditions);
-      } else {
-        // If no approver conditions found, return empty results
-        whereClauses.push("false");
-        console.warn("⚠️ No approver conditions found - returning empty results");
-      }
     }
 
     // ===============================================
@@ -200,10 +190,34 @@ exports.getAllTasks = async (req, res) => {
     console.log("user ITBin", user?.isITBin);
     console.log("user itPlantIds", user?.itPlantIds);
 
+    const itBinConditions = [];
     if (user?.isITBin && user.itPlantIds?.length > 0) {
       params.push(user.itPlantIds);
-      whereClauses.push(`p.id = ANY($${params.length})`);
+      itBinConditions.push(`p.id = ANY($${params.length})`);
       console.log("IT BIN filter applied for plants:", user.itPlantIds);
+    }
+
+    // ===============================================
+    // COMBINE APPROVER AND IT BIN FILTERS
+    // ===============================================
+    // If user has both roles, combine with OR logic
+    // If user has only one role, use that role's conditions
+    if (approverConditions.length > 0 && itBinConditions.length > 0) {
+      // User is BOTH approver and IT Bin - use OR logic
+      whereClauses.push(`((${approverConditions.join(" OR ")}) OR (${itBinConditions.join(" OR ")}))`);
+      console.log("Combined approver AND IT Bin filters with OR logic");
+    } else if (approverConditions.length > 0) {
+      // User is ONLY approver
+      whereClauses.push(`(${approverConditions.join(" OR ")})`);
+      console.log("Final approver conditions:", approverConditions);
+    } else if (itBinConditions.length > 0) {
+      // User is ONLY IT Bin
+      whereClauses.push(`(${itBinConditions.join(" OR ")})`);
+      console.log("Final IT Bin conditions:", itBinConditions);
+    } else if (isApprover && !isSuperAdmin) {
+      // Approver with no conditions - return empty results
+      whereClauses.push("false");
+      console.warn("⚠️ No approver conditions found - returning empty results");
     }
 
     // ===============================================
@@ -1042,4 +1056,3 @@ exports.getUserTaskRequestByEmployeeCOde = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-

@@ -598,3 +598,61 @@ textarea:not(:placeholder-shown)~label {
     line-height: 1;
     border-radius: 4px;
 }
+
+/* Global fix for React Select search input visibility */
+
+/* Fix for search input text not being visible */
+.react-select__input input,
+.react-select__input input:focus {
+  color: #000 !important;
+  opacity: 1 !important;
+}
+
+/* Ensure the input container is visible */
+.react-select__input {
+  color: #000 !important;
+  opacity: 1 !important;
+}
+
+/* Fix for placeholder text */
+.react-select__placeholder {
+  color: #757575 !important;
+}
+
+/* Fix for single value text */
+.react-select__single-value {
+  color: #000 !important;
+}
+
+/* Fix for multi-value text */
+.react-select__multi-value__label {
+  color: #000 !important;
+}
+
+/* Ensure control background is visible */
+.react-select__control {
+  background-color: #fff !important;
+  min-height: 40px;
+}
+
+/* Fix for menu options */
+.react-select__option {
+  color: #000 !important;
+}
+
+/* Focused option */
+.react-select__option--is-focused {
+  background-color: #deebff !important;
+  color: #000 !important;
+}
+
+/* Selected option */
+.react-select__option--is-selected {
+  background-color: #2684ff !important;
+  color: #fff !important;
+}
+
+/* Disabled option */
+.react-select__option--is-disabled {
+  color: #ccc !important;
+}
