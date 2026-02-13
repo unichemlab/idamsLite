@@ -49,6 +49,12 @@ export const MENU_CONFIG: MenuItem[] = [
     icon: FiFileText,
     permission: "read:access_log",
   },
+  {
+    label: "Active User Log",
+    route: "/active-user-logs",
+    icon: FiFileText,
+    permission: "read:access_log",
+  },
 
   // 🔹 Approval Group
   {

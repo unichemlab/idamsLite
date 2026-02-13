@@ -457,27 +457,49 @@ export async function fetchActivityLogs(ritm: string) {
 export async function fetchAccessLogsForFirm(vendor_firm: string) {
   return request(`/api/access-logs/firm/${vendor_firm}`);
 }
-export async function fetchActiveUserLogs(params?: {
-  page?: number;
-  limit?: number;
+// In utils/api.ts or api.js
+export const fetchActiveUserLogs = async (params: {
+  page: number;
+  limit: number;
   search?: string;
   value?: string;
-  plant_id?:number;
-  department_id?:number;
-  application_id?:number;
-}) {
-  const query = new URLSearchParams();
+  plant_id: number;
+  department_id: number;
+  application_id: number;
+}) => {
+  const queryParams = new URLSearchParams();
+  
+  queryParams.append('page', params.page.toString());
+  queryParams.append('limit', params.limit.toString());
+  queryParams.append('plant_id', params.plant_id.toString());
+  queryParams.append('department_id', params.department_id.toString());
+  queryParams.append('application_id', params.application_id.toString());
+  
+  if (params.search) {
+    queryParams.append('search', params.search);
+  }
+  if (params.value) {
+    queryParams.append('value', params.value);
+  }
 
-  if (params?.page) query.append("page", String(params.page));
-  if (params?.limit) query.append("limit", String(params.limit));
-  if (params?.search) query.append("search", params.search);
-  if (params?.value) query.append("value", params.value);
-  if (params?.plant_id) query.append("plant_id", String(params.plant_id));
-  if (params?.department_id) query.append("department_id", String(params.department_id));
-  if (params?.application_id) query.append("application_id", String(params.application_id));
+  const response = await fetch(
+    `${API_BASE}/api/access-logs/active-user-logs?${queryParams.toString()}`,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        // Add auth token if needed
+        // 'Authorization': `Bearer ${token}`
+      },
+    }
+  );
 
-  return request(`/api/access-logs/active-user-logs?${query.toString()}`);
-}
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to fetch active user logs');
+  }
+
+  return response.json();
+};
 
 export async function addAccessLogAPI(accessLog: any): Promise<any> {
   return request("/api/access-logs", {
