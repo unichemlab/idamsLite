@@ -25,7 +25,7 @@ interface AccessLog {
   task_id: number | null;
   ritm_transaction_id: string;
   task_transaction_id: string | null;
-
+  allocate_id:string | null;
   request_for_by: string;
   name: string;
   employee_code: string;
@@ -558,14 +558,14 @@ const ActiveUserLog: React.FC = () => {
                   <thead>
                     <tr>
                       <th>RITM ID</th>
+                      <th>Task ID</th>
                       <th>Name</th>
                       <th>Employee Code</th>
+                      <th>Allocated ID</th>
                       <th>Application</th>
                       <th>Department</th>
                       <th>Location</th>
-                      <th>Status</th>
-                      <th>Created On</th>
-                      <th style={{ textAlign: "center" }}>Actions</th>
+                      <th>Role</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -579,20 +579,14 @@ const ActiveUserLog: React.FC = () => {
                       pageData.map((log) => (
                         <tr key={log.id}>
                           <td>{log.ritm_transaction_id}</td>
+                          <td>{log.task_transaction_id}</td>
                           <td>{log.name}</td>
                           <td>{log.employee_code}</td>
+                          <td>{log.allocate_id}</td>
                           <td>{log.application_name || "--"}</td>
                           <td>{log.department_name || "--"}</td>
                           <td>{log.location_name || "--"}</td>
-                          <td>{log.user_request_status}</td>
-                          <td>{log.created_on ? new Date(log.created_on).toLocaleDateString("en-GB") : "--"}</td>
-                          <td style={{ textAlign: "center" }}>
-                            <Tooltip title="View Activity">
-                              <IconButton size="small" onClick={() => handleActivityClick(log)}>
-                                <VisibilityOutlinedIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </td>
+                          <td>{log.role_name}</td>
                         </tr>
                       ))
                     )}
