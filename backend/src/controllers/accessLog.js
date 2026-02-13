@@ -817,17 +817,27 @@ exports.getAccessLogsByUser = async (req, res) => {
 
 // In your API route
 exports.getAllActiveUserLogs = async (req, res) => {
-   console.log("Query params:", req.query);
- const { plant_id, department_id, application_id, page = 1, limit = 10, search, value } = req.query;
+  console.log("=== DEBUG START ===");
+  console.log("Full URL:", req.originalUrl);
+  console.log("Query params:", req.query);
+  console.log("plant_id:", req.query.plant_id, "Type:", typeof req.query.plant_id);
+  console.log("department_id:", req.query.department_id, "Type:", typeof req.query.department_id);
+  console.log("application_id:", req.query.application_id, "Type:", typeof req.query.application_id);
+  console.log("=== DEBUG END ===");
+
+  const { plant_id, department_id, application_id, page = 1, limit = 10, search, value } = req.query;
 
   // Validation - check if required parameters are present
   if (!plant_id || !department_id || !application_id) {
+    console.log("❌ Validation failed - missing params");
     return res.status(400).json({ 
       success: false, 
-      message: "Missing required query parameters: plant_id, department_id, application_id" 
+      message: "Missing required query parameters: plant_id, department_id, application_id",
+      received: { plant_id, department_id, application_id }
     });
   }
-  
+
+  console.log("✅ Validation passed");
 
   try {
     let query = `
@@ -888,16 +898,31 @@ exports.getAllActiveUserLogs = async (req, res) => {
     `;
 
     // Add pagination
-    const offset = (page - 1) * limit;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
     query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(limit, offset);
+    params.push(parseInt(limit), offset);
+
+    console.log("📊 Executing query with params:", params);
 
     const result = await pool.query(query, params);
     
-    res.json(result.rows);
+    console.log("✅ Query successful, rows returned:", result.rows.length);
+
+    res.json({
+      success: true,
+      data: result.rows,
+      total: result.rows.length,
+      page: parseInt(page),
+      limit: parseInt(limit)
+    });
+    
   } catch (error) {
-    console.error('Error fetching access logs:', error);
-    res.status(500).json({ error: 'Failed to fetch access logs' });
+    console.error('❌ Error fetching access logs:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to fetch access logs',
+      message: error.message 
+    });
   }
 };
 

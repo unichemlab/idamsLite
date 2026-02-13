@@ -3,11 +3,19 @@ import { FileText } from "lucide-react";
 import jsPDF from "jspdf";
 import { useAuth } from "../../context/AuthContext";
 import autoTable from "jspdf-autotable";
-import styles from "../Plant/PlantMasterTable.module.css";
+import plantStyles from "../Plant/PlantMasterTable.module.css";
+import paginationStyles from "../../styles/Pagination.module.css";
+import styles from "../AccessLog/ActiveUserLog.module.css"
 import login_headTitle2 from "../../assets/login_headTitle2.png";
-import {API_BASE, fetchActiveUserLogs,fetchPlants, fetchActivityLogs } from "../../utils/api";
+import { API_BASE, fetchActiveUserLogs, fetchPlants, fetchActivityLogs } from "../../utils/api";
 import { useDebounce } from "../../hooks/useDebounce";
 import AppHeader from "../../components/Common/AppHeader";
+import { sortByString } from "../../utils/sortHelpers";
+import {
+  IconButton,
+  Tooltip,
+} from "@mui/material";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 
 /* -------------------- Types -------------------- */
 
@@ -99,8 +107,7 @@ interface Application {
 
 const ActiveUserLog: React.FC = () => {
   const [accessLogs, setAccessLogs] = useState<AccessLog[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const { user } = useAuth();
   const [currentPage, setCurrentPage] = useState(1);
@@ -125,29 +132,26 @@ const ActiveUserLog: React.FC = () => {
   const [filterValue, setFilterValue] = useState("");
   const debouncedFilterValue = useDebounce(filterValue, 500);
 
-  const [selectedLogId, setSelectedLogId] = useState<number | null>(null);
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [activityLog, setActivityLog] = useState<{
     ritm: string;
     logs: ActivityLog[];
   } | null>(null);
 
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [showFilterPopover, setShowFilterPopover] = useState(false);
-  const popoverRef = useRef<HTMLDivElement | null>(null);
-
   /* -------------------- Fetch Locations on Mount -------------------- */
   useEffect(() => {
     const loadLocations = async () => {
       try {
         setLoadingLocations(true);
-        fetchPlants()
-        .then((data) =>
+        fetchPlants().then((data) =>
           setLocations(
-            data.map((p: any) => ({ location_id: p.id, location_name: p.plant_name }))
+            sortByString(
+              data.map((p: any) => ({ location_id: p.id, location_name: p.plant_name })),
+              "location_name",
+              "asc"
+            )
           )
-        )
-        // Replace with your actual API endpoint
+        );
       } catch (err) {
         console.error("Failed to fetch locations", err);
       } finally {
@@ -172,14 +176,17 @@ const ActiveUserLog: React.FC = () => {
     const loadDepartments = async () => {
       try {
         setLoadingDepartments(true);
-        // Fetch departments from application_master based on location
-        
-        const response = await fetch(
-        `${API_BASE}/api/applications/${selectedLocationId}`
-      );
+
+        const response = await fetch(`${API_BASE}/api/applications/${selectedLocationId}`);
         const data = await response.json();
-        setDepartments(data.map((p: any) => ({ department_id: p.id, department_name: p.department_name })));
-        setSelectedDepartmentId(null); // Reset department selection
+        setDepartments(
+          sortByString(
+            data.map((p: any) => ({ department_id: p.id, department_name: p.department_name })),
+            "department_name",
+            "asc"
+          )
+        );
+        setSelectedDepartmentId(null);
         setApplications([]);
         setAccessLogs([]);
         setSelectedApplicationId(null);
@@ -205,14 +212,22 @@ const ActiveUserLog: React.FC = () => {
     const loadApplications = async () => {
       try {
         setLoadingApplications(true);
-        // Fetch applications from application_master based on location and department
-        
+
         const response = await fetch(
-        `${API_BASE}/api/applications/${selectedLocationId}/${selectedDepartmentId}`
-      );
+          `${API_BASE}/api/applications/${selectedLocationId}/${selectedDepartmentId}`
+        );
         const data = await response.json();
-        setApplications(data.applications.map((p: any) => ({ application_equip_id: p.id, application_name: p.name })));
-        setSelectedApplicationId(null); // Reset application selection
+        setApplications(
+          sortByString(
+            data.applications.map((p: any) => ({
+              application_equip_id: p.id,
+              application_name: p.name,
+            })),
+            "application_name",
+            "asc"
+          )
+        );
+        setSelectedApplicationId(null);
       } catch (err) {
         console.error("Failed to fetch applications", err);
       } finally {
@@ -225,64 +240,52 @@ const ActiveUserLog: React.FC = () => {
 
   /* -------------------- Fetch Access Logs -------------------- */
   useEffect(() => {
-    // Only fetch logs if all filters are selected
+    setCurrentPage(1); // Reset page when filters change
+  }, [selectedLocationId, selectedDepartmentId, selectedApplicationId, debouncedFilterValue, filterColumn]);
+
+  const loadLogs = async () => {
     if (!selectedLocationId || !selectedDepartmentId || !selectedApplicationId) {
       setAccessLogs([]);
-      setTotalRecords(0);
       setLoading(false);
       return;
     }
 
-    const loadLogs = async () => {
-      try {
-        setLoading(true);
+    try {
+      setLoading(true);
+      setError("");
 
-        const result = await fetchActiveUserLogs({
-          page: currentPage,
-          limit: rowsPerPage,
-          search: filterColumn,
-          value: debouncedFilterValue,
-          plant_id: selectedLocationId,
-          department_id: selectedDepartmentId,
-          application_id: selectedApplicationId,
-        });
+      const result = await fetchActiveUserLogs({
+        page: currentPage,
+        limit: rowsPerPage,
+        search: filterColumn,
+        value: debouncedFilterValue,
+        plant_id: selectedLocationId,
+        department_id: selectedDepartmentId,
+        application_id: selectedApplicationId,
+      });
 
-        setAccessLogs(Array.isArray(result) ? result : []);
-        setTotalRecords(Array.isArray(result) ? result.length : 0);
-      } catch (err) {
-        console.error("Failed to fetch access logs", err);
-        setError("Failed to load access logs");
-      } finally {
-        setLoading(false);
+      if (result.success && Array.isArray(result.data)) {
+        setAccessLogs(result.data);
+      } else if (Array.isArray(result)) {
+        setAccessLogs(result);
+      } else {
+        setAccessLogs([]);
       }
-    };
+    } catch (err) {
+      console.error("Failed to fetch access logs", err);
 
+      const errorMessage = err instanceof Error ? err.message : "Failed to load access logs";
+
+      setError(errorMessage);
+      setAccessLogs([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     loadLogs();
-  }, [
-    currentPage,
-    filterColumn,
-    debouncedFilterValue,
-    selectedLocationId,
-    selectedDepartmentId,
-    selectedApplicationId,
-  ]);
-
-  /* Reset page on filter change */
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [debouncedFilterValue, filterColumn, selectedLocationId, selectedDepartmentId, selectedApplicationId]);
-
-  /* -------------------- Outside Click -------------------- */
-  useEffect(() => {
-    if (!showFilterPopover) return;
-    const handler = (e: MouseEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
-        setShowFilterPopover(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showFilterPopover]);
+  }, [currentPage, debouncedFilterValue, filterColumn, selectedLocationId, selectedDepartmentId, selectedApplicationId]);
 
   /* -------------------- Activity Logs -------------------- */
   const handleActivityClick = async (log: AccessLog) => {
@@ -309,17 +312,14 @@ const ActiveUserLog: React.FC = () => {
     const autoTable = (await import("jspdf-autotable")).default;
     const doc = new jsPDF({ orientation: "landscape" });
     const today = new Date();
-    const fileName = `AccessLogReport_${today.toISOString().split("T")[0]}.pdf`;
+    const fileName = `ActiveUserLog_${today.toISOString().split("T")[0]}.pdf`;
     const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
     const pageMargin = 14;
     const headerHeight = 15;
 
-    // Header background
     doc.setFillColor(0, 82, 155);
     doc.rect(0, 0, pageWidth, headerHeight, "F");
 
-    // Add logo if available
     let logoWidth = 0;
     let logoHeight = 0;
     if (login_headTitle2) {
@@ -346,14 +346,12 @@ const ActiveUserLog: React.FC = () => {
       }
     }
 
-    // Title
     doc.setFontSize(16);
     doc.setTextColor(255, 255, 255);
     const titleX = pageMargin + logoWidth + 10;
     const titleY = headerHeight / 2 + 5;
-    doc.text("Access Log Report", titleX, titleY);
+    doc.text("Active User Log Report", titleX, titleY);
 
-    // Export info
     doc.setFontSize(9);
     doc.setTextColor(200, 200, 200);
     const exportText = `Generated: ${today.toLocaleDateString("en-GB")} by ${user?.name || "User"}`;
@@ -362,7 +360,6 @@ const ActiveUserLog: React.FC = () => {
     const exportY = headerHeight / 2 + 3;
     doc.text(exportText, exportX, exportY);
 
-    // Table
     const tableData = accessLogs.map((log) => [
       log.ritm_transaction_id || "--",
       log.name || "--",
@@ -375,9 +372,7 @@ const ActiveUserLog: React.FC = () => {
     ]);
 
     autoTable(doc, {
-      head: [
-        ["RITM", "Name", "Employee Code", "Application", "Department", "Location", "Status", "Created On"],
-      ],
+      head: [["RITM", "Name", "Employee Code", "Application", "Department", "Location", "Status", "Created On"]],
       body: tableData,
       startY: headerHeight + 5,
       styles: { fontSize: 8, cellPadding: 2 },
@@ -405,9 +400,7 @@ const ActiveUserLog: React.FC = () => {
       log.action || "--",
       log.action_performed_by || "--",
       log.approve_status || "--",
-      log.date_time_ist
-        ? new Date(log.date_time_ist.replace(" ", "T")).toLocaleString("en-GB")
-        : "--",
+      log.date_time_ist ? new Date(log.date_time_ist.replace(" ", "T")).toLocaleString("en-GB") : "--",
       log.comments || "--",
     ]);
 
@@ -423,44 +416,35 @@ const ActiveUserLog: React.FC = () => {
   }, [activityLog]);
 
   /* -------------------- Render -------------------- */
-  const totalPages = Math.ceil(totalRecords / rowsPerPage);
+  const totalPages = Math.max(1, Math.ceil(accessLogs.length / rowsPerPage));
+  const pageData = accessLogs.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+
+  const filterSelectStyle = {
+    padding: "8px 12px",
+    border: "1px solid #d0d5dd",
+    borderRadius: "6px",
+    fontSize: "14px",
+    minWidth: "200px",
+    backgroundColor: "#fff",
+  };
 
   return (
-    <div className={styles.pageContainer}>
+    <div className={plantStyles.pageWrapper}>
       <AppHeader title="Active User Logs" />
 
-      <div className={styles.tableWrapper}>
-        <div className={styles.controlsContainer}>
-          {/* Cascading Filters Section */}
-          <div style={{ display: "flex", gap: "16px", marginBottom: "16px", flexWrap: "wrap" }}>
-            {/* Location Dropdown */}
-            <div style={{ minWidth: "200px" }}>
-              <label
-                htmlFor="location-select"
-                style={{
-                  display: "block",
-                  marginBottom: "40px",
-                  fontSize: "14px",
-                  fontWeight: 500,
-                }}
-              >
-                Location
-              </label>
+      <div className={plantStyles.contentArea}>
+        <div className={plantStyles.controlPanel}>
+          <div className={plantStyles.actionRow}>
+            {/* Location Filter */}
+            <div className={styles.filterGroup}>
+              <label>Location:</label>
               <select
-                id="location-select"
                 value={selectedLocationId || ""}
                 onChange={(e) => setSelectedLocationId(e.target.value ? Number(e.target.value) : null)}
                 disabled={loadingLocations}
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "1px solid #d0d5dd",
-                  borderRadius: "6px",
-                  fontSize: "14px",
-                  backgroundColor: "#fff",
-                }}
+                style={filterSelectStyle}
               >
-                <option key="location-default" value="">-- Select Location --</option>
+                <option value="">-- Select Location --</option>
                 {locations.map((loc) => (
                   <option key={`location-${loc.location_id}`} value={loc.location_id}>
                     {loc.location_name}
@@ -469,34 +453,19 @@ const ActiveUserLog: React.FC = () => {
               </select>
             </div>
 
-            {/* Department Dropdown */}
-            <div style={{ minWidth: "200px" }}>
-              <label
-                htmlFor="department-select"
-                style={{
-                  display: "block",
-                  marginBottom: "40px",
-                  fontSize: "14px",
-                  fontWeight: 500,
-                }}
-              >
-                Department
-              </label>
+            {/* Department Filter */}
+            <div className={styles.filterGroup}>
+              <label>Department:</label>
               <select
-                id="department-select"
                 value={selectedDepartmentId || ""}
                 onChange={(e) => setSelectedDepartmentId(e.target.value ? Number(e.target.value) : null)}
                 disabled={!selectedLocationId || loadingDepartments}
                 style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "1px solid #d0d5dd",
-                  borderRadius: "6px",
-                  fontSize: "14px",
+                  ...filterSelectStyle,
                   backgroundColor: selectedLocationId ? "#fff" : "#f9fafb",
                 }}
               >
-                <option key="department-default" value="">-- Select Department --</option>
+                <option value="">-- Select Department --</option>
                 {departments.map((dept) => (
                   <option key={`department-${dept.department_id}`} value={dept.department_id}>
                     {dept.department_name}
@@ -505,34 +474,19 @@ const ActiveUserLog: React.FC = () => {
               </select>
             </div>
 
-            {/* Application Dropdown */}
-            <div style={{ minWidth: "200px" }}>
-              <label
-                htmlFor="application-select"
-                style={{
-                  display: "block",
-                  marginBottom: "40px",
-                  fontSize: "14px",
-                  fontWeight: 500,
-                }}
-              >
-                Application
-              </label>
+            {/* Application Filter */}
+            <div className={styles.filterGroup}>
+              <label>Application:</label>
               <select
-                id="application-select"
                 value={selectedApplicationId || ""}
                 onChange={(e) => setSelectedApplicationId(e.target.value ? Number(e.target.value) : null)}
                 disabled={!selectedDepartmentId || loadingApplications}
                 style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "1px solid #d0d5dd",
-                  borderRadius: "6px",
-                  fontSize: "14px",
+                  ...filterSelectStyle,
                   backgroundColor: selectedDepartmentId ? "#fff" : "#f9fafb",
                 }}
               >
-                <option key="application-default" value="">-- Select Application --</option>
+                <option value="">-- Select Application --</option>
                 {applications.map((app) => (
                   <option key={`application-${app.application_equip_id}`} value={app.application_equip_id}>
                     {app.application_name}
@@ -540,71 +494,31 @@ const ActiveUserLog: React.FC = () => {
                 ))}
               </select>
             </div>
+             <button
+              onClick={handleExportPDF}
+              disabled={accessLogs.length === 0}
+              className={plantStyles.exportBtn}
+            >
+              <FileText size={16} /> Export PDF
+            </button>
           </div>
 
-          {/* Existing Filter and Export Controls */}
-          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-            <div style={{ position: "relative" }}>
-              <button
-                onClick={() => setShowFilterPopover(!showFilterPopover)}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: 6,
-                  border: "1px solid #d0d5dd",
-                  backgroundColor: "#fff",
-                  cursor: "pointer",
-                  fontSize: 14,
-                }}
+          {/* Search Row */}
+          <div className={plantStyles.actionRow} style={{ marginTop: "12px" }}>
+            {/* <div>
+              <label style={{ marginRight: "8px", fontSize: "14px", fontWeight: 500 }}>Search By:</label>
+              <select
+                value={filterColumn}
+                onChange={(e) => setFilterColumn(e.target.value)}
+                style={{ ...filterSelectStyle, minWidth: "180px" }}
               >
-                Filter by: {filterColumn}
-              </button>
-
-              {showFilterPopover && (
-                <div
-                  ref={popoverRef}
-                  style={{
-                    position: "absolute",
-                    top: "100%",
-                    left: 0,
-                    marginTop: 4,
-                    backgroundColor: "#fff",
-                    border: "1px solid #d0d5dd",
-                    borderRadius: 8,
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                    zIndex: 999,
-                    minWidth: 180,
-                  }}
-                >
-                  {[
-                    "name",
-                    "employee_code",
-                    "ritm_transaction_id",
-                    "application_name",
-                    "department_name",
-                    "location_name",
-                  ].map((col) => (
-                    <div
-                      key={col}
-                      onClick={() => {
-                        setFilterColumn(col);
-                        setShowFilterPopover(false);
-                      }}
-                      style={{
-                        padding: "10px 14px",
-                        cursor: "pointer",
-                        backgroundColor: filterColumn === col ? "#f0f0f0" : "#fff",
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f0f0f0")}
-                      onMouseLeave={(e) =>
-                        (e.currentTarget.style.backgroundColor =
-                          filterColumn === col ? "#f0f0f0" : "#fff")
-                      }
-                    >
-                      {col.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
-                    </div>
-                  ))}
-                </div>
-              )}
+                <option value="name">Name</option>
+                <option value="employee_code">Employee Code</option>
+                <option value="ritm_transaction_id">RITM ID</option>
+                <option value="application_name">Application</option>
+                <option value="department_name">Department</option>
+                <option value="location_name">Location</option>
+              </select>
             </div>
 
             <input
@@ -613,341 +527,203 @@ const ActiveUserLog: React.FC = () => {
               value={filterValue}
               onChange={(e) => setFilterValue(e.target.value)}
               style={{
-                padding: "8px 12px",
-                borderRadius: 6,
-                border: "1px solid #d0d5dd",
-                fontSize: 14,
-                minWidth: 240,
+                ...filterSelectStyle,
+                minWidth: "300px",
               }}
-            />
+            /> */}
 
-            <button
-              onClick={handleExportPDF}
-              disabled={accessLogs.length === 0}
-              style={{
-                padding: "8px 16px",
-                borderRadius: 6,
-                border: "1px solid #d0d5dd",
-                backgroundColor: accessLogs.length === 0 ? "#f9fafb" : "#007bff",
-                color: accessLogs.length === 0 ? "#cbd5e1" : "#fff",
-                cursor: accessLogs.length === 0 ? "not-allowed" : "pointer",
-                fontSize: 14,
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-            >
-              <FileText size={16} /> Export PDF
-            </button>
+           
           </div>
         </div>
 
-        {/* Info Message */}
-        {(!selectedLocationId || !selectedDepartmentId || !selectedApplicationId) && (
+        <div className={plantStyles.tableCard}>
+          <div className={plantStyles.tableHeader}>
+            <h2>Active User Records</h2>
+            <span className={plantStyles.recordCount}>{accessLogs.length} Records</span>
+          </div>
+
+          {!selectedLocationId || !selectedDepartmentId || !selectedApplicationId ? (
+            <div style={{ padding: "24px", textAlign: "center", color: "#1e40af" }}>
+              Please select <strong>Location</strong>, <strong>Department</strong>, and <strong>Application</strong> to
+              view active user logs.
+            </div>
+          ) : loading ? (
+            <div style={{ padding: "24px", textAlign: "center" }}>Loading...</div>
+          ) : error ? (
+            <div style={{ padding: "24px", textAlign: "center", color: "red" }}>{error}</div>
+          ) : (
+            <>
+              <div className={plantStyles.tableContainer}>
+                <table className={plantStyles.table}>
+                  <thead>
+                    <tr>
+                      <th>RITM ID</th>
+                      <th>Name</th>
+                      <th>Employee Code</th>
+                      <th>Application</th>
+                      <th>Department</th>
+                      <th>Location</th>
+                      <th>Status</th>
+                      <th>Created On</th>
+                      <th style={{ textAlign: "center" }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pageData.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} style={{ textAlign: "center", padding: 24 }}>
+                          No records found
+                        </td>
+                      </tr>
+                    ) : (
+                      pageData.map((log) => (
+                        <tr key={log.id}>
+                          <td>{log.ritm_transaction_id}</td>
+                          <td>{log.name}</td>
+                          <td>{log.employee_code}</td>
+                          <td>{log.application_name || "--"}</td>
+                          <td>{log.department_name || "--"}</td>
+                          <td>{log.location_name || "--"}</td>
+                          <td>{log.user_request_status}</td>
+                          <td>{log.created_on ? new Date(log.created_on).toLocaleDateString("en-GB") : "--"}</td>
+                          <td style={{ textAlign: "center" }}>
+                            <Tooltip title="View Activity">
+                              <IconButton size="small" onClick={() => handleActivityClick(log)}>
+                                <VisibilityOutlinedIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className={paginationStyles.pagination}>
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className={currentPage === 1 ? paginationStyles.disabledPageBtn : paginationStyles.pageBtn}
+                >
+                  Previous
+                </button>
+
+                <span className={paginationStyles.pageInfo}>
+                  Page {currentPage} of {totalPages}
+                </span>
+
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className={currentPage === totalPages ? paginationStyles.disabledPageBtn : paginationStyles.pageBtn}
+                >
+                  Next
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Activity Modal */}
+      {showActivityModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => setShowActivityModal(false)}
+        >
           <div
             style={{
-              padding: "16px",
-              backgroundColor: "#f0f9ff",
-              border: "1px solid #bfdbfe",
+              backgroundColor: "#fff",
               borderRadius: "8px",
-              marginBottom: "16px",
-              color: "#1e40af",
-              fontSize: "14px",
+              maxWidth: "800px",
+              width: "90%",
+              maxHeight: "80vh",
+              overflow: "auto",
+              padding: "24px",
             }}
+            onClick={(e) => e.stopPropagation()}
           >
-            Please select <strong>Location</strong>, <strong>Department</strong>, and{" "}
-            <strong>Application</strong> to view access logs.
-          </div>
-        )}
-
-        {/* Loading/Error/Table */}
-        {loading ? (
-          <div style={{ padding: 24, textAlign: "center" }}>Loading...</div>
-        ) : error ? (
-          <div style={{ padding: 24, textAlign: "center", color: "red" }}>{error}</div>
-        ) : (
-          <div>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>RITM ID</th>
-                  <th>Name</th>
-                  <th>Employee Code</th>
-                  <th>Application</th>
-                  <th>Department</th>
-                  <th>Location</th>
-                  <th>Status</th>
-                  <th>Created On</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {accessLogs.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} style={{ textAlign: "center", padding: 24 }}>
-                      No records found
-                    </td>
-                  </tr>
-                ) : (
-                  accessLogs.map((log) => (
-                    <tr key={log.id}>
-                      <td>{log.ritm_transaction_id}</td>
-                      <td>{log.name}</td>
-                      <td>{log.employee_code}</td>
-                      <td>{log.application_name || "--"}</td>
-                      <td>{log.department_name || "--"}</td>
-                      <td>{log.location_name || "--"}</td>
-                      <td>{log.user_request_status}</td>
-                      <td>
-                        {log.created_on
-                          ? new Date(log.created_on).toLocaleDateString("en-GB")
-                          : "--"}
-                      </td>
-                      <td>
-                        <button
-                          onClick={() => handleActivityClick(log)}
-                          style={{
-                            padding: "4px 8px",
-                            fontSize: 12,
-                            borderRadius: 4,
-                            border: "1px solid #007bff",
-                            backgroundColor: "#fff",
-                            color: "#007bff",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Activity
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-
-            {/* Pagination */}
-            <div
-              style={{
-                marginTop: 20,
-                paddingBottom: 24,
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                gap: 6,
-                flexWrap: "wrap",
-                fontFamily: "Segoe UI, Roboto, sans-serif",
-                fontSize: 14,
-              }}
-            >
-              {/* First */}
-              <button
-                onClick={() => setCurrentPage(1)}
-                disabled={currentPage === 1}
-                style={{
-                  padding: "6px 10px",
-                  borderRadius: 6,
-                  border: "1px solid #d0d5dd",
-                  backgroundColor: currentPage === 1 ? "#f9fafb" : "#ffffff",
-                  color: currentPage === 1 ? "#cbd5e1" : "#344054",
-                  cursor: currentPage === 1 ? "not-allowed" : "pointer",
-                  minWidth: 40,
-                }}
-              >
-                {"<<"}
-              </button>
-
-              {/* Prev */}
-              <button
-                onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                disabled={currentPage === 1}
-                style={{
-                  padding: "6px 10px",
-                  borderRadius: 6,
-                  border: "1px solid #d0d5dd",
-                  backgroundColor: currentPage === 1 ? "#f9fafb" : "#ffffff",
-                  color: currentPage === 1 ? "#cbd5e1" : "#344054",
-                  cursor: currentPage === 1 ? "not-allowed" : "pointer",
-                  minWidth: 40,
-                }}
-              >
-                Prev
-              </button>
-
-              {/* Page Numbers (Dynamic max 5 pages) */}
-              {(() => {
-                const pageButtons = [];
-                const maxPagesToShow = 5;
-                let start = Math.max(1, currentPage - 2);
-                let end = Math.min(totalPages, start + maxPagesToShow - 1);
-                if (end - start < maxPagesToShow - 1) {
-                  start = Math.max(1, end - maxPagesToShow + 1);
-                }
-
-                if (start > 1) {
-                  pageButtons.push(
-                    <button
-                      key={1}
-                      onClick={() => setCurrentPage(1)}
-                      style={{
-                        padding: "6px 10px",
-                        borderRadius: 6,
-                        border: "1px solid #d0d5dd",
-                        backgroundColor: currentPage === 1 ? "#007bff" : "#ffffff",
-                        color: currentPage === 1 ? "#fff" : "#344054",
-                        cursor: "pointer",
-                        minWidth: 40,
-                      }}
-                    >
-                      1
-                    </button>
-                  );
-                  if (start > 2) {
-                    pageButtons.push(
-                      <span key="ellipsis-left" style={{ padding: "6px 10px", color: "#999" }}>
-                        ...
-                      </span>
-                    );
-                  }
-                }
-
-                for (let i = start; i <= end; i++) {
-                  pageButtons.push(
-                    <button
-                      key={i}
-                      onClick={() => setCurrentPage(i)}
-                      style={{
-                        padding: "6px 10px",
-                        borderRadius: 6,
-                        border: i === currentPage ? "1px solid #007bff" : "1px solid #d0d5dd",
-                        backgroundColor: i === currentPage ? "#007bff" : "#ffffff",
-                        color: i === currentPage ? "#fff" : "#344054",
-                        cursor: "pointer",
-                        minWidth: 40,
-                      }}
-                    >
-                      {i}
-                    </button>
-                  );
-                }
-
-                if (end < totalPages) {
-                  if (end < totalPages - 1) {
-                    pageButtons.push(
-                      <span key="ellipsis-right" style={{ padding: "6px 10px", color: "#999" }}>
-                        ...
-                      </span>
-                    );
-                  }
-                  pageButtons.push(
-                    <button
-                      key={totalPages}
-                      onClick={() => setCurrentPage(totalPages)}
-                      style={{
-                        padding: "6px 10px",
-                        borderRadius: 6,
-                        border: currentPage === totalPages ? "1px solid #007bff" : "1px solid #d0d5dd",
-                        backgroundColor: currentPage === totalPages ? "#007bff" : "#ffffff",
-                        color: currentPage === totalPages ? "#fff" : "#344054",
-                        cursor: "pointer",
-                        minWidth: 40,
-                      }}
-                    >
-                      {totalPages}
-                    </button>
-                  );
-                }
-
-                return pageButtons;
-              })()}
-
-              {/* Next */}
-              <button
-                onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-                disabled={currentPage === totalPages || totalPages === 0}
-                style={{
-                  padding: "6px 10px",
-                  borderRadius: 6,
-                  border: "1px solid #d0d5dd",
-                  backgroundColor:
-                    currentPage === totalPages || totalPages === 0 ? "#f9fafb" : "#ffffff",
-                  color:
-                    currentPage === totalPages || totalPages === 0 ? "#cbd5e1" : "#344054",
-                  cursor:
-                    currentPage === totalPages || totalPages === 0 ? "not-allowed" : "pointer",
-                  minWidth: 40,
-                }}
-              >
-                Next
-              </button>
-
-              {/* Last */}
-              <button
-                onClick={() => setCurrentPage(totalPages)}
-                disabled={currentPage === totalPages || totalPages === 0}
-                style={{
-                  padding: "6px 10px",
-                  borderRadius: 6,
-                  border: "1px solid #d0d5dd",
-                  backgroundColor:
-                    currentPage === totalPages || totalPages === 0 ? "#f9fafb" : "#ffffff",
-                  color:
-                    currentPage === totalPages || totalPages === 0 ? "#cbd5e1" : "#344054",
-                  cursor:
-                    currentPage === totalPages || totalPages === 0 ? "not-allowed" : "pointer",
-                  minWidth: 40,
-                }}
-              >
-                {">>"}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Activity Modal */}
-        {showActivityModal && (
-          <div className={styles.panelOverlay}>
-            <div className={styles.panelWrapper}>
-              {!activityLog ? (
-                <div style={{ padding: 24, textAlign: "center" }}>Loading...</div>
-              ) : (
-                <>
+            {!activityLog ? (
+              <div style={{ padding: 24, textAlign: "center" }}>Loading...</div>
+            ) : (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
                   <h3>Activity Log – {activityLog.ritm}</h3>
-                  <button onClick={handleExportActivityPDF}>
-                    <FileText size={16} /> Export PDF
-                  </button>
-                  <table className={styles.table}>
-                    <thead>
-                      <tr>
-                        <th>Action</th>
-                        <th>By</th>
-                        <th>Status</th>
-                        <th>Date</th>
-                        <th>Comments</th>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button
+                      onClick={handleExportActivityPDF}
+                      style={{
+                        padding: "6px 12px",
+                        backgroundColor: "#007bff",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
+                    >
+                      <FileText size={14} /> Export PDF
+                    </button>
+                    <button
+                      onClick={() => setShowActivityModal(false)}
+                      style={{
+                        padding: "6px 12px",
+                        backgroundColor: "#6b7280",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+                <table className={plantStyles.table}>
+                  <thead>
+                    <tr>
+                      <th>Action</th>
+                      <th>By</th>
+                      <th>Status</th>
+                      <th>Date</th>
+                      <th>Comments</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activityLog.logs.map((a) => (
+                      <tr key={a.id}>
+                        <td>{a.action}</td>
+                        <td>{a.action_performed_by}</td>
+                        <td>{a.approve_status}</td>
+                        <td>
+                          {a.date_time_ist
+                            ? new Date(a.date_time_ist.replace(" ", "T")).toLocaleString("en-GB")
+                            : "--"}
+                        </td>
+                        <td>{a.comments}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {activityLog.logs.map((a) => (
-                        <tr key={a.id}>
-                          <td>{a.action}</td>
-                          <td>{a.action_performed_by}</td>
-                          <td>{a.approve_status}</td>
-                          <td>
-                            {a.date_time_ist
-                              ? new Date(a.date_time_ist.replace(" ", "T")).toLocaleString("en-GB")
-                              : "--"}
-                          </td>
-                          <td>{a.comments}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <button onClick={() => setShowActivityModal(false)}>Close</button>
-                </>
-              )}
-            </div>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
