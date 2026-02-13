@@ -1616,9 +1616,9 @@ const AddUserRequest: React.FC = () => {
         }
 
         const data = await res.json();
-        console.log("[ACCESS-LOG ROLE] Fetched log data:", data.data?.[0]?.role);
+        console.log("[ACCESS-LOG ROLE] Fetched log data:", data.data[0]?.role);
 
-        if (data.data?.[0]?.role) {
+        if (data.data[0]?.role) {
           const roleArr = Array.isArray(data.data[0].role)
             ? data.data[0].role
             : [data.data[0].role];

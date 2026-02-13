@@ -345,7 +345,8 @@ const EditApplicationFormPage: React.FC = () => {
             </div>
 
             <form className={addStyles.form} onSubmit={handleSubmit}>
-              <div className={addStyles.scrollFormContainer}>
+              {/* 🔥 FIXED: Changed overflow to visible */}
+              <div className={addStyles.scrollFormContainer} style={{ overflow: 'visible' }}>
                 {/* Row 1 - 3 Columns */}
                 <div className={addStyles.rowFields}>
                   <div className={addStyles.formGroupFloating}>
@@ -370,7 +371,8 @@ const EditApplicationFormPage: React.FC = () => {
                       isClearable={false}
                       isSearchable={true}
                       styles={{
-                        menu: (base) => ({ ...base, zIndex: 20 }),
+                        menu: (base) => ({ ...base, zIndex: 999 }),
+                        menuPortal: (base) => ({ ...base, zIndex: 9999 }),
                         control: (base) => ({
                           ...base,
                           minHeight: 38,
@@ -379,6 +381,8 @@ const EditApplicationFormPage: React.FC = () => {
                           borderRadius: '10px',
                         }),
                       }}
+                      menuPortalTarget={document.body}
+                      menuPosition="fixed"
                     />
                     <label className={addStyles.floatingLabel}>
                       Plant Location <span className={addStyles.required}>*</span>
@@ -407,7 +411,8 @@ const EditApplicationFormPage: React.FC = () => {
                       isClearable={false}
                       isSearchable={true}
                       styles={{
-                        menu: (base) => ({ ...base, zIndex: 20 }),
+                        menu: (base) => ({ ...base, zIndex: 999 }),
+                        menuPortal: (base) => ({ ...base, zIndex: 9999 }),
                         control: (base) => ({
                           ...base,
                           minHeight: 38,
@@ -416,6 +421,8 @@ const EditApplicationFormPage: React.FC = () => {
                           borderRadius: '10px',
                         }),
                       }}
+                      menuPortalTarget={document.body}
+                      menuPosition="fixed"
                     />
                     <label className={addStyles.floatingLabel}>
                       Department <span className={addStyles.required}>*</span>
@@ -502,6 +509,12 @@ const EditApplicationFormPage: React.FC = () => {
                           });
                         }}
                         placeholder="Search Equipment"
+                        styles={{
+                          menu: (base) => ({ ...base, zIndex: 999 }),
+                          menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                        }}
+                        menuPortalTarget={document.body}
+                        menuPosition="fixed"
                       />
 
                     ) : (
@@ -599,7 +612,8 @@ const EditApplicationFormPage: React.FC = () => {
                       }}
                       placeholder="Select roles..."
                       styles={{
-                        menu: (base) => ({ ...base, zIndex: 20 }),
+                        menu: (base) => ({ ...base, zIndex: 999 }),
+                        menuPortal: (base) => ({ ...base, zIndex: 9999 }),
                         control: (base) => ({
                           ...base,
                           minHeight: 38,
@@ -608,6 +622,8 @@ const EditApplicationFormPage: React.FC = () => {
                           borderRadius: '10px',
                         }),
                       }}
+                      menuPortalTarget={document.body}
+                      menuPosition="fixed"
                       isDisabled={roleLocked}
                     />
                     <label
