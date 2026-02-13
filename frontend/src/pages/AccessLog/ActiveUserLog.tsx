@@ -25,7 +25,7 @@ interface AccessLog {
   task_id: number | null;
   ritm_transaction_id: string;
   task_transaction_id: string | null;
-  allocate_id:string | null;
+  allocated_id: string | null;
   request_for_by: string;
   name: string;
   employee_code: string;
@@ -306,114 +306,8 @@ const ActiveUserLog: React.FC = () => {
     }
   };
 
-  /* -------------------- PDF Export -------------------- */
-  const handleExportPDF = useCallback(async () => {
-    const jsPDF = (await import("jspdf")).default;
-    const autoTable = (await import("jspdf-autotable")).default;
-    const doc = new jsPDF({ orientation: "landscape" });
-    const today = new Date();
-    const fileName = `ActiveUserLog_${today.toISOString().split("T")[0]}.pdf`;
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageMargin = 14;
-    const headerHeight = 15;
 
-    doc.setFillColor(0, 82, 155);
-    doc.rect(0, 0, pageWidth, headerHeight, "F");
-
-    let logoWidth = 0;
-    let logoHeight = 0;
-    if (login_headTitle2) {
-      try {
-        const loadImage = (src: string): Promise<HTMLImageElement> => {
-          return new Promise((resolve, reject) => {
-            const img = new Image();
-            img.crossOrigin = "anonymous";
-            img.onload = () => resolve(img);
-            img.onerror = reject;
-            img.src = src;
-          });
-        };
-
-        const img = await loadImage(login_headTitle2);
-        const maxLogoHeight = headerHeight * 0.6;
-        const scale = maxLogoHeight / img.height;
-        logoWidth = img.width * scale;
-        logoHeight = img.height * scale;
-        const logoY = headerHeight / 2 - logoHeight / 2;
-        doc.addImage(img, "PNG", pageMargin, logoY, logoWidth, logoHeight);
-      } catch (e) {
-        console.warn("Logo load failed", e);
-      }
-    }
-
-    doc.setFontSize(16);
-    doc.setTextColor(255, 255, 255);
-    const titleX = pageMargin + logoWidth + 10;
-    const titleY = headerHeight / 2 + 5;
-    doc.text("Active User Log Report", titleX, titleY);
-
-    doc.setFontSize(9);
-    doc.setTextColor(200, 200, 200);
-    const exportText = `Generated: ${today.toLocaleDateString("en-GB")} by ${user?.name || "User"}`;
-    const exportTextWidth = doc.getTextWidth(exportText);
-    const exportX = pageWidth - pageMargin - exportTextWidth;
-    const exportY = headerHeight / 2 + 3;
-    doc.text(exportText, exportX, exportY);
-
-    const tableData = accessLogs.map((log) => [
-      log.ritm_transaction_id || "--",
-      log.name || "--",
-      log.employee_code || "--",
-      log.application_name || "--",
-      log.department_name || "--",
-      log.location_name || "--",
-      log.user_request_status || "--",
-      log.created_on ? new Date(log.created_on).toLocaleDateString("en-GB") : "--",
-    ]);
-
-    autoTable(doc, {
-      head: [["RITM", "Name", "Employee Code", "Application", "Department", "Location", "Status", "Created On"]],
-      body: tableData,
-      startY: headerHeight + 5,
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [0, 82, 155], textColor: [255, 255, 255] },
-      alternateRowStyles: { fillColor: [245, 247, 250] },
-      margin: { left: pageMargin, right: pageMargin },
-    });
-
-    doc.save(fileName);
-  }, [accessLogs, user]);
-
-  const handleExportActivityPDF = useCallback(async () => {
-    if (!activityLog) return;
-
-    const jsPDF = (await import("jspdf")).default;
-    const autoTable = (await import("jspdf-autotable")).default;
-    const doc = new jsPDF();
-    const today = new Date();
-    const fileName = `ActivityLog_${activityLog.ritm}_${today.toISOString().split("T")[0]}.pdf`;
-
-    doc.setFontSize(16);
-    doc.text(`Activity Log - ${activityLog.ritm}`, 14, 20);
-
-    const tableData = activityLog.logs.map((log) => [
-      log.action || "--",
-      log.action_performed_by || "--",
-      log.approve_status || "--",
-      log.date_time_ist ? new Date(log.date_time_ist.replace(" ", "T")).toLocaleString("en-GB") : "--",
-      log.comments || "--",
-    ]);
-
-    autoTable(doc, {
-      head: [["Action", "Performed By", "Status", "Date/Time", "Comments"]],
-      body: tableData,
-      startY: 30,
-      styles: { fontSize: 9, cellPadding: 3 },
-      headStyles: { fillColor: [0, 82, 155] },
-    });
-
-    doc.save(fileName);
-  }, [activityLog]);
+  
 
   /* -------------------- Render -------------------- */
   const totalPages = Math.max(1, Math.ceil(accessLogs.length / rowsPerPage));
@@ -427,6 +321,154 @@ const ActiveUserLog: React.FC = () => {
     minWidth: "200px",
     backgroundColor: "#fff",
   };
+
+  const handleExportPDF = useCallback(async () => {
+  const jsPDF = (await import("jspdf")).default;
+  const autoTable = (await import("jspdf-autotable")).default;
+
+  const doc = new jsPDF({ orientation: "landscape" });
+  const today = new Date();
+  const fileName = `ActiveUserLog_${today.toISOString().split("T")[0]}.pdf`;
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageMargin = 14;
+  const headerHeight = 15;
+
+  // ==========================
+  // 🔹 HEADER (Blue Bar)
+  // ==========================
+  doc.setFillColor(0, 82, 155);
+  doc.rect(0, 0, pageWidth, headerHeight, "F");
+
+  let logoWidth = 0;
+  let logoHeight = 0;
+
+  if (login_headTitle2) {
+    try {
+      const loadImage = (src: string): Promise<HTMLImageElement> => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => resolve(img);
+          img.onerror = reject;
+          img.src = src;
+        });
+      };
+
+      const img = await loadImage(login_headTitle2);
+      const maxLogoHeight = headerHeight * 0.6;
+      const scale = maxLogoHeight / img.height;
+
+      logoWidth = img.width * scale;
+      logoHeight = img.height * scale;
+
+      const logoY = headerHeight / 2 - logoHeight / 2;
+      doc.addImage(img, "PNG", pageMargin, logoY, logoWidth, logoHeight);
+    } catch (e) {
+      console.warn("Logo load failed", e);
+    }
+  }
+
+  // Title
+  doc.setFontSize(16);
+  doc.setTextColor(255, 255, 255);
+  const titleX = pageMargin + logoWidth + 10;
+  const titleY = headerHeight / 2 + 5;
+  doc.text("Active User Log Report", titleX, titleY);
+
+  // Generated Info
+  doc.setFontSize(9);
+  doc.setTextColor(200, 200, 200);
+  const exportText = `Generated: ${today.toLocaleDateString("en-GB")} by ${
+    user?.name || "User"
+  }`;
+  const exportTextWidth = doc.getTextWidth(exportText);
+  const exportX = pageWidth - pageMargin - exportTextWidth;
+  const exportY = headerHeight / 2 + 3;
+  doc.text(exportText, exportX, exportY);
+
+  // ==========================
+  // 🔹 FILTER DETAILS (Bold - Single Line)
+  // ==========================
+  let startY = headerHeight + 12;
+
+  const locationName =
+    locations.find((l) => l.location_id === selectedLocationId)
+      ?.location_name || "All";
+
+  const departmentName =
+    departments.find((d) => d.department_id === selectedDepartmentId)
+      ?.department_name || "All";
+
+  const applicationName =
+    applications.find((a) => a.application_equip_id === selectedApplicationId)
+      ?.application_name || "All";
+
+  const filterText = `Location: ${locationName}   |   Department: ${departmentName}   |   Application: ${applicationName}`;
+
+  doc.setFontSize(10);
+  doc.setTextColor(0, 0, 0);
+  doc.setFont(undefined, "bold");
+
+  const textWidth = doc.getTextWidth(filterText);
+  const centerX = (pageWidth - textWidth) / 2;
+
+  doc.text(filterText, centerX, startY);
+
+  doc.setFont(undefined, "normal");
+
+  startY += 10;
+
+  // ==========================
+  // 🔹 TABLE DATA (Current Page)
+  // ==========================
+  const exportData = pageData;
+
+  const tableData = exportData.map((log, index) => [
+    (currentPage - 1) * rowsPerPage + index + 1,
+    log.employee_code || "--",
+    log.name || "--",
+    log.allocated_id || "--",
+    log.role_name || "--",
+    log.ritm_transaction_id || "--",
+    log.task_transaction_id || "--",
+  ]);
+
+  autoTable(doc, {
+    head: [[
+      "S.No",
+      "Employee Code",
+      "Name",
+      "Allocated ID",
+      "Role",
+      "RITM ID",
+      "Task ID",
+    ]],
+    body: tableData,
+    startY: startY,
+    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: [0, 82, 155], textColor: [255, 255, 255] },
+    alternateRowStyles: { fillColor: [245, 247, 250] },
+    margin: { left: pageMargin, right: pageMargin },
+  });
+
+  doc.save(fileName);
+}, [
+  pageData,
+  currentPage,
+  rowsPerPage,
+  user,
+  selectedLocationId,
+  selectedDepartmentId,
+  selectedApplicationId,
+  locations,
+  departments,
+  applications,
+  login_headTitle2,
+]);
+
+
+
 
   return (
     <div className={plantStyles.pageWrapper}>
@@ -494,7 +536,7 @@ const ActiveUserLog: React.FC = () => {
                 ))}
               </select>
             </div>
-             <button
+            <button
               onClick={handleExportPDF}
               disabled={accessLogs.length === 0}
               className={plantStyles.exportBtn}
@@ -532,7 +574,7 @@ const ActiveUserLog: React.FC = () => {
               }}
             /> */}
 
-           
+
           </div>
         </div>
 
@@ -557,15 +599,14 @@ const ActiveUserLog: React.FC = () => {
                 <table className={plantStyles.table}>
                   <thead>
                     <tr>
+                      <th>S.No</th>
+                      <th>Employee Code</th>
+                      <th>Name</th>
+                      <th>Allocated ID</th>
+                      <th>Role</th>
                       <th>RITM ID</th>
                       <th>Task ID</th>
-                      <th>Name</th>
-                      <th>Employee Code</th>
-                      <th>Allocated ID</th>
-                      <th>Application</th>
-                      <th>Department</th>
-                      <th>Location</th>
-                      <th>Role</th>
+                      
                     </tr>
                   </thead>
                   <tbody>
@@ -576,17 +617,15 @@ const ActiveUserLog: React.FC = () => {
                         </td>
                       </tr>
                     ) : (
-                      pageData.map((log) => (
+                      pageData.map((log, index) => (
                         <tr key={log.id}>
+                          <td>{(currentPage - 1) * rowsPerPage + index + 1}</td>
+                          <td>{log.employee_code}</td>
+                          <td>{log.name}</td>
+                          <td>{log.allocated_id}</td>
+                          <td>{log.role_name}</td>
                           <td>{log.ritm_transaction_id}</td>
                           <td>{log.task_transaction_id}</td>
-                          <td>{log.name}</td>
-                          <td>{log.employee_code}</td>
-                          <td>{log.allocate_id}</td>
-                          <td>{log.application_name || "--"}</td>
-                          <td>{log.department_name || "--"}</td>
-                          <td>{log.location_name || "--"}</td>
-                          <td>{log.role_name}</td>
                         </tr>
                       ))
                     )}
@@ -619,105 +658,6 @@ const ActiveUserLog: React.FC = () => {
           )}
         </div>
       </div>
-
-      {/* Activity Modal */}
-      {showActivityModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-          onClick={() => setShowActivityModal(false)}
-        >
-          <div
-            style={{
-              backgroundColor: "#fff",
-              borderRadius: "8px",
-              maxWidth: "800px",
-              width: "90%",
-              maxHeight: "80vh",
-              overflow: "auto",
-              padding: "24px",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {!activityLog ? (
-              <div style={{ padding: 24, textAlign: "center" }}>Loading...</div>
-            ) : (
-              <>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-                  <h3>Activity Log – {activityLog.ritm}</h3>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <button
-                      onClick={handleExportActivityPDF}
-                      style={{
-                        padding: "6px 12px",
-                        backgroundColor: "#007bff",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                      }}
-                    >
-                      <FileText size={14} /> Export PDF
-                    </button>
-                    <button
-                      onClick={() => setShowActivityModal(false)}
-                      style={{
-                        padding: "6px 12px",
-                        backgroundColor: "#6b7280",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Close
-                    </button>
-                  </div>
-                </div>
-                <table className={plantStyles.table}>
-                  <thead>
-                    <tr>
-                      <th>Action</th>
-                      <th>By</th>
-                      <th>Status</th>
-                      <th>Date</th>
-                      <th>Comments</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activityLog.logs.map((a) => (
-                      <tr key={a.id}>
-                        <td>{a.action}</td>
-                        <td>{a.action_performed_by}</td>
-                        <td>{a.approve_status}</td>
-                        <td>
-                          {a.date_time_ist
-                            ? new Date(a.date_time_ist.replace(" ", "T")).toLocaleString("en-GB")
-                            : "--"}
-                        </td>
-                        <td>{a.comments}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
