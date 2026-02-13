@@ -30,12 +30,7 @@ const AddApplicationFormPage: React.FC = () => {
 
         const plantId = Number(plant.id);
 
-        // 🔒 IT Bin access
-        // if (user?.isITBin && Array.isArray(user?.itPlantIds)) {
-        //   return user.itPlantIds.includes(plantId);
-        // }
-
-        // 🔒 Normal permitted plants
+        // 🔥 Normal permitted plants
         if (Array.isArray(user?.permittedPlantIds)) {
           return user?.permittedPlantIds.includes(plantId);
         }
@@ -113,10 +108,10 @@ const AddApplicationFormPage: React.FC = () => {
       .then((data) => {
         if (Array.isArray(data)) {
           setRoles(
-           sortByString( data.map((r: any) => ({
+            sortByString(data.map((r: any) => ({
               id: String(r.id),
               name: r.role_name,
-            })),"name","asc")
+            })), "name", "asc")
           );
         }
       })
@@ -126,43 +121,6 @@ const AddApplicationFormPage: React.FC = () => {
       });
   }, [token]);
 
-
-  // const handleChange = (
-  //   e: React.ChangeEvent<
-  //     HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-  //   >
-  // ) => {
-  //   const target = e.target as HTMLInputElement | HTMLSelectElement;
-  //   const { name, value, type } = target;
-  //   const checked =
-  //     type === "checkbox" ? (target as HTMLInputElement).checked : undefined;
-  //   setForm((prev) => {
-  //     const updated = {
-  //       ...prev,
-  //       [name]: type === "checkbox" ? checked : value,
-  //     };
-  //     // Auto-generate display_name from three fields
-  //     if (
-  //       [
-  //         "application_hmi_name",
-  //         "application_hmi_version",
-  //         "equipment_instrument_id",
-  //       ].includes(name)
-  //     ) {
-  //       console.log("Updated",updated);
-  //       updated.display_name = `${name === "application_hmi_name" ? value : updated.application_hmi_name
-  //         } | ${name === "application_hmi_version"
-  //           ? value
-  //           : updated.application_hmi_version
-  //         } | ${name === "equipment_instrument_id"
-  //           ? value
-  //           : updated.equipment_instrument_id
-  //         }`;
-  //     }
-
-  //     return updated;
-  //   });
-  // };
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -197,14 +155,14 @@ const AddApplicationFormPage: React.FC = () => {
           hostname: row.host_name,
           system_inventory_id: row.id
         }));
-        setInventoryOptions(sortByString(options,"equipment_instrument_id","asc"));
+        setInventoryOptions(sortByString(options, "equipment_instrument_id", "asc"));
       })
       .catch(err => {
         console.error("Failed to load inventory list", err);
       });
   }, []);
 
-  // In handleSubmit - both files
+  // In handleSubmit
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -217,7 +175,7 @@ const AddApplicationFormPage: React.FC = () => {
     setShowModal(true);
   };
 
-  // In handleRoleLockToggle - AddApplicationFormPage
+  // Role Lock Toggle
   const handleRoleLockToggle = () => {
     if (!roleLocked) {
       // ✅ Validate roles before locking
@@ -225,105 +183,55 @@ const AddApplicationFormPage: React.FC = () => {
         alert("Please select at least one role before locking.");
         return;
       }
-      setRoleLocked(true);
-    } else {
-      setRoleLocked(false);
     }
+    setRoleLocked(!roleLocked);
   };
-
-  // AddApplicationFormPage.tsx - Updated handleConfirm function
 
   const handleConfirm = async (data: Record<string, string>) => {
-    if (data.username === username && data.password) {
-      try {
-        // 🔥 Don't generate transaction_id - let backend handle it
-        const payload = {
-          plant_location_id: form.plant_location_id
-            ? Number(form.plant_location_id)
-            : null,
-          department_id: form.department_id ? Number(form.department_id) : null,
-          application_hmi_name: form.application_hmi_name,
-          application_hmi_version: form.application_hmi_version,
-          equipment_instrument_id: form.equipment_instrument_id,
-          application_hmi_type: form.application_hmi_type,
-          display_name: form.display_name,
-          role_id: Array.isArray(form.role_id)
-            ? form.role_id.join(",")
-            : form.role_id,
-          system_name: form.system_name,
-          system_inventory_id: form.system_inventory_id
-            ? Number(form.system_inventory_id)
-            : null,
-          multiple_role_access: form.multiple_role_access,
-          status: form.status,
-          role_lock: roleLocked,
-        };
+    try {
+      const payload = {
+        ...form,
+        role_id: form.role_id,
+        username: data.username,
+        password: data.password,
+      };
 
-        console.log("📤 Sending payload:", payload);
+      const res = await fetch(`${API_BASE}/api/applications`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
 
-        const res = await fetch(`${API_BASE}/api/applications`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(payload),
-        });
-
-        if (!res.ok) {
-          const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
-
-          // Handle specific error codes
-          if (errorData.code === "DUPLICATE_TRANSACTION_ID") {
-            throw new Error("Duplicate transaction ID detected. Please try again.");
-          }
-
-          throw new Error(errorData.error || errorData.message || "Failed to add application");
-        }
-
-        const newApp = await res.json();
-
-        // Handle pending approval response
-        if (newApp.status === "PENDING_APPROVAL") {
-          alert(`Application submitted for approval!\nApproval ID: ${newApp.approvalId}`);
-          navigate("/application-masters", { state: { activeTab: "application" } });
-          return;
-        }
-
-        // Handle direct creation (no approval needed)
-        const roleIdArr = String(newApp.role_id || "")
-          .split(",")
-          .map((id) => id.trim())
-          .filter(Boolean);
-        const role_names = roleIdArr.map(
-          (id) => roles.find((r) => r.id === id)?.name || id
-        );
-
-        setApplications([...(applications || []), { ...newApp, role_names }]);
-        setShowModal(false);
-        navigate("/application-masters", { state: { activeTab: "application" } });
-      } catch (err) {
-        console.error("❌ Error adding application:", err);
-        alert(
-          "Failed to add application. Please try again.\n" +
-          (err instanceof Error ? err.message : "Unknown error")
-        );
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to add application");
       }
-    } else {
-      alert("Invalid credentials. Please try again.");
+
+      const result = await res.json();
+      setShowModal(false);
+
+      if (result.approvalId) {
+        alert(
+          `Application creation requires approval.\nApproval ID: ${result.approvalId}\n\nThe application will be added after approval.`
+        );
+      } else {
+        alert("Application created successfully!");
+        setApplications([...applications, result]);
+      }
+
+      navigate("/application-masters", { state: { activeTab: "application" } });
+    } catch (err: any) {
+      console.error("Error adding application:", err);
+      alert(`Error: ${err.message || "Failed to add application"}`);
     }
   };
-  useEffect(() => {
-    if (form.application_hmi_type === "HMI") {
-      setForm(prev => ({
-        ...prev,
-        equipment_instrument_id: "",
-        system_name: "",
-        system_inventory_id: ""
-      }));
-    }
-  }, [form.application_hmi_type]);
 
+  const handleCancel = () => {
+    setShowModal(false);
+  };
 
   return (
     <React.Fragment>
@@ -331,7 +239,7 @@ const AddApplicationFormPage: React.FC = () => {
         <ConfirmLoginModal
           username={username}
           onConfirm={handleConfirm}
-          onCancel={() => setShowModal(false)}
+          onCancel={handleCancel}
         />
       )}
 
@@ -344,7 +252,9 @@ const AddApplicationFormPage: React.FC = () => {
             <span
               className={styles.breadcrumbLink}
               onClick={() =>
-                navigate("/application-masters", { state: { activeTab: "application" } })
+                navigate("/application-masters", {
+                  state: { activeTab: "application" },
+                })
               }
             >
               Application Master
@@ -361,81 +271,124 @@ const AddApplicationFormPage: React.FC = () => {
             </div>
 
             <form className={styles.form} onSubmit={handleSubmit}>
-              <div className={styles.scrollFormContainer}>
+              {/* 🔥 FIXED: Changed overflow to visible */}
+              <div className={styles.scrollFormContainer} style={{ overflow: 'visible' }}>
+                {/* Row 1 - 3 Columns */}
                 <div className={styles.rowFields}>
-                  <div
-                    className={`${styles.formGroupFloating} ${form.plant_location_id ? styles.hasValue : ""
-                      }`}
-                  >
+                  <div className={styles.formGroupFloating}>
                     <Select
-                      classNamePrefix="reactSelect"
-                      name="plant_location_id"
+                      id="plant_location_id"
+                      isSearchable
                       required
+                      name="plant_location_id"
                       options={plantOptions}
-                      value={
-                        plantOptions.find(
-                          (opt) => opt.value === form.plant_location_id
-                        ) || null
-                      }
-                      onChange={(selected) =>
+                      value={plantOptions.find(
+                        (opt) => opt.value === form.plant_location_id
+                      )}
+                      onChange={(selected) => {
                         setForm((prev) => ({
                           ...prev,
-                          plant_location_id: selected ? selected.value : "",
-                        }))
-                      }
+                          plant_location_id: selected?.value || "",
+                        }));
+                      }}
                       placeholder=""
-                      isSearchable
+                      classNamePrefix="floatSelect"
+                      styles={{
+                        // 🔥 FIXED: Increased z-index to 999
+                        menu: (base) => ({ 
+                          ...base, 
+                          zIndex: 999 
+                        }),
+                        menuPortal: (base) => ({ 
+                          ...base, 
+                          zIndex: 9999 
+                        }),
+                        control: (base, state) => ({
+                          ...base,
+                          minHeight: 44,
+                          fontSize: 14,
+                          borderRadius: 10,
+                          paddingTop: 12,
+                          border: state.isFocused
+                            ? "2px solid #1569B0"
+                            : "2px solid #e2e8f0",
+                          boxShadow: "none",
+                        }),
+                      }}
+                      // 🔥 FIXED: Added menuPortalTarget
+                      menuPortalTarget={document.body}
+                      menuPosition="fixed"
                     />
-
-                    <label className={styles.floatingLabel}>
+                    <label
+                      className={styles.floatingLabel}
+                      htmlFor="plant_location_id"
+                    >
                       Plant Location <span className={styles.required}>*</span>
                     </label>
                   </div>
 
-
-                  <div
-                    className={`${styles.formGroupFloating} ${form.department_id ? styles.hasValue : ""
-                      }`}
-                  >
+                  <div className={styles.formGroupFloating}>
                     <Select
-                      classNamePrefix="reactSelect"
-                      name="department_id"
+                      id="department_id"
+                      isSearchable
                       required
+                      name="department_id"
                       options={departmentOptions}
-                      value={
-                        departmentOptions.find(
-                          (opt) => opt.value === form.department_id
-                        ) || null
-                      }
-                      onChange={(selected) =>
+                      value={departmentOptions.find(
+                        (opt) => opt.value === form.department_id
+                      )}
+                      onChange={(selected) => {
                         setForm((prev) => ({
                           ...prev,
-                          department_id: selected ? selected.value : "",
-                        }))
-                      }
+                          department_id: selected?.value || "",
+                        }));
+                      }}
                       placeholder=""
-                      isSearchable
+                      classNamePrefix="floatSelect"
+                      styles={{
+                        menu: (base) => ({ 
+                          ...base, 
+                          zIndex: 999 
+                        }),
+                        menuPortal: (base) => ({ 
+                          ...base, 
+                          zIndex: 9999 
+                        }),
+                        control: (base, state) => ({
+                          ...base,
+                          minHeight: 44,
+                          fontSize: 14,
+                          borderRadius: 10,
+                          paddingTop: 12,
+                          border: state.isFocused
+                            ? "2px solid #1569B0"
+                            : "2px solid #e2e8f0",
+                          boxShadow: "none",
+                        }),
+                      }}
+                      menuPortalTarget={document.body}
+                      menuPosition="fixed"
                     />
-
-                    <label className={styles.floatingLabel}>
+                    <label
+                      className={styles.floatingLabel}
+                      htmlFor="department_id"
+                    >
                       Department <span className={styles.required}>*</span>
                     </label>
                   </div>
 
-
                   <div className={styles.formGroupFloating}>
-
                     <input
+                      id="application_hmi_name"
                       className={styles.input}
                       name="application_hmi_name"
                       value={form.application_hmi_name}
                       onChange={handleChange}
                       required
-                      placeholder=""
+                      placeholder="Enter Application Name"
                     />
                     <label className={styles.floatingLabel}>
-                      Application/HMI Name
-                      <span className={styles.required}>*</span>
+                      Application/HMI Name <span className={styles.required}>*</span>
                     </label>
                   </div>
                 </div>
@@ -443,71 +396,121 @@ const AddApplicationFormPage: React.FC = () => {
                 {/* Row 2 - 3 Columns */}
                 <div className={styles.rowFields}>
                   <div className={styles.formGroupFloating}>
-
                     <input
+                      id="application_hmi_version"
                       className={styles.input}
                       name="application_hmi_version"
                       value={form.application_hmi_version}
                       onChange={handleChange}
                       required
-                      placeholder=""
+                      placeholder="Enter Version"
                     />
                     <label className={styles.floatingLabel}>
-                      Application/HMI Version{" "}
-                      <span className={styles.required}>*</span>
+                      Application/HMI Version <span className={styles.required}>*</span>
                     </label>
                   </div>
-                  <div className={styles.formGroupFloating}>
 
-                    <select
-                      className={styles.select}
+                  <div className={styles.formGroupFloating}>
+                    <Select
+                      id="application_hmi_type"
                       name="application_hmi_type"
-                      value={form.application_hmi_type}
-                      onChange={handleChange}
-                      required
-                    >
-                      <option value="Application">Application</option>
-                      <option value="HMI">HMI</option>
-                    </select>
+                      options={[
+                        { value: "Application", label: "Application" },
+                        { value: "HMI", label: "HMI" },
+                      ]}
+                      value={{
+                        value: form.application_hmi_type,
+                        label: form.application_hmi_type,
+                      }}
+                      onChange={(selected) => {
+                        setForm((prev) => ({
+                          ...prev,
+                          application_hmi_type: selected?.value || "Application",
+                        }));
+                      }}
+                      placeholder=""
+                      classNamePrefix="floatSelect"
+                      styles={{
+                        menu: (base) => ({ 
+                          ...base, 
+                          zIndex: 999 
+                        }),
+                        menuPortal: (base) => ({ 
+                          ...base, 
+                          zIndex: 9999 
+                        }),
+                        control: (base, state) => ({
+                          ...base,
+                          minHeight: 44,
+                          fontSize: 14,
+                          borderRadius: 10,
+                          paddingTop: 12,
+                          border: state.isFocused
+                            ? "2px solid #1569B0"
+                            : "2px solid #e2e8f0",
+                          boxShadow: "none",
+                        }),
+                      }}
+                      menuPortalTarget={document.body}
+                      menuPosition="fixed"
+                    />
                     <label className={styles.floatingLabel}>
-                      Application/HMI Type{" "}
-                      <span className={styles.required}>*</span>
+                      Application/HMI Type <span className={styles.required}>*</span>
                     </label>
                   </div>
 
                   <div className={styles.formGroupFloating}>
-
                     {form.application_hmi_type === "Application" ? (
                       <Select
-                        classNamePrefix="reactSelect"
+                        id="equipment_instrument_id"
                         isSearchable
                         required
+                        name="equipment_instrument_id"
                         options={inventoryOptions}
                         value={inventoryOptions.find(
-                          opt => opt.value === form.equipment_instrument_id
+                          (opt) => opt.value === form.equipment_instrument_id
                         )}
                         onChange={(selected: any) => {
-                          if (!selected) return;
-
-                          setForm(prev => {
+                          setForm((prev) => {
                             const updated = {
                               ...prev,
-                              equipment_instrument_id: selected.value,
-                              system_name: selected.hostname,
-                              system_inventory_id: selected.system_inventory_id
+                              equipment_instrument_id: selected?.value || "",
+                              system_name: selected?.hostname || "",
+                              system_inventory_id: selected?.system_inventory_id || "",
                             };
-
-                            // 🔥 Regenerate display_name here
                             updated.display_name = generateDisplayName(updated);
-
                             return updated;
                           });
                         }}
                         placeholder="Search Equipment"
+                        classNamePrefix="floatSelect"
+                        styles={{
+                          menu: (base) => ({ 
+                            ...base, 
+                            zIndex: 999 
+                          }),
+                          menuPortal: (base) => ({ 
+                            ...base, 
+                            zIndex: 9999 
+                          }),
+                          control: (base, state) => ({
+                            ...base,
+                            minHeight: 44,
+                            fontSize: 14,
+                            borderRadius: 10,
+                            paddingTop: 12,
+                            border: state.isFocused
+                              ? "2px solid #1569B0"
+                              : "2px solid #e2e8f0",
+                            boxShadow: "none",
+                          }),
+                        }}
+                        menuPortalTarget={document.body}
+                        menuPosition="fixed"
                       />
-
                     ) : (
                       <input
+                        id="equipment_instrument_id"
                         className={styles.input}
                         name="equipment_instrument_id"
                         value={form.equipment_instrument_id}
@@ -521,9 +524,6 @@ const AddApplicationFormPage: React.FC = () => {
                       Equipment / Instrument ID <span className={styles.required}>*</span>
                     </label>
                   </div>
-
-
-
                 </div>
 
                 {/* Row 3 - 3 Columns */}
@@ -556,9 +556,7 @@ const AddApplicationFormPage: React.FC = () => {
                     </>
                   )}
 
-
                   <div className={styles.formGroupFloating}>
-
                     <select
                       id="status"
                       className={styles.select}
@@ -579,9 +577,6 @@ const AddApplicationFormPage: React.FC = () => {
                 {/* Row 4 - Roles and Multiple Role Access - 2 Columns */}
                 <div className={styles.rowFields} style={{ gridTemplateColumns: '2fr 1fr' }}>
                   <div className={`${styles.formGroupFloating} ${form.role_id.length > 0 ? styles.filled : ""}`}>
-                    {/* Floating Label */}
-
-
                     <Select
                       id="role_id"
                       isMulti
@@ -603,11 +598,19 @@ const AddApplicationFormPage: React.FC = () => {
                             : [],
                         }));
                       }}
-                      placeholder=""   // IMPORTANT for floating label
+                      placeholder=""
                       isDisabled={roleLocked}
                       classNamePrefix="floatSelect"
                       styles={{
-                        menu: (base) => ({ ...base, zIndex: 20 }),
+                        // 🔥 FIXED: Increased z-index significantly
+                        menu: (base) => ({ 
+                          ...base, 
+                          zIndex: 999 
+                        }),
+                        menuPortal: (base) => ({ 
+                          ...base, 
+                          zIndex: 9999 
+                        }),
                         control: (base, state) => ({
                           ...base,
                           minHeight: 44,
@@ -620,6 +623,9 @@ const AddApplicationFormPage: React.FC = () => {
                           boxShadow: "none",
                         }),
                       }}
+                      // 🔥 FIXED: Added these crucial props
+                      menuPortalTarget={document.body}
+                      menuPosition="fixed"
                     />
                     <label
                       className={styles.floatingLabel}
@@ -669,12 +675,10 @@ const AddApplicationFormPage: React.FC = () => {
                     </label>
                   </div>
 
-
                   <div
                     className={`${styles.formGroupFloating} ${form.multiple_role_access ? styles.filled : ""
                       }`}
                   >
-                    {/* Floating Label */}
                     <label
                       htmlFor="multiple_role_access"
                       className={styles.floatingLabel}
@@ -697,7 +701,6 @@ const AddApplicationFormPage: React.FC = () => {
                       </span>
                     </div>
                   </div>
-
                 </div>
               </div>
 
