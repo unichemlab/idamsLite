@@ -232,7 +232,7 @@ exports.getAllTasks = async (req, res) => {
     }
 
     // ===============================================
-    // BUILD AND EXECUTE QUERY
+    // BUILD AND EXECUTE QUERY WITH JSON AGGREGATION
     // ===============================================
     const whereSQL = whereClauses.length
       ? `WHERE ${whereClauses.join(" AND ")}`
@@ -241,8 +241,10 @@ exports.getAllTasks = async (req, res) => {
     console.log("WHERE clauses:", whereClauses);
     console.log("Executing query with params:", params);
 
+    // SOLUTION: Use JSON aggregation to group task_closure records
+    // This prevents duplicate rows when one RITM has multiple task closures
     const query = `
-      SELECT DISTINCT
+      SELECT 
         ur.id AS user_request_id,
         ur.transaction_id AS user_request_transaction_id,
         ur.request_for_by,
@@ -283,26 +285,37 @@ exports.getAllTasks = async (req, res) => {
         tr.approver2_action,
         tr.approver1_action_timestamp,
         tr.approver2_action_timestamp,
-        tc.assignment_group,
-        tc.role_granted,
-        tc.access,
-        tc.assigned_to,
-        tc.status,
-        tc.from_date,
-        tc.to_date,
-        tc.updated_on,
-        um.employee_name AS assigned_to_name,
-        um.email AS closure_assigned_to_email,
-        um.department AS closure_assigned_to_department,
-        um.location AS closure_assigned_to_location
+        -- Aggregate all task_closure records into a JSON array
+        COALESCE(
+          (
+            SELECT json_agg(
+              json_build_object(
+                'assignment_group', tc_sub.assignment_group,
+                'role_granted', tc_sub.role_granted,
+                'access', tc_sub.access,
+                'assigned_to', tc_sub.assigned_to,
+                'status', tc_sub.status,
+                'from_date', tc_sub.from_date,
+                'to_date', tc_sub.to_date,
+                'updated_on', tc_sub.updated_on,
+                'assigned_to_name', um_sub.employee_name,
+                'closure_assigned_to_email', um_sub.email,
+                'closure_assigned_to_department', um_sub.department,
+                'closure_assigned_to_location', um_sub.location
+              )
+            )
+            FROM task_closure tc_sub
+            LEFT JOIN user_master um_sub ON tc_sub.assigned_to = um_sub.id
+            WHERE tc_sub.ritm_number = ur.transaction_id
+          ),
+          '[]'::json
+        ) AS task_closures
       FROM task_requests tr
       LEFT JOIN user_requests ur ON tr.user_request_id = ur.id
       LEFT JOIN department_master d ON tr.department = d.id
       LEFT JOIN role_master r ON tr.role = r.id
       LEFT JOIN plant_master p ON tr.location = p.id
       LEFT JOIN application_master app ON tr.application_equip_id = app.id
-      LEFT JOIN task_closure tc ON tc.ritm_number = ur.transaction_id
-      LEFT JOIN user_master um ON tc.assigned_to = um.id
       ${whereSQL}
       ORDER BY tr.created_on DESC, ur.id;
     `;
