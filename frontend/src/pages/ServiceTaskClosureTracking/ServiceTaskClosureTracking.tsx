@@ -259,7 +259,7 @@ const TaskTable: React.FC = () => {
                               >
                                 <thead>
                                   <tr>
-                                    <th>Task Transaction ID</th>
+                                    <th>Transaction ID</th>
                                     <th>Application / Equip ID</th>
                                     <th>Department</th>
                                     <th>Location</th>

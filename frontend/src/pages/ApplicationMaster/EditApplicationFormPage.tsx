@@ -283,21 +283,44 @@ const EditApplicationFormPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/systems/list`)
-      .then(res => res.json())
-      .then(data => {
+    const fetchInventory = async () => {
+      try {
+        let url = `${API_BASE}/api/systems/list`;
+        const params = new URLSearchParams();
+  
+        if (form.plant_location_id) {
+          params.append("plant_id", form.plant_location_id);
+        }
+  
+        if (form.department_id) {
+          params.append("department_id", form.department_id);
+        }
+  
+        if (params.toString()) {
+          url += `?${params.toString()}`;
+        }
+  
+        const res = await fetch(url);
+        const data = await res.json();
+  
         const options = data.map((row: any) => ({
           value: row.equipment_instrument_id,
           label: `${row.equipment_instrument_id} ( ${row.host_name})`,
           hostname: row.host_name,
           system_inventory_id: row.id
         }));
-        setInventoryOptions(sortByString(options,"equipment_instrument_id","asc"));
-      })
-      .catch(err => {
+  
+        setInventoryOptions(
+          sortByString(options, "value", "asc")
+        );
+  
+      } catch (err) {
         console.error("Failed to load inventory list", err);
-      });
-  }, []);
+      }
+    };
+  
+    fetchInventory();
+  }, [form.plant_location_id, form.department_id]);
 
 
   return (
