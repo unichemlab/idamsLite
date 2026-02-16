@@ -51,7 +51,9 @@ const canAccessPlant = (user, plantId) => {
   if (user.isSuperAdmin) return true;
 
   // Check permitted plant IDs
-  if (user.permittedPlantIds?.includes(plantId)) return true;
+ const numericPlantId = Number(plantId);
+
+  if (user.permittedPlantIds?.includes(numericPlantId)) return true;
 
   // Check IT bin plants
   //if (user.isITBin && user.itPlantIds?.includes(plantId)) return true;
