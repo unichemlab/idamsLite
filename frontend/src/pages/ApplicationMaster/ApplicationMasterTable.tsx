@@ -4,14 +4,17 @@ import { useNavigate } from "react-router-dom";
 import { FaRegClock, FaEdit, FaTrash } from "react-icons/fa";
 import AppHeader from "../../components/Common/AppHeader";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
+import ActivityLogModal from "../../components/Common/ActivityLogModal";
 import { PermissionGuard, PermissionButton } from "../../components/Common/PermissionComponents";
 import { useApplications } from "../../context/ApplicationsContext";
 import { useDepartmentContext } from "..//DepartmentTable/DepartmentContext";
 import { usePlantContext } from "../Plant/PlantContext";
+import { useRoles } from "../RoleMasterUser/RolesContext";
 import { useAuth } from "../../context/AuthContext";
 import { usePermissions } from "../../context/PermissionContext";
 import { filterByPlantPermission,filterByModulePlantPermission } from "../../utils/permissionUtils";
-import { fetchApplicationActivityLogs, API_BASE } from "../../utils/api";
+import { fetchActivityLogs,fetchActivityLogsByRecordId  } from "../../utils/activityLogUtils";
+import { API_BASE } from "../../utils/api";
 import { PERMISSIONS } from "../../constants/permissions";
 import styles from "../Plant/PlantMasterTable.module.css";
 import paginationStyles from "../../styles/Pagination.module.css";
@@ -20,7 +23,8 @@ import useAutoRefresh from "../../hooks/useAutoRefresh";
 
 export default function ApplicationMasterTable() {
   const [showActivityModal, setShowActivityModal] = React.useState(false);
-  const [activityLogsApp, setActivityLogsApp] = React.useState<any>(null);
+  const [activityLogs, setActivityLogs] = React.useState<any[]>([]);
+  const [selectedRecordName, setSelectedRecordName] = React.useState("");
   const [selectedRow, setSelectedRow] = React.useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   const [currentPage, setCurrentPage] = React.useState(1);
@@ -33,27 +37,40 @@ export default function ApplicationMasterTable() {
   const popoverRef = React.useRef<HTMLDivElement | null>(null);
   
   const { applications, setApplications, refreshApplications } = useApplications();
-  const { departments } = useDepartmentContext();
+  // Get context data for name resolution
   const { plants } = usePlantContext();
+  const { departments } = useDepartmentContext();
+  const { roles } = useRoles(); // Assuming you have this
   const { user } = useAuth();
   const { hasPermission } = usePermissions();
   const navigate = useNavigate();
+  
+   const getPlantName = useCallback((id: number): string => {
+  const plant = plants.find(p => p.id === id);
+  return plant?.plant_name ?? `Plant ${id}`;
+}, [plants]);
 
   const getDepartmentName = useCallback((id: number) => {
-    const dept = departments.find((d) => d.id === id);
-    return dept ? dept.name || dept.department_name : id;
+    const dept = departments.find(d => d.id === id);
+    return dept ? (dept.department_name || dept.name) : `Dept ${id}`;
   }, [departments]);
 
-  const getPlantName = useCallback((id: number) => {
-    const plant = plants.find((p) => p.id === id);
-    return plant ? plant.name || plant.plant_name || id : id;
-  }, [plants]);
- const refreshCallback = useCallback(() => {
-  console.log("[ApplicationMaster] 🔄 Auto refreshing applications...");
-  refreshApplications();
-}, [refreshApplications]);
+  const getRoleName = useCallback((id: number) => {
+    const role = roles.find(r => r.id === id);
+    return role ? ( role.name) : `Role ${id}`;
+  }, [roles]);
 
-useAutoRefresh(refreshCallback);
+  const getUserName = useCallback((id: number) => {
+    // You can fetch from users context or API
+    // For now, just return the ID
+    return `User ${id}`;
+  }, []);
+  const refreshCallback = useCallback(() => {
+    console.log("[ApplicationMaster] 🔄 Auto refreshing applications...");
+    refreshApplications();
+  }, [refreshApplications]);
+
+  useAutoRefresh(refreshCallback);
 
   // Close filter popover on outside click
   React.useEffect(() => {
@@ -66,13 +83,17 @@ useAutoRefresh(refreshCallback);
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [showFilterPopover]);
-console.log('All Applications:', applications);
+
+  console.log('All Applications:', applications);
+  
   // Filter by plant permissions first
   const permissionFilteredData = useMemo(() => {
     return filterByModulePlantPermission(applications,user,"application_master");
   }, [applications, user]);
-console.log('Applications after permission filter:', permissionFilteredData);
-console.log('User info',applications,user);
+  
+  console.log('Applications after permission filter:', permissionFilteredData);
+  console.log('User info',applications,user);
+  
   // Apply user's custom filters
   const filteredData = useMemo(() => {
     return permissionFilteredData.filter((app) => {
@@ -100,7 +121,7 @@ console.log('User info',applications,user);
     });
   }, [permissionFilteredData, filterValue, filterColumn, getPlantName, getDepartmentName]);
 
-console.log('Filtered applications:', filteredData);
+  console.log('Filtered applications:', filteredData);
    
   // Reset to first page when filter changes
   React.useEffect(() => {
@@ -154,6 +175,23 @@ console.log('Filtered applications:', filteredData);
       console.error(err);
     }
   }, [selectedRow, filteredData, applications, setApplications]);
+
+  // 🔥 NEW: Handle activity log button click
+  const handleActivityClick = useCallback(async (app: any) => {
+    try {
+      // Fetch activity logs using the common utility
+      const logs = await fetchActivityLogsByRecordId('application_master', app.id);
+      console.log(`✅ Found ${logs.length} logs for record ${app.id}`);
+      setActivityLogs(logs);
+      setSelectedRecordName(app.application_hmi_name);
+      setShowActivityModal(true);
+    } catch (err) {
+      console.error("Error loading activity logs:", err);
+      setActivityLogs([]);
+      setSelectedRecordName(app.application_hmi_name);
+      setShowActivityModal(true);
+    }
+  }, []);
 
   const loadImage = (url: string): Promise<HTMLImageElement> => {
     return new Promise((resolve, reject) => {
@@ -214,18 +252,19 @@ console.log('Filtered applications:', filteredData);
     const headers = [
       ["Plant Location", "Department", "Application/HMI Name", "Version", "Equipment ID", "Type", "Display Name", "Role", "System Name", "Multi-Role", "Status"],
     ];
+    
     const rows = filteredData.map((app: any) => [
-      getPlantName(app.plant_location_id),
-      getDepartmentName(app.department_id),
-      app.application_hmi_name,
-      app.application_hmi_version,
-      app.equipment_instrument_id,
-      app.application_hmi_type,
-      app.display_name,
-      Array.isArray(app.role_names) ? app.role_names.join(", ") : app.role_id,
-      app.system_name,
+      String(getPlantName(app.plant_location_id) || ""),
+      String(getDepartmentName(app.department_id) || ""),
+      String(app.application_hmi_name || ""),
+      String(app.application_hmi_version || ""),
+      String(app.equipment_instrument_id || ""),
+      String(app.application_hmi_type || ""),
+      String(app.display_name || ""),
+      Array.isArray(app.role_names) ? app.role_names.join(", ") : String(app.role_id || ""),
+      String(app.system_name || ""),
       app.multiple_role_access ? "Yes" : "No",
-      app.status,
+      String(app.status || ""),
     ]);
 
     autoTable(doc, {
@@ -248,11 +287,54 @@ console.log('Filtered applications:', filteredData);
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
       doc.text("Unichem Laboratories", pageMargin, pageHeight - 10);
-      doc.text(`Page ${i} of ${pageCount}`, pageWidth - pageMargin - 30, pageHeight - 10);
+      const pageNumText = `Page ${i} of ${pageCount}`;
+      const pageNumWidth = doc.getTextWidth(pageNumText);
+      doc.text(pageNumText, pageWidth - pageMargin - pageNumWidth, pageHeight - 10);
     }
 
     doc.save(fileName);
-  }, [filteredData, user, getPlantName, getDepartmentName]);
+  }, [filteredData, getPlantName, getDepartmentName, user]);
+
+  const handleExportExcel = useCallback(async () => {
+    const XLSX = await import("xlsx");
+    const ws_data = [
+      [
+        "Plant Location",
+        "Department",
+        "Application/HMI Name",
+        "Version",
+        "Equipment ID",
+        "Type",
+        "Display Name",
+        "Role",
+        "System Name",
+        "Multi-Role",
+        "Status",
+      ],
+      ...filteredData.map((app) => [
+        getPlantName(app.plant_location_id),
+        getDepartmentName(app.department_id),
+        app.application_hmi_name || "",
+        app.application_hmi_version || "",
+        app.equipment_instrument_id || "",
+        app.application_hmi_type || "",
+        app.display_name || "",
+        Array.isArray(app.role_names) && app.role_names.length > 0
+          ? app.role_names.join(", ")
+          : app.role_id || "",
+        app.system_name || "",
+        app.multiple_role_access ? "Yes" : "No",
+        app.status || "",
+      ]),
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(ws_data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Applications");
+    const today = new Date();
+    const fileName = `ApplicationMaster_${today.toISOString().split("T")[0]}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+  }, [filteredData, getPlantName, getDepartmentName]);
 
   const handleEdit = useCallback(() => {
     if (selectedRow === null) return;
@@ -298,7 +380,6 @@ console.log('Filtered applications:', filteredData);
                   aria-label="Search"
                 />
 
-                {/* ✅ Clear Button */}
                 {filterValue && (
                   <button
                     type="button"
@@ -311,6 +392,7 @@ console.log('Filtered applications:', filteredData);
                 )}
               </div>
             </form>
+            
             <PermissionGuard permission={PERMISSIONS.APPLICATION.CREATE}>
               <button 
                 className={styles.addBtn} 
@@ -329,72 +411,75 @@ console.log('Filtered applications:', filteredData);
 
             <PermissionButton
               permission={PERMISSIONS.APPLICATION.UPDATE}
-              className={styles.editBtn}
-              disabled={selectedRow === null}
               onClick={handleEdit}
+              className={styles.editButton}
+              disabled={selectedRow === null}
             >
-              <FaEdit size={14} /> Edit
+              <FaEdit /> Edit
             </PermissionButton>
 
             <PermissionButton
               permission={PERMISSIONS.APPLICATION.DELETE}
-              className={styles.deleteBtn}
-              disabled={selectedRow === null}
               onClick={handleDelete}
+              className={styles.deleteButton}
+              disabled={selectedRow === null}
             >
-              <FaTrash size={14} /> Delete
+              <FaTrash /> Delete
             </PermissionButton>
 
             <button className={styles.exportBtn} onClick={handleExportPDF}>
               📄 Export PDF
             </button>
+
+            <button className={styles.exportBtn} onClick={handleExportExcel}>
+              📊 Export Excel
+            </button>
           </div>
 
           {showFilterPopover && (
             <div className={styles.filterPopover} ref={popoverRef}>
-              <div className={styles.filterHeader}>Advanced Filter</div>
-              <div className={styles.filterBody}>
-                <div className={styles.filterField}>
-                  <label>Column</label>
-                  <select 
-                    value={tempFilterColumn} 
-                    onChange={(e) => setTempFilterColumn(e.target.value)}
-                  >
-                    <option value="application_hmi_name">Application/HMI Name</option>
-                    <option value="plant_location_id">Plant Location</option>
-                    <option value="department_id">Department</option>
-                    <option value="role_id">Role</option>
-                    <option value="status">Status</option>
-                  </select>
-                </div>
-                <div className={styles.filterField}>
-                  <label>Value</label>
-                  <input
-                    type="text"
-                    placeholder={`Enter ${tempFilterColumn}`}
-                    value={tempFilterValue}
-                    onChange={(e) => setTempFilterValue(e.target.value)}
-                  />
-                </div>
+              <h4>Filter Data</h4>
+              <div className={styles.filterGroup}>
+                <label>Column:</label>
+                <select
+                  value={tempFilterColumn}
+                  onChange={(e) => setTempFilterColumn(e.target.value)}
+                >
+                  <option value="application_hmi_name">Application/HMI Name</option>
+                  <option value="plant_location_id">Plant Location</option>
+                  <option value="department_id">Department</option>
+                  <option value="role_id">Role</option>
+                  <option value="status">Status</option>
+                </select>
               </div>
-              <div className={styles.filterFooter}>
+              <div className={styles.filterGroup}>
+                <label>Value:</label>
+                <input
+                  type="text"
+                  value={tempFilterValue}
+                  onChange={(e) => setTempFilterValue(e.target.value)}
+                  placeholder="Enter filter value..."
+                />
+              </div>
+              <div className={styles.filterButtons}>
                 <button
-                  className={styles.applyBtn}
                   onClick={() => {
                     setFilterColumn(tempFilterColumn);
                     setFilterValue(tempFilterValue);
                     setShowFilterPopover(false);
                   }}
+                  className={styles.applyButton}
                 >
                   Apply
                 </button>
                 <button
-                  className={styles.clearBtn}
                   onClick={() => {
+                    setTempFilterColumn("application_hmi_name");
                     setTempFilterValue("");
+                    setFilterColumn("application_hmi_name");
                     setFilterValue("");
-                    setShowFilterPopover(false);
                   }}
+                  className={styles.clearButton}
                 >
                   Clear
                 </button>
@@ -470,24 +555,8 @@ console.log('Filtered applications:', filteredData);
                         <td style={{ textAlign: 'center' }}>
                           <button 
                             className={styles.activityBtn} 
-                            onClick={async () => {
-                              try {
-                                const logs = await fetchApplicationActivityLogs();
-                                const filtered = (logs || []).filter((log: any) => {
-                                  if (log.table_name === "application_master" && String(log.record_id) === String(app.id))
-                                    return true;
-                                  if (log.details && typeof log.details === "string") {
-                                    return log.details.includes(`"tableName":"application_master"`) &&
-                                      log.details.includes(`"recordId":"${app.id}"`);
-                                  }
-                                  return false;
-                                });
-                                setActivityLogsApp({ ...app, activityLogs: filtered });
-                              } catch (err) {
-                                setActivityLogsApp({ ...app, activityLogs: [] });
-                              }
-                              setShowActivityModal(true);
-                            }}
+                            onClick={() => handleActivityClick(app)}
+                            title="View activity logs"
                           >
                             <FaRegClock size={16} />
                           </button>
@@ -529,50 +598,19 @@ console.log('Filtered applications:', filteredData);
         onConfirm={confirmDelete}
       />
 
-      {showActivityModal && activityLogsApp && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.activityModal}>
-            <div className={styles.modalHeader}>
-              <h3>Activity Log - {activityLogsApp.application_hmi_name}</h3>
-              <button onClick={() => setShowActivityModal(false)} className={styles.closeBtn}>
-                ×
-              </button>
-            </div>
-            <div className={styles.modalBody}>
-              <div className={styles.activityTableContainer}>
-                <table className={styles.activityTable}>
-                  <thead>
-                    <tr>
-                      <th>Action</th>
-                      <th>Old Value</th>
-                      <th>New Value</th>
-                      <th>Performed By</th>
-                      <th>Status</th>
-                      <th>Date/Time</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(Array.isArray(activityLogsApp.activityLogs) ? activityLogsApp.activityLogs : []).map((log: any, i: number) => (
-                      <tr key={i}>
-                        <td>{log.action || "-"}</td>
-                        <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {log.oldValue ? JSON.stringify(log.oldValue).substring(0, 100) : "-"}
-                        </td>
-                        <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {log.newValue ? JSON.stringify(log.newValue).substring(0, 100) : "-"}
-                        </td>
-                        <td>{log.approver || log.action_performed_by || "-"}</td>
-                        <td>{log.approvalStatus || log.approval_status || "-"}</td>
-                        <td>{log.dateTime || log.date_time_ist ? new Date(log.dateTime || log.date_time_ist).toLocaleString() : "-"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+     {/* Activity Log Modal with name resolution */}
+      <ActivityLogModal
+        isOpen={showActivityModal}
+        onClose={() => setShowActivityModal(false)}
+        title="Activity Log"
+        recordName={selectedRecordName}
+        activityLogs={activityLogs}
+        // 🔥 Pass name resolution functions
+        getPlantName={getPlantName}
+        getDepartmentName={getDepartmentName}
+        getRoleName={getRoleName}
+        getUserName={getUserName}
+      />
     </div>
   );
 }

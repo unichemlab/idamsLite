@@ -978,5 +978,44 @@ export const fetchUserById = async (id: number) => {
   }
 };
 
+// utils/api.ts - Add these new functions to your existing api.ts file
 
+/**
+ * Fetch activity logs for a specific application record
+ * @param recordId - The ID of the application record
+ * @returns Promise<any[]> - Array of activity logs for the record
+ */
+export async function fetchApplicationActivityLogsByRecordId(recordId: number): Promise<any[]> {
+  return request(`/api/applications/${recordId}/activity-logs`);
+}
+
+/**
+ * Search application activity logs with filters
+ * @param filters - Search filters object
+ * @returns Promise<any[]> - Array of filtered activity logs
+ */
+export async function searchApplicationActivityLogs(filters: {
+  recordId?: number;
+  userId?: number;
+  action?: string;
+  startDate?: string;
+  endDate?: string;
+  searchTerm?: string;
+  limit?: number;
+}): Promise<any[]> {
+  const params = new URLSearchParams();
+  
+  if (filters.recordId) params.append('recordId', filters.recordId.toString());
+  if (filters.userId) params.append('userId', filters.userId.toString());
+  if (filters.action) params.append('action', filters.action);
+  if (filters.startDate) params.append('startDate', filters.startDate);
+  if (filters.endDate) params.append('endDate', filters.endDate);
+  if (filters.searchTerm) params.append('searchTerm', filters.searchTerm);
+  if (filters.limit) params.append('limit', filters.limit.toString());
+  
+  const queryString = params.toString();
+  return request(`/api/applications/activity-logs/search${queryString ? '?' + queryString : ''}`);
+}
+
+// Add this to your existing api.ts file after the fetchApplicationActivityLogs function
 

@@ -54,23 +54,46 @@ export const hasAllPermissions = (user: any, permissions: string[], plantId?: nu
  * Check if user can access a specific plant
  */
 export const canAccessPlant = (user: any, plantId: number): boolean => {
-  if (!user) return false;
-  
-  if (
-    user.role_id === 1 ||
-    (Array.isArray(user.role_id) && user.role_id.includes(1)) ||
-    user.isSuperAdmin === true
-  ) {
+  // ✅ FIX: Validate inputs first
+  if (!user) {
+    console.warn('canAccessPlant: No user provided');
+    return false;
+  }
+
+  if (plantId === null || plantId === undefined) {
+    console.warn('canAccessPlant: No plantId provided');
+    throw new Error('Invalid plant ID1'); // This is what was causing the 400 error
+  }
+
+  // ✅ FIX: Convert and validate plantId
+  const numericPlantId = Number(plantId);
+  if (isNaN(numericPlantId) || numericPlantId <= 0) {
+    console.warn(`canAccessPlant: Invalid plantId: ${plantId}`);
+    throw new Error('Invalid plant ID');
+  }
+
+  // Super Admin can access all plants
+  if (user.isSuperAdmin || user.role_id === 1 || 
+      (Array.isArray(user.role_id) && user.role_id.includes(1))) {
     return true;
   }
 
-  // Check permitted plant IDs
-  if (user.permittedPlantIds?.includes(plantId)) return true;
-console.log('User plant:', user.permittedPlantIds, 'Checking plantId:', plantId);
-console.log('Access result:', user.permittedPlantIds?.includes(plantId));
-  // Check IT bin plants
-  //if (user.isITBin && user.itPlantIds?.includes(plantId)) return true;
+  // Check if user has access to this plant
+  if (Array.isArray(user.permittedPlantIds)) {
+    return user.permittedPlantIds.includes(numericPlantId);
+  }
 
+  // Check alternative plant access fields
+  if (Array.isArray(user.plant_ids)) {
+    return user.plant_ids.includes(numericPlantId);
+  }
+
+  // Single plant assignment
+  if (user.plant_id) {
+    return Number(user.plant_id) === numericPlantId;
+  }
+
+  // Default: no access
   return false;
 };
 

@@ -93,6 +93,8 @@ const { user } = useAuth();
 
   const [filterColumn, setFilterColumn] = useState("name");
   const [filterValue, setFilterValue] = useState("");
+  const [tempFilterColumn, setTempFilterColumn] = React.useState(filterColumn);
+    const [tempFilterValue, setTempFilterValue] = React.useState(filterValue);
   const debouncedFilterValue = useDebounce(filterValue, 500);
 
   const [selectedLogId, setSelectedLogId] = useState<number | null>(null);
@@ -504,26 +506,62 @@ console.log("Access Log",accessLogs);
             </button>
               <button onClick={handleExportPDF}  className={styles.exportBtn}>
                 🗎 Export PDF
-              </button>
-
-
-              {/* Filter Popover */}
-              {showFilterPopover && (
-                <div className={styles.filterPopover} ref={popoverRef}>
-                  <select value={filterColumn} onChange={(e) => setFilterColumn(e.target.value)}>
+              </button>            
+          </div>
+          {/* Filter Popover */}
+          <div className={styles.controls}>
+            {showFilterPopover && (
+              <div className={styles.filterPopover} ref={popoverRef}>
+                <div className={styles.filterHeader}>Advanced Filter</div>
+                <div className={styles.filterBody}>
+                  <div className={styles.filterFieldRow}>
+                    <label className={styles.filterLabel}>Column</label>
+                    <select value={tempFilterColumn}
+                      onChange={(e) => setTempFilterColumn(e.target.value)}>
                     <option value="name">Name</option>
                     <option value="employee_code">Employee Code</option>
                     <option value="ritm_transaction_id">RITM</option>
                     <option value="user_request_status">Request Status</option>
                   </select>
-                  <input
-                    value={filterValue}
-                    onChange={(e) => setFilterValue(e.target.value)}
-                    placeholder="Search..."
-                  />
+                  
+                  </div>
+                  <div className={styles.filterFieldRow}>
+                    <label className={styles.filterLabel}>Value</label>
+                   <input
+                      className={styles.filterInput}
+                      type="text"
+                      placeholder={`Enter ${tempFilterColumn.charAt(0).toUpperCase() +
+                        tempFilterColumn.slice(1)
+                        }`}
+                      value={tempFilterValue}
+                      onChange={(e) => setTempFilterValue(e.target.value)}
+                    />
+                  </div>
                 </div>
-              )}
-            
+                 <div className={styles.filterFooter}>
+                  <button
+                    className={styles.applyBtn}
+                    onClick={() => {
+                      setFilterColumn(tempFilterColumn);
+                      setFilterValue(tempFilterValue);
+                      setShowFilterPopover(false);
+                    }}
+                  >
+                    Apply
+                  </button>
+                  <button
+                    className={styles.clearBtn}
+                    onClick={() => {
+                      setTempFilterValue("");
+                      setFilterValue("");
+                      setShowFilterPopover(false);
+                    }}
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
           </div>
           {/* Table */}

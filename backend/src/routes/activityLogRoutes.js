@@ -2,7 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const activityLogController = require("../controllers/activityLogController");
-const  authorize  = require("../middleware/authorize");
+const { authenticate } = require("../middleware/authMiddleware");
 
 /**
  * Activity Log Routes
@@ -11,10 +11,18 @@ const  authorize  = require("../middleware/authorize");
  * based on user's plant permissions
  */
 
+// 🔧 DEBUG ENDPOINT - Check what record_ids exist for a table
+// Example: GET /api/activity-logs/debug/application_master
+router.get(
+  "/debug/:tableName",
+  authenticate,
+  activityLogController.debugActivityLogs
+);
+
 // Get all activity logs (admin view, limited to 1000 recent logs)
 router.get(
   "/",
-  authorize(),
+  authenticate,
   activityLogController.getAllActivityLogs
 );
 
@@ -22,7 +30,7 @@ router.get(
 // Example: GET /api/activity-logs/application_master
 router.get(
   "/:tableName",
-  authorize(),
+  authenticate,
   activityLogController.getActivityLogsByTable
 );
 
@@ -30,7 +38,7 @@ router.get(
 // Example: GET /api/activity-logs/application_master/123
 router.get(
   "/:tableName/:recordId",
-  authorize(),
+  authenticate,
   activityLogController.getActivityLogsByRecord
 );
 
