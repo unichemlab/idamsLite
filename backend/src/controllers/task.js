@@ -89,10 +89,69 @@ exports.getAllTasks = async (req, res) => {
     });
 
     // ===============================================
+    // APPROVER FILTERS - CORRECTED VERSION
+    // ===============================================
+    console.log("Approver", isApprover);
+
+    const approverConditions = [];
+    if (isApprover && !isSuperAdmin) {
+      console.log("Applying approver filters for user:", user.id);
+
+      // Check 1: Approver by email (for both approver1 and approver2)
+      if (user.email && typeof user.email === 'string' && user.email.trim() !== '') {
+        // Push email FIRST, then use that index
+        params.push(user.email);
+        const emailParamIndex = params.length; // This is now the correct index
+
+        // All email checks use the SAME parameter
+        approverConditions.push(`ur.approver1_email = $${emailParamIndex}`);
+        approverConditions.push(`tr.approver1_email = $${emailParamIndex}`);
+        approverConditions.push(`ur.approver2_email = $${emailParamIndex}`);
+        approverConditions.push(`tr.approver2_email = $${emailParamIndex}`);
+
+        console.log("Added email-based approver conditions:", {
+          email: user.email,
+          paramIndex: emailParamIndex,
+          conditionCount: 4
+        });
+      } else {
+        console.warn("⚠️ User email is missing or invalid:", user.email);
+      }
+
+      // Check 2: Approver from workflow table (by plant assignment)
+      try {
+        const workflowResult = await client.query(
+          `
+            SELECT DISTINCT plant_id 
+            FROM approval_workflow_master
+            WHERE (
+              approver_1_id LIKE $1 OR
+              approver_2_id LIKE $1 OR
+              approver_3_id LIKE $1 OR
+              approver_4_id LIKE $1 OR
+              approver_5_id LIKE $1
+            )
+            AND is_active = true
+          `,
+          [`%${user.id}%`]
+        );
+
+        if (workflowResult.rows.length > 0) {
+          const workflowPlants = workflowResult.rows.map(r => r.plant_id);
+          params.push(workflowPlants);
+          approverConditions.push(`tr.location = ANY($${params.length}::int[])`);
+          console.log("Workflow plants found:", workflowPlants);
+        }
+      } catch (workflowErr) {
+        console.error("Error fetching workflow plants:", workflowErr);
+      }
+    }
+
+    // ===============================================
     // REGULAR USER FILTERS
     // ===============================================
-    // For regular users (non-ITBin, non-superadmins), only show tasks for their plant
-    if (!isSuperAdmin && !user?.isITBin && user.plant_id) {
+    // For regular users (non-approvers, non-superadmins), only show tasks for their plant
+    if (!isSuperAdmin && !isApprover && user.plant_id) {
       params.push(user.plant_id);
       whereClauses.push(`tr.location = $${params.length}`);
     }
@@ -126,21 +185,39 @@ exports.getAllTasks = async (req, res) => {
     }
 
     // ===============================================
-    // IT BIN ADMIN FILTER (Primary filter for tasks)
+    // IT BIN ADMIN FILTER
     // ===============================================
-    // Tasks are IT work, not approval work
-    // Only ITBin admins should see tasks for their assigned plants
     console.log("user ITBin", user?.isITBin);
     console.log("user itPlantIds", user?.itPlantIds);
 
+    const itBinConditions = [];
     if (user?.isITBin && user.itPlantIds?.length > 0) {
       params.push(user.itPlantIds);
-      whereClauses.push(`p.id = ANY($${params.length})`);
+      itBinConditions.push(`p.id = ANY($${params.length})`);
       console.log("IT BIN filter applied for plants:", user.itPlantIds);
-    } else if (!isSuperAdmin) {
-      // If user is not ITBin admin and not super admin, they shouldn't see tasks
+    }
+
+    // ===============================================
+    // COMBINE APPROVER AND IT BIN FILTERS
+    // ===============================================
+    // If user has both roles, combine with OR logic
+    // If user has only one role, use that role's conditions
+    if (approverConditions.length > 0 && itBinConditions.length > 0) {
+      // User is BOTH approver and IT Bin - use OR logic
+      whereClauses.push(`((${approverConditions.join(" OR ")}) OR (${itBinConditions.join(" OR ")}))`);
+      console.log("Combined approver AND IT Bin filters with OR logic");
+    } else if (approverConditions.length > 0) {
+      // User is ONLY approver
+      whereClauses.push(`(${approverConditions.join(" OR ")})`);
+      console.log("Final approver conditions:", approverConditions);
+    } else if (itBinConditions.length > 0) {
+      // User is ONLY IT Bin
+      whereClauses.push(`(${itBinConditions.join(" OR ")})`);
+      console.log("Final IT Bin conditions:", itBinConditions);
+    } else if (isApprover && !isSuperAdmin) {
+      // Approver with no conditions - return empty results
       whereClauses.push("false");
-      console.log("User is not ITBin admin - no tasks to show");
+      console.warn("⚠️ No approver conditions found - returning empty results");
     }
 
     // ===============================================
