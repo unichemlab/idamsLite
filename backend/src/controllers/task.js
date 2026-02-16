@@ -306,7 +306,8 @@ exports.getAllTasks = async (req, res) => {
             )
             FROM task_closure tc_sub
             LEFT JOIN user_master um_sub ON tc_sub.assigned_to = um_sub.id
-            WHERE tc_sub.ritm_number = ur.transaction_id
+            WHERE  tc_sub.task_number = tr.transaction_id 
+              AND tc_sub.ritm_number = ur.transaction_id
           ),
           '[]'::json
         ) AS task_closures
