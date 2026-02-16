@@ -549,27 +549,52 @@ exports.bulkImportSystemInventory = async (req, res) => {
   }
 };
 
-// GET /api/system-inventory/list
+// GET /api/system-inventory/list?plant_id=1&department_id=3
 exports.getSystemInventoryList = async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT 
-  id,
-  equipment_instrument_id,
-  host_name
-FROM system_inventory_master
-WHERE status = 'ACTIVE'
-  AND user_management_applicable = true
-  AND category_gxp = 'GxP';
+    const { plant_id, department_id } = req.query;
 
-    `);
+    let query = `
+      SELECT 
+        id,
+        equipment_instrument_id,
+        host_name
+      FROM system_inventory_master
+      WHERE status = 'ACTIVE'
+        AND user_management_applicable = true
+        AND category_gxp = 'GxP'
+    `;
+
+    const values = [];
+    let paramIndex = 1;
+
+    // ✅ Filter by plant_id (if provided)
+    if (plant_id && !isNaN(plant_id)) {
+      query += ` AND plant_location_id = $${paramIndex}`;
+      values.push(Number(plant_id));
+      paramIndex++;
+    }
+
+    // ✅ Filter by department_id (if provided)
+    if (department_id && !isNaN(department_id)) {
+      query += ` AND department_id = $${paramIndex}`;
+      values.push(Number(department_id));
+      paramIndex++;
+    }
+
+    query += ` ORDER BY equipment_instrument_id ASC`;
+
+    const result = await pool.query(query, values);
+
     res.status(200).json(result.rows);
+
   } catch (err) {
     console.error("❌ Error fetching system inventory:", err);
-    console.log("error error",err);
     res.status(500).json({ error: "Failed to load system inventory" });
   }
 };
+
+
 
 exports.validateSystemInactivation = async (req, res) => {
   const { systemId } = req.params;

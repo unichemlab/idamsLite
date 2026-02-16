@@ -2003,7 +2003,7 @@ const AddUserRequest: React.FC = () => {
                 <table className={addUserRequestStyles.table}>
                   <thead>
                     <tr>
-                      <th>Transaction ID</th>
+                      <th>Request ID</th>
                       <th>Name</th>
                       <th>Employee Code</th>
                       <th>Location</th>
@@ -2228,7 +2228,7 @@ const AddUserRequest: React.FC = () => {
                                     >
                                       <thead>
                                         <tr>
-                                          <th>Task Transaction ID</th>
+                                          <th>Transaction ID</th>
                                           <th>Application / Equip ID</th>
                                           <th>Department</th>
                                           <th>Location</th>

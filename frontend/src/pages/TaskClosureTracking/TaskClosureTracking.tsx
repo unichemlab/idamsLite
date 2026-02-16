@@ -464,7 +464,7 @@ console.log('Paginated Requests:', paginatedRequests);
                               <table className={styles.subTable}>
                                 <thead>
                                   <tr>
-                                    <th>Task Transaction ID</th>
+                                    <th>Transaction ID</th>
                                     <th>Application / Equip ID</th>
                                     <th>Department</th>
                                     <th>Location</th>
