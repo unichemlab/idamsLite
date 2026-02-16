@@ -599,7 +599,7 @@ const TaskClosureForm = () => {
                     name="allocatedId"
                     value={formData.allocatedId}
                     onChange={handleChange}
-                    disabled={!allocatedIDEnabled.includes(formData.accessType)}
+                    disabled={!allocatedIDEnabled.includes(formData.access_request_type)}
                   />
                   <label
                     htmlFor="allocatedId"
@@ -609,7 +609,7 @@ const TaskClosureForm = () => {
                   </label>
 
                   {/* Show warning only when enabled + value changed */}
-                  {allocatedIDEnabled.includes(formData.accessType) &&
+                  {allocatedIDEnabled.includes(formData.access_request_type) &&
                     formData.allocatedId &&
                     formData.allocatedId !== formData.employeeCode && (
                       <p className={addUserRequestStyles.warningText}>
