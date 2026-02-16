@@ -29,3 +29,35 @@ exports.getAllActivityLogs = async (req, res) => {
   }
 };
 
+exports.getParticularIDActivityLogs = async (req, res) => {
+  try {
+    const { table_name, record_id } = req.query;
+
+    if (!table_name || !record_id) {
+      return res.status(400).json({ message: "table_name and record_id are required" });
+    }
+
+    const logs = await pool.query(
+      `
+      SELECT 
+        al.*,
+        u.username,
+        u.employee_name
+      FROM access_log al
+      LEFT JOIN user_master u 
+        ON u.id = al.action_performed_by
+      WHERE al.table_name = $1
+      AND al.record_id = $2
+      ORDER BY al.date_time_ist DESC
+      `,
+      [table_name, record_id]
+    );
+
+    res.json(logs.rows);
+  } catch (err) {
+    console.error("Error fetching activity logs:", err);
+    res.status(500).json({ message: "Failed to fetch activity logs" });
+  }
+};
+
+
