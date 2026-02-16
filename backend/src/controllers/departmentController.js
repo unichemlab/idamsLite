@@ -61,7 +61,7 @@ exports.createDepartment = async (req, res) => {
 
   try {
     const userId = req.user?.id || req.user?.user_id;
-    const username = req.user?.username || "Unknown";
+  const username = req.user?.username || "Unknown";
 
     const newData = {
       department_name,

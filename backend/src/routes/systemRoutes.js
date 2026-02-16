@@ -7,9 +7,9 @@ router.get("/:systemId/validate-inactivate", systemController.validateSystemInac
 
 router.get("/list", systemController.getSystemInventoryList);
 router.get("/",authorize(), systemController.getAllSystems);
-router.post("/", systemController.createSystem);
+router.post("/",authorize(), systemController.createSystem);
 router.get("/:id", systemController.getSystemById);
-router.put("/:id", systemController.updateSystem);
-router.delete("/:id", systemController.deleteSystem);
+router.put("/:id",authorize(), systemController.updateSystem);
+router.delete("/:id",authorize(), systemController.deleteSystem);
 router.post("/import",systemController.bulkImportSystemInventory);
 module.exports = router;

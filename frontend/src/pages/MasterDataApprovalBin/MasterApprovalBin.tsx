@@ -218,6 +218,7 @@ useEffect(() => {
                 <option value="all">All Modules</option>
                 <option value="application">Application Master</option>
                 <option value="department">Department Master</option>
+                <option value="network">Network Master</option>
                 <option value="plant">Plant Master</option>
                 <option value="roles">Role Master</option>
                 <option value="system">System Master</option>
