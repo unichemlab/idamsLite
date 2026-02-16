@@ -15,7 +15,8 @@ import { PermissionGuard, PermissionButton } from "../../components/Common/Permi
 import { PERMISSIONS } from "../../constants/permissions";
 import { usePermissions } from "../../context/PermissionContext";
 import useAutoRefresh from "../../hooks/useAutoRefresh";
-
+import ActivityLogModal from "../../components/Common/ActivityLogModal";
+import { fetchActivityLogs } from "../../utils/activityLogUtils";
 const DepartmentMasterTable: React.FC = () => {
  const { departments, deleteDepartment, fetchDepartments } = useDepartmentContext();
   const [selectedRow, setSelectedRow] = React.useState<number | null>(null);
