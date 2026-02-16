@@ -87,6 +87,9 @@ const TaskClosureForm = () => {
     ];
 
 
+
+
+
     // RULE 13: These request types can only use "Revoked" or "Not Processed"
     const revokeAccessTypes = [
       "Deactivation / Disable / Remove User Access",
@@ -102,7 +105,10 @@ const TaskClosureForm = () => {
     // Default: all options (shouldn't happen with current access types)
     return ["Not Processed", "Granted", "Revoked"];
   };
-
+  const allocatedIDEnabled = [
+    "New User Creation",
+    "Bulk New User Creation",
+  ];
   const allowedAccessOptions = getAllowedAccessOptions();
 
   // ========================================
@@ -178,14 +184,14 @@ const TaskClosureForm = () => {
     logout();
     navigate("/");
   };
-useEffect(() => {
-  if (!isRoleGrantAccess) {
-    setFormData((prev: typeof formData) => ({
-      ...prev,
-      roleGranted: prev.requestedRole
-    }));
-  }
-}, [isRoleGrantAccess, formData.requestedRole]);
+  useEffect(() => {
+    if (!isRoleGrantAccess) {
+      setFormData((prev: typeof formData) => ({
+        ...prev,
+        roleGranted: prev.requestedRole
+      }));
+    }
+  }, [isRoleGrantAccess, formData.requestedRole]);
 
   // ========================================
   // VALIDATION RULES
@@ -535,9 +541,9 @@ useEffect(() => {
                   >
                     <option value="">-- Select Assignee --</option>
                     {itAdminUsers.map((user) => (
-                     <option key={user.user_id} value={String(user.user_id)}>
-                         {user.employee_name} ({user.email})
-                        </option>
+                      <option key={user.user_id} value={String(user.user_id)}>
+                        {user.employee_name} ({user.email})
+                      </option>
                     ))}
                   </select>
                   <label htmlFor="assignedTo" className={addUserRequestStyles.floatingLabel}>Assigned To</label>
@@ -593,153 +599,164 @@ useEffect(() => {
                     name="allocatedId"
                     value={formData.allocatedId}
                     onChange={handleChange}
+                    disabled={!allocatedIDEnabled.includes(formData.accessType)}
                   />
-                  <label htmlFor="allocatedId" className={addUserRequestStyles.floatingLabel}>Allocated ID</label>
-                  {formData.allocatedId !== formData.employeeCode && (
-                    <p className={addUserRequestStyles.warningText}>
-                      ⚠️ Do you want to update previous records with this new ID?
-                    </p>
-                  )}
-                </div>
-
-                {/* ========================================
-                    RULE 14: ROLE GRANTED VALIDATION
-                    ======================================== */}
-                <div className={addUserRequestStyles.formGroup}>
-                  <input
-                    name="roleGranted"
-                    value={isRoleGrantAccess ? formData.roleGranted : formData.requestedRole}
-                    onChange={handleChange}
-                    readOnly={!isRoleGrantAccess}
-                    required
-                    style={{
-                      borderColor:
-                        formData.roleGranted &&
-                          formData.roleGranted !== formData.requestedRole
-                          ? "#dc2626"
-                          : undefined,
-                    }}
-                  />
-                  <label htmlFor="roleGranted" className={addUserRequestStyles.floatingLabel}>
-                    Role Granted *
+                  <label
+                    htmlFor="allocatedId"
+                    className={addUserRequestStyles.floatingLabel}
+                  >
+                    Allocated ID
                   </label>
-                  {formData.roleGranted &&
-                    formData.roleGranted !== formData.requestedRole && (
-                      <p
-                        style={{
-                          color: "#dc2626",
-                          fontSize: "12px",
-                          marginTop: "4px",
-                        }}
-                      >
-                        ❌ Role mismatch! Must match requested role.
+
+                  {/* Show warning only when enabled + value changed */}
+                  {allocatedIDEnabled.includes(formData.accessType) &&
+                    formData.allocatedId &&
+                    formData.allocatedId !== formData.employeeCode && (
+                      <p className={addUserRequestStyles.warningText}>
+                        ⚠️ Do you want to update previous records with this new ID?
                       </p>
                     )}
                 </div>
-
-                <div className={addUserRequestStyles.formGroup}>
-                  <select
-                    name="userRequestType"
-                    value={formData.userRequestType || ""}
-                    disabled
-                    onChange={(e) => {
-                      const value = e.target.value;
-
-                      setFormData((prev: any) => ({
-                        ...prev,
-                        userRequestType: value,
-                        ...(value === "Temporary"
-                          ? {
-                            fromDate:
-                              prev.fromDate ||
-                              new Date().toISOString().split("T")[0],
-                            toDate: prev.toDate || "",
-                          }
-                          : {
-                            fromDate: "",
-                            toDate: "",
-                          }),
-                      }));
-                    }}
-                    className={addUserRequestStyles.selectBox}
-                  >
-
-                    <option value="">-- Select User Type --</option>
-                    <option value="Permanent">Permanent</option>
-                    <option value="Temporary">Temporary</option>
-                  </select>
-                  <label htmlFor="userRequestType" className={addUserRequestStyles.floatingLabel}>User Type</label>
-                </div>
-
-                {formData.userRequestType === "Temporary" && (
-                  <div className={addUserRequestStyles.dateRange}>
-                    <div className={addUserRequestStyles.formGroup}>
-                      <input
-                        type="date"
-                        name="fromDate"
-                        value={formData.fromDate || ""}
-                        readOnly
-                        className={addUserRequestStyles.inputField}
-                      />
-                      <label htmlFor="fromDate" className={addUserRequestStyles.floatingLabel}>From Date</label>
-                    </div>
-                    <div className={addUserRequestStyles.formGroup}>
-                      <input
-                        type="date"
-                        name="toDate"
-                        readOnly
-                        value={formData.toDate || ""}
-                        min={formData.fromDate}
-                        onChange={handleChange}
-                        className={addUserRequestStyles.inputField}
-                        required
-                      />
-                      <label htmlFor="toDate" className={addUserRequestStyles.floatingLabel}>To Date</label>
-                    </div>
-                  </div>
-                )}
-
-                <div className={addUserRequestStyles.formGroup}>
-                  <textarea
-                    name="additionalInfo"
-                    value={formData.additionalInfo}
-                    onChange={handleChange}
-                    rows={1}
-                  />
-                  <label htmlFor="additionalInfo" className={addUserRequestStyles.floatingLabel}>Additional Information</label>
-                </div>
-
-                <div className={addUserRequestStyles.formGroup}>
-                  <textarea
-                    name="remarks"
-                    value={formData.remarks}
-                    onChange={handleChange}
-                    rows={1}
-                  />
-                  <label htmlFor="remarks" className={addUserRequestStyles.floatingLabel}>Remarks</label>
-                </div>
               </div>
-            </div>
 
-            {/* ===================== Footer ===================== */}
-            <div className={addUserRequestStyles.formFooter}>
-              <div className={addUserRequestStyles.formActions}>
-                <button type="submit" className={addUserRequestStyles.saveBtn}>
-                  Save
-                </button>
-                <button
-                  type="button"
-                  className={addUserRequestStyles.cancelBtn}
-                  onClick={() => navigate("/task")}
+              {/* ========================================
+                    RULE 14: ROLE GRANTED VALIDATION
+                    ======================================== */}
+              <div className={addUserRequestStyles.formGroup}>
+                <input
+                  name="roleGranted"
+                  value={isRoleGrantAccess ? formData.roleGranted : formData.requestedRole}
+                  onChange={handleChange}
+                  readOnly={!isRoleGrantAccess}
+                  required
+                  style={{
+                    borderColor:
+                      formData.roleGranted &&
+                        formData.roleGranted !== formData.requestedRole
+                        ? "#dc2626"
+                        : undefined,
+                  }}
+                />
+                <label htmlFor="roleGranted" className={addUserRequestStyles.floatingLabel}>
+                  Role Granted *
+                </label>
+                {formData.roleGranted &&
+                  formData.roleGranted !== formData.requestedRole && (
+                    <p
+                      style={{
+                        color: "#dc2626",
+                        fontSize: "12px",
+                        marginTop: "4px",
+                      }}
+                    >
+                      ❌ Role mismatch! Must match requested role.
+                    </p>
+                  )}
+              </div>
+
+              <div className={addUserRequestStyles.formGroup}>
+                <select
+                  name="userRequestType"
+                  value={formData.userRequestType || ""}
+                  disabled
+                  onChange={(e) => {
+                    const value = e.target.value;
+
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      userRequestType: value,
+                      ...(value === "Temporary"
+                        ? {
+                          fromDate:
+                            prev.fromDate ||
+                            new Date().toISOString().split("T")[0],
+                          toDate: prev.toDate || "",
+                        }
+                        : {
+                          fromDate: "",
+                          toDate: "",
+                        }),
+                    }));
+                  }}
+                  className={addUserRequestStyles.selectBox}
                 >
-                  Cancel
-                </button>
+
+                  <option value="">-- Select User Type --</option>
+                  <option value="Permanent">Permanent</option>
+                  <option value="Temporary">Temporary</option>
+                </select>
+                <label htmlFor="userRequestType" className={addUserRequestStyles.floatingLabel}>User Type</label>
+              </div>
+
+              {formData.userRequestType === "Temporary" && (
+                <div className={addUserRequestStyles.dateRange}>
+                  <div className={addUserRequestStyles.formGroup}>
+                    <input
+                      type="date"
+                      name="fromDate"
+                      value={formData.fromDate || ""}
+                      readOnly
+                      className={addUserRequestStyles.inputField}
+                    />
+                    <label htmlFor="fromDate" className={addUserRequestStyles.floatingLabel}>From Date</label>
+                  </div>
+                  <div className={addUserRequestStyles.formGroup}>
+                    <input
+                      type="date"
+                      name="toDate"
+                      readOnly
+                      value={formData.toDate || ""}
+                      min={formData.fromDate}
+                      onChange={handleChange}
+                      className={addUserRequestStyles.inputField}
+                      required
+                    />
+                    <label htmlFor="toDate" className={addUserRequestStyles.floatingLabel}>To Date</label>
+                  </div>
+                </div>
+              )}
+
+              <div className={addUserRequestStyles.formGroup}>
+                <textarea
+                  name="additionalInfo"
+                  value={formData.additionalInfo}
+                  onChange={handleChange}
+                  rows={1}
+                />
+                <label htmlFor="additionalInfo" className={addUserRequestStyles.floatingLabel}>Additional Information</label>
+              </div>
+
+              <div className={addUserRequestStyles.formGroup}>
+                <textarea
+                  name="remarks"
+                  value={formData.remarks}
+                  onChange={handleChange}
+                  rows={1}
+                />
+                <label htmlFor="remarks" className={addUserRequestStyles.floatingLabel}>Remarks</label>
               </div>
             </div>
-          </form>
+
+
+        {/* ===================== Footer ===================== */}
+        <div className={addUserRequestStyles.formFooter}>
+          <div className={addUserRequestStyles.formActions}>
+            <button type="submit" className={addUserRequestStyles.saveBtn}>
+              Save
+            </button>
+            <button
+              type="button"
+              className={addUserRequestStyles.cancelBtn}
+              onClick={() => navigate("/task")}
+            >
+              Cancel
+            </button>
+          </div>
         </div>
-      </main>
+      </form>
     </div>
+      </main >
+    </div >
   );
 };
 
