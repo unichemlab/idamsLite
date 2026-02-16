@@ -1078,52 +1078,43 @@ const AddUserRequest: React.FC = () => {
       // BUILD TASKS
       // =====================================================
       const tasks: TaskRequest[] = [];
-      // const selectedRoles = Array.isArray(form.role)
-      //   ? form.role
-      //   : [form.role];
-      // if (isBulk) {
-      //   bulkRows.forEach((row) => {
-      //     console.log("Building tasks for bulk row:", row, "with roles:", form.role); return false;
-      //     selectedRoles.forEach((roleId) => {
-      //       tasks.push({
-      //         application_equip_id: row.applicationId,
-      //         department: form.department,
-      //         role: roleId,
-      //         location: form.plant_location,
-      //         reports_to: form.reportsTo,
-      //         task_status: "Pending",
-      //         approver1_id: approver1_id_str,
-      //         approver2_id: "",
-      //       });
-      //     });
-      //   });
-      // } else {
-      //   selectedRoles.forEach((roleId) => {
-      //     tasks.push({
-      //       application_equip_id: form.applicationId,
-      //       department: form.department,
-      //       role: roleId,
-      //       location: form.plant_location,
-      //       reports_to: form.reportsTo,
-      //       task_status: "Pending",
-      //       approver1_id: approver1_id_str,
-      //       approver2_id: "",
-      //     });
-      //   });
-      // }
-
-
-      // =====================================================
+      
+       // =====================================================
       // BUILD TASKS - FIXED VERSION
       // Replace the task building section in handleSubmit
       // =====================================================
+
+      // Define access types that should generate only one task
+      const SINGLE_TASK_ACCESS_TYPES = [
+        "Password Reset",
+        "Account Unlock",
+        "Account Unlock and Password Reset",
+        "Active / Enable User Access",
+      ];
+
+      const shouldGenerateSingleTask = SINGLE_TASK_ACCESS_TYPES.includes(form.accessType);
 
       if (isBulk) {
         // For bulk creation, iterate through each bulk row
         bulkRows.forEach((row) => {
           // Get the roles for THIS specific row
           const rowRoles = Array.isArray(row.role) ? row.role : [row.role];
-
+             if (shouldGenerateSingleTask) {
+            // Create only ONE task for the entire row (use first role)
+            const firstRole = rowRoles[0];
+            if (firstRole) {
+              tasks.push({
+                application_equip_id: row.applicationId,
+                department: form.department,
+                role: firstRole,
+                location: form.plant_location,
+                reports_to: form.reportsTo,
+                task_status: "Pending",
+                approver1_id: approver1_id_str,
+                approver2_id: "",
+              });
+            }
+          } else {
           // Create a task for each role in this row
           rowRoles.forEach((roleId) => {
             if (roleId) { // Only add if role exists
@@ -1139,11 +1130,27 @@ const AddUserRequest: React.FC = () => {
               });
             }
           });
+        }
         });
       } else {
         // For single creation, use form.role
         const selectedRoles = Array.isArray(form.role) ? form.role : [form.role];
-
+         if (shouldGenerateSingleTask) {
+          // Create only ONE task (use first role)
+          const firstRole = selectedRoles[0];
+          if (firstRole) {
+            tasks.push({
+              application_equip_id: form.applicationId,
+              department: form.department,
+              role: firstRole,
+              location: form.plant_location,
+              reports_to: form.reportsTo,
+              task_status: "Pending",
+              approver1_id: approver1_id_str,
+              approver2_id: "",
+            });
+          }
+        } else {
         selectedRoles.forEach((roleId) => {
           if (roleId) { // Only add if role exists
             tasks.push({
@@ -1159,6 +1166,7 @@ const AddUserRequest: React.FC = () => {
           }
         });
       }
+    }
 
       console.log("[SUBMIT] Generated tasks:", tasks);
 
