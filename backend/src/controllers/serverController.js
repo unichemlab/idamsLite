@@ -450,4 +450,64 @@ exports.bulkImportServerInventory = async (req, res) => {
   }
 };
 
+// -------------------------------------
+// GET SERVER INVENTORY LIST (Dropdown)
+// -------------------------------------
+exports.getServerInventoryList = async (req, res) => {
+  try {
+    const { plant_id, category_gxp } = req.query;
+
+    let query = `
+      SELECT 
+        s.id,
+        s.host_name,
+        s.asset_no,
+        s.plant_location_id,
+        s.category_gxp,
+        p.plant_name,
+        s.application
+      FROM server_inventory_master s
+      LEFT JOIN plant_master p 
+        ON s.plant_location_id = p.id
+      WHERE s.status = 'ACTIVE'
+    `;
+
+    const values = [];
+    let paramIndex = 1;
+
+    // ✅ Filter by category_gxp (example: 'GxP' or 'Non-GxP')
+    if (category_gxp) {
+      query += ` AND s.category_gxp = $${paramIndex}`;
+      values.push(category_gxp);
+      paramIndex++;
+    }
+
+    // ✅ Filter by plant_id (if provided)
+    if (plant_id && !isNaN(plant_id)) {
+      query += ` AND s.plant_location_id = $${paramIndex}`;
+      values.push(Number(plant_id));
+      paramIndex++;
+    }
+
+    query += ` ORDER BY s.host_name ASC`;
+
+    const result = await pool.query(query, values);
+
+    // 🔐 If SuperAdmin → return all
+    if (isSuperAdmin(req.user)) {
+      return res.status(200).json(result.rows);
+    }
+
+    // 🔐 Filter by plant access for normal users
+    const filteredData = filterByPlantAccess(result.rows, req.user);
+
+    res.status(200).json(filteredData);
+
+  } catch (err) {
+    console.error("❌ Error fetching server inventory list:", err);
+    res.status(500).json({ error: "Failed to load server inventory list" });
+  }
+};
+
+
 module.exports = exports;

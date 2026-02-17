@@ -282,45 +282,88 @@ const EditApplicationFormPage: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    const fetchInventory = async () => {
-      try {
-        let url = `${API_BASE}/api/systems/list`;
-        const params = new URLSearchParams();
-  
-        if (form.plant_location_id) {
-          params.append("plant_id", form.plant_location_id);
-        }
-  
-        if (form.department_id) {
-          params.append("department_id", form.department_id);
-        }
-  
-        if (params.toString()) {
-          url += `?${params.toString()}`;
-        }
-  
-        const res = await fetch(url);
-        const data = await res.json();
-  
-        const options = data.map((row: any) => ({
-          value: row.equipment_instrument_id,
-          label: `${row.equipment_instrument_id} ( ${row.host_name})`,
-          hostname: row.host_name,
-          system_inventory_id: row.id
+   useEffect(() => {
+  // 🔹 Only fetch inventory if both plant and department are selected
+  if (!form.plant_location_id || !form.department_id) {
+    setInventoryOptions([]);
+    // Reset equipment_instrument_id & related fields
+    setForm((prev) => ({
+      ...prev,
+      equipment_instrument_id: "",
+      system_name: "",
+      system_inventory_id: "",
+      display_name: generateDisplayName({
+        ...prev,
+        equipment_instrument_id: "",
+      }),
+    }));
+    return;
+  }
+
+  const fetchInventory = async () => {
+    try {
+      const params = new URLSearchParams();
+      params.append("plant_id", form.plant_location_id);
+      params.append("department_id", form.department_id);
+
+      const systemUrl = `${API_BASE}/api/systems/list?${params.toString()}`;
+      const serverUrl = `${API_BASE}/api/servers/list?${params.toString()}`;
+
+      const authHeaders = { Authorization: `Bearer ${token}` };
+
+      // 🔹 Fetch both APIs in parallel
+      const [systemRes, serverRes] = await Promise.all([
+        fetch(systemUrl, { headers: authHeaders }),
+        fetch(serverUrl, { headers: authHeaders }),
+      ]);
+
+      const systemJson = await systemRes.json();
+      const serverJson = await serverRes.json();
+
+      const systemData = Array.isArray(systemJson) ? systemJson : [];
+      const serverData = Array.isArray(serverJson) ? serverJson : [];
+
+      const systemOptions = systemData.map((row: any) => ({
+        value: String(row.equipment_instrument_id),
+        label: `${row.equipment_instrument_id} (${row.host_name})`,
+        hostname: row.host_name,
+        system_inventory_id: String(row.id),
+      }));
+
+      const serverOptions = serverData.map((row: any) => ({
+        value: String(row.id),
+        label: `${row.application} (${row.host_name})`,
+        hostname: row.host_name,
+        system_inventory_id: "", // keep empty
+      }));
+
+      setInventoryOptions([
+        { label: "System Inventory", options: systemOptions },
+        { label: "Server Inventory", options: serverOptions },
+      ]);
+
+      // 🔹 If current equipment_instrument_id is not in new options, reset
+      const allValues = [...systemOptions, ...serverOptions].map((o) => o.value);
+      if (!allValues.includes(form.equipment_instrument_id)) {
+        setForm((prev) => ({
+          ...prev,
+          equipment_instrument_id: "",
+          system_name: "",
+          system_inventory_id: "",
+          display_name: generateDisplayName({
+            ...prev,
+            equipment_instrument_id: "",
+          }),
         }));
-  
-        setInventoryOptions(
-          sortByString(options, "value", "asc")
-        );
-  
-      } catch (err) {
-        console.error("Failed to load inventory list", err);
       }
-    };
-  
-    fetchInventory();
-  }, [form.plant_location_id, form.department_id]);
+    } catch (err) {
+      console.error("Failed to load inventory list", err);
+      setInventoryOptions([]);
+    }
+  };
+
+  fetchInventory();
+}, [form.plant_location_id, form.department_id, token]);
 
 
   return (
@@ -511,9 +554,9 @@ const EditApplicationFormPage: React.FC = () => {
                         required
                         isSearchable
                         options={inventoryOptions}
-                        value={inventoryOptions.find(
-                          opt => opt.value === form.equipment_instrument_id
-                        )}
+                       value={inventoryOptions
+                          .flatMap(group => group.options)   // flatten all options
+                          .find(opt => opt.value === form.equipment_instrument_id) || null}
                         onChange={(selected: any) => {
                           if (!selected) return;
 
