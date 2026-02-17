@@ -7,7 +7,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { fetchTaskById, updateTaskAPI,API_BASE } from "../../utils/api";
+import { fetchTaskById, updateTaskAPI, API_BASE } from "../../utils/api";
 import addUserRequestStyles from "./AddTaskClosureTracking.module.css";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
 import headerStyles from "../../pages/HomePage/homepageUser.module.css";
@@ -152,7 +152,8 @@ const TaskClosureForm = () => {
             assignmentGroup: data.it_admin_group?.assignment_it_group || "",
             assignedTo: data.tasks?.[0]?.assigned_to?.toString() || "",
             allocatedId: data.employee_code || "",
-            roleGranted: data.roleGranted || "",
+            // FIX: roleGranted defaults to requestedRole if empty
+            roleGranted: data.roleGranted || data.tasks[0].role_name || "",
             access: initialAccess,
             additionalInfo: data.additionalInfo || "",
             task_created: data.tasks[0].task_created || "",
@@ -165,6 +166,7 @@ const TaskClosureForm = () => {
             toDate: data.toDate ? new Date(data.toDate).toISOString().split("T")[0] : "",
             userEmail: data.email || "", // Capture user email from API
           });
+
 
           setItAdminUsers(data.it_admin_users || []);
         })
@@ -237,7 +239,7 @@ const TaskClosureForm = () => {
   // ========================================
   const validateForm = (): { isValid: boolean; errors: string[] } => {
     const errors: string[] = [];
-    const actualRoleGranted =  isRoleGrantAccess || formData.roleGranted    ? formData.roleGranted    : formData.requestedRole;
+    const actualRoleGranted = isRoleGrantAccess || formData.roleGranted ? formData.roleGranted : formData.requestedRole;
 
     // RULE 14: Role Granted must match Requested Role
     if (formData.roleGranted && actualRoleGranted !== formData.requestedRole) {
@@ -297,15 +299,15 @@ const TaskClosureForm = () => {
     }
 
     // Additional validation: Role Granted is required when closing
-    
 
-if (
-  formData.requestStatus === "Closed" &&
-  roleGrantAccessTypes.includes(formData.access_request_type) &&
-  !actualRoleGranted
-) {
-  errors.push("❌ Role Granted is required when closing the task.");
-}
+
+    if (
+      formData.requestStatus === "Closed" &&
+      roleGrantAccessTypes.includes(formData.access_request_type) &&
+      !actualRoleGranted
+    ) {
+      errors.push("❌ Role Granted is required when closing the task.");
+    }
 
     // ✅ Password validation for password access types
     if (isPasswordAccess && formData.access === "Granted" && !formData.password) {
