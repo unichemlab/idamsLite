@@ -428,7 +428,7 @@ const VendorMasterTable: React.FC = () => {
             </button>
             <PermissionButton
               permission={PERMISSIONS.VENDOR.UPDATE}
-              className={styles.editBtn}
+              className={`${styles.btn} ${styles.editBtn}`}
               disabled={selectedRow === null}
               onClick={handleEdit}
             >
@@ -437,7 +437,7 @@ const VendorMasterTable: React.FC = () => {
 
             <PermissionButton
               permission={PERMISSIONS.VENDOR.DELETE}
-              className={styles.deleteBtn}
+              className={`${styles.btn} ${styles.deleteBtn}`}
               disabled={selectedRow === null}
               onClick={handleDelete}
             >

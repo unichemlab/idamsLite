@@ -5,9 +5,11 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useSystemContext } from "../SystemInventoryMasterUser/SystemContext";
 import { System } from "../../types/system";
-import { fetchPlants, fetchDepartments, fetchUsers,fetchVendors } from "../../utils/api";
+import { fetchPlants, fetchDepartments, fetchUsers, fetchVendors } from "../../utils/api";
 import styles from "../Plant/AddPlantMaster.module.css";
-
+import { getUniqueActiveUsers } from "../../utils/userUtils";
+import { useUserContext } from "../../context/UserContext";
+import SearchableSelect from "../../components/Common/SearchableSelect";
 interface Plant {
   id: number;
   plant_name: string;
@@ -27,15 +29,21 @@ interface Vendor {
   vendor_name: string;
   vendor_code: string;
 }
+type UserOption = {
+  value: string;
+  label: string;
+  user: any;
+  isDisabled?: boolean;
+};
 
 const AddSystemInventory: React.FC = () => {
   const { addSystem } = useSystemContext();
   const { user } = useAuth();
   const navigate = useNavigate();
-
+  const { users } = useUserContext();
   const [plants, setPlants] = useState<Plant[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -111,12 +119,43 @@ const AddSystemInventory: React.FC = () => {
     remarks: "",
     status: "ACTIVE",
   });
+  useEffect(() => {
+    if (!Array.isArray(users)) {
+      setUserOptions([]);
+      return;
+    }
+
+    // // First filter for active users with employee_code
+    // const activeUsersWithCode = users.filter((u: any) => {
+    //   const isActive =
+    //     u.is_active === true ||
+    //     u.is_active === 1 ||
+    //     u.status === "ACTIVE";
+
+    //   const hasEmployeeCode =
+    //     u.employee_code &&
+    //     String(u.employee_code).trim() !== "";
+
+    //   return isActive && hasEmployeeCode;
+    // });
+
+    // Remove duplicates using employee_code as the primary unique key
+    const uniqueUsers = getUniqueActiveUsers(users);
+
+    // Map to user options
+    const filteredUsers = uniqueUsers.map((u: any) => ({
+      value: String(u.id),
+      label: `${u.employee_name} (${u.email} - ${u.employee_code})`,
+      user: u,
+    }));
+
+    setUserOptions(filteredUsers);
+  }, [users]);
 
   useEffect(() => {
-    Promise.all([fetchPlants(), fetchDepartments(), fetchUsers(), fetchVendors()]).then(([p, d, u,v]) => {
+    Promise.all([fetchPlants(), fetchDepartments(), fetchVendors()]).then(([p, d, v]) => {
       setPlants(p);
       setDepartments(d);
-      setUsers(u);
       setVendors(v);
     });
   }, []);
@@ -191,265 +230,265 @@ const AddSystemInventory: React.FC = () => {
   };
 
   const validateForm = (): boolean => {
-  // Warranty End Date must be after start date
-  if (form.warranty_status === "Under Warranty") {
-    if (!form.warranty_end_date) {
-      alert("Warranty End Date is required for assets under warranty");
-      return false;
-    }
-  }
-
-  if (form.warranty_status === "Out Of Warranty") {
-    if (form.amc_start_date && form.amc_expiry_date) {
-      const start = new Date(form.amc_start_date);
-      const expiry = new Date(form.amc_expiry_date);
-
-      if (expiry.getTime() <= start.getTime()) {
-        alert("AMC Expiry Date must be greater than AMC Start Date");
+    // Warranty End Date must be after start date
+    if (form.warranty_status === "Under Warranty") {
+      if (!form.warranty_end_date) {
+        alert("Warranty End Date is required for assets under warranty");
         return false;
       }
     }
-  }
 
-  return true;
-};
+    if (form.warranty_status === "Out Of Warranty") {
+      if (form.amc_start_date && form.amc_expiry_date) {
+        const start = new Date(form.amc_start_date);
+        const expiry = new Date(form.amc_expiry_date);
+
+        if (expiry.getTime() <= start.getTime()) {
+          alert("AMC Expiry Date must be greater than AMC Start Date");
+          return false;
+        }
+      }
+    }
+
+    return true;
+  };
 
 
   const handleConfirm = async () => {
     await addSystem(form);
-    
+
     setShowConfirm(false);
     navigate("/system-master");
   };
 
   const input = (
-  name: keyof System,
-  label: string,
-  type: string = "text",
-  isRequired: boolean = false,
-  isDisabled: boolean = false
-) => {
-  const isStartDate =  name === "amc_start_date";
-  const isExpiryDate = name === "amc_expiry_date";
+    name: keyof System,
+    label: string,
+    type: string = "text",
+    isRequired: boolean = false,
+    isDisabled: boolean = false
+  ) => {
+    const isStartDate = name === "amc_start_date";
+    const isExpiryDate = name === "amc_expiry_date";
 
-  // Get today in YYYY-MM-DD format
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth() + 1).padStart(2, "0");
-  const dd = String(today.getDate()).padStart(2, "0");
-  const minToday = `${yyyy}-${mm}-${dd}`;
+    // Get today in YYYY-MM-DD format
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    const minToday = `${yyyy}-${mm}-${dd}`;
 
-  // Get next day of a date
-  const getNextDay = (dateStr?: string) => {
-    if (!dateStr) return "";
-    const date = new Date(dateStr);
-    date.setDate(date.getDate() + 1);
-    const yyyy = date.getFullYear();
-    const mm = String(date.getMonth() + 1).padStart(2, "0");
-    const dd = String(date.getDate()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd}`;
+    // Get next day of a date
+    const getNextDay = (dateStr?: string) => {
+      if (!dateStr) return "";
+      const date = new Date(dateStr);
+      date.setDate(date.getDate() + 1);
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, "0");
+      const dd = String(date.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
+    };
+
+    // Determine min value dynamically
+    let minValue: string | undefined;
+    if (isExpiryDate) {
+      const startField = "amc_start_date";
+      minValue = getNextDay(form[startField]); // expiry > start
+    }
+
+    return (
+      <div className={styles.formGroupFloating}>
+        <input
+          type={type}
+          name={name}
+          value={form[name] as any}
+          onChange={handleChange}
+          required={isRequired}
+          disabled={isDisabled}
+          min={type === "date" ? minValue : undefined} // only set min for date inputs
+          className={styles.input}
+        />
+        <label className={styles.floatingLabel}>
+          {label}
+          {isRequired && <span className={styles.required}> *</span>}
+        </label>
+      </div>
+    );
   };
 
-  // Determine min value dynamically
-  let minValue: string | undefined;
-   if (isExpiryDate) {
-    const startField =  "amc_start_date";
-    minValue =  getNextDay(form[startField]) ; // expiry > start
-  }
 
-  return (
-    <div className={styles.formGroupFloating}>
-      <input
-        type={type}
-        name={name}
-        value={form[name] as any}
-        onChange={handleChange}
-        required={isRequired}
-        disabled={isDisabled}
-        min={type === "date" ? minValue : undefined} // only set min for date inputs
-        className={styles.input}
-      />
-      <label className={styles.floatingLabel}>
-        {label}
-        {isRequired && <span className={styles.required}> *</span>}
-      </label>
-    </div>
-  );
-};
-
- 
   const isUnderWarranty = form.warranty_status === "Under Warranty";
   const isOutOfWarranty = form.warranty_status === "Out Of Warranty";
 
-const isFieldRequired = (field: keyof System) =>
-  REQUIRED_FIELDS[form.type_of_asset as string]?.includes(field) ?? false;
+  const isFieldRequired = (field: keyof System) =>
+    REQUIRED_FIELDS[form.type_of_asset as string]?.includes(field) ?? false;
 
   const isWindowsRequired = ["Desktop", "Laptop", "Toughbook"].includes(
     form.type_of_asset || ""
   );
 
   const REQUIRED_FIELDS: Record<string, (keyof System)[]> = {
-  Desktop: [
-    "host_name",
-    "make",
-    "model",
-    "serial_no",
-    "processor",
-    "architecture",
-    "ram_capacity",
-    "hdd_capacity",
-    "os_version_service_pack",
-    "windows_activated",
-    "domain_workgroup",
-    "connected_through",
-    "ip_address_type",
-    "ip_address",
-    "specific_vlan",
-  "other_software",
-    "antivirus",
-    "antivirus_version",
-    "os_administrator",
-    "system_running_with",
-    "system_managed_by",
-    "eol_eos_upgrade_status"
-  ],
-
-  Laptop: [
-    "host_name",
-    "make",
-    "model",
-    "serial_no",
-    "processor",
-    "architecture",
-    "ram_capacity",
-    "hdd_capacity",
-    "os_version_service_pack",
-    "windows_activated",
-    "domain_workgroup",
-    "connected_through",
-    "ip_address_type",
-    "ip_address",
-    "specific_vlan",
-  "other_software",
-    "antivirus",
-    "antivirus_version",
-    "os_administrator",
-    "system_running_with",
-    "system_managed_by",
-    "eol_eos_upgrade_status"
-  ],
-
-  Toughbook: [
-    "host_name",
-    "make",
-    "model",
-    "serial_no",
-    "processor",
-    "architecture",
-    "ram_capacity",
-    "hdd_capacity",
-    "os_version_service_pack",
-    "windows_activated",
-    "domain_workgroup",
-    "connected_through",
-    "ip_address_type",
-    "ip_address",
-  "other_software",
-    "antivirus",
-    "os_administrator",
-    "system_running_with",
-    "eol_eos_upgrade_status"
-  ],
-
-  HMI: [
-    "make",
-    "model",
-    "serial_no",
-    "ram_capacity",
-    "hdd_capacity",
-    "connected_through",
-    "ip_address_type",
-    "ip_address",
-  "other_software",
-    "eol_eos_upgrade_status"
-  ],
-
-  SCADA: [
-    "make",
-    "model",
-    "serial_no",
-    "ram_capacity",
-    "hdd_capacity",
-    "connected_through",
-    "ip_address_type",
-    "ip_address",
-  "other_software",
-    "eol_eos_upgrade_status"
-  ],
-
-  IPC: [
-    "host_name",
-    "make",
-    "model",
-    "serial_no",
-    "processor",
-    "architecture",
-    "ram_capacity",
-    "hdd_capacity",
-    "os_version_service_pack",
-    "windows_activated",
-    "domain_workgroup",
-    "connected_through",
-    "ip_address_type",
-    "ip_address",
-    "specific_vlan",
-  "other_software",
-    "antivirus",
-    "antivirus_version",
-    "os_administrator",
-    "system_running_with",
-    "system_managed_by",
-    "eol_eos_upgrade_status"
-  ],
-
-  TABs: [
+    Desktop: [
       "host_name",
-    "make",
-    "model",
-    "serial_no",
-    "processor",
-    "architecture",
-    "ram_capacity",
-    "hdd_capacity",
-    "connected_through",
-    "ip_address_type",
-    "ip_address",
-  "other_software",
-    "eol_eos_upgrade_status"
-  ],
+      "make",
+      "model",
+      "serial_no",
+      "processor",
+      "architecture",
+      "ram_capacity",
+      "hdd_capacity",
+      "os_version_service_pack",
+      "windows_activated",
+      "domain_workgroup",
+      "connected_through",
+      "ip_address_type",
+      "ip_address",
+      "specific_vlan",
+      "other_software",
+      "antivirus",
+      "antivirus_version",
+      "os_administrator",
+      "system_running_with",
+      "system_managed_by",
+      "eol_eos_upgrade_status"
+    ],
 
-  Scanner: [
-    "make",
-    "model",
-    "serial_no",
-    "hdd_capacity",
-    "connected_through",
-    "ip_address_type",
-    "ip_address",
-    "eol_eos_upgrade_status"
-  ],
+    Laptop: [
+      "host_name",
+      "make",
+      "model",
+      "serial_no",
+      "processor",
+      "architecture",
+      "ram_capacity",
+      "hdd_capacity",
+      "os_version_service_pack",
+      "windows_activated",
+      "domain_workgroup",
+      "connected_through",
+      "ip_address_type",
+      "ip_address",
+      "specific_vlan",
+      "other_software",
+      "antivirus",
+      "antivirus_version",
+      "os_administrator",
+      "system_running_with",
+      "system_managed_by",
+      "eol_eos_upgrade_status"
+    ],
 
-  Printer: [
-    "make",
-    "model",
-    "serial_no",
-    "hdd_capacity",
-    "connected_through",
-    "ip_address_type",
-    "ip_address",
-    "eol_eos_upgrade_status"
-  ]
-};
+    Toughbook: [
+      "host_name",
+      "make",
+      "model",
+      "serial_no",
+      "processor",
+      "architecture",
+      "ram_capacity",
+      "hdd_capacity",
+      "os_version_service_pack",
+      "windows_activated",
+      "domain_workgroup",
+      "connected_through",
+      "ip_address_type",
+      "ip_address",
+      "other_software",
+      "antivirus",
+      "os_administrator",
+      "system_running_with",
+      "eol_eos_upgrade_status"
+    ],
+
+    HMI: [
+      "make",
+      "model",
+      "serial_no",
+      "ram_capacity",
+      "hdd_capacity",
+      "connected_through",
+      "ip_address_type",
+      "ip_address",
+      "other_software",
+      "eol_eos_upgrade_status"
+    ],
+
+    SCADA: [
+      "make",
+      "model",
+      "serial_no",
+      "ram_capacity",
+      "hdd_capacity",
+      "connected_through",
+      "ip_address_type",
+      "ip_address",
+      "other_software",
+      "eol_eos_upgrade_status"
+    ],
+
+    IPC: [
+      "host_name",
+      "make",
+      "model",
+      "serial_no",
+      "processor",
+      "architecture",
+      "ram_capacity",
+      "hdd_capacity",
+      "os_version_service_pack",
+      "windows_activated",
+      "domain_workgroup",
+      "connected_through",
+      "ip_address_type",
+      "ip_address",
+      "specific_vlan",
+      "other_software",
+      "antivirus",
+      "antivirus_version",
+      "os_administrator",
+      "system_running_with",
+      "system_managed_by",
+      "eol_eos_upgrade_status"
+    ],
+
+    TABs: [
+      "host_name",
+      "make",
+      "model",
+      "serial_no",
+      "processor",
+      "architecture",
+      "ram_capacity",
+      "hdd_capacity",
+      "connected_through",
+      "ip_address_type",
+      "ip_address",
+      "other_software",
+      "eol_eos_upgrade_status"
+    ],
+
+    Scanner: [
+      "make",
+      "model",
+      "serial_no",
+      "hdd_capacity",
+      "connected_through",
+      "ip_address_type",
+      "ip_address",
+      "eol_eos_upgrade_status"
+    ],
+
+    Printer: [
+      "make",
+      "model",
+      "serial_no",
+      "hdd_capacity",
+      "connected_through",
+      "ip_address_type",
+      "ip_address",
+      "eol_eos_upgrade_status"
+    ]
+  };
 
 
 
@@ -560,7 +599,25 @@ const isFieldRequired = (field: keyof System) =>
                     {input("user_location", "User Location")}
                     {input("building_location", "Building Location")}
                     {select("department_id", "Department", departments, { value: (p) => p.id, label: (p) => p.name }, true)}
-                    {select("allocated_to_user_name", "Allocated To", users, { value: (u) => u.id, label: (u) => u.name }, true)}
+                    <div className={styles.formGroupFloating}>
+                     
+                      <SearchableSelect
+                        options={userOptions}
+                        value={form.allocated_to_user_name} // <-- store ID here
+                        onChange={(id) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            allocated_to_user_name: String(id), // ID stored in this field
+                          }))
+                        }
+                        placeholder="Select user..."
+                      />
+                       <label className={styles.floatingLabel}>
+                        Allocated To <span className={styles.required}>*</span>
+                      </label>
+                    </div>
+
+
                   </div>
                 </div>
 
@@ -622,20 +679,20 @@ const isFieldRequired = (field: keyof System) =>
                     {input("model", "Model", "text", isFieldRequired("model"))}
                     {input("serial_no", "Serial No", "text", isFieldRequired("serial_no"))}
                     {input("processor", "Processor", "text", isFieldRequired("processor"))}
-                     {select("architecture", "Architecture", ["32 bit", "64 bit"], isFieldRequired("architecture"))}
+                    {select("architecture", "Architecture", ["32 bit", "64 bit"], isFieldRequired("architecture"))}
                     {input("ram_capacity", "RAM Capacity", "text", isFieldRequired("ram_capacity"))}
                     {input("hdd_capacity", "HDD Capacity", "text", isFieldRequired("hdd_capacity"))}
                     {input("os_version_service_pack", "OS Version / SP", "text", isFieldRequired("os_version_service_pack"))}
                     {select("windows_activated", "Windows Activated", [], false, isWindowsRequired, !isWindowsRequired, isFieldRequired("windows_activated"))}
                     {input("domain_workgroup", "Domain / Workgroup", "text", isFieldRequired("domain_workgroup"))}
                     {select("connected_through", "Connected Through", ["LAN", "WiFi"], isFieldRequired("connected_through"))}
-                     {select("ip_address_type", "IP Address Type", ["Static", "DHCP", "Other"], isFieldRequired("ip_address_type"))}
+                    {select("ip_address_type", "IP Address Type", ["Static", "DHCP", "Other"], isFieldRequired("ip_address_type"))}
                     {input("ip_address", "IP Address", "text", isFieldRequired("ip_address"))}
                     {input("specific_vlan", "Specific VLAN", "text", isFieldRequired("specific_vlan"))}
                     {input("other_software", "Other Software", "text", isFieldRequired("other_software"))}
                     {input("antivirus", "Antivirus", "text", isFieldRequired("antivirus"))}
                     {input("antivirus_version", "Antivirus Version", "text", isFieldRequired("antivirus_version"))}
-                   {input("os_administrator", "OS Administrator", "text", isFieldRequired("os_administrator"))}
+                    {input("os_administrator", "OS Administrator", "text", isFieldRequired("os_administrator"))}
                     {select("system_running_with", "System Running With", ["Active Directory", "Local"], isFieldRequired("system_running_with"))}
                     {select("system_managed_by", "System Managed By", ["Information Technology", "Engineering"], isFieldRequired("system_managed_by"))}
                     {select("eol_eos_upgrade_status", "Upgrade Status", ["End of Life", "End of Support/Sale"], isFieldRequired("eol_eos_upgrade_status"))}
@@ -652,29 +709,29 @@ const isFieldRequired = (field: keyof System) =>
                     {/* ✅ Show these fields only when GxP is selected */}
                     {isGxPSelected && (
                       <>
-                        {input("system_process_owner", "System Owner / Process Owner","text",true)}
-                        {input("instrument_equipment_name", "Instrument / Equipment Name","text",true)}
-                        {input("equipment_instrument_id", "Equipment / Instrument ID","text",true)}
-                        {input("instrument_owner", "Instrument Owner","text",true)}
-                        {input("service_tag", "Service Tag","text",true)}
-                        {input("connected_no_of_equipments", "Connected No. of Equipments", "number",true)}
+                        {input("system_process_owner", "System Owner / Process Owner", "text", true)}
+                        {input("instrument_equipment_name", "Instrument / Equipment Name", "text", true)}
+                        {input("equipment_instrument_id", "Equipment / Instrument ID", "text", true)}
+                        {input("instrument_owner", "Instrument Owner", "text", true)}
+                        {input("service_tag", "Service Tag", "text", true)}
+                        {input("connected_no_of_equipments", "Connected No. of Equipments", "number", true)}
                         {select("system_current_status", "System Current Status", ["Validated", "Retired"], true)}
-                        {input("gamp_category", "GAMP Category","text",true)}
+                        {input("gamp_category", "GAMP Category", "text", true)}
                         {select("application_onboard", "Application Onboard", ["Manual", "Automated"], true)}
-                        {input("application_name", "Application Name", "text",true)}
-                        {input("application_version", "Application Version", "text",true)}
-                        {input("application_oem", "Application OEM", "text",true)}
-                         {select("application_vendor", "Application Vendor", vendors, { value: (v) => v.id, label: (v) => v.vendor_name }, true)}
-                        {input("database_version", "Database Version (if installed)","text",true)}
+                        {input("application_name", "Application Name", "text", true)}
+                        {input("application_version", "Application Version", "text", true)}
+                        {input("application_oem", "Application OEM", "text", true)}
+                        {select("application_vendor", "Application Vendor", vendors, { value: (v) => v.id, label: (v) => v.vendor_name }, true)}
+                        {input("database_version", "Database Version (if installed)", "text", true)}
                         {select("date_time_sync_available", "Date Time Sync Available", [], false, false, false, true)}
-                        {select("backup_type", "Backup Type", ["Manual", "Auto", "Commvault Client Of Server","NA"], true)}
-                        {select("backup_frequency_days", "Backup Frequency", ["Daily","Weekly", "Fothnight", "Monthly", "Yearly"], true)}
-                        {input("backup_path", "Backup Path","text",true)}
-                        {input("backup_tool", "Backup Tool with Version","text",true)}
+                        {select("backup_type", "Backup Type", ["Manual", "Auto", "Commvault Client Of Server", "NA"], true)}
+                        {select("backup_frequency_days", "Backup Frequency", ["Daily", "Weekly", "Fothnight", "Monthly", "Yearly"], true)}
+                        {input("backup_path", "Backup Path", "text", true)}
+                        {input("backup_tool", "Backup Tool with Version", "text", true)}
                         {select("backup_procedure_available", "Backup Procedure Available", [], false, false, false, true)}
                         {select("folder_deletion_restriction", "Folder Deletion Restriction", [], false, false, false, true)}
                         {select("remote_tool_available", "Remote Tool Available", [], false, false, false, true)}
-                        {input("audit_trail_adequacy", "Audit Trail Adequacy","text",true)}
+                        {input("audit_trail_adequacy", "Audit Trail Adequacy", "text", true)}
                         {select("user_roles_availability", "User Roles Availability", [], false, false, false, true)}
                         {select("user_roles_challenged", "User Roles Challenged", [], false, false, false, true)}
                         {select("planned_upgrade_fy2526", "Planned Upgrade FY25-26", [], false, false, false, true)}

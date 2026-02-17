@@ -295,7 +295,7 @@ const handleEdit = useCallback(() => {
             </button>
             <PermissionButton
               permission={PERMISSIONS.ROLE.UPDATE}
-              className={styles.editBtn}
+              className={`${styles.btn} ${styles.editBtn}`}
               disabled={selectedRow === null}
               onClick={handleEdit}
             >
@@ -304,7 +304,7 @@ const handleEdit = useCallback(() => {
 
             <PermissionButton
               permission={PERMISSIONS.ROLE.DELETE}
-              className={styles.deleteBtn}
+              className={`${styles.btn} ${styles.deleteBtn}`}
               disabled={selectedRow === null}
               onClick={handleDelete}
             >

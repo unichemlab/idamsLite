@@ -408,11 +408,11 @@ export default function ApplicationMasterTable() {
             >
               🔍 Filter
             </button>
-
+           
             <PermissionButton
               permission={PERMISSIONS.APPLICATION.UPDATE}
               onClick={handleEdit}
-              className={styles.editButton}
+              className={`${styles.btn} ${styles.editBtn}`}
               disabled={selectedRow === null}
             >
               <FaEdit /> Edit
@@ -421,7 +421,7 @@ export default function ApplicationMasterTable() {
             <PermissionButton
               permission={PERMISSIONS.APPLICATION.DELETE}
               onClick={handleDelete}
-              className={styles.deleteButton}
+              className={`${styles.btn} ${styles.deleteBtn}`}
               disabled={selectedRow === null}
             >
               <FaTrash /> Delete
