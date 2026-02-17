@@ -745,75 +745,75 @@ exports.checkAccessLogConflict = async (req, res) => {
 };
 
 
-exports.getAccessLogsByUser = async (req, res) => {
-  const {
-    employee_code,
-    plant,
-    department,
-    application,
-    name = ""
-  } = req.query;
+// exports.getAccessLogsByUser = async (req, res) => {
+//   const {
+//     employee_code,
+//     plant,
+//     department,
+//     application,
+//     name = ""
+//   } = req.query;
 
-  if (!employee_code || !plant || !department) {
-    return res.status(400).json({
-      success: false,
-      message: "Missing required query parameters"
-    });
-  }
+//   if (!employee_code || !plant || !department) {
+//     return res.status(400).json({
+//       success: false,
+//       message: "Missing required query parameters"
+//     });
+//   }
 
-  try {
-    const query = `
-      SELECT 
-        al.id AS access_log_id,
-        al.vendor_name,
-        al.vendor_allocated_id,
-        al.application_equip_id,
-        al.department,
-        al.location,
-        al.role,
-        al.task_status,
-        app.display_name AS application_name,
-        d.department_name,
-        p.plant_name,
-        r.role_name
-      FROM access_log al
-      LEFT JOIN application_master app 
-        ON al.application_equip_id::text = app.id::text
-      LEFT JOIN department_master d 
-        ON al.department::text = d.id::text
-      LEFT JOIN plant_master p 
-        ON al.location::text = p.id::text
-      LEFT JOIN role_master r 
-        ON al.role::text = r.id::text
-      WHERE al.location::text = $1::text
-        AND al.department::text = $2::text
-        AND al.employee_code ILIKE $3
-        AND ($4::text IS NULL OR al.application_equip_id::text = $4::text)
-      ORDER BY al.id DESC
-    `;
+//   try {
+//     const query = `
+//       SELECT 
+//         al.id AS access_log_id,
+//         al.vendor_name,
+//         al.vendor_allocated_id,
+//         al.application_equip_id,
+//         al.department,
+//         al.location,
+//         al.role,
+//         al.task_status,
+//         app.display_name AS application_name,
+//         d.department_name,
+//         p.plant_name,
+//         r.role_name
+//       FROM access_log al
+//       LEFT JOIN application_master app 
+//         ON al.application_equip_id::text = app.id::text
+//       LEFT JOIN department_master d 
+//         ON al.department::text = d.id::text
+//       LEFT JOIN plant_master p 
+//         ON al.location::text = p.id::text
+//       LEFT JOIN role_master r 
+//         ON al.role::text = r.id::text
+//       WHERE al.location::text = $1::text
+//         AND al.department::text = $2::text
+//         AND al.employee_code ILIKE $3
+//         AND ($4::text IS NULL OR al.application_equip_id::text = $4::text)
+//       ORDER BY al.id DESC
+//     `;
 
-    const values = [
-      plant,
-      department,
-      `%${employee_code}%`,
-      application || null
-    ];
+//     const values = [
+//       plant,
+//       department,
+//       `%${employee_code}%`,
+//       application || null
+//     ];
 
-    const { rows } = await pool.query(query, values);
+//     const { rows } = await pool.query(query, values);
 
-    return res.status(200).json({
-      success: true,
-      count: rows.length,
-      data: rows
-    });
-  } catch (error) {
-    console.error("ACCESS LOG FETCH ERROR:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch access logs"
-    });
-  }
-};
+//     return res.status(200).json({
+//       success: true,
+//       count: rows.length,
+//       data: rows
+//     });
+//   } catch (error) {
+//     console.error("ACCESS LOG FETCH ERROR:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Failed to fetch access logs"
+//     });
+//   }
+// };
 
 // In your API route
 // exports.getAllActiveUserLogs = async (req, res) => {
@@ -1118,6 +1118,83 @@ exports.getAllActiveUserLogs = async (req, res) => {
       success: false,
       error: 'Failed to fetch access logs',
       message: error.message
+    });
+  }
+};
+
+
+exports.getAccessLogsByUser = async (req, res) => {
+  const {
+    employee_code,
+    plant,
+    department,
+    application,
+    name = ""
+  } = req.query;
+
+  if (!employee_code || !plant || !department) {
+    return res.status(400).json({
+      success: false,
+      message: "Missing required query parameters"
+    });
+  }
+
+  try {
+    const query = `
+      SELECT 
+        al.id,
+        al.employee_code,
+        al.vendor_name,
+        al.vendor_allocated_id,
+        al.application_equip_id,
+        al.department,
+        al.location,
+        al.role,
+        al.task_status,
+        al.access_request_type,          -- ✅ CRITICAL: was missing, needed for deactivation check
+        al.user_request_status,
+        al.created_on,
+        al.completed_at,
+        app.display_name AS application_name,
+        d.department_name,
+        p.plant_name,
+        r.role_name
+      FROM access_log al
+      LEFT JOIN application_master app 
+        ON al.application_equip_id::text = app.id::text
+      LEFT JOIN department_master d 
+        ON al.department::text = d.id::text
+      LEFT JOIN plant_master p 
+        ON al.location::text = p.id::text
+      LEFT JOIN role_master r 
+        ON al.role::text = r.id::text
+      WHERE al.location::text    = $1::text
+        AND al.department::text  = $2::text
+        AND al.employee_code     = $3          -- ✅ FIXED: exact match, not ILIKE partial
+        AND ($4::text IS NULL OR al.application_equip_id::text = $4::text)
+      ORDER BY al.id DESC
+    `;
+
+    const values = [
+      plant,
+      department,
+      employee_code,          // ✅ no % wrapping
+      application || null
+    ];
+
+    const { rows } = await pool.query(query, values);
+
+    return res.status(200).json({
+      success: true,
+      count: rows.length,
+      data: rows
+    });
+
+  } catch (error) {
+    console.error("ACCESS LOG FETCH ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch access logs"
     });
   }
 };
