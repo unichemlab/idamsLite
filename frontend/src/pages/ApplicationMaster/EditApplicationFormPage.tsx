@@ -79,7 +79,7 @@ const EditApplicationFormPage: React.FC = () => {
     multiple_role_access: boolean;
     status: string;
   };
-
+  console.log("application data", applicationData);
   const [form, setForm] = useState<FormType>(() => {
     if (applicationData) {
       return {
@@ -121,7 +121,7 @@ const EditApplicationFormPage: React.FC = () => {
       status: "ACTIVE",
     };
   });
-
+  console.log("form data", form);
   const [roleLocked, setRoleLocked] = useState<boolean>(true);
   const [showModal, setShowModal] = useState(false);
   const [showUnlockModal, setShowUnlockModal] = useState(false);
@@ -146,7 +146,7 @@ const EditApplicationFormPage: React.FC = () => {
             sortByString(data.map((r: any) => ({
               id: String(r.id),
               name: r.role_name,
-            })),"name","asc")
+            })), "name", "asc")
           );
         }
       })
@@ -282,88 +282,95 @@ const EditApplicationFormPage: React.FC = () => {
     }
   };
 
-   useEffect(() => {
-  // 🔹 Only fetch inventory if both plant and department are selected
-  if (!form.plant_location_id || !form.department_id) {
-    setInventoryOptions([]);
-    // Reset equipment_instrument_id & related fields
-    setForm((prev) => ({
-      ...prev,
-      equipment_instrument_id: "",
-      system_name: "",
-      system_inventory_id: "",
-      display_name: generateDisplayName({
+  useEffect(() => {
+    // 🔹 HMI type uses a free-text input — no inventory fetch needed
+    if (form.application_hmi_type === "HMI") {
+      setInventoryOptions([]);
+      return;
+    }
+
+    // 🔹 Only fetch inventory if both plant and department are selected
+    if (!form.plant_location_id || !form.department_id) {
+      setInventoryOptions([]);
+      // Reset equipment_instrument_id & related fields only for Application type
+      setForm((prev) => ({
         ...prev,
         equipment_instrument_id: "",
-      }),
-    }));
-    return;
-  }
-
-  const fetchInventory = async () => {
-    try {
-      const params = new URLSearchParams();
-      params.append("plant_id", form.plant_location_id);
-      params.append("department_id", form.department_id);
-
-      const systemUrl = `${API_BASE}/api/systems/list?${params.toString()}`;
-      const serverUrl = `${API_BASE}/api/servers/list?${params.toString()}`;
-
-      const authHeaders = { Authorization: `Bearer ${token}` };
-
-      // 🔹 Fetch both APIs in parallel
-      const [systemRes, serverRes] = await Promise.all([
-        fetch(systemUrl, { headers: authHeaders }),
-        fetch(serverUrl, { headers: authHeaders }),
-      ]);
-
-      const systemJson = await systemRes.json();
-      const serverJson = await serverRes.json();
-
-      const systemData = Array.isArray(systemJson) ? systemJson : [];
-      const serverData = Array.isArray(serverJson) ? serverJson : [];
-
-      const systemOptions = systemData.map((row: any) => ({
-        value: String(row.equipment_instrument_id),
-        label: `${row.equipment_instrument_id} (${row.host_name})`,
-        hostname: row.host_name,
-        system_inventory_id: String(row.id),
-      }));
-
-      const serverOptions = serverData.map((row: any) => ({
-        value: String(row.id),
-        label: `${row.application} (${row.host_name})`,
-        hostname: row.host_name,
-        system_inventory_id: "", // keep empty
-      }));
-
-      setInventoryOptions([
-        { label: "System Inventory", options: systemOptions },
-        { label: "Server Inventory", options: serverOptions },
-      ]);
-
-      // 🔹 If current equipment_instrument_id is not in new options, reset
-      const allValues = [...systemOptions, ...serverOptions].map((o) => o.value);
-      if (!allValues.includes(form.equipment_instrument_id)) {
-        setForm((prev) => ({
+        system_name: "",
+        system_inventory_id: "",
+        display_name: generateDisplayName({
           ...prev,
           equipment_instrument_id: "",
-          system_name: "",
-          system_inventory_id: "",
-          display_name: generateDisplayName({
+        }),
+      }));
+      return;
+    }
+
+    const fetchInventory = async () => {
+      try {
+        const params = new URLSearchParams();
+        params.append("plant_id", form.plant_location_id);
+        params.append("department_id", form.department_id);
+
+        const systemUrl = `${API_BASE}/api/systems/list?${params.toString()}`;
+        const serverUrl = `${API_BASE}/api/servers/list?${params.toString()}`;
+
+        const authHeaders = { Authorization: `Bearer ${token}` };
+
+        // 🔹 Fetch both APIs in parallel
+        const [systemRes, serverRes] = await Promise.all([
+          fetch(systemUrl, { headers: authHeaders }),
+          fetch(serverUrl, { headers: authHeaders }),
+        ]);
+
+        const systemJson = await systemRes.json();
+        const serverJson = await serverRes.json();
+
+        const systemData = Array.isArray(systemJson) ? systemJson : [];
+        const serverData = Array.isArray(serverJson) ? serverJson : [];
+
+        const systemOptions = systemData.map((row: any) => ({
+          value: String(row.equipment_instrument_id),
+          label: `${row.equipment_instrument_id} (${row.host_name})`,
+          hostname: row.host_name,
+          system_inventory_id: String(row.id),
+        }));
+
+        const serverOptions = serverData.map((row: any) => ({
+          value: String(row.id),
+          label: `${row.application} (${row.host_name})`,
+          hostname: row.host_name,
+          system_inventory_id: "", // keep empty
+        }));
+
+        setInventoryOptions([
+          { label: "System Inventory", options: systemOptions },
+          { label: "Server Inventory", options: serverOptions },
+        ]);
+
+        // 🔹 If current equipment_instrument_id is not in new options, reset
+        // (only for Application type — HMI type is handled above)
+        const allValues = [...systemOptions, ...serverOptions].map((o) => o.value);
+        if (!allValues.includes(form.equipment_instrument_id)) {
+          setForm((prev) => ({
             ...prev,
             equipment_instrument_id: "",
-          }),
-        }));
+            system_name: "",
+            system_inventory_id: "",
+            display_name: generateDisplayName({
+              ...prev,
+              equipment_instrument_id: "",
+            }),
+          }));
+        }
+      } catch (err) {
+        console.error("Failed to load inventory list", err);
+        setInventoryOptions([]);
       }
-    } catch (err) {
-      console.error("Failed to load inventory list", err);
-      setInventoryOptions([]);
-    }
-  };
+    };
 
-  fetchInventory();
-}, [form.plant_location_id, form.department_id, token]);
+    fetchInventory();
+  }, [form.plant_location_id, form.department_id, form.application_hmi_type, token]);
 
 
   return (
@@ -554,7 +561,7 @@ const EditApplicationFormPage: React.FC = () => {
                         required
                         isSearchable
                         options={inventoryOptions}
-                       value={inventoryOptions
+                        value={inventoryOptions
                           .flatMap(group => group.options)   // flatten all options
                           .find(opt => opt.value === form.equipment_instrument_id) || null}
                         onChange={(selected: any) => {
@@ -587,10 +594,10 @@ const EditApplicationFormPage: React.FC = () => {
                       <input
                         className={addStyles.input}
                         name="equipment_instrument_id"
-                        required
-                        value={form.equipment_instrument_id}
+                        value={form.equipment_instrument_id || ""}
                         onChange={handleChange}
-                        placeholder="Enter Equipment ID"
+                        placeholder={form.equipment_instrument_id ? "" : "Enter Equipment ID1"}
+                        required
                       />
                     )}
 
