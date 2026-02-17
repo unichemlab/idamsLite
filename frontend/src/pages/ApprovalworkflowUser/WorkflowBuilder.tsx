@@ -29,6 +29,7 @@ import DialogActions from "@mui/material/DialogActions";
 // CircularProgress removed from UI when plant details are hidden
 import Tooltip from "@mui/material/Tooltip";
 import Chip from "@mui/material/Chip";
+import { getUniqueActiveUsers } from "../../utils/userUtils";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import CloseIcon from "@mui/icons-material/Close";
 import AppHeader from "../../components/Common/AppHeader";
@@ -134,22 +135,22 @@ const WorkflowBuilder: React.FC = () => {
     return;
   }
 
-  // First filter for active users with employee_code
-  const activeUsersWithCode = users.filter((u: any) => {
-    const isActive =
-      u.is_active === true ||
-      u.is_active === 1 ||
-      u.status === "Active";
+  // // First filter for active users with employee_code
+  // const activeUsersWithCode = users.filter((u: any) => {
+  //   const isActive =
+  //     u.is_active === true ||
+  //     u.is_active === 1 ||
+  //     u.status === "ACTIVE";
 
-    const hasEmployeeCode =
-      u.employee_code &&
-      String(u.employee_code).trim() !== "";
+  //   const hasEmployeeCode =
+  //     u.employee_code &&
+  //     String(u.employee_code).trim() !== "";
 
-    return isActive && hasEmployeeCode;
-  });
+  //   return isActive && hasEmployeeCode;
+  // });
 
   // Remove duplicates using employee_code as the primary unique key
-  const uniqueUsers = getUniqueUsers(activeUsersWithCode);
+  const uniqueUsers = getUniqueActiveUsers(users);
 
   // Map to user options
   const filteredUsers = uniqueUsers.map((u: any) => ({

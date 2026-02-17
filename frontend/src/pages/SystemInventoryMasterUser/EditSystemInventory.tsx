@@ -7,7 +7,9 @@ import { useSystemContext } from "../SystemInventoryMasterUser/SystemContext";
 import { System, SystemStatus } from "../../types/system";
 import { fetchPlants, fetchDepartments, fetchUsers, fetchVendors, API_BASE } from "../../utils/api";
 import styles from "../Plant/AddPlantMaster.module.css";
-
+import { getUniqueActiveUsers } from "../../utils/userUtils";
+import { useUserContext } from "../../context/UserContext";
+import SearchableSelect from "../../components/Common/SearchableSelect";
 interface Plant {
   id: number;
   plant_name: string;
@@ -26,7 +28,12 @@ interface Vendor {
   vendor_name: string;
   vendor_code: string;
 }
-
+type UserOption = {
+  value: string;
+  label: string;
+  user: any;
+  isDisabled?: boolean;
+};
 const EditSystemInventory: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -35,7 +42,8 @@ const EditSystemInventory: React.FC = () => {
 
   const [plants, setPlants] = useState<Plant[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  const { users } = useUserContext();
+  const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [confirm, setConfirm] = useState(false);
   const [blockSubmit, setBlockSubmit] = useState(false);
@@ -92,16 +100,32 @@ const EditSystemInventory: React.FC = () => {
     }
   };
 
-
   useEffect(() => {
-    Promise.all([fetchPlants(), fetchDepartments(), fetchUsers(), fetchVendors()]).then(([p, d, u, v]) => {
+    if (!Array.isArray(users)) {
+      setUserOptions([]);
+      return;
+    }
+
+    // Remove duplicates using employee_code as the primary unique key
+    const uniqueUsers = getUniqueActiveUsers(users);
+
+    // Map to user options
+    const filteredUsers = uniqueUsers.map((u: any) => ({
+      value: String(u.id),
+      label: `${u.employee_name} (${u.email} - ${u.employee_code})`,
+      user: u,
+    }));
+
+    setUserOptions(filteredUsers);
+  }, [users]);
+  useEffect(() => {
+    Promise.all([fetchPlants(), fetchDepartments(), fetchVendors()]).then(([p, d, v]) => {
       setPlants(p);
       setDepartments(d);
-      setUsers(u);
       setVendors(v);
     });
   }, []);
-const plantOptions = Array.isArray(plants)
+  const plantOptions = Array.isArray(plants)
     ? plants
       .filter((plant: any) => {
         // 🔥 Super Admin → all plants
@@ -146,7 +170,7 @@ const plantOptions = Array.isArray(plants)
 
   if (!form) return null;
 
- const formatDateForInput = (dateStr?: string | null) => {
+  const formatDateForInput = (dateStr?: string | null) => {
     if (!dateStr) return "";
     const date = new Date(dateStr);
     const yyyy = date.getFullYear();
@@ -157,41 +181,41 @@ const plantOptions = Array.isArray(plants)
 
 
   const handleChange = (
-  e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-) => {
-  const { name, value, type } = e.target;
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value, type } = e.target;
 
-  let finalValue: any = value;
+    let finalValue: any = value;
 
-  if (type === "checkbox") {
-    finalValue = (e.target as HTMLInputElement).checked;
-  } else if (type === "number") {
-    finalValue = Number(value);
-  } else if (value === "true") {
-    finalValue = true;
-  } else if (value === "false") {
-    finalValue = false;
-  }
-
-  setForm((prev) => {
-    if (!prev) return prev;
-
-    const updatedForm = { ...prev, [name]: finalValue };
-
-    // ✅ If start date changes, check expiry date
-    if (name === "amc_start_date" && updatedForm.amc_expiry_date) {
-      const start = new Date(finalValue);
-      const expiry = new Date(updatedForm.amc_expiry_date);
-
-      // If expiry is before new start, reset it
-      if (expiry <= start) {
-        updatedForm.amc_expiry_date = "";
-      }
+    if (type === "checkbox") {
+      finalValue = (e.target as HTMLInputElement).checked;
+    } else if (type === "number") {
+      finalValue = Number(value);
+    } else if (value === "true") {
+      finalValue = true;
+    } else if (value === "false") {
+      finalValue = false;
     }
 
-    return updatedForm;
-  });
-};
+    setForm((prev) => {
+      if (!prev) return prev;
+
+      const updatedForm = { ...prev, [name]: finalValue };
+
+      // ✅ If start date changes, check expiry date
+      if (name === "amc_start_date" && updatedForm.amc_expiry_date) {
+        const start = new Date(finalValue);
+        const expiry = new Date(updatedForm.amc_expiry_date);
+
+        // If expiry is before new start, reset it
+        if (expiry <= start) {
+          updatedForm.amc_expiry_date = "";
+        }
+      }
+
+      return updatedForm;
+    });
+  };
 
 
   const submit = (e: React.FormEvent) => {
@@ -238,61 +262,61 @@ const plantOptions = Array.isArray(plants)
 
 
   const input = (
-  name: keyof System,
-  label: string,
-  type: string = "text",
-  isRequired: boolean = false,
-  isDisabled: boolean = false
-) => {
-  const isStartDate = name === "amc_start_date";
-  const isExpiryDate = name === "amc_expiry_date";
+    name: keyof System,
+    label: string,
+    type: string = "text",
+    isRequired: boolean = false,
+    isDisabled: boolean = false
+  ) => {
+    const isStartDate = name === "amc_start_date";
+    const isExpiryDate = name === "amc_expiry_date";
 
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth() + 1).padStart(2, "0");
-  const dd = String(today.getDate()).padStart(2, "0");
-  const minToday = `${yyyy}-${mm}-${dd}`;
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    const minToday = `${yyyy}-${mm}-${dd}`;
 
-  const getNextDay = (dateStr?: string) => {
-    if (!dateStr) return "";
-    const date = new Date(dateStr);
-    date.setDate(date.getDate() + 1);
-    const yyyy = date.getFullYear();
-    const mm = String(date.getMonth() + 1).padStart(2, "0");
-    const dd = String(date.getDate()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd}`;
-  };
+    const getNextDay = (dateStr?: string) => {
+      if (!dateStr) return "";
+      const date = new Date(dateStr);
+      date.setDate(date.getDate() + 1);
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, "0");
+      const dd = String(date.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
+    };
 
-  // Determine min value dynamically
-  let minValue: string | undefined;
-   if (isExpiryDate) {
-    const startValue = form?.amc_start_date;
-    minValue = startValue ? getNextDay(startValue) : minToday;
-  }
+    // Determine min value dynamically
+    let minValue: string | undefined;
+    if (isExpiryDate) {
+      const startValue = form?.amc_start_date;
+      minValue = startValue ? getNextDay(startValue) : minToday;
+    }
 
-  return (
-    <div className={styles.formGroupFloating}>
-      <input
-        type={type}
-        name={name}
-      value={
+    return (
+      <div className={styles.formGroupFloating}>
+        <input
+          type={type}
+          name={name}
+          value={
             type === "date"
               ? formatDateForInput(form[name] as string)
               : (form[name] as any) || ""
           }
-        onChange={handleChange}
-        required={isRequired}
-        disabled={isDisabled}
-        min={type === "date" ? minValue : undefined} // only for date inputs
-        className={styles.input}
-      />
-      <label className={styles.floatingLabel}>
-        {label}
-        {isRequired && <span className={styles.required}> *</span>}
-      </label>
-    </div>
-  );
-};
+          onChange={handleChange}
+          required={isRequired}
+          disabled={isDisabled}
+          min={type === "date" ? minValue : undefined} // only for date inputs
+          className={styles.input}
+        />
+        <label className={styles.floatingLabel}>
+          {label}
+          {isRequired && <span className={styles.required}> *</span>}
+        </label>
+      </div>
+    );
+  };
 
 
   const isUnderWarranty = form.warranty_status === "Under Warranty";
@@ -572,7 +596,24 @@ const plantOptions = Array.isArray(plants)
                     {input("user_location", "User Location")}
                     {input("building_location", "Building Location")}
                     {select("department_id", "Department", departments, { value: (p) => p.id, label: (p) => p.name }, true)}
-                    {select("allocated_to_user_name", "Allocated To", users, { value: (u) => u.id, label: (u) => u.name }, true)}
+                    <div className={styles.formGroupFloating}>
+
+                      <SearchableSelect
+                        options={userOptions}
+                        value={form.allocated_to_user_name}
+                        onChange={(id) =>
+                          setForm({
+                            ...form,
+                            allocated_to_user_name: String(id),
+                          })
+                        }
+                        placeholder="Select user..."
+                      />
+
+                      <label className={styles.floatingLabel}>
+                        Allocated To <span className={styles.required}>*</span>
+                      </label>
+                    </div>
                   </div>
                 </div>
 
@@ -682,8 +723,8 @@ const plantOptions = Array.isArray(plants)
                         {select("application_vendor", "Application Vendor", vendors, { value: (v) => v.id, label: (v) => v.vendor_name }, true)}
                         {input("database_version", "Database Version (if installed)", "text", true)}
                         {select("date_time_sync_available", "Date Time Sync Available", [], false, false, false, true)}
-                        {select("backup_type", "Backup Type", ["Manual", "Auto", "Commvault Client Of Server","NA"], true)}
-                        {select("backup_frequency_days", "Backup Frequency", ["Daily","Weekly", "Fothnight", "Monthly", "Yearly"], true)}
+                        {select("backup_type", "Backup Type", ["Manual", "Auto", "Commvault Client Of Server", "NA"], true)}
+                        {select("backup_frequency_days", "Backup Frequency", ["Daily", "Weekly", "Fothnight", "Monthly", "Yearly"], true)}
                         {input("backup_path", "Backup Path", "text", true)}
                         {input("backup_tool", "Backup Tool with Version", "text", true)}
                         {select("backup_procedure_available", "Backup Procedure Available", [], false, false, false, true)}

@@ -383,7 +383,7 @@ const handleEdit = useCallback(() => {
             </button>
             <PermissionButton
               permission={PERMISSIONS.PLANT.UPDATE}
-              className={styles.editBtn}
+              className={`${styles.btn} ${styles.editBtn}`}
               disabled={selectedPlantId === null}
               onClick={handleEdit}
             >
@@ -392,7 +392,7 @@ const handleEdit = useCallback(() => {
 
             <PermissionButton
               permission={PERMISSIONS.PLANT.DELETE}
-              className={styles.deleteBtn}
+              className={`${styles.btn} ${styles.deleteBtn}`}
               disabled={selectedPlantId === null}
               onClick={handleDelete}
             >
