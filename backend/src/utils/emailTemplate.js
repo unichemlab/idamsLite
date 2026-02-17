@@ -110,4 +110,156 @@ const getApprovalEmail = ({ userRequest, tasks = [], approveLink, rejectLink, ap
   `;
 };
 
-module.exports = { getApprovalEmail };
+
+/**
+ * Load and process email template
+ */
+const loadEmailTemplate = (templateData) => {
+  try {
+    // Read the HTML template file
+    const templatePath = path.join(__dirname, '../templates/email-template-password.html');
+    let template = fs.readFileSync(templatePath, 'utf-8');
+
+    // Replace placeholders with actual data
+    template = template.replace(/{{userName}}/g, templateData.userName);
+    template = template.replace(/{{taskNumber}}/g, templateData.taskNumber);
+    template = template.replace(/{{requestType}}/g, templateData.requestType);
+    template = template.replace(/{{applicationName}}/g, templateData.applicationName);
+    template = template.replace(/{{allocatedId}}/g, templateData.allocatedId);
+    template = template.replace(/{{password}}/g, templateData.password);
+    template = template.replace(/{{currentYear}}/g, new Date().getFullYear().toString());
+
+    return template;
+  } catch (error) {
+    console.error('Error loading email template:', error);
+    throw new Error('Failed to load email template');
+  }
+};
+
+/**
+ * Send password email to user
+ */
+ const sendPasswordEmail = async (req, res) => {
+  try {
+    const {
+      userEmail,
+      userName,
+      applicationName,
+      allocatedId,
+      password,
+      taskNumber,
+      requestType,
+    } = req.body;
+
+    // Validate required fields
+    if (!userEmail || !userName || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: userEmail, userName, or password',
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(userEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid email format',
+      });
+    }
+
+    // Create transporter
+    const transporter = nodemailer.createTransport({
+      host: "email.unichemlabs.com",
+      port: 465,
+      secure: true, // SSL
+      auth: {
+        user: "nishant1.singh@unichemlabs.com",
+        pass: "Mail$2026",
+      },
+      tls: {
+        rejectUnauthorized: false, // ignore cert issues for testing
+      },
+      logger: true,
+      debug: true,
+    });
+
+    // Verify transporter configuration
+    await transporter.verify();
+
+    // Load and process email template
+    const htmlContent = loadEmailTemplate({
+      userName,
+      taskNumber,
+      requestType,
+      applicationName,
+      allocatedId,
+      password,
+    });
+
+    // Email options
+    const mailOptions = {
+      from: {
+        name: 'IT Access Management',
+        address: 'nishant1.singh@unichemlabs.com',
+      },
+      to: userEmail,
+      subject: `Your Access Credentials - ${applicationName} (Task: ${taskNumber})`,
+      html: htmlContent,
+      // Plain text fallback
+      text: `
+Dear ${userName},
+
+Your access request has been processed successfully.
+
+Request Details:
+- Task Number: ${taskNumber}
+- Request Type: ${requestType}
+- Application: ${applicationName}
+- User ID: ${allocatedId}
+
+Your Temporary Password: ${password}
+
+IMPORTANT: This is a temporary password. You will be required to change it upon your first login.
+
+Security Best Practices:
+- Change your password immediately after first login
+- Use a strong password with a mix of characters
+- Never share your password with anyone
+- Enable two-factor authentication if available
+
+If you have any questions, please contact IT Support.
+
+---
+This is an automated message. Please do not reply to this email.
+© ${new Date().getFullYear()} Your Company Name. All rights reserved.
+      `,
+    };
+
+    // Send email
+    const info = await transporter.sendMail(mailOptions);
+
+    console.log('Password email sent successfully:', info.messageId);
+
+    // Return success response
+    return res.status(200).json({
+      success: true,
+      message: 'Email sent successfully',
+      messageId: info.messageId,
+    });
+
+  } catch (error) {
+    console.error('Error sending password email:', error);
+    
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to send email',
+      error: error.message,
+    });
+  }
+};
+
+module.exports = {
+  getApprovalEmail,
+  sendPasswordEmail,
+};

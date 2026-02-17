@@ -42,6 +42,7 @@ const TaskClosureForm = () => {
     userRequestType: "",
     fromDate: new Date().toISOString().split("T")[0],
     toDate: "",
+    userEmail: "", // Added for email functionality
   });
 
   const [itAdminUsers, setItAdminUsers] = useState<any[]>([]);
@@ -148,7 +149,7 @@ const TaskClosureForm = () => {
             ritmNumber: data.ritmNumber || "",
             requestStatus: data.requestStatus || "Assigned",
             taskNumber: data.tasks[0].taskNumber || "",
-            assignmentGroup: data.it_admin_group.assignment_it_group || "",
+            assignmentGroup: data.it_admin_group?.assignment_it_group || "",
             assignedTo: data.tasks?.[0]?.assigned_to?.toString() || "",
             allocatedId: data.employee_code || "",
             roleGranted: data.roleGranted || "",
@@ -162,6 +163,7 @@ const TaskClosureForm = () => {
             userRequestType: data.userRequestType || "",
             fromDate: data.fromDate ? new Date(data.fromDate).toISOString().split("T")[0] : "",
             toDate: data.toDate ? new Date(data.toDate).toISOString().split("T")[0] : "",
+             userEmail: data.email || "", // Capture user email from API
           });
 
           setItAdminUsers(data.it_admin_users || []);
@@ -192,6 +194,43 @@ const TaskClosureForm = () => {
       }));
     }
   }, [isRoleGrantAccess, formData.requestedRole]);
+
+ // ========================================
+  // EMAIL SENDING FUNCTION
+  // ========================================
+  const sendPasswordEmail = async (emailData: {
+    userEmail: string;
+    userName: string;
+    applicationName: string;
+    allocatedId: string;
+    password: string;
+    taskNumber: string;
+    requestType: string;
+  }) => {
+    try {
+      // Replace this URL with your actual email API endpoint
+      const response = await fetch('/api/send-password-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(emailData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send email');
+      }
+
+      console.log('Password email sent successfully');
+      return true;
+    } catch (error) {
+      console.error('Error sending password email:', error);
+      // Don't fail the entire operation if email fails
+      // Just log the error and continue
+      return false;
+    }
+  };
+
 
   // ========================================
   // VALIDATION RULES
@@ -261,6 +300,20 @@ const TaskClosureForm = () => {
       errors.push("❌ Role Granted is required when closing the task.");
     }
 
+    // ✅ Password validation for password access types
+    if (isPasswordAccess && formData.access === "Granted" && !formData.password) {
+      errors.push(
+        "❌ PASSWORD REQUIRED: Password field is mandatory for this access request type when Access is set to 'Granted'."
+      );
+    }
+
+    // ✅ Email validation for password access types
+    if (isPasswordAccess && formData.access === "Granted" && formData.password && !formData.userEmail) {
+      errors.push(
+        "⚠️ WARNING: User email is missing. Password will be saved but email notification cannot be sent."
+      );
+    }
+
     return {
       isValid: errors.length === 0,
       errors,
@@ -288,6 +341,8 @@ const TaskClosureForm = () => {
       return;
     }
 
+    
+
     try {
       if (!id) {
         alert("❌ Task ID missing!");
@@ -300,6 +355,29 @@ const TaskClosureForm = () => {
         requestStatus: formData.requestStatus,
         task_data: formData,
       });
+      
+      // Send email if conditions are met
+      // Conditions:
+      // 1. Password access type (New User Creation, Password Reset, etc.)
+      // 2. Access is "Granted"
+      // 3. Password is provided
+      // 4. User email is available
+      if (
+        isPasswordAccess &&
+        formData.access === "Granted" &&
+        formData.password &&
+        formData.userEmail
+      ) {
+        await sendPasswordEmail({
+          userEmail: formData.userEmail,
+          userName: formData.name,
+          applicationName: formData.applicationName,
+          allocatedId: formData.allocatedId,
+          password: formData.password,
+          taskNumber: formData.taskNumber,
+          requestType: formData.access_request_type,
+        });
+      }
 
       alert("✅ Task closure saved successfully!");
       navigate("/task");

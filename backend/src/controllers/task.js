@@ -747,12 +747,14 @@ exports.getUserTaskRequestById = async (req, res) => {
           tc.from_date,
           tc.to_date,
           tc.updated_on,
+          umr.employee_name AS username,
+          umr.email AS userEmail,
 
           -- 🧩 Assigned User info (from user_master)
           um.employee_name AS assigned_to_name,
           um.email AS closure_assigned_to_email,
           um.department AS closure_assigned_to_department,
-          um.location AS closure_assigned_to_location
+          um.location AS closure_assigned_to_location    
 
        FROM task_requests tr
        LEFT JOIN user_requests ur ON tr.user_request_id = ur.id
@@ -763,8 +765,9 @@ exports.getUserTaskRequestById = async (req, res) => {
        LEFT JOIN task_closure tc 
               ON tc.ritm_number = ur.transaction_id 
              AND tc.task_number = tr.transaction_id
-       LEFT JOIN user_master um 
-        ON tc.assigned_to = um.id
+       LEFT JOIN user_master um ON tc.assigned_to = um.id
+       LEFT JOIN user_master umr 
+        ON ur.employee_code = umr.employee_code
        WHERE tr.id = $1
        ORDER BY tr.id`,
       [id]
@@ -773,7 +776,7 @@ exports.getUserTaskRequestById = async (req, res) => {
     if (rows.length === 0) {
       return res.status(404).json({ error: "User request not found" });
     }
-
+console.log("rows task fetched",rows);
     const plantId = rows[0].plant_id;
     let itAdminGroup = null;
     let itAdminUsers = [];
@@ -844,6 +847,7 @@ exports.getUserTaskRequestById = async (req, res) => {
       fromDate: rows[0].user_request_from_date,
       toDate: rows[0].user_request_to_date,
       vendor_name: rows[0].vendor_name,
+      email:rows[0].useremail,
       vendor_firm: rows[0].vendor_firm,
       vendor_code: rows[0].vendor_code,
       vendor_allocated_id: rows[0].vendor_allocated_id,

@@ -468,7 +468,23 @@ const AddUserRequest: React.FC = () => {
       return;
     }
 
-    if (files[0].size > MAX_FILE_SIZE) {
+     const file = files[0];
+    // Validate file type - only PDF allowed
+    if (file.type !== "application/pdf") {
+      alert("Only PDF files are allowed. Please upload a PDF file.");
+      e.target.value = "";
+      return;
+    }
+
+    // Additional check for file extension
+    const fileName = file.name.toLowerCase();
+    if (!fileName.endsWith(".pdf")) {
+      alert("Only PDF files are allowed. Please upload a file with .pdf extension.");
+      e.target.value = "";
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
       alert("The file size must be less than or equal to 4 MB.");
       e.target.value = "";
       return;
@@ -1364,11 +1380,23 @@ const AddUserRequest: React.FC = () => {
   useEffect(() => {
 
     fetchVendors()
-      .then((data) =>
+      .then((data) =>{
+        const activeVendors = data.filter((vendor: any) => {
+          // Check if vendor has 'active' field (boolean)
+          if (vendor.active !== undefined) {
+            return vendor.active === true;
+          }
+          // Check if vendor has 'status' field (string)
+          if (vendor.status !== undefined) {
+            return vendor.status === 'ACTIVE' ||vendor.status === 'Active' || vendor.status === 'active';
+          }
+          // If no status field exists, include all vendors (backward compatibility)
+          return true;
+        });
         setVendorFirm(
-          data.map((p: any) => ({ id: p.id, vendor_name: p.vendor_name, vendor_code: p.vendor_code }))
+          activeVendors.map((p: any) => ({ id: p.id, vendor_name: p.vendor_name, vendor_code: p.vendor_code }))
         )
-      ).catch(() => setVendorFirm([]));
+  }).catch(() => setVendorFirm([]));
   }, []);
 
   // Fetch departments when plant changes
