@@ -82,6 +82,7 @@ const AddUserRequest: React.FC = () => {
   const [duplicateRoleError, setDuplicateRoleError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [deactivatedAccessWarning, setDeactivatedAccessWarning] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   
@@ -1587,6 +1588,88 @@ const AddUserRequest: React.FC = () => {
   //   All other types      → pre-fill role, dropdown LOCKED (unchanged)
   const [existingAccessLogRoles, setExistingAccessLogRoles] = useState<string[]>([]);
 
+ // ===================== Deactivated Access Warning =====================
+  // When the latest access log for plant+user+department+application has
+  // access_request_type = "Deactivation / Disable / Remove User Access" or "Bulk De-activation"
+  // AND task_status = "Closed", prompt the user to raise a New User Creation request.
+  useEffect(() => {
+    // Only check when we have the minimum required fields
+    if (
+      !form.plant_location ||
+      !form.department ||
+      !form.applicationId ||
+      !form.employeeCode
+    ) {
+      setDeactivatedAccessWarning(null);
+      return;
+    }
+
+    const DEACTIVATION_TYPES = [
+      "Deactivation / Disable / Remove User Access",
+      "Bulk De-activation",
+    ];
+
+    const checkDeactivatedAccess = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const params = new URLSearchParams({
+          employee_code: form.employeeCode || "",
+          plant:         form.plant_location,
+          department:    form.department,
+          application:   form.applicationId,
+        });
+
+        const res = await fetch(
+          `${API_BASE}/api/access-logs/by-user?${params.toString()}`,
+          {
+            headers: {
+              "Authorization": `Bearer ${token}`,
+              "Content-Type":  "application/json",
+            },
+          }
+        );
+
+        if (!res.ok) {
+          setDeactivatedAccessWarning(null);
+          return;
+        }
+
+        const data = await res.json();
+
+        if (data.data && data.data.length > 0) {
+          // Get the latest log (sorted by id desc or created_on desc)
+          const sortedLogs = [...data.data].sort((a: any, b: any) => {
+            // Sort by id descending to get the most recent record
+            return (b.id || 0) - (a.id || 0);
+          });
+          const latestLog = sortedLogs[0];
+
+          if (
+            DEACTIVATION_TYPES.includes(latestLog.access_request_type) &&
+            latestLog.task_status === "Closed"
+          ) {
+            setDeactivatedAccessWarning(
+              `ℹ️ The access for this Plant / Department / Application was previously deactivated ` +
+              `(Request Type: "${latestLog.access_request_type}", Status: Closed). ` +
+              `If you need to restore access, please raise a New User Creation request.`
+            );
+          } else {
+            setDeactivatedAccessWarning(null);
+          }
+        } else {
+          setDeactivatedAccessWarning(null);
+        }
+      } catch (err) {
+        console.error("[DEACTIVATED ACCESS CHECK] Fetch failed:", err);
+        setDeactivatedAccessWarning(null);
+      }
+    };
+
+    checkDeactivatedAccess();
+  }, [form.plant_location, form.department, form.applicationId, form.employeeCode]);
+
+
+
   useEffect(() => {
     // Skip entirely for Bulk De-activation (no single app) and when nothing is selected
     if (
@@ -2473,6 +2556,38 @@ const AddUserRequest: React.FC = () => {
                 }}>
                   <span style={{ fontSize: "20px" }}>✅</span>
                   <div>{successMessage}</div>
+                </div>
+              )}
+
+              {/* ========== DEACTIVATED ACCESS WARNING ========== */}
+              {deactivatedAccessWarning && (
+                <div style={{
+                  padding: "15px 20px",
+                  background: "#fff8e1",
+                  color: "#e65100",
+                  border: "2px solid #ffcc02",
+                  borderRadius: "8px",
+                  marginBottom: "20px",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  boxShadow: "0 2px 8px rgba(230, 81, 0, 0.12)",
+                  animation: "slideDown 0.3s ease-out",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "10px"
+                }}>
+                  <span style={{ fontSize: "20px", flexShrink: 0 }}>🔔</span>
+                  <div>
+                    <strong style={{ display: "block", marginBottom: "4px" }}>
+                      Access Previously Deactivated
+                    </strong>
+                    {deactivatedAccessWarning}
+                    <div style={{ marginTop: "8px" }}>
+                      <strong>Tip:</strong> To restore access, change the{" "}
+                      <em>Access Request Type</em> to{" "}
+                      <strong>&ldquo;New User Creation&rdquo;</strong> and submit a fresh request.
+                    </div>
+                  </div>
                 </div>
               )}
 
