@@ -146,45 +146,72 @@ const AddApplicationFormPage: React.FC = () => {
   };
 
   useEffect(() => {
-  const fetchInventory = async () => {
-    try {
-      let url = `${API_BASE}/api/systems/list`;
-      const params = new URLSearchParams();
+    if (!form.plant_location_id || !form.department_id) {
+    // clear inventory if one is missing
+    setInventoryOptions([]);
+    return;
+  }
 
-      if (form.plant_location_id) {
+    const fetchInventory = async () => {
+      try {
+        const params = new URLSearchParams();
         params.append("plant_id", form.plant_location_id);
+
+        if (form.department_id) {
+          params.append("department_id", form.department_id);
+        }
+
+        const queryString = params.toString();
+
+        const systemUrl = `${API_BASE}/api/systems/list?${queryString}`;
+        const serverUrl = `${API_BASE}/api/servers/list?${queryString}`;
+
+        const authHeaders = {
+          Authorization: `Bearer ${token}`,
+        };
+
+        const [systemRes, serverRes] = await Promise.all([
+          fetch(systemUrl, { headers: authHeaders }),
+          fetch(serverUrl, { headers: authHeaders }),
+        ]);
+
+        const systemJson = await systemRes.json();
+        const serverJson = await serverRes.json();
+
+        const systemData = Array.isArray(systemJson) ? systemJson : [];
+        const serverData = Array.isArray(serverJson) ? serverJson : [];
+
+        const systemOptions = systemData.map((row: any) => ({
+          value: String(row.equipment_instrument_id),
+          label: `${row.equipment_instrument_id} (${row.host_name})`,
+          hostname: row.host_name,
+          system_inventory_id: String(row.id),
+        }));
+
+        const serverOptions = serverData.map((row: any) => ({
+          value: String(row.id),
+          label: `${row.application} (${row.host_name})`,
+          hostname: row.host_name,
+          system_inventory_id: "",   // empty string instead of null
+        }));
+
+        setInventoryOptions([
+          { label: "System Inventory", options: systemOptions },
+          { label: "Server Inventory", options: serverOptions },
+        ]);
+
+      } catch (err) {
+        console.error("Failed to load inventory list", err);
       }
+    };
 
-      if (form.department_id) {
-        params.append("department_id", form.department_id);
-      }
+    fetchInventory();
 
-      if (params.toString()) {
-        url += `?${params.toString()}`;
-      }
+  }, [form.plant_location_id, form.department_id]);
 
-      const res = await fetch(url);
-      const data = await res.json();
 
-      const options = data.map((row: any) => ({
-        value: row.equipment_instrument_id,
-        label: `${row.equipment_instrument_id} ( ${row.host_name})`,
-        hostname: row.host_name,
-        system_inventory_id: row.id
-      }));
-
-      setInventoryOptions(
-        sortByString(options, "value", "asc")
-      );
-
-    } catch (err) {
-      console.error("Failed to load inventory list", err);
-    }
-  };
-
-  fetchInventory();
-}, [form.plant_location_id, form.department_id]); // ✅ refetch when either changes
- // ✅ refetch when plant changes
+  // ✅ refetch when either changes
+  // ✅ refetch when plant changes
 
 
   // In handleSubmit
@@ -307,26 +334,28 @@ const AddApplicationFormPage: React.FC = () => {
                       required
                       name="plant_location_id"
                       options={plantOptions}
-                      value={plantOptions.find(
-                        (opt) => opt.value === form.plant_location_id
-                      )}
+                      value={plantOptions.find(opt => opt.value === form.plant_location_id) || null}
                       onChange={(selected) => {
                         setForm((prev) => ({
                           ...prev,
                           plant_location_id: selected?.value || "",
+                          department_id: "",
+                          equipment_instrument_id: "",
+                          system_name: "",
+                          system_inventory_id: "",
                         }));
                       }}
                       placeholder=""
                       classNamePrefix="floatSelect"
                       styles={{
                         // 🔥 FIXED: Increased z-index to 999
-                        menu: (base) => ({ 
-                          ...base, 
-                          zIndex: 999 
+                        menu: (base) => ({
+                          ...base,
+                          zIndex: 999
                         }),
-                        menuPortal: (base) => ({ 
-                          ...base, 
-                          zIndex: 9999 
+                        menuPortal: (base) => ({
+                          ...base,
+                          zIndex: 9999
                         }),
                         control: (base, state) => ({
                           ...base,
@@ -359,25 +388,27 @@ const AddApplicationFormPage: React.FC = () => {
                       required
                       name="department_id"
                       options={departmentOptions}
-                      value={departmentOptions.find(
-                        (opt) => opt.value === form.department_id
-                      )}
+                      value={departmentOptions.find(opt => opt.value === form.department_id) || null}
                       onChange={(selected) => {
                         setForm((prev) => ({
                           ...prev,
                           department_id: selected?.value || "",
+                          equipment_instrument_id: "",
+                          system_name: "",
+                          system_inventory_id: "",
                         }));
                       }}
+
                       placeholder=""
                       classNamePrefix="floatSelect"
                       styles={{
-                        menu: (base) => ({ 
-                          ...base, 
-                          zIndex: 999 
+                        menu: (base) => ({
+                          ...base,
+                          zIndex: 999
                         }),
-                        menuPortal: (base) => ({ 
-                          ...base, 
-                          zIndex: 9999 
+                        menuPortal: (base) => ({
+                          ...base,
+                          zIndex: 9999
                         }),
                         control: (base, state) => ({
                           ...base,
@@ -456,13 +487,13 @@ const AddApplicationFormPage: React.FC = () => {
                       placeholder=""
                       classNamePrefix="floatSelect"
                       styles={{
-                        menu: (base) => ({ 
-                          ...base, 
-                          zIndex: 999 
+                        menu: (base) => ({
+                          ...base,
+                          zIndex: 999
                         }),
-                        menuPortal: (base) => ({ 
-                          ...base, 
-                          zIndex: 9999 
+                        menuPortal: (base) => ({
+                          ...base,
+                          zIndex: 9999
                         }),
                         control: (base, state) => ({
                           ...base,
@@ -492,9 +523,9 @@ const AddApplicationFormPage: React.FC = () => {
                         required
                         name="equipment_instrument_id"
                         options={inventoryOptions}
-                        value={inventoryOptions.find(
-                          (opt) => opt.value === form.equipment_instrument_id
-                        )}
+                        value={inventoryOptions
+                          .flatMap(group => group.options)   // flatten all options
+                          .find(opt => opt.value === form.equipment_instrument_id) || null}
                         onChange={(selected: any) => {
                           setForm((prev) => {
                             const updated = {
@@ -510,13 +541,13 @@ const AddApplicationFormPage: React.FC = () => {
                         placeholder="Search Equipment"
                         classNamePrefix="floatSelect"
                         styles={{
-                          menu: (base) => ({ 
-                            ...base, 
-                            zIndex: 999 
+                          menu: (base) => ({
+                            ...base,
+                            zIndex: 999
                           }),
-                          menuPortal: (base) => ({ 
-                            ...base, 
-                            zIndex: 9999 
+                          menuPortal: (base) => ({
+                            ...base,
+                            zIndex: 9999
                           }),
                           control: (base, state) => ({
                             ...base,
@@ -628,13 +659,13 @@ const AddApplicationFormPage: React.FC = () => {
                       classNamePrefix="floatSelect"
                       styles={{
                         // 🔥 FIXED: Increased z-index significantly
-                        menu: (base) => ({ 
-                          ...base, 
-                          zIndex: 999 
+                        menu: (base) => ({
+                          ...base,
+                          zIndex: 999
                         }),
-                        menuPortal: (base) => ({ 
-                          ...base, 
-                          zIndex: 9999 
+                        menuPortal: (base) => ({
+                          ...base,
+                          zIndex: 9999
                         }),
                         control: (base, state) => ({
                           ...base,
