@@ -1,4 +1,7 @@
 // utils/emailTemplate.js
+const fs = require('fs/promises'); // use promises API
+const nodemailer = require("nodemailer");
+const path = require("path");
 
 const getApprovalEmail = ({ userRequest, tasks = [], approveLink, rejectLink, approverName }) => {
   const taskRows = tasks.length
@@ -112,13 +115,22 @@ const getApprovalEmail = ({ userRequest, tasks = [], approveLink, rejectLink, ap
 
 
 /**
- * Load and process email template
+ * Load and process email template asynchronously
  */
-const loadEmailTemplate = (templateData) => {
+const loadEmailTemplate = async (templateData) => {
   try {
-    // Read the HTML template file
-    const templatePath = path.join(__dirname, '../templates/email-template-password.html');
-    let template = fs.readFileSync(templatePath, 'utf-8');
+    // Build the path to your template
+    const templatePath = path.join(__dirname, '../utils/email-template-password.html');
+
+    // Check if file exists
+    try {
+      await fs.access(templatePath);
+    } catch (err) {
+      throw new Error(`Email template not found at ${templatePath}`);
+    }
+
+    // Read the HTML template file asynchronously
+    let template = await fs.readFile(templatePath, 'utf-8');
 
     // Replace placeholders with actual data
     template = template.replace(/{{userName}}/g, templateData.userName);
@@ -188,14 +200,15 @@ const loadEmailTemplate = (templateData) => {
     await transporter.verify();
 
     // Load and process email template
-    const htmlContent = loadEmailTemplate({
-      userName,
-      taskNumber,
-      requestType,
-      applicationName,
-      allocatedId,
-      password,
-    });
+const htmlContent = await loadEmailTemplate({
+  userName,
+  taskNumber,
+  requestType,
+  applicationName,
+  allocatedId,
+  password,
+});
+
 
     // Email options
     const mailOptions = {
@@ -203,7 +216,11 @@ const loadEmailTemplate = (templateData) => {
         name: 'IT Access Management',
         address: 'nishant1.singh@unichemlabs.com',
       },
-      to: userEmail,
+     // to: userEmail,
+      to: [
+        "nishant1.singh@unichemlabs.com",
+        "ashish.sachania@unichemlabs.com"
+      ],
       subject: `Your Access Credentials - ${applicationName} (Task: ${taskNumber})`,
       html: htmlContent,
       // Plain text fallback
