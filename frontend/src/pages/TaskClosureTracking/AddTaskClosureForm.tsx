@@ -7,7 +7,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { fetchTaskById, updateTaskAPI } from "../../utils/api";
+import { fetchTaskById, updateTaskAPI,API_BASE } from "../../utils/api";
 import addUserRequestStyles from "./AddTaskClosureTracking.module.css";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
 import headerStyles from "../../pages/HomePage/homepageUser.module.css";
@@ -163,7 +163,7 @@ const TaskClosureForm = () => {
             userRequestType: data.userRequestType || "",
             fromDate: data.fromDate ? new Date(data.fromDate).toISOString().split("T")[0] : "",
             toDate: data.toDate ? new Date(data.toDate).toISOString().split("T")[0] : "",
-             userEmail: data.email || "", // Capture user email from API
+            userEmail: data.email || "", // Capture user email from API
           });
 
           setItAdminUsers(data.it_admin_users || []);
@@ -190,12 +190,12 @@ const TaskClosureForm = () => {
     if (!isRoleGrantAccess) {
       setFormData((prev: typeof formData) => ({
         ...prev,
-        roleGranted: prev.requestedRole
+        roleGranted: prev.roleGranted || prev.requestedRole
       }));
     }
   }, [isRoleGrantAccess, formData.requestedRole]);
 
- // ========================================
+  // ========================================
   // EMAIL SENDING FUNCTION
   // ========================================
   const sendPasswordEmail = async (emailData: {
@@ -209,7 +209,7 @@ const TaskClosureForm = () => {
   }) => {
     try {
       // Replace this URL with your actual email API endpoint
-      const response = await fetch('/api/send-password-email', {
+      const response = await fetch(`${API_BASE}/api/send-password-email`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -237,11 +237,12 @@ const TaskClosureForm = () => {
   // ========================================
   const validateForm = (): { isValid: boolean; errors: string[] } => {
     const errors: string[] = [];
+    const actualRoleGranted =  isRoleGrantAccess || formData.roleGranted    ? formData.roleGranted    : formData.requestedRole;
 
     // RULE 14: Role Granted must match Requested Role
-    if (formData.roleGranted && formData.roleGranted !== formData.requestedRole) {
+    if (formData.roleGranted && actualRoleGranted !== formData.requestedRole) {
       errors.push(
-        `❌ Role Granted "${formData.roleGranted}" does not match Requested Role "${formData.requestedRole}". Task cannot be closed.`
+        `❌ Role Granted "${actualRoleGranted}" does not match Requested Role "${formData.requestedRole}". Task cannot be closed.`
       );
     }
 
@@ -296,9 +297,15 @@ const TaskClosureForm = () => {
     }
 
     // Additional validation: Role Granted is required when closing
-    if (formData.requestStatus === "Closed" && !formData.roleGranted) {
-      errors.push("❌ Role Granted is required when closing the task.");
-    }
+    
+
+if (
+  formData.requestStatus === "Closed" &&
+  roleGrantAccessTypes.includes(formData.access_request_type) &&
+  !actualRoleGranted
+) {
+  errors.push("❌ Role Granted is required when closing the task.");
+}
 
     // ✅ Password validation for password access types
     if (isPasswordAccess && formData.access === "Granted" && !formData.password) {
@@ -341,7 +348,7 @@ const TaskClosureForm = () => {
       return;
     }
 
-    
+
 
     try {
       if (!id) {
@@ -355,7 +362,7 @@ const TaskClosureForm = () => {
         requestStatus: formData.requestStatus,
         task_data: formData,
       });
-      
+
       // Send email if conditions are met
       // Conditions:
       // 1. Password access type (New User Creation, Password Reset, etc.)
@@ -703,9 +710,9 @@ const TaskClosureForm = () => {
               <div className={addUserRequestStyles.formGroup}>
                 <input
                   name="roleGranted"
-                  value={isRoleGrantAccess ? formData.roleGranted : formData.requestedRole}
+                  value={formData.roleGranted}
                   onChange={handleChange}
-                  readOnly={!isRoleGrantAccess}
+                  readOnly={!isRoleGrantAccess} // editable only for role-grant types
                   required
                   style={{
                     borderColor:
@@ -713,6 +720,7 @@ const TaskClosureForm = () => {
                         formData.roleGranted !== formData.requestedRole
                         ? "#dc2626"
                         : undefined,
+                    backgroundColor: !isRoleGrantAccess ? "#f3f4f6" : undefined, // visual cue for read-only
                   }}
                 />
                 <label htmlFor="roleGranted" className={addUserRequestStyles.floatingLabel}>
@@ -816,23 +824,23 @@ const TaskClosureForm = () => {
             </div>
 
 
-        {/* ===================== Footer ===================== */}
-        <div className={addUserRequestStyles.formFooter}>
-          <div className={addUserRequestStyles.formActions}>
-            <button type="submit" className={addUserRequestStyles.saveBtn}>
-              Save
-            </button>
-            <button
-              type="button"
-              className={addUserRequestStyles.cancelBtn}
-              onClick={() => navigate("/task")}
-            >
-              Cancel
-            </button>
-          </div>
+            {/* ===================== Footer ===================== */}
+            <div className={addUserRequestStyles.formFooter}>
+              <div className={addUserRequestStyles.formActions}>
+                <button type="submit" className={addUserRequestStyles.saveBtn}>
+                  Save
+                </button>
+                <button
+                  type="button"
+                  className={addUserRequestStyles.cancelBtn}
+                  onClick={() => navigate("/task")}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </form>
         </div>
-      </form>
-    </div>
       </main >
     </div >
   );
