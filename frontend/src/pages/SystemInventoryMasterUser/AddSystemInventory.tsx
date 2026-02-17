@@ -151,12 +151,31 @@ const AddSystemInventory: React.FC = () => {
 
     setUserOptions(filteredUsers);
   }, [users]);
+ useEffect(() => {
 
+    fetchVendors()
+      .then((data) =>{
+        const activeVendors = data.filter((vendor: any) => {
+          // Check if vendor has 'active' field (boolean)
+          if (vendor.active !== undefined) {
+            return vendor.active === true;
+          }
+          // Check if vendor has 'status' field (string)
+          if (vendor.status !== undefined) {
+            return vendor.status === 'ACTIVE' ||vendor.status === 'Active' || vendor.status === 'active';
+          }
+          // If no status field exists, include all vendors (backward compatibility)
+          return true;
+        });
+        setVendors(
+          activeVendors.map((p: any) => ({ id: p.id, vendor_name: p.vendor_name, vendor_code: p.vendor_code }))
+        )
+  }).catch(() => setVendors([]));
+  }, []);
   useEffect(() => {
-    Promise.all([fetchPlants(), fetchDepartments(), fetchVendors()]).then(([p, d, v]) => {
+    Promise.all([fetchPlants(), fetchDepartments()]).then(([p, d]) => {
       setPlants(p);
       setDepartments(d);
-      setVendors(v);
     });
   }, []);
 
