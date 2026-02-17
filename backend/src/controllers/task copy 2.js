@@ -89,38 +89,36 @@ exports.getAllTasks = async (req, res) => {
     });
 
     // ===============================================
-    // APPROVER FILTERS
-    // Step 1 (Approver 1): filter by approver1_email only
-    // Step 2 (Approver 2): filter by plant_ids from approval_workflow_master
+    // APPROVER FILTERS - CORRECTED VERSION
     // ===============================================
     console.log("Approver", isApprover);
 
-    // approver1Conditions: records where this user is approver 1
-    const approver1Conditions = [];
-    // approver2Conditions: records where this user is approver 2 (via workflow plants)
-    const approver2Conditions = [];
-
+    const approverConditions = [];
     if (isApprover && !isSuperAdmin) {
       console.log("Applying approver filters for user:", user.id);
 
-      // ── Step 1: Approver 1 → match by approver1_email ──────────────────────
+      // Check 1: Approver by email (for both approver1 and approver2)
       if (user.email && typeof user.email === 'string' && user.email.trim() !== '') {
+        // Push email FIRST, then use that index
         params.push(user.email);
-        const emailParamIndex = params.length;
+        const emailParamIndex = params.length; // This is now the correct index
 
-        approver1Conditions.push(`ur.approver1_email = $${emailParamIndex}`);
-        approver1Conditions.push(`tr.approver1_email = $${emailParamIndex}`);
+        // All email checks use the SAME parameter
+        approverConditions.push(`ur.approver1_email = $${emailParamIndex}`);
+        approverConditions.push(`tr.approver1_email = $${emailParamIndex}`);
+        approverConditions.push(`ur.approver2_email = $${emailParamIndex}`);
+        approverConditions.push(`tr.approver2_email = $${emailParamIndex}`);
 
-        console.log("Added approver1 email conditions:", {
+        console.log("Added email-based approver conditions:", {
           email: user.email,
           paramIndex: emailParamIndex,
-          conditionCount: 2
+          conditionCount: 4
         });
       } else {
         console.warn("⚠️ User email is missing or invalid:", user.email);
       }
 
-      // ── Step 2: Approver 2 → match by workflow plant_ids ───────────────────
+      // Check 2: Approver from workflow table (by plant assignment)
       try {
         const workflowResult = await client.query(
           `
@@ -141,10 +139,8 @@ exports.getAllTasks = async (req, res) => {
         if (workflowResult.rows.length > 0) {
           const workflowPlants = workflowResult.rows.map(r => r.plant_id);
           params.push(workflowPlants);
-          approver2Conditions.push(`tr.location = ANY($${params.length}::int[])`);
-          console.log("Approver2 workflow plants found:", workflowPlants);
-        } else {
-          console.log("No workflow plants found for approver2 role");
+          approverConditions.push(`tr.location = ANY($${params.length}::int[])`);
+          console.log("Workflow plants found:", workflowPlants);
         }
       } catch (workflowErr) {
         console.error("Error fetching workflow plants:", workflowErr);
@@ -202,40 +198,26 @@ exports.getAllTasks = async (req, res) => {
     }
 
     // ===============================================
-    // COMBINE APPROVER 1, APPROVER 2, AND IT BIN FILTERS
+    // COMBINE APPROVER AND IT BIN FILTERS
     // ===============================================
-    // Each role has its own condition bucket; all non-empty
-    // buckets are OR-ed so a multi-role user sees everything
-    // they are entitled to:
-    //
-    //  Approver 1 → approver1_email match       (step 1 on approver page)
-    //  Approver 2 → workflow plant_id match      (step 2 on approver page)
-    //  IT Bin     → itPlantIds match             (step 3 on task page)
-
-    const allRoleConditions = [];
-
-    if (approver1Conditions.length > 0) {
-      allRoleConditions.push(`(${approver1Conditions.join(" OR ")})`);
-      console.log("Approver1 conditions added:", approver1Conditions);
-    }
-
-    if (approver2Conditions.length > 0) {
-      allRoleConditions.push(`(${approver2Conditions.join(" OR ")})`);
-      console.log("Approver2 conditions added:", approver2Conditions);
-    }
-
-    if (itBinConditions.length > 0) {
-      allRoleConditions.push(`(${itBinConditions.join(" OR ")})`);
-      console.log("IT Bin conditions added:", itBinConditions);
-    }
-
-    if (allRoleConditions.length > 0) {
-      whereClauses.push(`(${allRoleConditions.join(" OR ")})`);
-      console.log("Final combined role filter:", allRoleConditions);
+    // If user has both roles, combine with OR logic
+    // If user has only one role, use that role's conditions
+    if (approverConditions.length > 0 && itBinConditions.length > 0) {
+      // User is BOTH approver and IT Bin - use OR logic
+      whereClauses.push(`((${approverConditions.join(" OR ")}) OR (${itBinConditions.join(" OR ")}))`);
+      console.log("Combined approver AND IT Bin filters with OR logic");
+    } else if (approverConditions.length > 0) {
+      // User is ONLY approver
+      whereClauses.push(`(${approverConditions.join(" OR ")})`);
+      console.log("Final approver conditions:", approverConditions);
+    } else if (itBinConditions.length > 0) {
+      // User is ONLY IT Bin
+      whereClauses.push(`(${itBinConditions.join(" OR ")})`);
+      console.log("Final IT Bin conditions:", itBinConditions);
     } else if (isApprover && !isSuperAdmin) {
-      // Approver with no conditions resolved - return empty results
+      // Approver with no conditions - return empty results
       whereClauses.push("false");
-      console.warn("⚠️ No role conditions found - returning empty results");
+      console.warn("⚠️ No approver conditions found - returning empty results");
     }
 
     // ===============================================
