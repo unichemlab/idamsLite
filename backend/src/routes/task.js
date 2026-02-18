@@ -3,6 +3,7 @@ const router = express.Router();
 const taskController = require("../controllers/task");
 const authorize = require("../middleware/authorize");
 
+router.get("/task-itbin", authorize(), taskController.getITBinTasks);
 // Update a task - requires manage:tasks permission or admin role
 router.put("/tasks/:id", authorize(["manage:tasks", "admin"]), taskController.updateTask);
 // Get all tasks - Only requires authenticated user initially

@@ -356,6 +356,203 @@ exports.getAllTasks = async (req, res) => {
   }
 };
 
+exports.getITBinTasks = async (req, res) => {
+  let client;
+  try {
+    client = await pool.connect();
+
+    const {
+      plant,
+      plant_id,
+      transaction_id,
+      task_status,
+      access_request_type,
+    } = req.query;
+
+    // User should be available from authorize middleware
+    const user = req.user;
+    console.log("request user", user);
+
+    if (!user) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    const roleIds = Array.isArray(user.role_id) ? user.role_id : [user.role_id];
+    const isSuperAdmin = roleIds.includes(1);
+
+    console.log("user ITBin", user?.isITBin);
+    console.log("user itPlantIds", user?.itPlantIds);
+
+    // ===============================================
+    // ACCESS CONTROL
+    // Super admin → full access (no plant filter)
+    // IT Bin admin → filtered by itPlantIds
+    // Others → forbidden
+    // ===============================================
+    if (!isSuperAdmin && !user?.isITBin) {
+      return res.status(403).json({ message: "Access denied. IT Bin or Super Admin role required." });
+    }
+
+    const whereClauses = [];
+    const params = [];
+
+    // ===============================================
+    // IT BIN PLANT FILTER
+    // Super admins bypass this; IT Bin users are scoped to their plants
+    // ===============================================
+    if (!isSuperAdmin) {
+      if (!user.itPlantIds || user.itPlantIds.length === 0) {
+        return res.status(403).json({ message: "No IT Bin plants assigned to this user." });
+      }
+      params.push(user.itPlantIds);
+      whereClauses.push(`p.id = ANY($${params.length})`);
+      console.log("IT BIN filter applied for plants:", user.itPlantIds);
+    } else {
+      console.log("Super admin: no plant filter applied");
+    }
+
+    // ===============================================
+    // ADDITIONAL QUERY FILTERS
+    // ===============================================
+    if (plant) {
+      params.push(plant);
+      whereClauses.push(`p.plant_name = $${params.length}`);
+    }
+
+    if (plant_id) {
+      params.push(plant_id);
+      whereClauses.push(`tr.location = $${params.length}`);
+    }
+
+    if (transaction_id) {
+      params.push(transaction_id);
+      whereClauses.push(`ur.transaction_id = $${params.length}`);
+    }
+
+    if (task_status) {
+      params.push(task_status);
+      whereClauses.push(`tr.task_status = $${params.length}`);
+    }
+
+    if (access_request_type) {
+      params.push(access_request_type);
+      whereClauses.push(`ur.access_request_type = $${params.length}`);
+    }
+
+    // ===============================================
+    // VALIDATE PARAMS BEFORE QUERY
+    // ===============================================
+    if (params.includes(undefined) || params.includes(null)) {
+      console.error("❌ ERROR: params array contains undefined/null values:", params);
+      return res.status(500).json({
+        error: "Invalid query parameters",
+        details: "User authentication data is incomplete",
+      });
+    }
+
+    // ===============================================
+    // BUILD AND EXECUTE QUERY
+    // ===============================================
+    const whereSQL = whereClauses.length ? `WHERE ${whereClauses.join(" AND ")}` : "";
+
+    console.log("WHERE clauses:", whereClauses);
+    console.log("Executing query with params:", params);
+
+    const query = `
+      SELECT 
+        ur.id AS user_request_id,
+        ur.transaction_id AS user_request_transaction_id,
+        ur.request_for_by,
+        ur.name AS request_name,
+        ur.employee_code,
+        ur.employee_location,
+        ur.access_request_type,
+        ur.training_status,
+        ur.training_attachment,
+        ur.training_attachment_name,
+        ur.vendor_name,
+        ur.vendor_firm,
+        ur.vendor_code,
+        ur.vendor_allocated_id,
+        ur.status AS user_request_status,
+        ur.approver1_status,
+        ur.approver2_status,
+        ur.created_on AS user_request_created_on,
+        tr.id AS task_id,
+        tr.transaction_id AS task_request_transaction_id,
+        tr.application_equip_id,
+        app.display_name AS application_name,
+        tr.department,
+        d.department_name,
+        tr.role,
+        r.role_name AS role_name,
+        p.plant_name AS plant_name,
+        tr.location,
+        tr.reports_to,
+        tr.task_status,
+        tr.remarks,
+        tr.created_on AS task_created_on,
+        tr.approver1_name,
+        tr.approver1_email,
+        tr.approver2_name,
+        tr.approver2_email,
+        tr.approver1_action,
+        tr.approver2_action,
+        tr.approver1_action_timestamp,
+        tr.approver2_action_timestamp,
+        -- Aggregate all task_closure records into a JSON array
+        COALESCE(
+          (
+            SELECT json_agg(
+              json_build_object(
+                'assignment_group', tc_sub.assignment_group,
+                'role_granted', tc_sub.role_granted,
+                'access', tc_sub.access,
+                'assigned_to', tc_sub.assigned_to,
+                'status', tc_sub.status,
+                'from_date', tc_sub.from_date,
+                'to_date', tc_sub.to_date,
+                'updated_on', tc_sub.updated_on,
+                'assigned_to_name', um_sub.employee_name,
+                'closure_assigned_to_email', um_sub.email,
+                'closure_assigned_to_department', um_sub.department,
+                'closure_assigned_to_location', um_sub.location
+              )
+            )
+            FROM task_closure tc_sub
+            LEFT JOIN user_master um_sub ON tc_sub.assigned_to = um_sub.id
+            WHERE tc_sub.task_number = tr.transaction_id
+              AND tc_sub.ritm_number = ur.transaction_id
+          ),
+          '[]'::json
+        ) AS task_closures
+      FROM task_requests tr
+      LEFT JOIN user_requests ur ON tr.user_request_id = ur.id
+      LEFT JOIN department_master d ON tr.department = d.id
+      LEFT JOIN role_master r ON tr.role = r.id
+      LEFT JOIN plant_master p ON tr.location = p.id
+      LEFT JOIN application_master app ON tr.application_equip_id = app.id
+      ${whereSQL}
+      ORDER BY tr.created_on DESC, ur.id;
+    `;
+
+    const { rows } = await client.query(query, params);
+
+    res.json(rows);
+  } catch (err) {
+    console.error("❌ Error fetching IT Bin tasks:", err);
+    return res.status(500).json({ error: err.message });
+  } finally {
+    if (client) {
+      try {
+        await client.release();
+      } catch (releaseErr) {
+        console.error("Error releasing client:", releaseErr);
+      }
+    }
+  }
+};
+
 // Update task by ID
 exports.updateTask = async (req, res) => {
   const { id } = req.params; // task_request ID

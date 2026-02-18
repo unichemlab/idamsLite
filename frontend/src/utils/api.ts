@@ -137,7 +137,7 @@ export async function fetchActivityLog(): Promise<any[]> {
 }
 
 export async function fetchTaskLog(): Promise<any[]> {
-  return request("/api/task");
+  return request("/api/task/task-itbin");
 }
 
 export async function addSystemAPI(system: any): Promise<any> {
