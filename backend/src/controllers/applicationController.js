@@ -767,7 +767,7 @@ exports.getRoleApplicationIDByPlantIdandDepartment = async (req, res) => {
     }
 
     const result = await db.query(
-      `SELECT DISTINCT r.id AS role_id, r.role_name AS role_name, a.id AS application_id, a.display_name,a.multiple_role_access 
+      `SELECT DISTINCT r.id AS role_id, r.role_name AS role_name, a.id AS application_id, a.display_name, a.multiple_role_access 
        FROM application_master a
        JOIN role_master r ON r.id = ANY(string_to_array(a.role_id, ',')::int[])
        WHERE a.plant_location_id = $1 AND a.department_id = $2 AND a.status='ACTIVE'
@@ -781,7 +781,7 @@ exports.getRoleApplicationIDByPlantIdandDepartment = async (req, res) => {
       });
     }
 
-    // Unique roles
+    // Unique roles (all roles across all applications)
     const roles = Array.from(
       new Set(
         result.rows.map((row) =>
@@ -797,13 +797,22 @@ exports.getRoleApplicationIDByPlantIdandDepartment = async (req, res) => {
           JSON.stringify({
             id: row.application_id,
             name: row.display_name,
-            multiple_role_access:row.multiple_role_access
+            multiple_role_access: row.multiple_role_access,
           })
         )
       )
     ).map((item) => JSON.parse(item));
 
-    res.status(200).json({ roles, applications });
+    // ── NEW: Raw app-role mapping rows ──
+    // Each entry links a specific role to a specific application.
+    // Frontend uses this to filter roles per selected application_id.
+    const appRoles = result.rows.map((row) => ({
+      role_id: row.role_id,
+      role_name: row.role_name,
+      application_id: String(row.application_id),
+    }));
+
+    res.status(200).json({ roles, applications, appRoles });
   } catch (err) {
     console.error("Error fetching roles and applications:", err);
     res.status(500).json({ error: err.message });

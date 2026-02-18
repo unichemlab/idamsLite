@@ -84,7 +84,9 @@ const AddUserRequest: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [deactivatedAccessWarning, setDeactivatedAccessWarning] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
+ const [allAppRoles, setAllAppRoles] = useState<
+    { role_id: number; role_name: string; application_id: string }[]
+  >([]);
   
   // ===================== Main Form State =====================
   const [form, setForm] = useState<UserRequest>({
@@ -185,10 +187,16 @@ const AddUserRequest: React.FC = () => {
   const buildBulkRoleOptions = (rowIndex: number, appId: string): RoleOption[] => {
     const usedRoles = getUsedRolesForApplication(appId, rowIndex);
 
-    return roles.map(role => {
+   // Filter roles specifically for this application from allAppRoles
+    const appSpecificRoles = appId && allAppRoles.length > 0
+      ? allAppRoles
+          .filter(row => String(row.application_id) === String(appId))
+          .map(row => ({ id: row.role_id, name: row.role_name }))
+      : roles;
+
+    return appSpecificRoles.map(role => {
       const roleId = String(role.id);
       const disabled = usedRoles.includes(roleId);
-
       return {
         value: roleId,
         label: role.name,
@@ -1367,7 +1375,23 @@ const AddUserRequest: React.FC = () => {
       )
         .then((res) => res.json())
         .then((data) => {
-          setRoles(Array.isArray(data.roles) ? data.roles : []);
+          // Backend returns appRoles (raw rows with role_id + application_id mapping).
+          // If not present, derive from roles+applications for backward compatibility.
+          const rawAppRoles: { role_id: number; role_name: string; application_id: string }[] =
+            Array.isArray(data.appRoles)
+              ? data.appRoles
+              : // Fallback: if backend doesn't yet return appRoles, use all roles mapped to all apps
+                // This maintains backward compatibility until the backend is updated
+                (Array.isArray(data.roles) && Array.isArray(data.applications))
+                  ? data.applications.flatMap((app: any) =>
+                      data.roles.map((role: any) => ({
+                        role_id: role.id,
+                        role_name: role.name,
+                        application_id: String(app.id),
+                      }))
+                    )
+                  : [];
+          setAllAppRoles(rawAppRoles);
           setApplications(
             Array.isArray(data.applications) ? data.applications : []
           );
@@ -1375,9 +1399,25 @@ const AddUserRequest: React.FC = () => {
         .catch(() => {
           setRoles([]);
           setApplications([]);
+          setAllAppRoles([]);
         });
     }
   }, [form.plant_location, form.department]);
+
+// ── Filter roles by selected applicationId (plant + dept + app_id) ──
+  useEffect(() => {
+    if (form.applicationId && allAppRoles.length > 0) {
+      const filtered = allAppRoles
+        .filter(row => String(row.application_id) === String(form.applicationId))
+        .map(row => ({ id: row.role_id, name: row.role_name }));
+      setRoles(filtered);
+      // Reset role selection when application changes
+      setForm(prev => ({ ...prev, role: [] }));
+    } else if (!form.applicationId) {
+      setRoles([]);
+    }
+  }, [form.applicationId, allAppRoles]);
+
   useEffect(() => {
 
     fetchVendors()
