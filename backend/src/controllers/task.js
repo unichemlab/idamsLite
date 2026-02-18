@@ -996,6 +996,7 @@ console.log("rows task fetched",rows[0].application_name);
     const plantId = rows[0].plant_id;
     let itAdminGroup = null;
     let itAdminUsers = [];
+    let tcallocated=null;
 
 //fetch allocatedId from task closure 
 
@@ -1003,16 +1004,19 @@ const TaskClosureAllocated = await pool.query(
         `SELECT allocated_id
            FROM task_closure
           WHERE plant_name = $1 
-          AND   location = $2
-          AND department = $3
-          AND application_name = $4
-          AND access_request_type=$5
+          AND department = $2
+          AND application_name = $3
+          AND access_request_type=$4
           ORDER BY id DESC
         LIMIT 1`,
-        [rows[0].plant_name,rows[0].employee_location,rows[0].department_name,rows[0].application_name,
-           'New User Creation']
+        [rows[0].plant_name,rows[0].department_name,rows[0].application_name,'New User Creation']
       );
-console.log("TaskClosureAllocated",TaskClosureAllocated.rows[0].allocated_id);
+
+
+ if (TaskClosureAllocated.rows.length > 0) {
+  console.log("TaskClosureAllocated",TaskClosureAllocated.rows[0].allocated_id);
+  tcallocated = TaskClosureAllocated.rows[0].allocated_id;
+ }
 
 
     // Step 2: Fetch assignment_it_group from plant_it_admin where status = ACTIVE
@@ -1085,7 +1089,7 @@ console.log("TaskClosureAllocated",TaskClosureAllocated.rows[0].allocated_id);
       vendor_firm: rows[0].vendor_firm,
       vendor_code: rows[0].vendor_code,
       vendor_allocated_id: rows[0].vendor_allocated_id,
-      allocatedId:TaskClosureAllocated.rows[0].allocated_id,
+      allocatedId:tcallocated||rows[0].employee_code,
       status: rows[0].user_request_status,
       tasks: rows
         .filter((r) => r.task_id)
