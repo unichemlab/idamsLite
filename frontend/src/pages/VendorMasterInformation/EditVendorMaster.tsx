@@ -265,7 +265,11 @@ const handleConfirmLogin = (data: Record<string, string>) => {
                   <textarea
                     name="description"
                     value={form.description}
-                    onChange={handleChange}
+                     onChange={(e) => {
+                          if (e.target.value.length <= 1000) {
+                            handleChange(e);
+                          }
+                        }}
                     required
                     className={styles.textarea}
                     rows={1}
@@ -274,6 +278,9 @@ const handleConfirmLogin = (data: Record<string, string>) => {
                   <label className={styles.floatingLabel}>
                     Description <span className={styles.required}>*</span>
                   </label>
+                  <div className={styles.charCounter}>
+                        {(form.description?.length || 0)}/1000
+                      </div>
                 </div>
               </div>
             </div>

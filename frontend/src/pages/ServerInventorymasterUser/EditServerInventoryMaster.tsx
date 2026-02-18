@@ -1,7 +1,7 @@
 import React, { useContext, useState, useEffect } from "react";
 import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
 import { useNavigate, useParams } from "react-router-dom";
-import { ServerContext,Server } from "../ServerInventorymasterUser/ServerContext";
+import { ServerContext, Server } from "../ServerInventorymasterUser/ServerContext";
 import { useAuth } from "../../context/AuthContext";
 import AppHeader from "../../components/Common/AppHeader";
 import { fetchPlants } from "../../utils/api";
@@ -21,7 +21,7 @@ const EditServerInventory: React.FC = () => {
 
   // Find server by id
   const server = serverCtx?.servers.find((s: Server) => String(s.id) === id);
-  
+
   const [form, setForm] = useState<Server>({
     id: server?.id ?? 0,
     transaction_id: server?.transaction_id ?? "",
@@ -78,13 +78,13 @@ const EditServerInventory: React.FC = () => {
     created_on: server?.created_on ?? "",
     updated_on: server?.updated_on ?? "",
   });
-  
+
   const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
     fetchPlants().then(setPlants);
   }, []);
-const plantOptions = Array.isArray(plants)
+  const plantOptions = Array.isArray(plants)
     ? plants
       .filter((plant: any) => {
         // 🔥 Super Admin → all plants
@@ -118,47 +118,47 @@ const plantOptions = Array.isArray(plants)
   if (!serverCtx || id === undefined || !server) return <div>Server not found</div>;
 
   const handleChange = (
-  e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-) => {
-  const { name, value, type } = e.target;
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value, type } = e.target;
 
-  let finalValue: any = value;
+    let finalValue: any = value;
 
-  if (type === "checkbox") {
-    finalValue = (e.target as HTMLInputElement).checked;
-  } else if (type === "number") {
-    finalValue = Number(value);
-  } else if (value === "true") {
-    finalValue = true;
-  } else if (value === "false") {
-    finalValue = false;
-  }
-
-  setForm((prev) => {
-    const updatedForm = { ...prev, [name]: finalValue };
-
-    // 🔹 Automatically adjust dependent dates
-    if (name === "start_date" && prev.end_date) {
-      const start = new Date(finalValue);
-      const end = new Date(prev.end_date);
-      if (end < start) {
-        // set end_date to same as start_date
-        updatedForm.end_date = finalValue;
-      }
+    if (type === "checkbox") {
+      finalValue = (e.target as HTMLInputElement).checked;
+    } else if (type === "number") {
+      finalValue = Number(value);
+    } else if (value === "true") {
+      finalValue = true;
+    } else if (value === "false") {
+      finalValue = false;
     }
 
-    if (name === "warranty_new_start_date" && prev.amc_warranty_expiry_date) {
-      const start = new Date(finalValue);
-      const expiry = new Date(prev.amc_warranty_expiry_date);
-      if (expiry < start) {
-        // set amc_warranty_expiry_date to same as start
-        updatedForm.amc_warranty_expiry_date = finalValue;
-      }
-    }
+    setForm((prev) => {
+      const updatedForm = { ...prev, [name]: finalValue };
 
-    return updatedForm;
-  });
-};
+      // 🔹 Automatically adjust dependent dates
+      if (name === "start_date" && prev.end_date) {
+        const start = new Date(finalValue);
+        const end = new Date(prev.end_date);
+        if (end < start) {
+          // set end_date to same as start_date
+          updatedForm.end_date = finalValue;
+        }
+      }
+
+      if (name === "warranty_new_start_date" && prev.amc_warranty_expiry_date) {
+        const start = new Date(finalValue);
+        const expiry = new Date(prev.amc_warranty_expiry_date);
+        if (expiry < start) {
+          // set amc_warranty_expiry_date to same as start
+          updatedForm.amc_warranty_expiry_date = finalValue;
+        }
+      }
+
+      return updatedForm;
+    });
+  };
 
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -178,79 +178,79 @@ const plantOptions = Array.isArray(plants)
       }
     }
   };
-const formatDateForInput = (dateStr?: string | null) => {
-  if (!dateStr) return "";
-  const date = new Date(dateStr);
-  if (isNaN(date.getTime())) return ""; // invalid date
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-};
-
-  const handleCancel = () => {
-    setShowConfirm(false);
-  };
-
-  const input = (
-  name: keyof Server,
-  label: string,
-  type: string = "text",
-  isRequired: boolean = false,
-  isDisabled: boolean = false
-) => {
-  const isStartDate = name === "warranty_new_start_date" || name === "start_date";
-  const isExpiryDate = name === "amc_warranty_expiry_date" || name === "end_date";
-
-  // Today's date in YYYY-MM-DD
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth() + 1).padStart(2, "0");
-  const dd = String(today.getDate()).padStart(2, "0");
-  const minToday = `${yyyy}-${mm}-${dd}`;
-
-  // Helper to get the next day after a date
-  const getNextDay = (dateStr?: string) => {
+  const formatDateForInput = (dateStr?: string | null) => {
     if (!dateStr) return "";
     const date = new Date(dateStr);
-    date.setDate(date.getDate() + 1);
+    if (isNaN(date.getTime())) return ""; // invalid date
     const yyyy = date.getFullYear();
     const mm = String(date.getMonth() + 1).padStart(2, "0");
     const dd = String(date.getDate()).padStart(2, "0");
     return `${yyyy}-${mm}-${dd}`;
   };
 
-  // Set min value dynamically
-  let minValue: string | undefined;
-  if (isExpiryDate) {
-    const startField =
-      name === "amc_warranty_expiry_date" ? "warranty_new_start_date" : "start_date";
-    minValue = form[startField] ? getNextDay(form[startField]) : minToday;
-  }
+  const handleCancel = () => {
+    setShowConfirm(false);
+  };
 
-  return (
-    <div className={styles.formGroupFloating}>
-      <input
-        type={type}
-        name={name}
-        value={
-          type === "date"
-            ? formatDateForInput(form[name] as string) // 🔹 ensure proper YYYY-MM-DD
-            : (form[name] as any) || ""
-        }
-        onChange={handleChange}
-        required={isRequired}
-        disabled={isDisabled}
-        min={type === "date" ? minValue : undefined}
-        className={styles.input}
-      />
-      <label className={styles.floatingLabel}>
-        {label}
-        {isRequired && <span className={styles.required}> *</span>}
-      </label>
-    </div>
-  );
-};
+  const input = (
+    name: keyof Server,
+    label: string,
+    type: string = "text",
+    isRequired: boolean = false,
+    isDisabled: boolean = false
+  ) => {
+    const isStartDate = name === "warranty_new_start_date" || name === "start_date";
+    const isExpiryDate = name === "amc_warranty_expiry_date" || name === "end_date";
+
+    // Today's date in YYYY-MM-DD
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    const minToday = `${yyyy}-${mm}-${dd}`;
+
+    // Helper to get the next day after a date
+    const getNextDay = (dateStr?: string) => {
+      if (!dateStr) return "";
+      const date = new Date(dateStr);
+      date.setDate(date.getDate() + 1);
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, "0");
+      const dd = String(date.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
+    };
+
+    // Set min value dynamically
+    let minValue: string | undefined;
+    if (isExpiryDate) {
+      const startField =
+        name === "amc_warranty_expiry_date" ? "warranty_new_start_date" : "start_date";
+      minValue = form[startField] ? getNextDay(form[startField]) : minToday;
+    }
+
+    return (
+      <div className={styles.formGroupFloating}>
+        <input
+          type={type}
+          name={name}
+          value={
+            type === "date"
+              ? formatDateForInput(form[name] as string) // 🔹 ensure proper YYYY-MM-DD
+              : (form[name] as any) || ""
+          }
+          onChange={handleChange}
+          required={isRequired}
+          disabled={isDisabled}
+          min={type === "date" ? minValue : undefined}
+          className={styles.input}
+        />
+        <label className={styles.floatingLabel}>
+          {label}
+          {isRequired && <span className={styles.required}> *</span>}
+        </label>
+      </div>
+    );
+  };
 
 
   const isVirtualSelected = form.vm_type === "Virtual";
@@ -288,8 +288,8 @@ const formatDateForInput = (dateStr?: string | null) => {
               ? form[name] === true
                 ? "true"
                 : form[name] === false
-                ? "false"
-                : ""
+                  ? "false"
+                  : ""
               : ((form[name] as any) || "")
           }
           onChange={handleChange}
@@ -365,7 +365,7 @@ const formatDateForInput = (dateStr?: string | null) => {
               style={{ padding: 10 }}
             >
               <div className={styles.scrollFormContainer}>
-                
+
                 {/* User Details Section */}
                 <div className={styles.section}>
                   <span className={styles.sectionHeaderTitle}>User Details</span>
@@ -452,16 +452,30 @@ const formatDateForInput = (dateStr?: string | null) => {
                 <div className={styles.section}>
                   <span className={styles.sectionHeaderTitle}>Additional Details</span>
                   <div className={styles.rowFields}>
+
+                    {select("status", "Status", ["ACTIVE", "INACTIVE"], true)}
                     <div className={styles.formGroupFloating} style={{ flex: "1 1 100%" }}>
+
                       <textarea
                         name="remarks"
                         value={form.remarks}
-                        onChange={handleChange}
+                        onChange={(e) => {
+                          if (e.target.value.length <= 1000) {
+                            handleChange(e);
+                          }
+                        }}
+                        required
                         className={styles.textarea}
+                        rows={5}
+                        placeholder="Enter Remarks..."
                       />
-                      <label className={styles.floatingLabel}>Remarks</label>
+                      <label className={styles.floatingLabel}>
+                        Remarks <span className={styles.required}>*</span>
+                      </label>
+                      <div className={styles.charCounter}>
+                        {(form.remarks?.length || 0)}/1000
+                      </div>
                     </div>
-                    {select("status", "Status", ["ACTIVE", "INACTIVE"], true)}
                   </div>
                 </div>
 

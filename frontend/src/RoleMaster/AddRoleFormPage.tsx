@@ -154,27 +154,28 @@ export default function AddRoleFormPage({ onCancel }: AddRoleFormPageProps) {
                   </select>
                 </div>
               </div>
-              <div
-                className={Styles.formGroup}
-                style={{ width: "100%", marginTop: 18 }}
-              >
-                <label>Description</label>
-                <textarea
-                  name="description"
-                  value={form.description}
-                  onChange={handleFormChange}
-                  required
-                  className={Styles.textarea}
-                  rows={4}
-                  style={{
-                    minHeight: 120,
-                    resize: "vertical",
-                    width: "100%",
-                    fontSize: "1.1rem",
-                  }}
-                  placeholder="Enter description..."
-                />
-              </div>
+              <div className={styles.formGroupFloating}>
+
+                    <textarea
+                      name="description"
+                      value={form.description}
+                      onChange={(e) => {
+                        if (e.target.value.length <= 1000) {
+                          handleFormChange(e);
+                        }
+                      }}
+                      required
+                      className={styles.textarea}
+                      rows={5}
+                      placeholder="Enter description..."
+                    />
+                    <label className={styles.floatingLabel}>
+                      Description <span className={styles.required}>*</span>
+                    </label>
+                    <div className={styles.charCounter}>
+                      {(form.description?.length || 0)}/1000
+                    </div>
+                </div>
             </div>
             <div
               className={Styles.buttonRow}

@@ -765,18 +765,29 @@ const AddSystemInventory: React.FC = () => {
                     Additional Details
                   </span>
                   <div className={styles.rowFields}>
-
-
+                    {select("status", "Status", ["ACTIVE", "INACTIVE"], true)}
                     <div className={styles.formGroupFloating} style={{ flex: "1 1 100%" }}>
+
                       <textarea
                         name="remarks"
                         value={form.remarks}
-                        onChange={handleChange}
+                        onChange={(e) => {
+                          if (e.target.value.length <= 1000) {
+                            handleChange(e);
+                          }
+                        }}
+                        required
                         className={styles.textarea}
+                        rows={5}
+                        placeholder="Enter Remarks..."
                       />
-                      <label className={styles.floatingLabel}>Remarks</label>
+                      <label className={styles.floatingLabel}>
+                        Remarks <span className={styles.required}>*</span>
+                      </label>
+                      <div className={styles.charCounter}>
+                        {(form.remarks?.length || 0)}/1000
+                      </div>
                     </div>
-                    {select("status", "Status", ["ACTIVE", "INACTIVE"], true)}
                   </div>
                 </div>
               </div>

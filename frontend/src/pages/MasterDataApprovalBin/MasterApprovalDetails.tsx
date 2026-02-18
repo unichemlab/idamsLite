@@ -45,9 +45,9 @@ const MasterApprovalDetails: React.FC = () => {
   const { user } = useAuth();
   const [users, setUsers] = useState<{ id: number; name: string; username: string; employee_name: string }[]>([]);
   const [vendors, setVendors] = useState<{ id: number; vendor_name: string; name?: string }[]>([]);
-useEffect(() => { loadUsers(); loadVendors(); }, []);
+  useEffect(() => { loadUsers(); loadVendors(); }, []);
 
- const loadUsers = async () => {
+  const loadUsers = async () => {
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${API_BASE}/api/users`, {
@@ -64,20 +64,20 @@ useEffect(() => { loadUsers(); loadVendors(); }, []);
   };
 
   const loadVendors = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        const res = await fetch(`${API_BASE}/api/vendors`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const list = Array.isArray(data) ? data : data.vendors ?? [];
-          setVendors(list);
-        }
-      } catch (err) {
-        console.warn("Could not load vendors for name resolution:", err);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE}/api/vendors`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : data.vendors ?? [];
+        setVendors(list);
       }
-    };
+    } catch (err) {
+      console.warn("Could not load vendors for name resolution:", err);
+    }
+  };
 
   useEffect(() => {
     if (id) {
@@ -187,7 +187,7 @@ useEffect(() => { loadUsers(); loadVendors(); }, []);
 
   const getUserName = (id: number): string => {
     const found = users.find((u) => u.id === id);  // ✅ check fetched list first
-    console.log("found user",found);
+    console.log("found user", found);
     if (found) return found.name || found.username || found.employee_name;
     if (user && user.id === id) return user.name || user.username; // ✅ logged-in user fallback
     return `User ${id}`;  // ✅ last resort
@@ -205,9 +205,9 @@ useEffect(() => { loadUsers(); loadVendors(); }, []);
     /^[\d\s,]+$/.test(value) &&
     value.includes(",");
 
-    const isVendorKey = (key: string): boolean =>
+  const isVendorKey = (key: string): boolean =>
     key === "vendor_id" ||
-    key === "vendor" || key==="application_vendor"||
+    key === "vendor" || key === "application_vendor" ||
     /(_vendor_id|_vendor_name)$/.test(key) ||
     /^(vendor_|application_vendor)/.test(key);
 
@@ -257,10 +257,10 @@ useEffect(() => { loadUsers(); loadVendors(); }, []);
           typeof item === "number"
             ? key.includes("plant") ? getPlantName(item)
               : key.includes("department") || key.includes("dept") ? getDepartmentName(item)
-              : key.includes("role") ? getRoleName(item)
-              : key.includes("user") ? getUserName(item)
-              : key.includes("vendor") ? getVendorName(item)
-              : item
+                : key.includes("role") ? getRoleName(item)
+                  : key.includes("user") ? getUserName(item)
+                    : key.includes("vendor") ? getVendorName(item)
+                      : item
             : resolveIds(item)
         );
       } else if (typeof value === "object") {
@@ -624,19 +624,32 @@ useEffect(() => { loadUsers(); loadVendors(); }, []);
 
               <div className={styles.modalInputGroup}>
                 <label>
-                  {modalAction === "reject" ? "Rejection Reason *" : "Comments (Optional)"}
+                  {modalAction === "reject"
+                    ? "Rejection Reason *"
+                    : "Comments (Optional)"}
                 </label>
+
                 <textarea
-                  value={actionComments}
-                  onChange={(e) => setActionComments(e.target.value)}
+                  value={actionComments || ""}
+                  onChange={(e) => {
+                    if (e.target.value.length <= 2000) {
+                      setActionComments(e.target.value);
+                    }
+                  }}
                   placeholder={`Enter ${modalAction === "reject" ? "rejection reason" : "comments"
                     }...`}
                   rows={4}
                   className={styles.modalTextarea}
                   required={modalAction === "reject"}
                   disabled={actionInProgress}
+                  maxLength={2000}
                 />
+
+                <div className={styles.charCounter}>
+                  {(actionComments?.length || 0)}/2000
+                </div>
               </div>
+
             </div>
 
             <div className={styles.modalFooter}>

@@ -414,16 +414,30 @@ const AddNetwork: React.FC = () => {
                 <div className={styles.section}>
                   <span className={styles.sectionHeaderTitle}>Additional Details</span>
                   <div className={styles.rowFields}>
-                    <div className={styles.formGroupFloating} style={{ flex: "1 1 100%" }}>
-                      <textarea
-                        name="remarks"
-                        value={form.remarks}
-                        onChange={handleChange}
-                        className={styles.textarea}
-                      />
-                      <label className={styles.floatingLabel}>Remarks</label>
-                    </div>
+                    
                     {select("status", "Status", ["ACTIVE", "INACTIVE"], true)}
+                     <div className={styles.formGroupFloating} style={{ flex: "1 1 100%" }}>
+
+                    <textarea
+                      name="remarks"
+                      value={form.remarks}
+                      onChange={(e) => {
+                        if (e.target.value.length <= 1000) {
+                          handleChange(e);
+                        }
+                      }}
+                      required
+                      className={styles.textarea}
+                      rows={5}
+                      placeholder="Enter Remarks..."
+                    />
+                    <label className={styles.floatingLabel}>
+                      Remarks <span className={styles.required}>*</span>
+                    </label>
+                    <div className={styles.charCounter}>
+                      {(form.remarks?.length || 0)}/1000
+                    </div>
+                </div>
                   </div>
                 </div>
               </div>

@@ -599,7 +599,7 @@ const AddUserPanel = ({
                 "email",
                 "Email",
                 "email",
-                mode === "edit" 
+                mode === "edit"
               )}
               {input(
                 "empCode",
@@ -614,8 +614,8 @@ const AddUserPanel = ({
                 true,
                 mode === "edit"
               )}
-              {input("location", "Location","text",mode==="edit")}
-              {select("status", "Status", ["Active", "Inactive"],true,mode==="edit")}
+              {input("location", "Location", "text", mode === "edit")}
+              {select("status", "Status", ["Active", "Inactive"], true, mode === "edit")}
             </div>
           </div>
 
@@ -814,17 +814,36 @@ const AddUserPanel = ({
           <div className={styles.section}>
             <span className={styles.sectionHeaderTitle}>Additional Details</span>
             <div className={styles.textarea1}>
-              <div className={styles.formGroupFloating} style={{ flex: "1 1 100%" }}>
+              <div
+                className={styles.formGroupFloating}
+                style={{ flex: "1 1 100%" }}
+              >
                 <textarea
                   name="comment"
-                  value={form.comment}
-                  onChange={(e) => setForm({ ...form, comment: e.target.value })}
+                  value={form.comment || ""}
+                  onChange={(e) => {
+                    if (e.target.value.length <= 2000) {
+                      setForm({ ...form, comment: e.target.value });
+                    }
+                  }}
                   className={styles.textarea}
                   rows={3}
+                  maxLength={2000}
                 />
-                <label className={styles.floatingLabel}>Comment</label>
+
+                <label
+                  className={`${styles.floatingLabel} ${form.comment ? styles.filled : ""
+                    }`}
+                >
+                  Comment
+                </label>
+
+                <div className={styles.charCounter}>
+                  {(form.comment?.length || 0)}/2000
+                </div>
               </div>
             </div>
+
           </div>
         </div>
 
