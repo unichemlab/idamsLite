@@ -132,20 +132,28 @@ const EditDeptFormPage: React.FC = () => {
                   className={styles.formGroup}
                   style={{ width: "100%", padding: 15 }}
                 >
-                  <div className={styles.formGroupFloating}>
-                
-                  <textarea
-                    name="description"
-                    value={form.description}
-                    onChange={handleChange}
-                    required
-                    className={styles.textarea}
-                    rows={5}
-                    placeholder="Enter department description..."
-                  />
+                  
+                <div className={styles.formGroupFloating}>
+
+                    <textarea
+                      name="description"
+                      value={form.description}
+                      onChange={(e) => {
+                        if (e.target.value.length <= 1000) {
+                          handleChange(e);
+                        }
+                      }}
+                      required
+                      className={styles.textarea}
+                      rows={5}
+                      placeholder="Enter department description..."
+                    />
                     <label className={styles.floatingLabel}>
-                    Description <span className={styles.required}>*</span>
-                  </label>
+                      Description <span className={styles.required}>*</span>
+                    </label>
+                    <div className={styles.charCounter}>
+                      {(form.description?.length || 0)}/1000
+                    </div>
                 </div>
               </div>
 

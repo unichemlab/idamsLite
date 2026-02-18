@@ -3096,7 +3096,11 @@ const AddUserRequest: React.FC = () => {
                     <textarea
                       name="remarks"
                       value={form.remarks}
-                      onChange={handleChange}
+                       onChange={(e) => {
+                                            if (e.target.value.length <= 1000) {
+                                              handleChange(e);
+                                            }
+                                          }}
                       style={{
                         minHeight: "40px",
                         maxHeight: "42px",
@@ -3107,6 +3111,9 @@ const AddUserRequest: React.FC = () => {
                     <label htmlFor="remarks" className={addUserRequestStyles.floatingLabel}>
                       Remarks
                     </label>
+                    <div className={addUserRequestStyles.charCounter}>
+                                          {(form.remarks?.length || 0)}/1000
+                                        </div>
                   </div>
 
                   {/* Info message */}
@@ -3415,18 +3422,29 @@ const AddUserRequest: React.FC = () => {
                         )}
                       </div>
                     )}
-                    <div className={addUserRequestStyles.formGroup}>
-                      <label></label>
-                      <textarea
-                        name="remarks"
-                        value={form.remarks}
-                        onChange={handleChange}
-                        maxLength={50}
-                      />
-
-                      <label htmlFor="remarks" className={addUserRequestStyles.floatingLabel}>
-                        Remarks</label>
-                    </div>
+                     <div className={addUserRequestStyles.formGroup}>
+                    <textarea
+                      name="remarks"
+                      value={form.remarks}
+                       onChange={(e) => {
+                                            if (e.target.value.length <= 1000) {
+                                              handleChange(e);
+                                            }
+                                          }}
+                      style={{
+                        minHeight: "40px",
+                        maxHeight: "42px",
+                        resize: "vertical",
+                      }}
+                      maxLength={50}
+                    />
+                    <label htmlFor="remarks" className={addUserRequestStyles.floatingLabel}>
+                      Remarks
+                    </label>
+                    <div className={addUserRequestStyles.charCounter}>
+                                          {(form.remarks?.length || 0)}/1000
+                                        </div>
+                  </div>
                   </div>
                 )}
               {isBulkDeactivation && (

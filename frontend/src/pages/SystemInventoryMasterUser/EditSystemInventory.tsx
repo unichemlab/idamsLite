@@ -764,15 +764,6 @@ const EditSystemInventory: React.FC = () => {
                 <div className={styles.section}>
                   <span className={styles.sectionHeaderTitle}>Additional Information</span>
                   <div className={styles.rowFields}>
-                    <div className={styles.formGroupFloating} style={{ flex: "1 1 100%" }}>
-                      <textarea
-                        className={styles.textarea}
-                        name="remarks"
-                        value={form.remarks ?? ""}
-                        onChange={handleChange}
-                      />
-                      <label className={styles.floatingLabel}>Remarks</label>
-                    </div>
                     <div className={styles.formGroupFloating}>
                       <select
                         name="status"
@@ -819,6 +810,28 @@ const EditSystemInventory: React.FC = () => {
                           {statusError}
                         </div>
                       )}
+                    </div>
+                    <div className={styles.formGroupFloating} style={{ flex: "1 1 100%" }}>
+
+                      <textarea
+                        name="remarks"
+                        value={form.remarks}
+                        onChange={(e) => {
+                          if (e.target.value.length <= 1000) {
+                            handleChange(e);
+                          }
+                        }}
+                        required
+                        className={styles.textarea}
+                        rows={5}
+                        placeholder="Enter Remarks..."
+                      />
+                      <label className={styles.floatingLabel}>
+                        Remarks <span className={styles.required}>*</span>
+                      </label>
+                      <div className={styles.charCounter}>
+                        {(form.remarks?.length || 0)}/1000
+                      </div>
                     </div>
 
                   </div>

@@ -807,21 +807,46 @@ const TaskClosureForm = () => {
               <div className={addUserRequestStyles.formGroup}>
                 <textarea
                   name="additionalInfo"
-                  value={formData.additionalInfo}
-                  onChange={handleChange}
-                  rows={1}
+                  value={formData.additionalInfo || ""}
+                  onChange={(e) => {
+                    if (e.target.value.length <= 1000) {
+                      handleChange(e);
+                    }
+                  }}
+                  rows={3}
+                  maxLength={1000}
                 />
-                <label htmlFor="additionalInfo" className={addUserRequestStyles.floatingLabel}>Additional Information</label>
+
+                <label
+                  htmlFor="additionalInfo"
+                  className={`${addUserRequestStyles.floatingLabel} ${formData.additionalInfo ? addUserRequestStyles.filled : ""
+                    }`}
+                >
+                  Additional Information
+                </label>
+
+                {/* Character Counter */}
+                <div className={addUserRequestStyles.charCounter}>
+                  {(formData.additionalInfo?.length || 0)}/1000
+                </div>
               </div>
+
 
               <div className={addUserRequestStyles.formGroup}>
                 <textarea
                   name="remarks"
                   value={formData.remarks}
-                  onChange={handleChange}
-                  rows={1}
+                  onChange={(e) => {
+                    if (e.target.value.length <= 1000) {
+                      handleChange(e);
+                    }
+                  }}
+                  rows={3}
                 />
                 <label htmlFor="remarks" className={addUserRequestStyles.floatingLabel}>Remarks</label>
+                <div className={addUserRequestStyles.charCounter}>
+                  {(formData.remarks?.length || 0)}/1000
+                </div>
               </div>
             </div>
 

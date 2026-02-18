@@ -154,19 +154,27 @@ export default function EditRoleFormPage({
                 style={{ width: "100%",padding:15 }}
               >
               <div className={styles.formGroupFloating}>
-                <textarea
-                  name="description"
-                  value={form.description}
-                  onChange={handleFormChange}
-                  required
-                  className={styles.textarea}
-                  rows={5}
-                  placeholder="Enter description..."
-                />
-                 <label className={styles.floatingLabel}>
+
+                    <textarea
+                      name="description"
+                      value={form.description}
+                      onChange={(e) => {
+                        if (e.target.value.length <= 1000) {
+                          handleFormChange(e);
+                        }
+                      }}
+                      required
+                      className={styles.textarea}
+                      rows={5}
+                      placeholder="Enter description..."
+                    />
+                    <label className={styles.floatingLabel}>
                       Description <span className={styles.required}>*</span>
                     </label>
-              </div>
+                    <div className={styles.charCounter}>
+                      {(form.description?.length || 0)}/1000
+                    </div>
+                </div>
               </div>
             </div>
             <div className={styles.formFotter}>

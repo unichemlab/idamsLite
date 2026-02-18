@@ -77,7 +77,7 @@ const MasterApprovalBin: React.FC = () => {
   const [vendors, setVendors] = useState<{ id: number; vendor_name: string; name?: string }[]>([]);
   useEffect(() => { loadUsers(); loadVendors(); }, []);
 
- const loadUsers = async () => {
+  const loadUsers = async () => {
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${API_BASE}/api/users`, {
@@ -243,9 +243,9 @@ const MasterApprovalBin: React.FC = () => {
     /^[\d\s,]+$/.test(value) &&
     value.includes(",");
 
-    const isVendorKey = (key: string): boolean =>
+  const isVendorKey = (key: string): boolean =>
     key === "vendor_id" ||
-    key === "vendor" || key==="application_vendor"||
+    key === "vendor" || key === "application_vendor" ||
     /(_vendor_id|_vendor_name)$/.test(key) ||
     /^(vendor_|application_vendor)/.test(key);
 
@@ -295,10 +295,10 @@ const MasterApprovalBin: React.FC = () => {
           typeof item === "number"
             ? key.includes("plant") ? getPlantName(item)
               : key.includes("department") || key.includes("dept") ? getDepartmentName(item)
-              : key.includes("role") ? getRoleName(item)
-              : key.includes("user") ? getUserName(item)
-              : key.includes("vendor") ? getVendorName(item)
-              : item
+                : key.includes("role") ? getRoleName(item)
+                  : key.includes("user") ? getUserName(item)
+                    : key.includes("vendor") ? getVendorName(item)
+                      : item
             : resolveIds(item)
         );
       } else if (typeof value === "object") {
@@ -553,15 +553,28 @@ const MasterApprovalBin: React.FC = () => {
                 <label>
                   {modalAction === "reject" ? "Rejection Reason *" : "Comments (Optional)"}
                 </label>
+
                 <textarea
-                  value={actionComments}
-                  onChange={(e) => setActionComments(e.target.value)}
-                  placeholder={`Enter ${modalAction === "reject" ? "rejection reason" : "comments"}...`}
+                  value={actionComments || ""}
+                  onChange={(e) => {
+                    if (e.target.value.length <= 2000) {
+                      setActionComments(e.target.value);
+                    }
+                  }}
+                  placeholder={`Enter ${modalAction === "reject" ? "rejection reason" : "comments"
+                    }...`}
                   rows={4}
                   className={styles.commentsTextarea}
                   required={modalAction === "reject"}
+                  maxLength={2000}
                 />
+
+                {/* Character Counter */}
+                <div className={styles.charCounter}>
+                  {(actionComments?.length || 0)}/2000
+                </div>
               </div>
+
             </div>
 
             <div className={styles.modalFooter}>
