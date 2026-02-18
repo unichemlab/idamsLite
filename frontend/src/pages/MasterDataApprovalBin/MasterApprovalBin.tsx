@@ -1,15 +1,20 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchApprovals, approveApproval, rejectApproval } from "../../utils/api";
 import styles from "./MasterApprovalBin.module.css";
 import plantStyles from "../Plant/PlantMasterTable.module.css";
 import AppHeader from "../../components/Common/AppHeader";
 import paginationStyles from "../../styles/Pagination.module.css";
+import { API_BASE } from "../../utils/api";
 import { FiChevronDown, FiLogOut } from "react-icons/fi";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import LockIcon from "@mui/icons-material/Lock";
+import { useDepartmentContext } from "..//DepartmentTable/DepartmentContext";
+import { usePlantContext } from "../Plant/PlantContext";
+import { useRoles } from "../RoleMasterUser/RolesContext";
+import { useAuth } from "../../context/AuthContext";
 import {
   Button,
   Dialog,
@@ -54,6 +59,7 @@ const MasterApprovalBin: React.FC = () => {
   const navigate = useNavigate();
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
   const [filter, setFilter] = useState({
     module: "all",
     status: "PENDING",
@@ -64,10 +70,47 @@ const MasterApprovalBin: React.FC = () => {
   const [actionComments, setActionComments] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 10;
-useEffect(() => {
-  setCurrentPage(1);   // Reset page
-  loadApprovals();
-}, [filter]);
+  const { plants } = usePlantContext();
+  const { departments } = useDepartmentContext();
+  const { roles } = useRoles(); // Assuming you have this
+  const [users, setUsers] = useState<{ id: number; name: string; username: string }[]>([]);
+  const [vendors, setVendors] = useState<{ id: number; vendor_name: string; name?: string }[]>([]);
+  useEffect(() => { loadUsers(); loadVendors(); }, []);
+
+ const loadUsers = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE}/api/users`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : data.users ?? [];
+        setUsers(list);
+      }
+    } catch (err) {
+      console.warn("Could not load users for name resolution:", err);
+    }
+  };
+  const loadVendors = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE}/api/vendors`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : data.vendors ?? [];
+        setVendors(list);
+      }
+    } catch (err) {
+      console.warn("Could not load vendors for name resolution:", err);
+    }
+  };
+  useEffect(() => {
+    setCurrentPage(1);   // Reset page
+    loadApprovals();
+  }, [filter]);
   const loadApprovals = async () => {
     try {
       setLoading(true);
@@ -165,13 +208,115 @@ useEffect(() => {
     return new Date(dateString).toLocaleString();
   };
 
+  const getPlantName = (id: number): string => {
+    const plant = plants.find((p) => p.id === id);
+    return plant?.plant_name ?? `Plant ${id}`;
+  };
+
+  const getDepartmentName = (id: number): string => {
+    const dept = departments.find((d) => d.id === id);
+    return dept ? dept.department_name || dept.name : `Dept ${id}`;
+  };
+
+  const getRoleName = (id: number): string => {
+    const role = roles.find((r) => r.id === id);
+    return role ? role.name : `Role ${id}`;
+  };
+
+  const getUserName = (id: number): string => {
+    const found = users.find((u) => u.id === id);  // ✅ check fetched list first
+    if (found) return found.name || found.username;
+    if (user && user.id === id) return user.name || user.username; // ✅ logged-in user fallback
+    return `User ${id}`;  // ✅ last resort
+  };
+
+  const getVendorName = (id: number): string => {
+    const found = vendors.find((v) => v.id === id);
+    return found ? found.vendor_name || found.name || `Vendor ${id}` : `Vendor ${id}`;
+  };
+
+  /** Replace known ID fields with their human-readable names in a data object */
+  /** Detect comma-separated numeric strings like "1,3,5,7,4" */
+  const isCommaSeparatedIds = (value: any): boolean =>
+    typeof value === "string" &&
+    value.trim().length > 0 &&
+    /^[\d\s,]+$/.test(value) &&
+    value.includes(",");
+
+    const isVendorKey = (key: string): boolean =>
+    key === "vendor_id" ||
+    key === "vendor" || key==="application_vendor"||
+    /(_vendor_id|_vendor_name)$/.test(key) ||
+    /^(vendor_|application_vendor)/.test(key);
+
+  const resolveCommaSeparatedIds = (
+    value: string,
+    resolver: (id: number) => string
+  ): string =>
+    value
+      .split(",")
+      .map((v) => resolver(parseInt(v.trim(), 10)))
+      .join(", ");
+
+  /** Returns true if a key semantically refers to a user (covers allocated_to_user_name, assigned_user_id, etc.) */
+  const isUserKey = (key: string): boolean =>
+    key === "user_id" ||
+    key === "user" ||
+    key === "requested_by" ||
+    key === "approved_by" ||
+    key === "allocated_to_user_id" ||
+    /(_user_id|_user_name|_by_user|_to_user)$/.test(key) ||
+    /^(user_|allocated_to_user|assigned_user)/.test(key);
+
+  const resolveIds = (data: any): any => {
+    if (!data || typeof data !== "object") return data;
+    const resolved: any = Array.isArray(data) ? [] : {};
+    for (const key of Object.keys(data)) {
+      const value = data[key];
+      const isNumericString = typeof value === "string" && /^\d+$/.test(value.trim());
+
+      if (typeof value === "number" || isNumericString) {
+        const numVal = typeof value === "number" ? value : parseInt(value.trim(), 10);
+        if (key === "plant_id" || key === "plant_location_id" || key === "plant") resolved[key] = getPlantName(numVal);
+        else if (key === "department_id" || key === "department") resolved[key] = getDepartmentName(numVal);
+        else if (key === "role_id" || key === "role") resolved[key] = getRoleName(numVal);
+        else if (isUserKey(key)) resolved[key] = getUserName(numVal);
+        else if (isVendorKey(key)) resolved[key] = getVendorName(numVal);
+        else resolved[key] = value;
+      } else if (isCommaSeparatedIds(value)) {
+        if (key === "plant_id" || key === "plant_location_id" || key === "plant") resolved[key] = resolveCommaSeparatedIds(value, getPlantName);
+        else if (key === "department_id" || key === "department") resolved[key] = resolveCommaSeparatedIds(value, getDepartmentName);
+        else if (key === "role_id" || key === "role") resolved[key] = resolveCommaSeparatedIds(value, getRoleName);
+        else if (isUserKey(key)) resolved[key] = resolveCommaSeparatedIds(value, getUserName);
+        else if (isVendorKey(key)) resolved[key] = resolveCommaSeparatedIds(value, getVendorName);
+        else resolved[key] = value;
+      } else if (Array.isArray(value)) {
+        resolved[key] = value.map((item: any) =>
+          typeof item === "number"
+            ? key.includes("plant") ? getPlantName(item)
+              : key.includes("department") || key.includes("dept") ? getDepartmentName(item)
+              : key.includes("role") ? getRoleName(item)
+              : key.includes("user") ? getUserName(item)
+              : key.includes("vendor") ? getVendorName(item)
+              : item
+            : resolveIds(item)
+        );
+      } else if (typeof value === "object") {
+        resolved[key] = resolveIds(value);
+      } else {
+        resolved[key] = value;
+      }
+    }
+    return resolved;
+  };
+
   const renderDataComparison = (approval: Approval) => {
     if (approval.action === "create") {
       return (
         <div className={styles.dataCompareGrid}>
-         <div className={styles.dataBlock}>
+          <div className={styles.dataBlock}>
             <h4>New Data</h4>
-            <pre>{JSON.stringify(approval.new_value, null, 2)}</pre>
+            <pre>{JSON.stringify(resolveIds(approval.new_value), null, 2)}</pre>
           </div>
         </div>
       );
@@ -180,21 +325,21 @@ useEffect(() => {
         <div className={styles.dataCompareGrid}>
           <div className={styles.dataBlock}>
             <h4>Old Data</h4>
-            <pre>{JSON.stringify(approval.old_value, null, 2)}</pre>
+            <pre>{JSON.stringify(resolveIds(approval.old_value), null, 2)}</pre>
           </div>
-          </div>
+        </div>
       );
     } else {
       return (
         <div className={styles.dataCompareGrid}>
           <div className={styles.dataBlock}>
             <h4>Old Data</h4>
-            <pre>{JSON.stringify(approval.old_value, null, 2)}</pre>
+            <pre>{JSON.stringify(resolveIds(approval.old_value), null, 2)}</pre>
           </div>
 
           <div className={styles.dataBlock}>
             <h4>New Data</h4>
-            <pre>{JSON.stringify(approval.new_value, null, 2)}</pre>
+            <pre>{JSON.stringify(resolveIds(approval.new_value), null, 2)}</pre>
           </div>
         </div>
       );

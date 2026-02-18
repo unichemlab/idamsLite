@@ -1,6 +1,6 @@
 // frontend/src/pages/ApprovalBin/ApprovalBin.tsx
 
-import React, { useState, useEffect,useRef } from "react";
+import React, { useState, useEffect,useRef,useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchApprovals, approveApproval, rejectApproval } from "../../utils/api";
 import headerstyles from "../HomePage/homepageUser.module.css";
@@ -9,6 +9,9 @@ import login_headTitle2 from "../../assets/login_headTitle2.png";
 import { useAuth } from "../../context/AuthContext";
 import { FiChevronDown,FiBriefcase,FiLogOut,} from "react-icons/fi";
 import AppMenu from "../../components/AppMenu";
+import { useDepartmentContext } from "..//DepartmentTable/DepartmentContext";
+import { usePlantContext } from "../Plant/PlantContext";
+import { useRoles } from "../RoleMasterUser/RolesContext";
 
 interface Approval {
   id: number;
@@ -44,6 +47,83 @@ const ApprovalBin: React.FC = () => {
   const [actionComments, setActionComments] = useState("");
    const [showUserMenu, setShowUserMenu] = useState(false);
    const menuRef = useRef<HTMLDivElement>(null);
+    const { plants } = usePlantContext();
+      const { departments } = useDepartmentContext();
+      const { roles } = useRoles(); // Assuming you have this
+   const getPlantName = (id: number): string => {
+       const plant = plants.find((p) => p.id === id);
+       return plant?.plant_name ?? `Plant ${id}`;
+     };
+   
+     const getDepartmentName = (id: number): string => {
+       const dept = departments.find((d) => d.id === id);
+       return dept ? dept.department_name || dept.name : `Dept ${id}`;
+     };
+   
+     const getRoleName = (id: number): string => {
+       const role = roles.find((r) => r.id === id);
+       return role ? role.name : `Role ${id}`;
+     };
+   
+     const getUserName = useCallback((id: number) => {
+        // You can fetch from users context or API
+        // For now, just return the ID
+        return `User ${id}`;
+      }, []);
+   
+     /** Replace known ID fields with their human-readable names in a data object */
+     /** Detect comma-separated numeric strings like "1,3,5,7,4" */
+     const isCommaSeparatedIds = (value: any): boolean =>
+       typeof value === "string" &&
+       value.trim().length > 0 &&
+       /^[\d\s,]+$/.test(value) &&
+       value.includes(",");
+   
+     const resolveCommaSeparatedIds = (
+       value: string,
+       resolver: (id: number) => string
+     ): string =>
+       value
+         .split(",")
+         .map((v) => resolver(parseInt(v.trim(), 10)))
+         .join(", ");
+   
+     const resolveIds = (data: any): any => {
+       if (!data || typeof data !== "object") return data;
+       const resolved: any = Array.isArray(data) ? [] : {};
+       for (const key of Object.keys(data)) {
+         const value = data[key];
+         if (typeof value === "number") {
+           if (key === "plant_id" || key === "plant_location_id" || key === "plant") resolved[key] = getPlantName(value);
+           else if (key === "department_id" || key === "department") resolved[key] = getDepartmentName(value);
+           else if (key === "role_id" || key === "role") resolved[key] = getRoleName(value);
+           else if (key === "user_id" || key === "user" || key === "requested_by" || key === "approved_by") resolved[key] = getUserName(value);
+           else resolved[key] = value;
+         } else if (isCommaSeparatedIds(value)) {
+           // Handle comma-separated ID strings e.g. role_id: "1,3,5,7,4"
+           if (key === "plant_id" || key === "plant_location_id" || key === "plant") resolved[key] = resolveCommaSeparatedIds(value, getPlantName);
+           else if (key === "department_id" || key === "department") resolved[key] = resolveCommaSeparatedIds(value, getDepartmentName);
+           else if (key === "role_id" || key === "role") resolved[key] = resolveCommaSeparatedIds(value, getRoleName);
+           else if (key === "user_id" || key === "user" || key === "requested_by" || key === "approved_by"|| key === "allocated_to_user_name") resolved[key] = resolveCommaSeparatedIds(value, getUserName);
+           else resolved[key] = value;
+         } else if (Array.isArray(value)) {
+           resolved[key] = value.map((item: any) =>
+             typeof item === "number"
+               ? key.includes("plant") ? getPlantName(item)
+                 : key.includes("department") || key.includes("dept") ? getDepartmentName(item)
+                 : key.includes("role") ? getRoleName(item)
+                 : key.includes("user") ? getUserName(item)
+                 : item
+               : resolveIds(item)
+           );
+         } else if (typeof value === "object") {
+           resolved[key] = resolveIds(value);
+         } else {
+           resolved[key] = value;
+         }
+       }
+       return resolved;
+     };
     // Close menu when clicking outside
     useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
@@ -161,7 +241,7 @@ const ApprovalBin: React.FC = () => {
       return (
         <div className={styles.dataComparison}>
           <h4>Data to be Deleted:</h4>
-          <pre>{JSON.stringify(approval.old_value, null, 2)}</pre>
+          <pre>{JSON.stringify(resolveIds(approval.old_value), null, 2)}</pre>
         </div>
       );
     } else {
@@ -173,7 +253,7 @@ const ApprovalBin: React.FC = () => {
           </div>
           <div className={styles.compareColumn}>
             <h4>New Data:</h4>
-            <pre>{JSON.stringify(approval.new_value, null, 2)}</pre>
+            <pre>{JSON.stringify(resolveIds(approval.new_value), null, 2)}</pre>
           </div>
         </div>
       );

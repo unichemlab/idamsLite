@@ -1,10 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { fetchApprovalById, approveApproval, rejectApproval } from "../../utils/api";
 import styles from "./MasterApprovalDetails.module.css";
 import plantStyles from "../Plant/PlantMasterTable.module.css";
 import AppHeader from "../../components/Common/AppHeader";
-
+import { useDepartmentContext } from "..//DepartmentTable/DepartmentContext";
+import { usePlantContext } from "../Plant/PlantContext";
+import { useRoles } from "../RoleMasterUser/RolesContext";
+import { useAuth } from "../../context/AuthContext";
+import { API_BASE } from "../../utils/api";
 interface Approval {
   id: number;
   module: string;
@@ -35,6 +39,45 @@ const MasterApprovalDetails: React.FC = () => {
   const [showActionModal, setShowActionModal] = useState(false);
   const [modalAction, setModalAction] = useState<"approve" | "reject" | null>(null);
   const [actionComments, setActionComments] = useState("");
+  const { plants } = usePlantContext();
+  const { departments } = useDepartmentContext();
+  const { roles } = useRoles(); // Assuming you have this
+  const { user } = useAuth();
+  const [users, setUsers] = useState<{ id: number; name: string; username: string; employee_name: string }[]>([]);
+  const [vendors, setVendors] = useState<{ id: number; vendor_name: string; name?: string }[]>([]);
+useEffect(() => { loadUsers(); loadVendors(); }, []);
+
+ const loadUsers = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE}/api/users`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : data.users ?? [];
+        setUsers(list);
+      }
+    } catch (err) {
+      console.warn("Could not load users for name resolution:", err);
+    }
+  };
+
+  const loadVendors = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${API_BASE}/api/vendors`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const list = Array.isArray(data) ? data : data.vendors ?? [];
+          setVendors(list);
+        }
+      } catch (err) {
+        console.warn("Could not load vendors for name resolution:", err);
+      }
+    };
 
   useEffect(() => {
     if (id) {
@@ -127,6 +170,108 @@ const MasterApprovalDetails: React.FC = () => {
     return new Date(dateString).toLocaleString();
   };
 
+  const getPlantName = (id: number): string => {
+    const plant = plants.find((p) => p.id === id);
+    return plant?.plant_name ?? `Plant ${id}`;
+  };
+
+  const getDepartmentName = (id: number): string => {
+    const dept = departments.find((d) => d.id === id);
+    return dept ? dept.department_name || dept.name : `Dept ${id}`;
+  };
+
+  const getRoleName = (id: number): string => {
+    const role = roles.find((r) => r.id === id);
+    return role ? role.name : `Role ${id}`;
+  };
+
+  const getUserName = (id: number): string => {
+    const found = users.find((u) => u.id === id);  // ✅ check fetched list first
+    console.log("found user",found);
+    if (found) return found.name || found.username || found.employee_name;
+    if (user && user.id === id) return user.name || user.username; // ✅ logged-in user fallback
+    return `User ${id}`;  // ✅ last resort
+  };
+  const getVendorName = (id: number): string => {
+    const found = vendors.find((v) => v.id === id);
+    return found ? found.vendor_name || found.name || `Vendor ${id}` : `Vendor ${id}`;
+  };
+
+  /** Replace known ID fields with their human-readable names in a data object */
+  /** Detect comma-separated numeric strings like "1,3,5,7,4" */
+  const isCommaSeparatedIds = (value: any): boolean =>
+    typeof value === "string" &&
+    value.trim().length > 0 &&
+    /^[\d\s,]+$/.test(value) &&
+    value.includes(",");
+
+    const isVendorKey = (key: string): boolean =>
+    key === "vendor_id" ||
+    key === "vendor" || key==="application_vendor"||
+    /(_vendor_id|_vendor_name)$/.test(key) ||
+    /^(vendor_|application_vendor)/.test(key);
+
+  const resolveCommaSeparatedIds = (
+    value: string,
+    resolver: (id: number) => string
+  ): string =>
+    value
+      .split(",")
+      .map((v) => resolver(parseInt(v.trim(), 10)))
+      .join(", ");
+
+  /** Returns true if a key semantically refers to a user (covers allocated_to_user_name, assigned_user_id, etc.) */
+  const isUserKey = (key: string): boolean =>
+    key === "user_id" ||
+    key === "user" ||
+    key === "requested_by" ||
+    key === "approved_by" ||
+    key === "allocated_to_user_id" ||
+    /(_user_id|_user_name|_by_user|_to_user)$/.test(key) ||
+    /^(user_|allocated_to_user|assigned_user)/.test(key);
+
+  const resolveIds = (data: any): any => {
+    if (!data || typeof data !== "object") return data;
+    const resolved: any = Array.isArray(data) ? [] : {};
+    for (const key of Object.keys(data)) {
+      const value = data[key];
+      const isNumericString = typeof value === "string" && /^\d+$/.test(value.trim());
+
+      if (typeof value === "number" || isNumericString) {
+        const numVal = typeof value === "number" ? value : parseInt(value.trim(), 10);
+        if (key === "plant_id" || key === "plant_location_id" || key === "plant") resolved[key] = getPlantName(numVal);
+        else if (key === "department_id" || key === "department") resolved[key] = getDepartmentName(numVal);
+        else if (key === "role_id" || key === "role") resolved[key] = getRoleName(numVal);
+        else if (isUserKey(key)) resolved[key] = getUserName(numVal);
+        else if (isVendorKey(key)) resolved[key] = getVendorName(numVal);
+        else resolved[key] = value;
+      } else if (isCommaSeparatedIds(value)) {
+        if (key === "plant_id" || key === "plant_location_id" || key === "plant") resolved[key] = resolveCommaSeparatedIds(value, getPlantName);
+        else if (key === "department_id" || key === "department") resolved[key] = resolveCommaSeparatedIds(value, getDepartmentName);
+        else if (key === "role_id" || key === "role") resolved[key] = resolveCommaSeparatedIds(value, getRoleName);
+        else if (isUserKey(key)) resolved[key] = resolveCommaSeparatedIds(value, getUserName);
+        else if (isVendorKey(key)) resolved[key] = resolveCommaSeparatedIds(value, getVendorName);
+        else resolved[key] = value;
+      } else if (Array.isArray(value)) {
+        resolved[key] = value.map((item: any) =>
+          typeof item === "number"
+            ? key.includes("plant") ? getPlantName(item)
+              : key.includes("department") || key.includes("dept") ? getDepartmentName(item)
+              : key.includes("role") ? getRoleName(item)
+              : key.includes("user") ? getUserName(item)
+              : key.includes("vendor") ? getVendorName(item)
+              : item
+            : resolveIds(item)
+        );
+      } else if (typeof value === "object") {
+        resolved[key] = resolveIds(value);
+      } else {
+        resolved[key] = value;
+      }
+    }
+    return resolved;
+  };
+
   const renderDataComparison = () => {
     if (!approval) return null;
 
@@ -139,7 +284,7 @@ const MasterApprovalDetails: React.FC = () => {
               <h3>New Data to be Created</h3>
             </div>
             <div className={styles.jsonViewerWrapper}>
-              <pre className={styles.jsonViewer}>{JSON.stringify(approval.new_value, null, 2)}</pre>
+              <pre className={styles.jsonViewer}>{JSON.stringify(resolveIds(approval.new_value), null, 2)}</pre>
             </div>
           </div>
         </div>
@@ -169,7 +314,7 @@ const MasterApprovalDetails: React.FC = () => {
                 <span className={styles.columnBadge}>Before</span>
               </div>
               <div className={styles.jsonViewerWrapper}>
-                <pre className={styles.jsonViewer}>{JSON.stringify(approval.old_value, null, 2)}</pre>
+                <pre className={styles.jsonViewer}>{JSON.stringify(resolveIds(approval.old_value), null, 2)}</pre>
               </div>
             </div>
             <div className={styles.comparisonDivider}>
@@ -184,7 +329,7 @@ const MasterApprovalDetails: React.FC = () => {
                 <span className={styles.columnBadge}>After</span>
               </div>
               <div className={styles.jsonViewerWrapper}>
-                <pre className={styles.jsonViewer}>{JSON.stringify(approval.new_value, null, 2)}</pre>
+                <pre className={styles.jsonViewer}>{JSON.stringify(resolveIds(approval.new_value), null, 2)}</pre>
               </div>
             </div>
           </div>
@@ -256,12 +401,12 @@ const MasterApprovalDetails: React.FC = () => {
         </div>
 
         {/* Status Banner */}
-        <div className={styles.statusBanner} style={{ 
-          background: approval.status === "PENDING" 
+        <div className={styles.statusBanner} style={{
+          background: approval.status === "PENDING"
             ? "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)"
             : approval.status === "APPROVED"
-            ? "linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)"
-            : "linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)"
+              ? "linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)"
+              : "linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)"
         }}>
           <div className={styles.statusBannerContent}>
             <div className={styles.statusLeft}>
@@ -361,11 +506,11 @@ const MasterApprovalDetails: React.FC = () => {
 
             {/* Decision Details Card */}
             {approval.status !== "PENDING" && (
-              <div className={styles.card} style={{ 
-                borderColor: approval.status === "APPROVED" ? "#10b981" : "#ef4444" 
+              <div className={styles.card} style={{
+                borderColor: approval.status === "APPROVED" ? "#10b981" : "#ef4444"
               }}>
                 <div className={styles.cardHeader} style={{
-                  background: approval.status === "APPROVED" 
+                  background: approval.status === "APPROVED"
                     ? "linear-gradient(to right, #d1fae5, #a7f3d0)"
                     : "linear-gradient(to right, #fee2e2, #fecaca)"
                 }}>
@@ -439,7 +584,7 @@ const MasterApprovalDetails: React.FC = () => {
         <div className={styles.modalOverlay} onClick={() => !actionInProgress && setShowActionModal(false)}>
           <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalHeader} style={{
-              background: modalAction === "approve" 
+              background: modalAction === "approve"
                 ? "linear-gradient(to right, #d1fae5, #a7f3d0)"
                 : "linear-gradient(to right, #fee2e2, #fecaca)"
             }}>
@@ -472,7 +617,7 @@ const MasterApprovalDetails: React.FC = () => {
               </div>
 
               <p className={styles.modalMessage}>
-                {modalAction === "approve" 
+                {modalAction === "approve"
                   ? "You are about to approve this request. The changes will be applied immediately to the system."
                   : "You are about to reject this request. Please provide a reason for rejection."}
               </p>
@@ -484,9 +629,8 @@ const MasterApprovalDetails: React.FC = () => {
                 <textarea
                   value={actionComments}
                   onChange={(e) => setActionComments(e.target.value)}
-                  placeholder={`Enter ${
-                    modalAction === "reject" ? "rejection reason" : "comments"
-                  }...`}
+                  placeholder={`Enter ${modalAction === "reject" ? "rejection reason" : "comments"
+                    }...`}
                   rows={4}
                   className={styles.modalTextarea}
                   required={modalAction === "reject"}
@@ -513,8 +657,8 @@ const MasterApprovalDetails: React.FC = () => {
                 {actionInProgress
                   ? "Processing..."
                   : modalAction === "approve"
-                  ? "✅ Confirm Approval"
-                  : "❌ Confirm Rejection"}
+                    ? "✅ Confirm Approval"
+                    : "❌ Confirm Rejection"}
               </button>
             </div>
           </div>
