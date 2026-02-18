@@ -151,7 +151,7 @@ const TaskClosureForm = () => {
             taskNumber: data.tasks[0].taskNumber || "",
             assignmentGroup: data.it_admin_group?.assignment_it_group || "",
             assignedTo: data.tasks?.[0]?.assigned_to?.toString() || "",
-            allocatedId: data.employee_code || "",
+            allocatedId: data.allocatedId || "",
             // FIX: roleGranted defaults to requestedRole if empty
             roleGranted: data.roleGranted || data.tasks[0].role_name || "",
             access: initialAccess,

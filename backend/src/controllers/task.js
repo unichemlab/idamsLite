@@ -958,6 +958,7 @@ exports.getUserTaskRequestById = async (req, res) => {
           tc.role_granted,
           tc.access,
           tc.assigned_to,
+          tc.allocated_id,
           tc.status,
           tc.from_date,
           tc.to_date,
@@ -991,10 +992,28 @@ exports.getUserTaskRequestById = async (req, res) => {
     if (rows.length === 0) {
       return res.status(404).json({ error: "User request not found" });
     }
-console.log("rows task fetched",rows);
+console.log("rows task fetched",rows[0].application_name);
     const plantId = rows[0].plant_id;
     let itAdminGroup = null;
     let itAdminUsers = [];
+
+//fetch allocatedId from task closure 
+
+const TaskClosureAllocated = await pool.query(
+        `SELECT allocated_id
+           FROM task_closure
+          WHERE plant_name = $1 
+          AND   location = $2
+          AND department = $3
+          AND application_name = $4
+          AND access_request_type=$5
+          ORDER BY id DESC
+        LIMIT 1`,
+        [rows[0].plant_name,rows[0].employee_location,rows[0].department_name,rows[0].application_name,
+           'New User Creation']
+      );
+console.log("TaskClosureAllocated",TaskClosureAllocated.rows[0].allocated_id);
+
 
     // Step 2: Fetch assignment_it_group from plant_it_admin where status = ACTIVE
     const itAdminResult = await pool.query(
@@ -1066,6 +1085,7 @@ console.log("rows task fetched",rows);
       vendor_firm: rows[0].vendor_firm,
       vendor_code: rows[0].vendor_code,
       vendor_allocated_id: rows[0].vendor_allocated_id,
+      allocatedId:TaskClosureAllocated.rows[0].allocated_id,
       status: rows[0].user_request_status,
       tasks: rows
         .filter((r) => r.task_id)
