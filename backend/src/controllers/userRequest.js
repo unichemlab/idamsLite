@@ -796,97 +796,97 @@ exports.searchUserRequests = async (req, res) => {
   }
 };
 
-exports.checkInFlightAndAccessLog = async (req, res) => {
-  const {
-    plant_location,
-    department,
-    applicationId,
-    accessType,
-  } = req.body;
+// exports.checkInFlightAndAccessLog = async (req, res) => {
+//   const {
+//     plant_location,
+//     department,
+//     applicationId,
+//     accessType,
+//   } = req.body;
 
-  try {
-    // 1️⃣ Check in-flight user requests
-    const inFlight = await pool.query(
-       `SELECT ur.id AS user_request_id,
-              ur.transaction_id AS user_request_transaction_id,
-              ur.request_for_by,
-              ur.name,
-              ur.employee_code,
-              ur.employee_location,
-              ur.access_request_type,
-              ur.training_status,
-              ur.training_attachment,
-              ur.training_attachment_name,
-              ur.vendor_name,
-              ur.vendor_firm,
-              ur.vendor_code,
-              ur.vendor_allocated_id,
-              ur.status AS user_request_status,
-              ur.created_on,
-              tr.id AS task_id,
-              tr.transaction_id AS task_request_transaction_id,
-              tr.application_equip_id,
-              app.display_name AS application_name,
-              tr.department,
-              d.department_name,
-              tr.role,
-              r.role_name AS role_name,
-              p.plant_name AS plant_name,
-              tr.location,
-              tr.reports_to,
-              tr.task_status,
-              tr.remarks
-       FROM user_requests ur
-       LEFT JOIN task_requests tr ON ur.id = tr.user_request_id
-       LEFT JOIN department_master d ON tr.department = d.id
-       LEFT JOIN role_master r ON tr.role = r.id
-       LEFT JOIN plant_master p ON tr.location = p.id
-       LEFT JOIN application_master app ON tr.application_equip_id = app.id
-        WHERE tr.location = $1
-        AND tr.department = $2
-        AND tr.application_equip_id = $3
-        AND tr.task_status IN ('Pending', 'Approved')
-      LIMIT 1
-      `,
-      [plant_location, department, applicationId]
-    );
+//   try {
+//     // 1️⃣ Check in-flight user requests
+//     const inFlight = await pool.query(
+//        `SELECT ur.id AS user_request_id,
+//               ur.transaction_id AS user_request_transaction_id,
+//               ur.request_for_by,
+//               ur.name,
+//               ur.employee_code,
+//               ur.employee_location,
+//               ur.access_request_type,
+//               ur.training_status,
+//               ur.training_attachment,
+//               ur.training_attachment_name,
+//               ur.vendor_name,
+//               ur.vendor_firm,
+//               ur.vendor_code,
+//               ur.vendor_allocated_id,
+//               ur.status AS user_request_status,
+//               ur.created_on,
+//               tr.id AS task_id,
+//               tr.transaction_id AS task_request_transaction_id,
+//               tr.application_equip_id,
+//               app.display_name AS application_name,
+//               tr.department,
+//               d.department_name,
+//               tr.role,
+//               r.role_name AS role_name,
+//               p.plant_name AS plant_name,
+//               tr.location,
+//               tr.reports_to,
+//               tr.task_status,
+//               tr.remarks
+//        FROM user_requests ur
+//        LEFT JOIN task_requests tr ON ur.id = tr.user_request_id
+//        LEFT JOIN department_master d ON tr.department = d.id
+//        LEFT JOIN role_master r ON tr.role = r.id
+//        LEFT JOIN plant_master p ON tr.location = p.id
+//        LEFT JOIN application_master app ON tr.application_equip_id = app.id
+//         WHERE tr.location = $1
+//         AND tr.department = $2
+//         AND tr.application_equip_id = $3
+//         AND tr.task_status IN ('Pending', 'Approved')
+//       LIMIT 1
+//       `,
+//       [plant_location, department, applicationId]
+//     );
 
-    if (inFlight.rowCount > 0) {
-      return res.status(409).json({
-        conflict: true,
-        source: "IN_FLIGHT",
-        message: "Request already in progress",
-      });
-    }
+//     if (inFlight.rowCount > 0) {
+//       return res.status(409).json({
+//         conflict: true,
+//         source: "IN_FLIGHT",
+//         message: "Request already in progress",
+//       });
+//     }
 
-    // 2️⃣ Check access log
-    const accessLog = await pool.query(
-      `
-      SELECT 1
-      FROM access_log
-      WHERE location = $1
-        AND department = $2
-        AND application_equip_id = $3
-        AND task_status IN ('Pending', 'In Progress', 'Approved')
-      LIMIT 1
-      `,
-      [plant_location, department, applicationId]
-    );
+//     // 2️⃣ Check access log
+//     const accessLog = await pool.query(
+//       `
+//       SELECT 1
+//       FROM access_log
+//       WHERE location = $1
+//         AND department = $2
+//         AND application_equip_id = $3
+//         AND task_status IN ('Pending', 'In Progress', 'Approved')
+//       LIMIT 1
+//       `,
+//       [plant_location, department, applicationId]
+//     );
 
-    if (accessLog.rowCount > 0) {
-      return res.status(409).json({
-        conflict: true,
-        source: "ACCESS_LOG",
-        message: "Access already exists or not closed",
-      });
-    }
+//     if (accessLog.rowCount > 0) {
+//       return res.status(409).json({
+//         conflict: true,
+//         source: "ACCESS_LOG",
+//         message: "Access already exists or not closed",
+//       });
+//     }
 
-    res.json({ conflict: false });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Validation failed" });
-  }
-};
+//     res.json({ conflict: false });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ error: "Validation failed" });
+//   }
+// };
 
 // exports.checkInFlightRequest = async (req, res) => {
 //   const { applicationId,request_for_by,name,vendor_name,plant_location,department,accessType } = req.body;
@@ -960,15 +960,117 @@ exports.checkInFlightAndAccessLog = async (req, res) => {
  * 
  * Checks: Plant + Department + Application (Display Name)
  * - For ALL request types
- * - Matches by name/vendor_name
+ * - Matches by employee_code
  * - Blocks if request is Pending, Approved, or In Progress
  */
+// exports.checkInFlightRequest = async (req, res) => {
+//   const { 
+//     applicationId, 
+//     request_for_by, 
+//     name, 
+//     vendor_name, 
+//     plant_location, 
+//     department, 
+//     accessType 
+//   } = req.body;
+
+//   console.log("[RULE 1/3/4 - IN-FLIGHT CHECK]", {
+//     request_for_by,
+//     name: name || vendor_name,
+//     plant_location,
+//     department,
+//     applicationId,
+//     accessType
+//   });
+
+//   try {
+//     const appIds = Array.isArray(applicationId) ? applicationId : [applicationId];
+//     const isVendor = request_for_by === "Vendor / OEM";
+
+//     // Build query to check user_requests + task_requests
+//     const params = [plant_location, department, appIds];
+//     if (isVendor) {
+//       params.push(vendor_name);
+//     } else {
+//       params.push(name);
+//     }
+
+//     const query = `
+//       SELECT 
+//         ur.id AS user_request_id,
+//         ur.transaction_id AS user_request_transaction_id,
+//         ur.request_for_by,
+//         ur.name,
+//         ur.vendor_name,
+//         ur.access_request_type,
+//         ur.status AS user_request_status,
+//         ur.approver1_status,
+//         ur.approver2_status,
+//         tr.id AS task_id,
+//         tr.transaction_id AS task_transaction_id,
+//         tr.application_equip_id,
+//         app.display_name AS application_display_name,
+//         tr.department,
+//         d.department_name,
+//         tr.location,
+//         p.plant_name,
+//         tr.task_status,
+//         tr.created_on
+//       FROM user_requests ur
+//       INNER JOIN task_requests tr ON ur.id = tr.user_request_id
+//       LEFT JOIN department_master d ON tr.department::text = d.id::text
+//       LEFT JOIN plant_master p ON tr.location::text = p.id::text
+//       LEFT JOIN application_master app ON tr.application_equip_id::text = app.id::text
+//       WHERE tr.location::text = $1::text
+//         AND tr.department::text = $2::text
+//         AND tr.application_equip_id::text = ANY($3::text[])
+//         AND tr.task_status IN ('Pending', 'Approved', 'In Progress')
+//         AND ${isVendor 
+//           ? "LOWER(TRIM(ur.vendor_name)) = LOWER(TRIM($4))" 
+//           : "LOWER(TRIM(ur.name)) = LOWER(TRIM($4))"
+//         }
+//       ORDER BY tr.created_on DESC
+//       LIMIT 1
+//     `;
+
+//     const { rows } = await pool.query(query, params);
+//     const hasConflict = rows.length > 0;
+
+//     if (hasConflict) {
+//       console.log("[RULE 1/3/4] ❌ CONFLICT - In-flight request found:", {
+//         transaction_id: rows[0].user_request_transaction_id,
+//         request_type: rows[0].access_request_type,
+//         status: rows[0].user_request_status,
+//         task_status: rows[0].task_status
+//       });
+//     } else {
+//       console.log("[RULE 1/3/4] ✅ PASS - No in-flight conflicts");
+//     }
+
+//     return res.json({ 
+//       conflict: hasConflict,
+//       rule: hasConflict ? "RULE_1_3_4" : null,
+//       message: hasConflict 
+//         ? "A request is already in progress for this combination (Plant + Department + Application)"
+//         : null,
+//       existingRequest: hasConflict ? rows[0] : null
+//     });
+
+//   } catch (err) {
+//     console.error("[RULE 1/3/4] ERROR:", err);
+//     res.status(500).json({ error: "Validation failed", details: err.message });
+//   }
+// };
+
+
+
 exports.checkInFlightRequest = async (req, res) => {
   const { 
     applicationId, 
     request_for_by, 
     name, 
-    vendor_name, 
+    vendor_name,
+    employee_code,
     plant_location, 
     department, 
     accessType 
@@ -976,7 +1078,8 @@ exports.checkInFlightRequest = async (req, res) => {
 
   console.log("[RULE 1/3/4 - IN-FLIGHT CHECK]", {
     request_for_by,
-    name: name || vendor_name,
+    employee_code,
+    vendor_name,
     plant_location,
     department,
     applicationId,
@@ -987,51 +1090,97 @@ exports.checkInFlightRequest = async (req, res) => {
     const appIds = Array.isArray(applicationId) ? applicationId : [applicationId];
     const isVendor = request_for_by === "Vendor / OEM";
 
-    // Build query to check user_requests + task_requests
-    const params = [plant_location, department, appIds];
-    if (isVendor) {
-      params.push(vendor_name);
-    } else {
-      params.push(name);
-    }
+    let query;
+    let params;
 
-    const query = `
-      SELECT 
-        ur.id AS user_request_id,
-        ur.transaction_id AS user_request_transaction_id,
-        ur.request_for_by,
-        ur.name,
-        ur.vendor_name,
-        ur.access_request_type,
-        ur.status AS user_request_status,
-        ur.approver1_status,
-        ur.approver2_status,
-        tr.id AS task_id,
-        tr.transaction_id AS task_transaction_id,
-        tr.application_equip_id,
-        app.display_name AS application_display_name,
-        tr.department,
-        d.department_name,
-        tr.location,
-        p.plant_name,
-        tr.task_status,
-        tr.created_on
-      FROM user_requests ur
-      INNER JOIN task_requests tr ON ur.id = tr.user_request_id
-      LEFT JOIN department_master d ON tr.department::text = d.id::text
-      LEFT JOIN plant_master p ON tr.location::text = p.id::text
-      LEFT JOIN application_master app ON tr.application_equip_id::text = app.id::text
-      WHERE tr.location::text = $1::text
-        AND tr.department::text = $2::text
-        AND tr.application_equip_id::text = ANY($3::text[])
-        AND tr.task_status IN ('Pending', 'Approved', 'In Progress')
-        AND ${isVendor 
-          ? "LOWER(TRIM(ur.vendor_name)) = LOWER(TRIM($4))" 
-          : "LOWER(TRIM(ur.name)) = LOWER(TRIM($4))"
-        }
-      ORDER BY tr.created_on DESC
-      LIMIT 1
-    `;
+    if (isVendor) {
+      // ── VENDOR / OEM ──
+      // Filter DB by: ur.request_for_by = 'Vendor / OEM'
+      // Match user by: ur.vendor_name = $4
+      // Param passed: vendor_name
+      params = [plant_location, department, appIds, vendor_name];
+
+      query = `
+        SELECT 
+          ur.id AS user_request_id,
+          ur.transaction_id AS user_request_transaction_id,
+          ur.request_for_by,
+          ur.name,
+          ur.vendor_name,
+          ur.employee_code,
+          ur.access_request_type,
+          ur.status AS user_request_status,
+          ur.approver1_status,
+          ur.approver2_status,
+          tr.id AS task_id,
+          tr.transaction_id AS task_transaction_id,
+          tr.application_equip_id,
+          app.display_name AS application_display_name,
+          tr.department,
+          d.department_name,
+          tr.location,
+          p.plant_name,
+          tr.task_status,
+          tr.created_on
+        FROM user_requests ur
+        INNER JOIN task_requests tr ON ur.id = tr.user_request_id
+        LEFT JOIN department_master d ON tr.department::text = d.id::text
+        LEFT JOIN plant_master p ON tr.location::text = p.id::text
+        LEFT JOIN application_master app ON tr.application_equip_id::text = app.id::text
+        WHERE tr.location::text = $1::text
+          AND tr.department::text = $2::text
+          AND tr.application_equip_id::text = ANY($3::text[])
+          AND tr.task_status IN ('Pending', 'Approved', 'In Progress')
+          AND ur.request_for_by = 'Vendor / OEM'
+          AND LOWER(TRIM(ur.vendor_name)) = LOWER(TRIM($4))
+        ORDER BY tr.created_on DESC
+        LIMIT 1
+      `;
+
+    } else {
+      // ── SELF / OTHERS ──
+      // Filter DB by: ur.request_for_by != 'Vendor / OEM'
+      // Match user by: ur.employee_code = $4
+      // Param passed: employee_code
+      params = [plant_location, department, appIds, employee_code];
+
+      query = `
+        SELECT 
+          ur.id AS user_request_id,
+          ur.transaction_id AS user_request_transaction_id,
+          ur.request_for_by,
+          ur.name,
+          ur.vendor_name,
+          ur.employee_code,
+          ur.access_request_type,
+          ur.status AS user_request_status,
+          ur.approver1_status,
+          ur.approver2_status,
+          tr.id AS task_id,
+          tr.transaction_id AS task_transaction_id,
+          tr.application_equip_id,
+          app.display_name AS application_display_name,
+          tr.department,
+          d.department_name,
+          tr.location,
+          p.plant_name,
+          tr.task_status,
+          tr.created_on
+        FROM user_requests ur
+        INNER JOIN task_requests tr ON ur.id = tr.user_request_id
+        LEFT JOIN department_master d ON tr.department::text = d.id::text
+        LEFT JOIN plant_master p ON tr.location::text = p.id::text
+        LEFT JOIN application_master app ON tr.application_equip_id::text = app.id::text
+        WHERE tr.location::text = $1::text
+          AND tr.department::text = $2::text
+          AND tr.application_equip_id::text = ANY($3::text[])
+          AND tr.task_status IN ('Pending', 'Approved', 'In Progress')
+          AND ur.request_for_by != 'Vendor / OEM'
+          AND LOWER(TRIM(ur.employee_code)) = LOWER(TRIM($4))
+        ORDER BY tr.created_on DESC
+        LIMIT 1
+      `;
+    }
 
     const { rows } = await pool.query(query, params);
     const hasConflict = rows.length > 0;
@@ -1041,7 +1190,9 @@ exports.checkInFlightRequest = async (req, res) => {
         transaction_id: rows[0].user_request_transaction_id,
         request_type: rows[0].access_request_type,
         status: rows[0].user_request_status,
-        task_status: rows[0].task_status
+        task_status: rows[0].task_status,
+        request_for_by: rows[0].request_for_by,
+        matched_by: isVendor ? `vendor_name: ${vendor_name}` : `employee_code: ${employee_code}`
       });
     } else {
       console.log("[RULE 1/3/4] ✅ PASS - No in-flight conflicts");
@@ -1051,7 +1202,7 @@ exports.checkInFlightRequest = async (req, res) => {
       conflict: hasConflict,
       rule: hasConflict ? "RULE_1_3_4" : null,
       message: hasConflict 
-        ? "A request is already in progress for this combination (Plant + Department + Application)"
+        ? `A request is already in progress for this combination (Plant + Department + Application) for ${request_for_by}`
         : null,
       existingRequest: hasConflict ? rows[0] : null
     });
@@ -1061,6 +1212,242 @@ exports.checkInFlightRequest = async (req, res) => {
     res.status(500).json({ error: "Validation failed", details: err.message });
   }
 };
+
+exports.checkInFlightAndAccessLog = async (req, res) => {
+  const {
+    plant_location,
+    department,
+    applicationId,
+    accessType,
+    request_for_by,
+    employee_code,
+    vendor_name,
+  } = req.body;
+
+  console.log("[IN-FLIGHT + ACCESS LOG CHECK]", {
+    plant_location,
+    department,
+    applicationId,
+    accessType,
+    request_for_by,
+    employee_code,
+    vendor_name,
+  });
+
+  try {
+    const isVendor = request_for_by === "Vendor / OEM";
+
+    // =====================================================
+    // 1️⃣ CHECK IN-FLIGHT REQUESTS
+    // Using view columns: location, department, application_equip_id,
+    // task_status, request_for_by, employee_code, vendor_name
+    // =====================================================
+    let inFlightQuery;
+    let inFlightParams;
+
+    if (isVendor) {
+      // Vendor / OEM — match by vendor_name
+      inFlightParams = [plant_location, department, applicationId, vendor_name];
+      inFlightQuery = `
+        SELECT
+          id,
+          user_request_id,
+          task_id,
+          ritm_transaction_id,
+          task_transaction_id,
+          request_for_by,
+          name,
+          employee_code,
+          vendor_name,
+          vendor_firm,
+          vendor_code,
+          vendor_allocated_id,
+          access_request_type,
+          user_request_status,
+          task_status,
+          application_equip_id,
+          department,
+          role,
+          location,
+          created_on
+        FROM access_management_view
+        WHERE location::text       = $1::text
+          AND department::text     = $2::text
+          AND application_equip_id::text = $3::text
+          AND task_status IN ('Pending', 'Approved', 'In Progress')
+          AND request_for_by       = 'Vendor / OEM'
+          AND LOWER(TRIM(vendor_name)) = LOWER(TRIM($4))
+        ORDER BY created_on DESC
+        LIMIT 1
+      `;
+    } else {
+      // Self / Others — match by employee_code
+      inFlightParams = [plant_location, department, applicationId, employee_code];
+      inFlightQuery = `
+        SELECT
+          id,
+          user_request_id,
+          task_id,
+          ritm_transaction_id,
+          task_transaction_id,
+          request_for_by,
+          name,
+          employee_code,
+          vendor_name,
+          access_request_type,
+          user_request_status,
+          task_status,
+          application_equip_id,
+          department,
+          role,
+          location,
+          created_on
+        FROM access_management_view
+        WHERE location::text            = $1::text
+          AND department::text          = $2::text
+          AND application_equip_id::text = $3::text
+          AND task_status IN ('Pending', 'Approved', 'In Progress')
+          AND request_for_by            != 'Vendor / OEM'
+          AND LOWER(TRIM(employee_code)) = LOWER(TRIM($4))
+        ORDER BY created_on DESC
+        LIMIT 1
+      `;
+    }
+
+    const inFlight = await pool.query(inFlightQuery, inFlightParams);
+
+    if (inFlight.rowCount > 0) {
+      const row = inFlight.rows[0];
+      console.log("[IN-FLIGHT] ❌ CONFLICT found:", {
+        ritm: row.ritm_transaction_id,
+        task: row.task_transaction_id,
+        access_type: row.access_request_type,
+        user_request_status: row.user_request_status,
+        task_status: row.task_status,
+        matched_by: isVendor
+          ? `vendor_name: ${vendor_name}`
+          : `employee_code: ${employee_code}`,
+      });
+
+      return res.status(409).json({
+        conflict: true,
+        source: "IN_FLIGHT",
+        rule: "RULE_1_3_4",
+        message: `A request is already in progress for this combination (Plant + Department + Application) for ${request_for_by}`,
+        existingRequest: row,
+      });
+    }
+
+    console.log("[IN-FLIGHT] ✅ PASS - No in-flight conflicts");
+
+    // =====================================================
+    // 2️⃣ CHECK ACCESS LOG
+    // Using view columns: location, department, application_equip_id,
+    // task_status, employee_code / vendor_name, completed_at
+    // =====================================================
+    let accessLogQuery;
+    let accessLogParams;
+
+    if (isVendor) {
+      // Vendor / OEM — match by vendor_name
+      accessLogParams = [plant_location, department, applicationId, vendor_name];
+      accessLogQuery = `
+        SELECT
+          id,
+          user_request_id,
+          task_id,
+          ritm_transaction_id,
+          task_transaction_id,
+          request_for_by,
+          name,
+          vendor_name,
+          vendor_firm,
+          vendor_allocated_id,
+          access_request_type,
+          user_request_status,
+          task_status,
+          application_equip_id,
+          department,
+          role,
+          location,
+          completed_at,
+          created_on
+        FROM access_management_view
+        WHERE location::text            = $1::text
+          AND department::text          = $2::text
+          AND application_equip_id::text = $3::text
+          AND task_status NOT IN ('Closed', 'Rejected')
+          AND request_for_by            = 'Vendor / OEM'
+          AND LOWER(TRIM(vendor_name))  = LOWER(TRIM($4))
+        ORDER BY created_on DESC
+        LIMIT 1
+      `;
+    } else {
+      // Self / Others — match by employee_code
+      accessLogParams = [plant_location, department, applicationId, employee_code];
+      accessLogQuery = `
+        SELECT
+          id,
+          user_request_id,
+          task_id,
+          ritm_transaction_id,
+          task_transaction_id,
+          request_for_by,
+          name,
+          employee_code,
+          access_request_type,
+          user_request_status,
+          task_status,
+          application_equip_id,
+          department,
+          role,
+          location,
+          completed_at,
+          created_on
+        FROM access_management_view
+        WHERE location::text             = $1::text
+          AND department::text           = $2::text
+          AND application_equip_id::text = $3::text
+          AND task_status NOT IN ('Closed', 'Rejected')
+          AND request_for_by             != 'Vendor / OEM'
+          AND LOWER(TRIM(employee_code)) = LOWER(TRIM($4))
+        ORDER BY created_on DESC
+        LIMIT 1
+      `;
+    }
+
+    const accessLog = await pool.query(accessLogQuery, accessLogParams);
+
+    if (accessLog.rowCount > 0) {
+      const row = accessLog.rows[0];
+      console.log("[ACCESS LOG] ❌ CONFLICT found:", {
+        ritm: row.ritm_transaction_id,
+        task: row.task_transaction_id,
+        access_type: row.access_request_type,
+        task_status: row.task_status,
+        completed_at: row.completed_at,
+      });
+
+      return res.status(409).json({
+        conflict: true,
+        source: "ACCESS_LOG",
+        rule: "RULE_2_3",
+        message: `Access already exists or is not yet closed for this combination (Plant + Department + Application) for ${request_for_by}`,
+        existingRequest: row,
+      });
+    }
+
+    console.log("[ACCESS LOG] ✅ PASS - No access log conflicts");
+    console.log("✅ ALL CHECKS PASSED");
+
+    return res.json({ conflict: false });
+
+  } catch (err) {
+    console.error("[IN-FLIGHT + ACCESS LOG CHECK] ERROR:", err);
+    res.status(500).json({ error: "Validation failed", details: err.message });
+  }
+};
+
 
 /**
  * RULE 6: Validate Bulk New User Creation

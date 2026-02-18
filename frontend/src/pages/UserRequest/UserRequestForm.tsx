@@ -996,16 +996,17 @@ const AddUserRequest: React.FC = () => {
       // =====================================================
       // Additional validations for non-bulk-deactivation
       const validationPayload = {
-        request_for_by: form.request_for_by,
-        name: form.name,
-        vendor_name: Array.isArray(form.vendorName)
-          ? form.vendorName[0] || ""
-          : form.vendorName || "",
-        plant_location: form.plant_location,
-        department: form.department,
-        applicationId: applicationIds,
-        accessType: form.accessType,
-      };
+  request_for_by: form.request_for_by,
+  name: form.name,
+  employee_code: form.employeeCode,   // ← ensure this is present
+  vendor_name: Array.isArray(form.vendorName)
+    ? form.vendorName[0] || ""
+    : form.vendorName || "",
+  plant_location: form.plant_location,
+  department: form.department,
+  applicationId: applicationIds,
+  accessType: form.accessType,
+};
 
       console.log("\nValidation payload:", validationPayload);
 
