@@ -118,7 +118,9 @@ const MasterApprovalBin: React.FC = () => {
       if (filter.module !== "all") params.append("module", filter.module);
       if (filter.status !== "all") params.append("status", filter.status);
 
-      const data = await fetchApprovals(params.toString());
+      const res = await fetchApprovals(params.toString());
+      const data = Array.isArray(res) ? res : (res?.data ?? [])
+      console.log("data are fetched",data);
       setApprovals(data);
     } catch (err) {
       console.error("Error loading approvals:", err);

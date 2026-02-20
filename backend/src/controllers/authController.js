@@ -25,7 +25,7 @@
 const jwt = require("jsonwebtoken");
 const db = require("../config/db");
 const ActiveDirectory = require("activedirectory2");
-
+const { logLogin, ACTION } = require("../utils/activityLogger");
 const AD_SERVER = process.env.AD_SERVER;
 const AD_USER = process.env.AD_USER; // Service account
 const AD_PASSWORD = process.env.AD_PASSWORD;
@@ -68,6 +68,7 @@ exports.login = async (req, res) => {
     }
 
     const user = rows[0];
+    console.log("user data fteched",user);
     user.status = (user.status ?? "").toUpperCase();
 
     if (user.status !== "ACTIVE") {
@@ -170,6 +171,8 @@ exports.login = async (req, res) => {
 const { ip, device } = getClientInfo(req);
 
 const loginTxnId = `USRL${Date.now()}`;
+
+ 
 
 await db.query(
   `
@@ -558,6 +561,32 @@ await db.query(
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
       expiresIn: "8h",
     });
+     
+    // ── Activity log — LOGIN ─────────────────────────────────────────────
+    // subscription = plant_id + location string used in audit reports
+    // loginTxnId links this activity_log row to the user_login_log row
+    try {
+      const loginSubscription = userLocation
+        ? `${userLocation}`   // e.g. "9+Mumbai, MH"
+        : String(userLocation ?? user.plant_id ?? "");
+
+      await logLogin({
+        userId:          user.id,
+        performedByRole: user.roles?.[0]?.name ?? null,
+        subscription:    loginSubscription,
+        token,                                  // stored as masked hint inside logLogin
+        req,
+        extra: {
+          // loginTxnId links activity_log ↔ user_login_log for full session trace
+          requestTransactionId: user.transaction_id,
+          location: user.location ?? req?.headers?.["x-location"] ?? null,
+          latitude:  req?.headers?.["x-lat"]  != null ? Number(req.headers["x-lat"])  : null,
+          longitude: req?.headers?.["x-lng"]  != null ? Number(req.headers["x-lng"])  : null,
+        },
+      });
+    } catch (logErr) {
+      console.error("[AUTH] Activity log (login) failed:", logErr.message);
+    }
 
     return res.json({
       token,
@@ -607,20 +636,43 @@ exports.logout = async (req, res) => {
       return res.status(400).json({ message: "Transaction ID required" });
     }
 
+    // ── 1. Update user_login_log ─────────────────────────────────────────
     const result = await db.query(
-      `
-      UPDATE user_login_log
-      SET 
-        logout_time = NOW(),
-        action = 'LOGOUT',
-        description = 'User logged out successfully'
-      WHERE transaction_id = $1
-      `,
+      `UPDATE user_login_log
+          SET logout_time = NOW(),
+              action      = 'LOGOUT',
+              description = 'User logged out successfully'
+        WHERE transaction_id = $1
+        RETURNING user_id, employee_code`,
       [transaction_id]
     );
 
     if (result.rowCount === 0) {
       return res.status(404).json({ message: "Login record not found" });
+    }
+
+    // ── 2. Activity log — LOGOUT ─────────────────────────────────────────
+    // user_id comes from the login_log row so we don't need it in the request body
+    const { user_id: loggedOutUserId } = result.rows[0];
+
+    try {
+      const { logLogout } = require("../utils/activityLogger");
+
+      // Rebuild subscription from req.user if middleware re-attached it,
+      // otherwise fall back to a bare user_id string
+      const logoutSubscription = req?.user?.subscription
+        ?? (req?.user?.plant_id != null
+            ? `${req.user.plant_id}+${req.user.location ?? ""}`
+            : null);
+
+      await logLogout({
+        userId:          loggedOutUserId,
+        performedByRole: req?.user?.roles?.[0]?.name ?? req?.user?.role_name ?? null,
+        subscription:    logoutSubscription,
+        req,
+      });
+    } catch (logErr) {
+      console.error("[AUTH] Activity log (logout) failed:", logErr.message);
     }
 
     return res.json({ message: "Logout recorded successfully" });

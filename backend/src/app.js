@@ -24,6 +24,7 @@ const approvalsRoutes = require("./routes/approvals");
 const rbacRoutes = require("./routes/rbac");
 const accessLogRoutes = require('./routes/accessLog');
 const os = require("os");
+const https = require("https");
 const serverRoutes = require("./routes/serverRoutes");
 const workflowRoutes = require("./routes/workflowRoutes");
 const plantITSupportRoutes = require("./routes/transaction");
@@ -1113,6 +1114,7 @@ app.get("/api/current-user", (req, res) => {
       homedir: userInfo.homedir,
       shell: userInfo.shell,
       system: systemInfo,
+      os: os
     });
   } catch (err) {
     console.error(err);
@@ -1154,3 +1156,4 @@ process.on('SIGINT', () => {
 
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+

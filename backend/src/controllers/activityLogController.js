@@ -385,17 +385,42 @@ exports.getActivityLogsByTable = async (req, res) => {
   }
 };
 
+
 /**
- * Get all activity logs (admin only)
+ * Get audit trail logs (with optional date range)
+ */
+/**
+ * Get all activity logs (admin only), with optional date range
  */
 exports.getAllActivityLogs = async (req, res) => {
   try {
+    // Parse optional query parameters
+    const { dateFrom, dateTo } = req.query;
+
+    // Default: last 1 month if not provided
+    let from = dateFrom ? new Date(dateFrom) : new Date();
+    let to   = dateTo   ? new Date(dateTo)   : new Date();
+
+    if (!dateFrom) from.setMonth(to.getMonth() - 1);
+
+    // Ensure max 6 months range
+    const maxRangeStart = new Date(to);
+    maxRangeStart.setMonth(to.getMonth() - 6);
+    if (from < maxRangeStart) from = maxRangeStart;
+
+    // Convert dates to ISO strings for SQL
+    const fromStr = from.toISOString();
+    const toStr   = to.toISOString();
+
     const { rows } = await db.query(
       `SELECT * FROM activity_log
+       WHERE COALESCE(date_time_ist, created_on, NOW()) BETWEEN $1 AND $2
        ORDER BY COALESCE(date_time_ist, created_on, NOW()) DESC
-       LIMIT 1000`
+       LIMIT 1000`,
+      [fromStr, toStr]
     );
 
+    // Parse JSON details for each row
     const parsedRows = rows.map((r) => {
       if (r.details) {
         try {
@@ -415,6 +440,7 @@ exports.getAllActivityLogs = async (req, res) => {
       return res.json(parsedRows);
     }
 
+    // Filter logs based on plant access for non-super admins
     const filteredRows = parsedRows.filter((log) => {
       let plantId = null;
 

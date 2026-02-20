@@ -12,12 +12,15 @@ const pool = require("../config/db");
  */
 exports.getAllApprovals = async (req, res) => {
   try {
-    const { module, status, limit } = req.query;
+    const { module, status, page, perPage, tableName, requestedBy } = req.query;
 
     const approvals = await getPendingApprovals({
-      module: module || null,
-      status: status || "PENDING",
-      limit: limit ? parseInt(limit) : 100,
+      module:      module      || null,
+      status:      status      || "PENDING",
+      tableName:   tableName   || null,
+      requestedBy: requestedBy || null,
+      page:        page        ? parseInt(page)    : 1,
+      perPage:     perPage     ? parseInt(perPage) : 25,
     });
 
     res.json(approvals);
@@ -72,10 +75,11 @@ exports.approveApproval = async (req, res) => {
     }
 
     const result = await approveChange({
-      approvalId: parseInt(id),
+      approvalId:        parseInt(id),
       approvedBy,
       approvedByUsername,
-      approvalComments: comments || "",
+      approvalComments:  comments || "",
+      req,               // ← audit trail: ip, browser, lat/lng, subscription
     });
 
     // Send notification email to requester (non-blocking)
