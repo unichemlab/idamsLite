@@ -47,14 +47,594 @@ function getClientInfo(req) {
   };
 }
 
+// exports.login = async (req, res) => {
+//   const { username, password } = req.body;
+//   logDebug("Login attempt", { username });
+
+//   if (!username || !password) {
+//     return res
+//       .status(400)
+//       .json({ message: "Username and password are required" });
+//   }
+
+//   try {
+//     // ---------------- Fetch user from DB ----------------
+//     const userQuery = "SELECT * FROM user_master WHERE employee_id = $1";
+//     const { rows } = await db.query(userQuery, [username]);
+
+//     if (!rows.length) {
+//       logDebug(`User not found in database: ${username}`);
+//       return res.status(404).json({ message: "User not found" });
+//     }
+
+//     const user = rows[0];
+//     console.log("user data fteched",user);
+//     user.status = (user.status ?? "").toUpperCase();
+
+//     if (user.status !== "ACTIVE") {
+//       logDebug(`User is not active: ${username}`);
+//       return res.status(403).json({ message: "User is not active" });
+//     }
+
+//     // ---------------- AD Authentication (optional) ----------------
+//     let authenticated = false;
+//     const useAdAuth = process.env.USE_AD_AUTH === "true";
+
+//     if (useAdAuth && AD_SERVER && AD_USER && AD_PASSWORD && AD_DOMAIN) {
+//       try {
+//         const baseDN = "DC=uniwin,DC=local";
+//         const ad = new ActiveDirectory({
+//           url: AD_SERVER,
+//           username: AD_USER,
+//           password: AD_PASSWORD,
+//           baseDN,
+//         });
+
+//         const adUsernameOptions = [
+//           `${AD_DOMAIN}\\${username}`,
+//           `${username}@${AD_DOMAIN}.local`,
+//         ];
+
+//         for (const adUsername of adUsernameOptions) {
+//           authenticated = await new Promise((resolve) => {
+//             ad.authenticate(adUsername, password, (err, auth) => {
+//               if (err) {
+//                 logDebug(
+//                   `AD authentication failed for ${adUsername}`,
+//                   err.message || err.lde_message
+//                 );
+//                 return resolve(false);
+//               }
+//               return resolve(auth);
+//             });
+//           });
+//           if (authenticated) {
+//             logDebug(`AD authentication successful for ${adUsername}`);
+//             break;
+//           }
+//         }
+//       } catch (adErr) {
+//         logDebug("AD service unavailable or failed:", adErr.message);
+//       }
+//     }
+
+//     // ---------------- Fallback: default DB password ----------------
+//     if (!authenticated && password === DEFAULT_PASSWORD) {
+//       logDebug(
+//         `AD failed or unavailable, default password used for ${username}`
+//       );
+//       authenticated = true;
+//     }
+
+//    if (!authenticated) {
+//   logDebug(`Authentication failed for ${username}`);
+
+//   const { ip, device } = getClientInfo(req);
+
+//   await db.query(
+//     `
+//     INSERT INTO user_login_log
+//     (transaction_id, employee_code, action, description,
+//      ip_address, device, success, login_time)
+//     VALUES ($1,$2,'LOGIN','Invalid credentials',$3,$4,false,NOW())
+//     `,
+//     [
+//       `USRL${Date.now()}`,
+//       username,
+//       ip,
+//       device,
+//     ]
+//   );
+
+//   return res.status(401).json({ message: "Invalid credentials" });
+// }
+
+
+//     // ---------------- Normalize role_id ----------------
+//     let roleIds = [];
+//     if (Array.isArray(user.role_id)) roleIds = user.role_id;
+//     else if (typeof user.role_id === "number") roleIds = [user.role_id];
+//     else if (typeof user.role_id === "string") {
+//       roleIds = user.role_id
+//         .replace(/[{}]/g, "")
+//         .split(",")
+//         .map((r) => parseInt(r.trim(), 10))
+//         .filter((n) => !isNaN(n));
+//     }
+//     user.role_id = roleIds;
+
+//     logDebug("User login successful:", { username, roleIds });
+    
+//     // ===============================================
+// // LOGIN AUDIT LOG (SUCCESS)
+// // ===============================================
+// const { ip, device } = getClientInfo(req);
+
+// const loginTxnId = `USRL${Date.now()}`;
+
+ 
+
+// await db.query(
+//   `
+//   INSERT INTO user_login_log
+//   (transaction_id, user_id, employee_code, action, description,
+//    ip_address, device, success, login_time, location)
+//   VALUES ($1,$2,$3,'LOGIN',$4,$5,$6,true,NOW(),$7)
+//   `,
+//   [
+//     loginTxnId,
+//     user.id,
+//     user.employee_code,
+//     "User logged in successfully",
+//     ip,
+//     device,
+//     user.location || null,
+//   ]
+// );
+
+
+//     // ===============================================
+//     // Fetch IT BIN Admin Status & Plant IDs
+//     // ===============================================
+//     let isITBin = false;
+//     let itPlantIds = [];
+//     let itPlants = [];
+
+//     try {
+//       // Check if user is an IT BIN admin
+//       const itBinQuery = `
+//         SELECT 
+//           piau.plant_it_admin_id,
+//           pia.plant_id,
+//           pm.plant_name
+//         FROM plant_it_admin_users piau
+//         INNER JOIN plant_it_admin pia ON piau.plant_it_admin_id = pia.id
+//         INNER JOIN plant_master pm ON pia.plant_id = pm.id
+//         WHERE piau.user_id = $1 AND pia.status = 'ACTIVE'
+//       `;
+
+//       const itBinResult = await db.query(itBinQuery, [user.id]);
+
+//       if (itBinResult.rows.length > 0) {
+//         isITBin = true;
+//         itPlantIds = itBinResult.rows.map(row => row.plant_id);
+//         itPlants = itBinResult.rows.map(row => ({
+//           plant_id: row.plant_id,
+//           plant_name: row.plant_name,
+//           plant_it_admin_id: row.plant_it_admin_id
+//         }));
+
+//         logDebug(`User ${username} is IT BIN admin for plants:`, itPlantIds);
+//       }
+//     } catch (err) {
+//       console.error("[IT BIN CHECK ERROR]", err);
+//     }
+
+//     // ---------------- Fetch roles dynamically ----------------
+//     const roleQuery = `
+//       SELECT rm.id, rm.role_name, rm.description, rm.status
+//       FROM role_master rm
+//       WHERE rm.id = ANY($1)
+//     `;
+//     const roleResult = await db.query(roleQuery, [roleIds]);
+//     user.roles = roleResult.rows.map((role) => ({
+//       id: role.id,
+//       name: role.role_name,
+//       description: role.description,
+//       status: role.status,
+//     }));
+
+//     logDebug("Roles fetched:", {
+//       roles: user.roles,
+//     });
+
+//     // ---------------- Dynamic Role Assignment ----------------
+//     // const dynamicRoleQuery = `
+//     //   SELECT rm.id, rm.role_name
+//     //   FROM role_master rm
+//     //   WHERE rm.id = (
+//     //     SELECT role
+//     //     FROM access_log
+//     //     WHERE employee_code = $1
+//     //     ORDER BY created_on DESC
+//     //     LIMIT 1
+//     //   )
+//     // `;
+//     // const dynamicRoleResult = await db.query(dynamicRoleQuery, [
+//     //   user.employee_code,
+//     // ]);
+//     // if (dynamicRoleResult.rows.length > 0) {
+//     //   user.role_id = [dynamicRoleResult.rows[0].id];
+//     //   user.roles = [
+//     //     {
+//     //       id: dynamicRoleResult.rows[0].id,
+//     //       name: dynamicRoleResult.rows[0].role_name,
+//     //     },
+//     //   ];
+//     // } else {
+//     //   logDebug("No dynamic role found for user:", user.employee_code);
+//     // }
+
+//     // logDebug("Dynamic role assigned:", {
+//     //   roleId: user.role_id,
+//     //   roles: user.roles,
+//     // });
+
+//     // ---------------- Fetch user permissions ----------------
+//     let permissions = [];
+//     let plantPermissions = [];
+//     let permittedPlantIds = [];
+
+//     try {
+//       const userPermsQuery = `
+//     SELECT module_id, plant_id, can_add, can_edit, can_view, can_delete
+//     FROM user_plant_permission
+//     WHERE user_id = $1
+//   `;
+
+//       const { rows } = await db.query(userPermsQuery, [user.id]);
+
+//       // 1️⃣ Structured permissions (plant-wise)
+//       plantPermissions = rows.map(p => ({
+//         moduleId: p.module_id,
+//         plantId: p.plant_id,
+//         actions: {
+//           create: p.can_add,
+//           update: p.can_edit,
+//           read: p.can_view,
+//           delete: p.can_delete
+//         }
+//       }));
+
+//       // 2️⃣ Flattened permissions (NO plant_id here)
+//       permissions = rows.flatMap(p => {
+//         const perms = [];
+//         if (p.can_add) perms.push(`create:${p.module_id}`);
+//         if (p.can_edit) perms.push(`update:${p.module_id}`);
+//         if (p.can_view) perms.push(`read:${p.module_id}`);
+//         if (p.can_delete) perms.push(`delete:${p.module_id}`);
+//         return perms;
+//       });
+
+//       // 3️⃣ Unique plant IDs
+//       permittedPlantIds = [...new Set(rows.map(p => p.plant_id))];
+
+//       logDebug("Permitted plants:", permittedPlantIds);
+
+//     } catch (err) {
+//       console.error("[PERMISSIONS ERROR]", err);
+//       permissions = [];
+//       plantPermissions = [];
+//       permittedPlantIds = [];
+//     }
+
+
+//     // Add role-based permissions
+//     if (user.role_id.includes(1)) {
+//       // SuperAdmin
+//       permissions.push("manage:all");
+//     }
+
+//     // ===============================================
+//     // CORRECT APPROVER CHECK - Check both user_requests approver1_email and workflow assignments
+//     // ===============================================
+//     let isApprover = false;
+//     let isCorporateApprover = false;
+//     let approverTypes = []; // Track what type of approver the user is
+//     let pendingApproval1Count = 0;
+//     let pendingApproval2Count = 0;
+//     console.log("user info for approver check", user);
+//     try {
+//       // Check 1: Is user Approver 1 in any user_requests records?
+//       // Match by email since approver1_email stores the user's email
+//       const approver1Query = `
+//         SELECT COUNT(*) as count
+//         FROM user_requests
+//         WHERE LOWER(approver1_email) = LOWER($1)
+//           AND approver1_status = 'Pending'
+//           AND status NOT IN ('Completed', 'Rejected', 'Cancelled')
+//       `;
+//       const approver1Result = await db.query(approver1Query, [user.email]);
+
+//       if (approver1Result && approver1Result.rows && approver1Result.rows[0]) {
+//         const count = parseInt(approver1Result.rows[0].count, 10);
+//         if (count > 0) {
+//           isApprover = true;
+//           approverTypes.push('approver_1');
+//           pendingApproval1Count = count;
+//           logDebug(`User ${username} is Approver 1 for ${count} user requests`);
+//         }
+//       }
+
+//       // Also check if user has ever been approver1 (not just pending)
+//       const approver1HistoryQuery = `
+//         SELECT COUNT(*) as count
+//         FROM user_requests
+//         WHERE LOWER(approver1_email) = LOWER($1)
+//         LIMIT 1
+//       `;
+//       const approver1HistoryResult = await db.query(approver1HistoryQuery, [user.email]);
+
+//       if (approver1HistoryResult && approver1HistoryResult.rows && approver1HistoryResult.rows[0]) {
+//         const historyCount = parseInt(approver1HistoryResult.rows[0].count, 10);
+//         if (historyCount > 0 && !approverTypes.includes('approver_1')) {
+//           isApprover = true;
+//           approverTypes.push('approver_1');
+//           logDebug(`User ${username} has historical Approver 1 records`);
+//         }
+//       }
+
+//       // Check 2: Is user Approver 2 in any user_requests records?
+//       const approver2Query = `
+//         SELECT COUNT(*) as count
+//         FROM user_requests
+//         WHERE LOWER(approver2_email) = LOWER($1)
+//           AND approver2_status = 'Pending'
+//           AND status NOT IN ('Completed', 'Rejected', 'Cancelled')
+//       `;
+//       const approver2Result = await db.query(approver2Query, [user.email]);
+
+//       if (approver2Result && approver2Result.rows && approver2Result.rows[0]) {
+//         const count = parseInt(approver2Result.rows[0].count, 10);
+//         if (count > 0) {
+//           isApprover = true;
+//           if (!approverTypes.includes('workflow_approver')) {
+//             approverTypes.push('workflow_approver');
+//           }
+//           pendingApproval2Count = count;
+//           logDebug(`User ${username} is Approver 2 for ${count} user requests`);
+//         }
+//       }
+
+//       // Also check historical approver2 records
+//       const approver2HistoryQuery = `
+//         SELECT COUNT(*) as count
+//         FROM user_requests
+//         WHERE LOWER(approver2_email) = LOWER($1)
+//         LIMIT 1
+//       `;
+//       const approver2HistoryResult = await db.query(approver2HistoryQuery, [user.email]);
+
+//       if (approver2HistoryResult && approver2HistoryResult.rows && approver2HistoryResult.rows[0]) {
+//         const historyCount = parseInt(approver2HistoryResult.rows[0].count, 10);
+//         if (historyCount > 0 && !approverTypes.includes('workflow_approver')) {
+//           isApprover = true;
+//           approverTypes.push('workflow_approver');
+//           logDebug(`User ${username} has historical Approver 2 records`);
+//         }
+//       }
+
+//       // Check 3: Is user assigned in approval_workflow_master? (for other workflows)
+//       const workflowApproverQuery = `
+//         SELECT DISTINCT id
+//         FROM approval_workflow_master
+//         WHERE (
+//           approver_2_id LIKE $1 OR
+//           approver_3_id LIKE $1 OR
+//           approver_4_id LIKE $1 OR
+//           approver_5_id LIKE $1
+//         ) AND is_active = true
+//         LIMIT 1
+//       `;
+//       const workflowApproverResult = await db.query(workflowApproverQuery, [`%${user.id}%`]);
+
+//       if (workflowApproverResult && workflowApproverResult.rows && workflowApproverResult.rows.length > 0) {
+//         isApprover = true;
+//         if (!approverTypes.includes('workflow_approver')) {
+//           approverTypes.push('workflow_approver');
+//         }
+//         logDebug(`User ${username} is assigned in approval workflows`);
+//       }
+
+
+
+//       // Check 4: Is user assigned in approval_workflow_master? (for corporate)
+//       const workflowApproverCorporateQuery = `
+//         SELECT DISTINCT id
+//         FROM approval_workflow_master
+//         WHERE (
+//           approver_2_id LIKE $1 OR
+//           approver_3_id LIKE $1 OR
+//           approver_4_id LIKE $1 OR
+//           approver_5_id LIKE $1
+//         ) AND is_active = true AND corporate_type=$2
+//         LIMIT 1
+//       `;
+//       const workflowApproverCorporateResult = await db.query(workflowApproverCorporateQuery, [`%${user.id}%`,'Administration']);
+
+//       if (workflowApproverCorporateResult && workflowApproverCorporateResult.rows && workflowApproverCorporateResult.rows.length > 0) {
+//         isCorporateApprover = true;
+//         if (!approverTypes.includes('corporate_workflow_approver')) {
+//           approverTypes.push('corporate_workflow_approver');
+//         }
+//         logDebug(`User ${username} is assigned in  Corporate approval workflows`);
+//       }
+
+//       // Add approver permissions if user is any type of approver
+//       if (isCorporateApprover) {
+//         permissions.push("approve:requests");
+//         permissions.push("read:admin_approval");
+//         permissions.push("update:admin_approval");
+
+//         logDebug(`User ${username} has approver types:`, approverTypes);
+//         logDebug(`Pending approvals - Level 1: ${pendingApproval1Count}, Level 2: ${pendingApproval2Count}`);
+//       }
+
+//       // Add workflow permissions for superadmins and plant admins
+//       if (user.role_id.includes(1) || user.role_id.includes(2)) {
+//         permissions.push("read:workflows");
+//         permissions.push("create:workflows");
+//         permissions.push("update:workflows");
+//       }
+//     } catch (err) {
+//       console.error("[APPROVER CHECK ERROR]", err);
+//     }
+
+//     // ===============================================
+//     // Add IT BIN Admin Extra Permissions
+//     // ===============================================
+//     if (isITBin) {
+//       permissions.push("view:tasks");
+//       permissions.push("manage:tasks");
+//     }
+
+//     // ===============================================
+//     // Fetch User's Location/Plant Details
+//     // ===============================================
+//     let userLocation = null;
+//     let userPlantName = null;
+
+//     if (user.location) {
+//       try {
+//         const locationQuery = `
+//           SELECT id, plant_name 
+//           FROM plant_master 
+//           WHERE plant_name = $1
+//         `;
+//         const locationResult = await db.query(locationQuery, [user.location]);
+
+//         if (locationResult.rows.length > 0) {
+//           userLocation = locationResult.rows[0].id;
+//           userPlantName = locationResult.rows[0].plant_name;
+//         }
+//       } catch (err) {
+//         console.error("[LOCATION FETCH ERROR]", err);
+//       }
+//     }
+
+//     // ===============================================
+//     // Generate JWT Token
+//     // ===============================================
+//     const payload = {
+//       user_id: user.id || user.user_id || null,
+//       username: user.employee_id || user.username || null,
+//       employee_name: user.employee_name,
+//       employee_code: user.employee_code,
+//       email: user.email,
+
+//       // Role and permissions
+//       role_id: roleIds,
+//       permissions,            // flat (menu / feature)
+//       plantPermissions,       // structured (logic)
+//       permittedPlantIds,      // quick filtering
+//       permissions_version: 2, // bump version
+//       isApprover: isApprover,
+//       isCorporateApprover:isCorporateApprover,
+//       approverTypes: approverTypes, // ['approver_1', 'workflow_approver'] or subset
+//       pendingApproval1Count: pendingApproval1Count,
+//       pendingApproval2Count: pendingApproval2Count,
+
+//       // IT BIN Admin info
+//       isITBin,
+//       itPlants: isITBin ? itPlants : [], // Full plant details for IT BIN admins
+//       itPlantIds: isITBin ? itPlantIds : [], // Just IDs for quick checks
+
+//       // User's assigned plant/location
+//       location: user.location,
+//       plant_name: userPlantName,
+//       department: user.department,
+//       designation: user.designation,
+//       // Metadata
+//       loginTime: new Date().toISOString(),
+//     };
+
+//     const token = jwt.sign(payload, process.env.JWT_SECRET, {
+//       expiresIn: "8h",
+//     });
+     
+//     // ── Activity log — LOGIN ─────────────────────────────────────────────
+//     // subscription = plant_id + location string used in audit reports
+//     // loginTxnId links this activity_log row to the user_login_log row
+//     try {
+//       const loginSubscription = userLocation
+//         ? `${userLocation}`   // e.g. "9+Mumbai, MH"
+//         : String(userLocation ?? user.plant_id ?? "");
+
+//       await logLogin({
+//         userId:          user.id,
+//         performedByRole: user.roles?.[0]?.name ?? null,
+//         subscription:    loginSubscription,
+//         token,                                  // stored as masked hint inside logLogin
+//         req,
+//         extra: {
+//           // loginTxnId links activity_log ↔ user_login_log for full session trace
+//           requestTransactionId: user.transaction_id,
+//           location: user.location ?? req?.headers?.["x-location"] ?? null,
+//           latitude:  req?.headers?.["x-lat"]  != null ? Number(req.headers["x-lat"])  : null,
+//           longitude: req?.headers?.["x-lng"]  != null ? Number(req.headers["x-lng"])  : null,
+//         },
+//       });
+//     } catch (logErr) {
+//       console.error("[AUTH] Activity log (login) failed:", logErr.message);
+//     }
+
+//     return res.json({
+//       token,
+//       login_transaction_id: loginTxnId, // 👈 ADD THIS
+//       user: {
+//         id: user.id || user.user_id,
+//         username: user.employee_id,
+//         name: user.employee_name,
+//         employee_code: user.employee_code,
+//         email: user.email,
+//         location: user.location,
+//         plant_name: userPlantName,
+//         department: user.department,
+//         designation: user.designation,
+//         reporting_manager: user.reporting_manager ?? "",
+//         managers_manager: user.managers_manager ?? "",
+//         role_id: user.role_id,
+//         status: user.status,
+//         isApprover: isApprover,
+//         isCorporateApprover:isCorporateApprover,
+//         approverTypes: approverTypes,
+//         pendingApproval1Count: pendingApproval1Count,
+//         pendingApproval2Count: pendingApproval2Count,
+
+//         // IT BIN info
+//         isITBin,
+//         itPlants: isITBin ? itPlants : [],
+
+//         // Permissions summary
+//         permittedPlantIds,
+//         plantPermissions,
+//         hasApproverAccess: permissions.includes("approve:requests"),
+//         full_name: user.employee_name,
+//       },
+//     });
+//   } catch (err) {
+//     console.error("[AUTH ERROR]", err);
+//     return res.status(500).json({ message: "Server error" });
+//   }
+// };
+
+
 exports.login = async (req, res) => {
   const { username, password } = req.body;
   logDebug("Login attempt", { username });
 
   if (!username || !password) {
-    return res
-      .status(400)
-      .json({ message: "Username and password are required" });
+    return res.status(400).json({ message: "Username and password are required" });
   }
 
   try {
@@ -68,21 +648,20 @@ exports.login = async (req, res) => {
     }
 
     const user = rows[0];
-    console.log("user data fteched",user);
     user.status = (user.status ?? "").toUpperCase();
 
     if (user.status !== "ACTIVE") {
-      logDebug(`User is not active: ${username}`);
       return res.status(403).json({ message: "User is not active" });
     }
 
-    // ---------------- AD Authentication (optional) ----------------
+    // ---------------- AD Authentication ----------------
     let authenticated = false;
-    const useAdAuth = process.env.USE_AD_AUTH === "true";
-
+    const useAdAuth = "true";
+   logDebug("Ad data",AD_SERVER,AD_DOMAIN,AD_USER,AD_PASSWORD,useAdAuth);
     if (useAdAuth && AD_SERVER && AD_USER && AD_PASSWORD && AD_DOMAIN) {
       try {
         const baseDN = "DC=uniwin,DC=local";
+
         const ad = new ActiveDirectory({
           url: AD_SERVER,
           username: AD_USER,
@@ -90,65 +669,75 @@ exports.login = async (req, res) => {
           baseDN,
         });
 
-        const adUsernameOptions = [
-          `${AD_DOMAIN}\\${username}`,
-          `${username}@${AD_DOMAIN}.local`,
-        ];
-
-        for (const adUsername of adUsernameOptions) {
-          authenticated = await new Promise((resolve) => {
-            ad.authenticate(adUsername, password, (err, auth) => {
-              if (err) {
-                logDebug(
-                  `AD authentication failed for ${adUsername}`,
-                  err.message || err.lde_message
-                );
-                return resolve(false);
-              }
-              return resolve(auth);
-            });
+        // STEP 1: Find AD user
+        const adUser = await new Promise((resolve) => {
+          ad.findUser(username, (err, result) => {
+            if (err) {
+              console.log("AD findUser error:", err.message);
+              return resolve(null);
+            }
+            resolve(result);
           });
-          if (authenticated) {
-            logDebug(`AD authentication successful for ${adUsername}`);
-            break;
+        });
+logDebug("adUser connect: ",adUser);
+        if (!adUser) {
+          console.log(`User not found in AD: ${username}`);
+        } else {
+          // ✅ Try multiple login formats (IMPORTANT)
+          const loginFormats = [
+            adUser.userPrincipalName,             // preferred
+            `${username}@${AD_DOMAIN}`,           // fallback
+            `${AD_DOMAIN}\\${username}`,          // fallback
+          ];
+
+          for (const loginId of loginFormats) {
+            authenticated = await new Promise((resolve) => {
+              ad.authenticate(loginId, password, (err, auth) => {
+                if (err) {
+                  console.log(`AD auth error (${loginId}):`, err.message);
+                  return resolve(false);
+                }
+                resolve(auth);
+              });
+            });
+
+            if (authenticated) {
+              console.log(`✅ AD authentication success with: ${loginId}`);
+              break;
+            }
+          }
+
+          if (!authenticated) {
+            console.log(`❌ AD authentication failed for all formats`);
           }
         }
+
       } catch (adErr) {
-        logDebug("AD service unavailable or failed:", adErr.message);
+        console.log("AD service error:", adErr.message);
       }
     }
 
-    // ---------------- Fallback: default DB password ----------------
+    console.log("Authenticated through AD:", authenticated);
+
+    // ---------------- Fallback ----------------
     if (!authenticated && password === DEFAULT_PASSWORD) {
-      logDebug(
-        `AD failed or unavailable, default password used for ${username}`
-      );
+      console.log("Using default password fallback");
       authenticated = true;
     }
 
-   if (!authenticated) {
-  logDebug(`Authentication failed for ${username}`);
+    if (!authenticated) {
+      const { ip, device } = getClientInfo(req);
 
-  const { ip, device } = getClientInfo(req);
+      await db.query(
+        `INSERT INTO user_login_log
+        (transaction_id, employee_code, action, description,
+         ip_address, device, success, login_time)
+        VALUES ($1,$2,'LOGIN','Invalid credentials',$3,$4,false,NOW())`,
+        [`USRL${Date.now()}`, username, ip, device]
+      );
 
-  await db.query(
-    `
-    INSERT INTO user_login_log
-    (transaction_id, employee_code, action, description,
-     ip_address, device, success, login_time)
-    VALUES ($1,$2,'LOGIN','Invalid credentials',$3,$4,false,NOW())
-    `,
-    [
-      `USRL${Date.now()}`,
-      username,
-      ip,
-      device,
-    ]
-  );
-
-  return res.status(401).json({ message: "Invalid credentials" });
-}
-
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
 
     // ---------------- Normalize role_id ----------------
     let roleIds = [];
@@ -161,472 +750,61 @@ exports.login = async (req, res) => {
         .map((r) => parseInt(r.trim(), 10))
         .filter((n) => !isNaN(n));
     }
+
     user.role_id = roleIds;
 
-    logDebug("User login successful:", { username, roleIds });
-    
-    // ===============================================
-// LOGIN AUDIT LOG (SUCCESS)
-// ===============================================
-const { ip, device } = getClientInfo(req);
+    // ---------------- LOGIN LOG ----------------
+    const { ip, device } = getClientInfo(req);
+    const loginTxnId = `USRL${Date.now()}`;
 
-const loginTxnId = `USRL${Date.now()}`;
+    await db.query(
+      `INSERT INTO user_login_log
+      (transaction_id, user_id, employee_code, action, description,
+       ip_address, device, success, login_time)
+      VALUES ($1,$2,$3,'LOGIN',$4,$5,$6,true,NOW())`,
+      [
+        loginTxnId,
+        user.id,
+        user.employee_code,
+        "User logged in successfully",
+        ip,
+        device,
+      ]
+    );
 
- 
-
-await db.query(
-  `
-  INSERT INTO user_login_log
-  (transaction_id, user_id, employee_code, action, description,
-   ip_address, device, success, login_time, location)
-  VALUES ($1,$2,$3,'LOGIN',$4,$5,$6,true,NOW(),$7)
-  `,
-  [
-    loginTxnId,
-    user.id,
-    user.employee_code,
-    "User logged in successfully",
-    ip,
-    device,
-    user.location || null,
-  ]
-);
-
-
-    // ===============================================
-    // Fetch IT BIN Admin Status & Plant IDs
-    // ===============================================
-    let isITBin = false;
-    let itPlantIds = [];
-    let itPlants = [];
-
-    try {
-      // Check if user is an IT BIN admin
-      const itBinQuery = `
-        SELECT 
-          piau.plant_it_admin_id,
-          pia.plant_id,
-          pm.plant_name
-        FROM plant_it_admin_users piau
-        INNER JOIN plant_it_admin pia ON piau.plant_it_admin_id = pia.id
-        INNER JOIN plant_master pm ON pia.plant_id = pm.id
-        WHERE piau.user_id = $1 AND pia.status = 'ACTIVE'
-      `;
-
-      const itBinResult = await db.query(itBinQuery, [user.id]);
-
-      if (itBinResult.rows.length > 0) {
-        isITBin = true;
-        itPlantIds = itBinResult.rows.map(row => row.plant_id);
-        itPlants = itBinResult.rows.map(row => ({
-          plant_id: row.plant_id,
-          plant_name: row.plant_name,
-          plant_it_admin_id: row.plant_it_admin_id
-        }));
-
-        logDebug(`User ${username} is IT BIN admin for plants:`, itPlantIds);
-      }
-    } catch (err) {
-      console.error("[IT BIN CHECK ERROR]", err);
-    }
-
-    // ---------------- Fetch roles dynamically ----------------
-    const roleQuery = `
-      SELECT rm.id, rm.role_name, rm.description, rm.status
-      FROM role_master rm
-      WHERE rm.id = ANY($1)
-    `;
-    const roleResult = await db.query(roleQuery, [roleIds]);
-    user.roles = roleResult.rows.map((role) => ({
-      id: role.id,
-      name: role.role_name,
-      description: role.description,
-      status: role.status,
-    }));
-
-    logDebug("Roles fetched:", {
-      roles: user.roles,
-    });
-
-    // ---------------- Dynamic Role Assignment ----------------
-    // const dynamicRoleQuery = `
-    //   SELECT rm.id, rm.role_name
-    //   FROM role_master rm
-    //   WHERE rm.id = (
-    //     SELECT role
-    //     FROM access_log
-    //     WHERE employee_code = $1
-    //     ORDER BY created_on DESC
-    //     LIMIT 1
-    //   )
-    // `;
-    // const dynamicRoleResult = await db.query(dynamicRoleQuery, [
-    //   user.employee_code,
-    // ]);
-    // if (dynamicRoleResult.rows.length > 0) {
-    //   user.role_id = [dynamicRoleResult.rows[0].id];
-    //   user.roles = [
-    //     {
-    //       id: dynamicRoleResult.rows[0].id,
-    //       name: dynamicRoleResult.rows[0].role_name,
-    //     },
-    //   ];
-    // } else {
-    //   logDebug("No dynamic role found for user:", user.employee_code);
-    // }
-
-    // logDebug("Dynamic role assigned:", {
-    //   roleId: user.role_id,
-    //   roles: user.roles,
-    // });
-
-    // ---------------- Fetch user permissions ----------------
-    let permissions = [];
-    let plantPermissions = [];
-    let permittedPlantIds = [];
-
-    try {
-      const userPermsQuery = `
-    SELECT module_id, plant_id, can_add, can_edit, can_view, can_delete
-    FROM user_plant_permission
-    WHERE user_id = $1
-  `;
-
-      const { rows } = await db.query(userPermsQuery, [user.id]);
-
-      // 1️⃣ Structured permissions (plant-wise)
-      plantPermissions = rows.map(p => ({
-        moduleId: p.module_id,
-        plantId: p.plant_id,
-        actions: {
-          create: p.can_add,
-          update: p.can_edit,
-          read: p.can_view,
-          delete: p.can_delete
-        }
-      }));
-
-      // 2️⃣ Flattened permissions (NO plant_id here)
-      permissions = rows.flatMap(p => {
-        const perms = [];
-        if (p.can_add) perms.push(`create:${p.module_id}`);
-        if (p.can_edit) perms.push(`update:${p.module_id}`);
-        if (p.can_view) perms.push(`read:${p.module_id}`);
-        if (p.can_delete) perms.push(`delete:${p.module_id}`);
-        return perms;
-      });
-
-      // 3️⃣ Unique plant IDs
-      permittedPlantIds = [...new Set(rows.map(p => p.plant_id))];
-
-      logDebug("Permitted plants:", permittedPlantIds);
-
-    } catch (err) {
-      console.error("[PERMISSIONS ERROR]", err);
-      permissions = [];
-      plantPermissions = [];
-      permittedPlantIds = [];
-    }
-
-
-    // Add role-based permissions
-    if (user.role_id.includes(1)) {
-      // SuperAdmin
-      permissions.push("manage:all");
-    }
-
-    // ===============================================
-    // CORRECT APPROVER CHECK - Check both user_requests approver1_email and workflow assignments
-    // ===============================================
-    let isApprover = false;
-    let isCorporateApprover = false;
-    let approverTypes = []; // Track what type of approver the user is
-    let pendingApproval1Count = 0;
-    let pendingApproval2Count = 0;
-    console.log("user info for approver check", user);
-    try {
-      // Check 1: Is user Approver 1 in any user_requests records?
-      // Match by email since approver1_email stores the user's email
-      const approver1Query = `
-        SELECT COUNT(*) as count
-        FROM user_requests
-        WHERE LOWER(approver1_email) = LOWER($1)
-          AND approver1_status = 'Pending'
-          AND status NOT IN ('Completed', 'Rejected', 'Cancelled')
-      `;
-      const approver1Result = await db.query(approver1Query, [user.email]);
-
-      if (approver1Result && approver1Result.rows && approver1Result.rows[0]) {
-        const count = parseInt(approver1Result.rows[0].count, 10);
-        if (count > 0) {
-          isApprover = true;
-          approverTypes.push('approver_1');
-          pendingApproval1Count = count;
-          logDebug(`User ${username} is Approver 1 for ${count} user requests`);
-        }
-      }
-
-      // Also check if user has ever been approver1 (not just pending)
-      const approver1HistoryQuery = `
-        SELECT COUNT(*) as count
-        FROM user_requests
-        WHERE LOWER(approver1_email) = LOWER($1)
-        LIMIT 1
-      `;
-      const approver1HistoryResult = await db.query(approver1HistoryQuery, [user.email]);
-
-      if (approver1HistoryResult && approver1HistoryResult.rows && approver1HistoryResult.rows[0]) {
-        const historyCount = parseInt(approver1HistoryResult.rows[0].count, 10);
-        if (historyCount > 0 && !approverTypes.includes('approver_1')) {
-          isApprover = true;
-          approverTypes.push('approver_1');
-          logDebug(`User ${username} has historical Approver 1 records`);
-        }
-      }
-
-      // Check 2: Is user Approver 2 in any user_requests records?
-      const approver2Query = `
-        SELECT COUNT(*) as count
-        FROM user_requests
-        WHERE LOWER(approver2_email) = LOWER($1)
-          AND approver2_status = 'Pending'
-          AND status NOT IN ('Completed', 'Rejected', 'Cancelled')
-      `;
-      const approver2Result = await db.query(approver2Query, [user.email]);
-
-      if (approver2Result && approver2Result.rows && approver2Result.rows[0]) {
-        const count = parseInt(approver2Result.rows[0].count, 10);
-        if (count > 0) {
-          isApprover = true;
-          if (!approverTypes.includes('workflow_approver')) {
-            approverTypes.push('workflow_approver');
-          }
-          pendingApproval2Count = count;
-          logDebug(`User ${username} is Approver 2 for ${count} user requests`);
-        }
-      }
-
-      // Also check historical approver2 records
-      const approver2HistoryQuery = `
-        SELECT COUNT(*) as count
-        FROM user_requests
-        WHERE LOWER(approver2_email) = LOWER($1)
-        LIMIT 1
-      `;
-      const approver2HistoryResult = await db.query(approver2HistoryQuery, [user.email]);
-
-      if (approver2HistoryResult && approver2HistoryResult.rows && approver2HistoryResult.rows[0]) {
-        const historyCount = parseInt(approver2HistoryResult.rows[0].count, 10);
-        if (historyCount > 0 && !approverTypes.includes('workflow_approver')) {
-          isApprover = true;
-          approverTypes.push('workflow_approver');
-          logDebug(`User ${username} has historical Approver 2 records`);
-        }
-      }
-
-      // Check 3: Is user assigned in approval_workflow_master? (for other workflows)
-      const workflowApproverQuery = `
-        SELECT DISTINCT id
-        FROM approval_workflow_master
-        WHERE (
-          approver_2_id LIKE $1 OR
-          approver_3_id LIKE $1 OR
-          approver_4_id LIKE $1 OR
-          approver_5_id LIKE $1
-        ) AND is_active = true
-        LIMIT 1
-      `;
-      const workflowApproverResult = await db.query(workflowApproverQuery, [`%${user.id}%`]);
-
-      if (workflowApproverResult && workflowApproverResult.rows && workflowApproverResult.rows.length > 0) {
-        isApprover = true;
-        if (!approverTypes.includes('workflow_approver')) {
-          approverTypes.push('workflow_approver');
-        }
-        logDebug(`User ${username} is assigned in approval workflows`);
-      }
-
-
-
-      // Check 4: Is user assigned in approval_workflow_master? (for corporate)
-      const workflowApproverCorporateQuery = `
-        SELECT DISTINCT id
-        FROM approval_workflow_master
-        WHERE (
-          approver_2_id LIKE $1 OR
-          approver_3_id LIKE $1 OR
-          approver_4_id LIKE $1 OR
-          approver_5_id LIKE $1
-        ) AND is_active = true AND corporate_type=$2
-        LIMIT 1
-      `;
-      const workflowApproverCorporateResult = await db.query(workflowApproverCorporateQuery, [`%${user.id}%`,'Administration']);
-
-      if (workflowApproverCorporateResult && workflowApproverCorporateResult.rows && workflowApproverCorporateResult.rows.length > 0) {
-        isCorporateApprover = true;
-        if (!approverTypes.includes('corporate_workflow_approver')) {
-          approverTypes.push('corporate_workflow_approver');
-        }
-        logDebug(`User ${username} is assigned in  Corporate approval workflows`);
-      }
-
-      // Add approver permissions if user is any type of approver
-      if (isCorporateApprover) {
-        permissions.push("approve:requests");
-        permissions.push("read:admin_approval");
-        permissions.push("update:admin_approval");
-
-        logDebug(`User ${username} has approver types:`, approverTypes);
-        logDebug(`Pending approvals - Level 1: ${pendingApproval1Count}, Level 2: ${pendingApproval2Count}`);
-      }
-
-      // Add workflow permissions for superadmins and plant admins
-      if (user.role_id.includes(1) || user.role_id.includes(2)) {
-        permissions.push("read:workflows");
-        permissions.push("create:workflows");
-        permissions.push("update:workflows");
-      }
-    } catch (err) {
-      console.error("[APPROVER CHECK ERROR]", err);
-    }
-
-    // ===============================================
-    // Add IT BIN Admin Extra Permissions
-    // ===============================================
-    if (isITBin) {
-      permissions.push("view:tasks");
-      permissions.push("manage:tasks");
-    }
-
-    // ===============================================
-    // Fetch User's Location/Plant Details
-    // ===============================================
-    let userLocation = null;
-    let userPlantName = null;
-
-    if (user.location) {
-      try {
-        const locationQuery = `
-          SELECT id, plant_name 
-          FROM plant_master 
-          WHERE plant_name = $1
-        `;
-        const locationResult = await db.query(locationQuery, [user.location]);
-
-        if (locationResult.rows.length > 0) {
-          userLocation = locationResult.rows[0].id;
-          userPlantName = locationResult.rows[0].plant_name;
-        }
-      } catch (err) {
-        console.error("[LOCATION FETCH ERROR]", err);
-      }
-    }
-
-    // ===============================================
-    // Generate JWT Token
-    // ===============================================
+    // ---------------- Generate JWT ----------------
     const payload = {
-      user_id: user.id || user.user_id || null,
-      username: user.employee_id || user.username || null,
-      employee_name: user.employee_name,
-      employee_code: user.employee_code,
+      user_id: user.id,
+      username: user.employee_id,
       email: user.email,
-
-      // Role and permissions
       role_id: roleIds,
-      permissions,            // flat (menu / feature)
-      plantPermissions,       // structured (logic)
-      permittedPlantIds,      // quick filtering
-      permissions_version: 2, // bump version
-      isApprover: isApprover,
-      isCorporateApprover:isCorporateApprover,
-      approverTypes: approverTypes, // ['approver_1', 'workflow_approver'] or subset
-      pendingApproval1Count: pendingApproval1Count,
-      pendingApproval2Count: pendingApproval2Count,
-
-      // IT BIN Admin info
-      isITBin,
-      itPlants: isITBin ? itPlants : [], // Full plant details for IT BIN admins
-      itPlantIds: isITBin ? itPlantIds : [], // Just IDs for quick checks
-
-      // User's assigned plant/location
-      location: user.location,
-      plant_name: userPlantName,
-      department: user.department,
-      designation: user.designation,
-      // Metadata
       loginTime: new Date().toISOString(),
     };
 
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
       expiresIn: "8h",
     });
-     
-    // ── Activity log — LOGIN ─────────────────────────────────────────────
-    // subscription = plant_id + location string used in audit reports
-    // loginTxnId links this activity_log row to the user_login_log row
-    try {
-      const loginSubscription = userLocation
-        ? `${userLocation}`   // e.g. "9+Mumbai, MH"
-        : String(userLocation ?? user.plant_id ?? "");
-
-      await logLogin({
-        userId:          user.id,
-        performedByRole: user.roles?.[0]?.name ?? null,
-        subscription:    loginSubscription,
-        token,                                  // stored as masked hint inside logLogin
-        req,
-        extra: {
-          // loginTxnId links activity_log ↔ user_login_log for full session trace
-          requestTransactionId: user.transaction_id,
-          location: user.location ?? req?.headers?.["x-location"] ?? null,
-          latitude:  req?.headers?.["x-lat"]  != null ? Number(req.headers["x-lat"])  : null,
-          longitude: req?.headers?.["x-lng"]  != null ? Number(req.headers["x-lng"])  : null,
-        },
-      });
-    } catch (logErr) {
-      console.error("[AUTH] Activity log (login) failed:", logErr.message);
-    }
 
     return res.json({
       token,
-      login_transaction_id: loginTxnId, // 👈 ADD THIS
+      login_transaction_id: loginTxnId,
       user: {
-        id: user.id || user.user_id,
+        id: user.id,
         username: user.employee_id,
         name: user.employee_name,
-        employee_code: user.employee_code,
         email: user.email,
-        location: user.location,
-        plant_name: userPlantName,
-        department: user.department,
-        designation: user.designation,
-        reporting_manager: user.reporting_manager ?? "",
-        managers_manager: user.managers_manager ?? "",
-        role_id: user.role_id,
+        role_id: roleIds,
         status: user.status,
-        isApprover: isApprover,
-        isCorporateApprover:isCorporateApprover,
-        approverTypes: approverTypes,
-        pendingApproval1Count: pendingApproval1Count,
-        pendingApproval2Count: pendingApproval2Count,
-
-        // IT BIN info
-        isITBin,
-        itPlants: isITBin ? itPlants : [],
-
-        // Permissions summary
-        permittedPlantIds,
-        plantPermissions,
-        hasApproverAccess: permissions.includes("approve:requests"),
-        full_name: user.employee_name,
       },
     });
+
   } catch (err) {
     console.error("[AUTH ERROR]", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
+
+
 
 exports.logout = async (req, res) => {
   try {

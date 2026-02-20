@@ -439,10 +439,10 @@ exports.getUserByEmployeeCode = async (req, res) => {
         reporting_manager,
         managers_manager
       FROM user_master
-      WHERE employee_code = $1
+      WHERE employee_code = $1 AND status=$2
       LIMIT 1`;
 
-    const { rows } = await db.query(query, [employeeCode]);
+    const { rows } = await db.query(query, [employeeCode,'ACTIVE']);
 
     if (!rows || rows.length === 0) {
       return res.status(404).json({ error: "User not found" });

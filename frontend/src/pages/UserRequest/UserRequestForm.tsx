@@ -31,7 +31,8 @@ const AddUserRequest: React.FC = () => {
   const errorRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const ROLE_ENABLED_ACCESS_TYPES = ["New User Creation", "Modify Access", "Bulk New User Creation",];
-
+  const [userError, setUserError] = useState<string>("");
+  const [loadingUser, setLoadingUser] = useState(false);
   // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -77,17 +78,17 @@ const AddUserRequest: React.FC = () => {
   const [selectedAccessLog, setSelectedAccessLog] = useState<any>(null);
   // ── Access-log role lookup status (non-New / non-Bulk access types) ──
   const [accessLogRoleLoaded, setAccessLogRoleLoaded] = useState(false); // true once the fetch settles
-  const [accessLogRoleFound,  setAccessLogRoleFound]  = useState(false); // true only when a role was returned
+  const [accessLogRoleFound, setAccessLogRoleFound] = useState(false); // true only when a role was returned
   // ── Modify Access: duplicate-role banner (same role already active) ──
   const [duplicateRoleError, setDuplicateRoleError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [deactivatedAccessWarning, setDeactivatedAccessWarning] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
- const [allAppRoles, setAllAppRoles] = useState<
+  const [allAppRoles, setAllAppRoles] = useState<
     { role_id: number; role_name: string; application_id: string }[]
   >([]);
-  
+
   // ===================== Main Form State =====================
   const [form, setForm] = useState<UserRequest>({
     request_for_by: "Self",
@@ -119,7 +120,7 @@ const AddUserRequest: React.FC = () => {
   });
   console.log("form data", form);
 
-// ── Auto-clear validation errors when user changes relevant fields ──
+  // ── Auto-clear validation errors when user changes relevant fields ──
   useEffect(() => {
     if (validationError || duplicateRoleError) {
       setValidationError(null);
@@ -187,11 +188,11 @@ const AddUserRequest: React.FC = () => {
   const buildBulkRoleOptions = (rowIndex: number, appId: string): RoleOption[] => {
     const usedRoles = getUsedRolesForApplication(appId, rowIndex);
 
-   // Filter roles specifically for this application from allAppRoles
+    // Filter roles specifically for this application from allAppRoles
     const appSpecificRoles = appId && allAppRoles.length > 0
       ? allAppRoles
-          .filter(row => String(row.application_id) === String(appId))
-          .map(row => ({ id: row.role_id, name: row.role_name }))
+        .filter(row => String(row.application_id) === String(appId))
+        .map(row => ({ id: row.role_id, name: row.role_name }))
       : roles;
 
     return appSpecificRoles.map(role => {
@@ -367,18 +368,84 @@ const AddUserRequest: React.FC = () => {
 
   const [reportsToOptions, setReportsToOptions] = useState<string[]>([]);
 
+  // const fetchUserByEmployeeCode = async (employeeCode: string) => {
+  //   if (!employeeCode) return;
+
+  //   try {
+  //     const res = await fetch(
+  //       `${API_BASE}/api/users/users/${employeeCode}`
+  //     );
+  //     if (!res.ok) throw new Error("User not found");
+
+  //     const data = await res.json();
+
+  //     // Build Manager[] from strings or partial data
+  //     const mergedManagers: Manager[] = [];
+
+  //     if (data.reporting_manager?.displayName) {
+  //       mergedManagers.push({
+  //         dn: data.reporting_manager.dn || "",
+  //         email: data.reporting_manager.email || "",
+  //         managerDN: data.reporting_manager.managerDN || "",
+  //         displayName: data.reporting_manager.displayName,
+  //         employeeCode: data.reporting_manager.employeeCode || "",
+  //         sAMAccountName: data.reporting_manager.sAMAccountName || "",
+  //       });
+  //     }
+
+  //     if (data.managers_manager?.displayName) {
+  //       mergedManagers.push({
+  //         dn: data.managers_manager.dn || "",
+  //         email: data.managers_manager.email || "",
+  //         managerDN: data.managers_manager.managerDN || "",
+  //         displayName: data.managers_manager.displayName,
+  //         employeeCode: data.managers_manager.employeeCode || "",
+  //         sAMAccountName: data.managers_manager.sAMAccountName || "",
+  //       });
+  //     }
+
+  //     console.log("Merged managers:", mergedManagers);
+
+  //     setForm((prev) => ({
+  //       ...prev,
+  //       name: data.name || "",
+  //       location: data.location || "",
+  //       department: data.department || "",
+  //       reportsToOptions: mergedManagers,
+  //       reportsTo: mergedManagers[0]?.displayName || "", // default selected
+  //     }));
+  //   } catch (err) {
+  //     console.error(err);
+  //     //alert("No user found with this Employee Code");
+
+  //     setForm((prev) => ({
+  //       ...prev,
+  //       name: "",
+  //       location: "",
+  //       department: "",
+  //       reportsToOptions: [],
+  //       reportsTo: "",
+  //     }));
+  //   }
+  // };
+
   const fetchUserByEmployeeCode = async (employeeCode: string) => {
     if (!employeeCode) return;
 
     try {
+      setUserError("");
+      setLoadingUser(true);
+
       const res = await fetch(
         `${API_BASE}/api/users/users/${employeeCode}`
       );
-      if (!res.ok) throw new Error("User not found");
+
+      if (!res.ok) {
+        throw new Error("User not found");
+      }
 
       const data = await res.json();
 
-      // Build Manager[] from strings or partial data
       const mergedManagers: Manager[] = [];
 
       if (data.reporting_manager?.displayName) {
@@ -403,19 +470,18 @@ const AddUserRequest: React.FC = () => {
         });
       }
 
-      console.log("Merged managers:", mergedManagers);
-
       setForm((prev) => ({
         ...prev,
         name: data.name || "",
         location: data.location || "",
         department: data.department || "",
         reportsToOptions: mergedManagers,
-        reportsTo: mergedManagers[0]?.displayName || "", // default selected
+        reportsTo: mergedManagers[0]?.displayName || "",
       }));
     } catch (err) {
       console.error(err);
-      //alert("No user found with this Employee Code");
+
+      setUserError("No user found with this Employee Code");
 
       setForm((prev) => ({
         ...prev,
@@ -425,8 +491,11 @@ const AddUserRequest: React.FC = () => {
         reportsToOptions: [],
         reportsTo: "",
       }));
+    } finally {
+      setLoadingUser(false);
     }
   };
+
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -477,7 +546,7 @@ const AddUserRequest: React.FC = () => {
       return;
     }
 
-     const file = files[0];
+    const file = files[0];
     // Validate file type - only PDF allowed
     if (file.type !== "application/pdf") {
       alert("Only PDF files are allowed. Please upload a PDF file.");
@@ -593,8 +662,8 @@ const AddUserRequest: React.FC = () => {
         allocatedId: item.vendor_allocated_id
           ? [item.vendor_allocated_id]
           : [],
-          attachmentName: item.training_attachment || "",
-          trainingStatus:item.training_status || "",
+        attachmentName: item.training_attachment || "",
+        trainingStatus: item.training_status || "",
       }));
 
       setFilterResults(mappedData);
@@ -811,7 +880,7 @@ const AddUserRequest: React.FC = () => {
     doc.save(fileName);
   };
 
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -996,17 +1065,17 @@ const AddUserRequest: React.FC = () => {
       // =====================================================
       // Additional validations for non-bulk-deactivation
       const validationPayload = {
-  request_for_by: form.request_for_by,
-  name: form.name,
-  employee_code: form.employeeCode,   // ← ensure this is present
-  vendor_name: Array.isArray(form.vendorName)
-    ? form.vendorName[0] || ""
-    : form.vendorName || "",
-  plant_location: form.plant_location,
-  department: form.department,
-  applicationId: applicationIds,
-  accessType: form.accessType,
-};
+        request_for_by: form.request_for_by,
+        name: form.name,
+        employee_code: form.employeeCode,   // ← ensure this is present
+        vendor_name: Array.isArray(form.vendorName)
+          ? form.vendorName[0] || ""
+          : form.vendorName || "",
+        plant_location: form.plant_location,
+        department: form.department,
+        applicationId: applicationIds,
+        accessType: form.accessType,
+      };
 
       console.log("\nValidation payload:", validationPayload);
 
@@ -1104,8 +1173,8 @@ const AddUserRequest: React.FC = () => {
       // BUILD TASKS
       // =====================================================
       const tasks: TaskRequest[] = [];
-      
-       // =====================================================
+
+      // =====================================================
       // BUILD TASKS - FIXED VERSION
       // Replace the task building section in handleSubmit
       // =====================================================
@@ -1125,7 +1194,7 @@ const AddUserRequest: React.FC = () => {
         bulkRows.forEach((row) => {
           // Get the roles for THIS specific row
           const rowRoles = Array.isArray(row.role) ? row.role : [row.role];
-             if (shouldGenerateSingleTask) {
+          if (shouldGenerateSingleTask) {
             // Create only ONE task for the entire row (use first role)
             const firstRole = rowRoles[0];
             if (firstRole) {
@@ -1141,27 +1210,27 @@ const AddUserRequest: React.FC = () => {
               });
             }
           } else {
-          // Create a task for each role in this row
-          rowRoles.forEach((roleId) => {
-            if (roleId) { // Only add if role exists
-              tasks.push({
-                application_equip_id: row.applicationId,
-                department: form.department,
-                role: roleId,
-                location: form.plant_location,
-                reports_to: form.reportsTo,
-                task_status: "Pending",
-                approver1_id: approver1_id_str,
-                approver2_id: "",
-              });
-            }
-          });
-        }
+            // Create a task for each role in this row
+            rowRoles.forEach((roleId) => {
+              if (roleId) { // Only add if role exists
+                tasks.push({
+                  application_equip_id: row.applicationId,
+                  department: form.department,
+                  role: roleId,
+                  location: form.plant_location,
+                  reports_to: form.reportsTo,
+                  task_status: "Pending",
+                  approver1_id: approver1_id_str,
+                  approver2_id: "",
+                });
+              }
+            });
+          }
         });
       } else {
         // For single creation, use form.role
         const selectedRoles = Array.isArray(form.role) ? form.role : [form.role];
-         if (shouldGenerateSingleTask) {
+        if (shouldGenerateSingleTask) {
           // Create only ONE task (use first role)
           const firstRole = selectedRoles[0];
           if (firstRole) {
@@ -1177,22 +1246,22 @@ const AddUserRequest: React.FC = () => {
             });
           }
         } else {
-        selectedRoles.forEach((roleId) => {
-          if (roleId) { // Only add if role exists
-            tasks.push({
-              application_equip_id: form.applicationId,
-              department: form.department,
-              role: roleId,
-              location: form.plant_location,
-              reports_to: form.reportsTo,
-              task_status: "Pending",
-              approver1_id: approver1_id_str,
-              approver2_id: "",
-            });
-          }
-        });
+          selectedRoles.forEach((roleId) => {
+            if (roleId) { // Only add if role exists
+              tasks.push({
+                application_equip_id: form.applicationId,
+                department: form.department,
+                role: roleId,
+                location: form.plant_location,
+                reports_to: form.reportsTo,
+                task_status: "Pending",
+                approver1_id: approver1_id_str,
+                approver2_id: "",
+              });
+            }
+          });
+        }
       }
-    }
 
       console.log("[SUBMIT] Generated tasks:", tasks);
 
@@ -1382,16 +1451,16 @@ const AddUserRequest: React.FC = () => {
             Array.isArray(data.appRoles)
               ? data.appRoles
               : // Fallback: if backend doesn't yet return appRoles, use all roles mapped to all apps
-                // This maintains backward compatibility until the backend is updated
-                (Array.isArray(data.roles) && Array.isArray(data.applications))
-                  ? data.applications.flatMap((app: any) =>
-                      data.roles.map((role: any) => ({
-                        role_id: role.id,
-                        role_name: role.name,
-                        application_id: String(app.id),
-                      }))
-                    )
-                  : [];
+              // This maintains backward compatibility until the backend is updated
+              (Array.isArray(data.roles) && Array.isArray(data.applications))
+                ? data.applications.flatMap((app: any) =>
+                  data.roles.map((role: any) => ({
+                    role_id: role.id,
+                    role_name: role.name,
+                    application_id: String(app.id),
+                  }))
+                )
+                : [];
           setAllAppRoles(rawAppRoles);
           setApplications(
             Array.isArray(data.applications) ? data.applications : []
@@ -1405,7 +1474,7 @@ const AddUserRequest: React.FC = () => {
     }
   }, [form.plant_location, form.department]);
 
-// ── Filter roles by selected applicationId (plant + dept + app_id) ──
+  // ── Filter roles by selected applicationId (plant + dept + app_id) ──
   useEffect(() => {
     if (form.applicationId && allAppRoles.length > 0) {
       const filtered = allAppRoles
@@ -1422,7 +1491,7 @@ const AddUserRequest: React.FC = () => {
   useEffect(() => {
 
     fetchVendors()
-      .then((data) =>{
+      .then((data) => {
         const activeVendors = data.filter((vendor: any) => {
           // Check if vendor has 'active' field (boolean)
           if (vendor.active !== undefined) {
@@ -1430,7 +1499,7 @@ const AddUserRequest: React.FC = () => {
           }
           // Check if vendor has 'status' field (string)
           if (vendor.status !== undefined) {
-            return vendor.status === 'ACTIVE' ||vendor.status === 'Active' || vendor.status === 'active';
+            return vendor.status === 'ACTIVE' || vendor.status === 'Active' || vendor.status === 'active';
           }
           // If no status field exists, include all vendors (backward compatibility)
           return true;
@@ -1438,7 +1507,7 @@ const AddUserRequest: React.FC = () => {
         setVendorFirm(
           activeVendors.map((p: any) => ({ id: p.id, vendor_name: p.vendor_name, vendor_code: p.vendor_code }))
         )
-  }).catch(() => setVendorFirm([]));
+      }).catch(() => setVendorFirm([]));
   }, []);
 
   // Fetch departments when plant changes
@@ -1629,7 +1698,7 @@ const AddUserRequest: React.FC = () => {
   //   All other types      → pre-fill role, dropdown LOCKED (unchanged)
   const [existingAccessLogRoles, setExistingAccessLogRoles] = useState<string[]>([]);
 
- // ===================== Deactivated Access Warning =====================
+  // ===================== Deactivated Access Warning =====================
   // When the latest access log for plant+user+department+application has
   // access_request_type = "Deactivation / Disable / Remove User Access" or "Bulk De-activation"
   // AND task_status = "Closed", prompt the user to raise a New User Creation request.
@@ -1655,9 +1724,9 @@ const AddUserRequest: React.FC = () => {
         const token = localStorage.getItem("token");
         const params = new URLSearchParams({
           employee_code: form.employeeCode || "",
-          plant:         form.plant_location,
-          department:    form.department,
-          application:   form.applicationId,
+          plant: form.plant_location,
+          department: form.department,
+          application: form.applicationId,
         });
 
         const res = await fetch(
@@ -1665,7 +1734,7 @@ const AddUserRequest: React.FC = () => {
           {
             headers: {
               "Authorization": `Bearer ${token}`,
-              "Content-Type":  "application/json",
+              "Content-Type": "application/json",
             },
           }
         );
@@ -1753,9 +1822,9 @@ const AddUserRequest: React.FC = () => {
         const token = localStorage.getItem("token");
         const params = new URLSearchParams({
           employee_code: form.employeeCode || "",
-          plant:         form.plant_location,
-          department:    form.department,
-          application:   form.applicationId,
+          plant: form.plant_location,
+          department: form.department,
+          application: form.applicationId,
         });
 
         const res = await fetch(
@@ -1763,7 +1832,7 @@ const AddUserRequest: React.FC = () => {
           {
             headers: {
               "Authorization": `Bearer ${token}`,
-              "Content-Type":  "application/json",
+              "Content-Type": "application/json",
             },
           }
         );
@@ -1784,7 +1853,7 @@ const AddUserRequest: React.FC = () => {
           const allRoles = data.data
             .map((log: any) => log.role)
             .filter((role: any) => role !== null && role !== undefined);
-          
+
           // Convert all roles to strings (roles are numbers in the API response)
           const roleStrArr: string[] = allRoles.map(String);
 
@@ -2087,6 +2156,17 @@ const AddUserRequest: React.FC = () => {
                     autoFocus
                   />
                   <label htmlFor="employeeCode" className={addUserRequestStyles.floatingLabel}>Employee Code</label>
+                  {loadingUser && (
+                    <p style={{ color: "#007bff", fontSize: "13px", marginTop: "5px" }}>
+                      Fetching user details...
+                    </p>
+                  )}
+
+                  {userError && (
+                    <p style={{ color: "red", fontSize: "13px", marginTop: "5px" }}>
+                      {userError}
+                    </p>
+                  )}
                 </div>
                 <div className={addUserRequestStyles.formGroup}></div>
               </div>
@@ -2172,9 +2252,9 @@ const AddUserRequest: React.FC = () => {
                       <th>Vendor Firm</th>
                       <th>Vendor Code</th>
                       <th>Vendor Name</th>
-                       <th>Vendor Allocated ID</th>
-                    <th>Training Status</th>
-                    <th>Training Attachment</th>
+                      <th>Vendor Allocated ID</th>
+                      <th>Training Status</th>
+                      <th>Training Attachment</th>
                       <th>Approver status & Comment</th>
                       <th>Created On</th>
                       <th>Status</th>
@@ -2202,24 +2282,24 @@ const AddUserRequest: React.FC = () => {
                             <td>{a.vendorCode || "—"}</td>
                             <td>{a.vendorName || "—"}</td>
                             <td>{a.allocatedId || "-"}</td>
-                                                    <td>{a.trainingStatus || "-"}</td>
-                                              <td>
-                                                {a.attachmentName ? (
-                                                  <a
-                                                    href={`${API_BASE}/api/user-requests/${a.id}/attachment`}
-                                                    download={a.attachmentName}
-                                                    style={{ display: "inline-flex", alignItems: "center" }}
-                                                    title={`Download ${a.attachmentName}`}
-                                                  >
-                                                    <PictureAsPdfIcon
-                                                      fontSize="small"
-                                                      style={{ color: "#e53935" }}
-                                                    />
-                                                  </a>
-                                                ) : (
-                                                  "-"
-                                                )}
-                                              </td>
+                            <td>{a.trainingStatus || "-"}</td>
+                            <td>
+                              {a.attachmentName ? (
+                                <a
+                                  href={`${API_BASE}/api/user-requests/${a.id}/attachment`}
+                                  download={a.attachmentName}
+                                  style={{ display: "inline-flex", alignItems: "center" }}
+                                  title={`Download ${a.attachmentName}`}
+                                >
+                                  <PictureAsPdfIcon
+                                    fontSize="small"
+                                    style={{ color: "#e53935" }}
+                                  />
+                                </a>
+                              ) : (
+                                "-"
+                              )}
+                            </td>
                             <td>
                               <div style={{ fontSize: "0.55rem", lineHeight: '1.5', minWidth: '250px' }}>
                                 {/* Approver 1 */}
@@ -2658,7 +2738,7 @@ const AddUserRequest: React.FC = () => {
                       value={form.employeeCode}
                       onChange={handleChange}
                       disabled={
-                        (form.request_for_by === "Self"|| form.request_for_by === "Vendor / OEM") && !!form.employeeCode
+                        (form.request_for_by === "Self" || form.request_for_by === "Vendor / OEM") && !!form.employeeCode
                       }
                       required
                     />
@@ -2671,7 +2751,7 @@ const AddUserRequest: React.FC = () => {
                       value={form.name}
                       onChange={handleChange}
                       required
-                      disabled={(form.request_for_by === "Self"|| form.request_for_by === "Vendor / OEM") && !!form.name}
+                      disabled={(form.request_for_by === "Self" || form.request_for_by === "Vendor / OEM") && !!form.name}
                     />
                     <label htmlFor="name" className={addUserRequestStyles.floatingLabel}>
                       Requestor For /By <span style={{ color: "red" }}>*</span></label>
@@ -2683,7 +2763,7 @@ const AddUserRequest: React.FC = () => {
                       value={form.location}
                       onChange={handleChange}
                       required
-                      disabled={(form.request_for_by === "Self"|| form.request_for_by === "Vendor / OEM") && !!form.location}
+                      disabled={(form.request_for_by === "Self" || form.request_for_by === "Vendor / OEM") && !!form.location}
                     />
                     <label htmlFor="location" className={addUserRequestStyles.floatingLabel}>
                       Location <span style={{ color: "red" }}>*</span></label>
@@ -2748,20 +2828,20 @@ const AddUserRequest: React.FC = () => {
                       Training Completed <span style={{ color: "red" }}>*</span></label>
                   </div>
                   {form.trainingStatus === "Yes" && (form.accessType === "New User Creation" ||
-        form.accessType === "Bulk New User Creation")&& (
-                    <div className={addUserRequestStyles.formGroup}>
-                      <input
-                        type="file"
-                        name="trainingAttachment"
-                        accept="application/pdf"
-                        multiple
-                        onChange={handleFileChange}
-                      />
+                    form.accessType === "Bulk New User Creation") && (
+                      <div className={addUserRequestStyles.formGroup}>
+                        <input
+                          type="file"
+                          name="trainingAttachment"
+                          accept="application/pdf"
+                          multiple
+                          onChange={handleFileChange}
+                        />
 
-                      <label htmlFor="trainingAttachment" className={addUserRequestStyles.floatingLabel}>
-                        Attachment (PDF,Max 4MB)</label>
-                    </div>
-                  )}
+                        <label htmlFor="trainingAttachment" className={addUserRequestStyles.floatingLabel}>
+                          Attachment (PDF,Max 4MB)</label>
+                      </div>
+                    )}
                 </div>
               </div>
 
@@ -3096,11 +3176,11 @@ const AddUserRequest: React.FC = () => {
                     <textarea
                       name="remarks"
                       value={form.remarks}
-                       onChange={(e) => {
-                                            if (e.target.value.length <= 1000) {
-                                              handleChange(e);
-                                            }
-                                          }}
+                      onChange={(e) => {
+                        if (e.target.value.length <= 1000) {
+                          handleChange(e);
+                        }
+                      }}
                       style={{
                         minHeight: "40px",
                         maxHeight: "42px",
@@ -3112,8 +3192,8 @@ const AddUserRequest: React.FC = () => {
                       Remarks
                     </label>
                     <div className={addUserRequestStyles.charCounter}>
-                                          {(form.remarks?.length || 0)}/1000
-                                        </div>
+                      {(form.remarks?.length || 0)}/1000
+                    </div>
                   </div>
 
                   {/* Info message */}
@@ -3422,29 +3502,29 @@ const AddUserRequest: React.FC = () => {
                         )}
                       </div>
                     )}
-                     <div className={addUserRequestStyles.formGroup}>
-                    <textarea
-                      name="remarks"
-                      value={form.remarks}
-                       onChange={(e) => {
-                                            if (e.target.value.length <= 1000) {
-                                              handleChange(e);
-                                            }
-                                          }}
-                      style={{
-                        minHeight: "40px",
-                        maxHeight: "42px",
-                        resize: "vertical",
-                      }}
-                      maxLength={50}
-                    />
-                    <label htmlFor="remarks" className={addUserRequestStyles.floatingLabel}>
-                      Remarks
-                    </label>
-                    <div className={addUserRequestStyles.charCounter}>
-                                          {(form.remarks?.length || 0)}/1000
-                                        </div>
-                  </div>
+                    <div className={addUserRequestStyles.formGroup}>
+                      <textarea
+                        name="remarks"
+                        value={form.remarks}
+                        onChange={(e) => {
+                          if (e.target.value.length <= 1000) {
+                            handleChange(e);
+                          }
+                        }}
+                        style={{
+                          minHeight: "40px",
+                          maxHeight: "42px",
+                          resize: "vertical",
+                        }}
+                        maxLength={50}
+                      />
+                      <label htmlFor="remarks" className={addUserRequestStyles.floatingLabel}>
+                        Remarks
+                      </label>
+                      <div className={addUserRequestStyles.charCounter}>
+                        {(form.remarks?.length || 0)}/1000
+                      </div>
+                    </div>
                   </div>
                 )}
               {isBulkDeactivation && (
