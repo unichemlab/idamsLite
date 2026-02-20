@@ -727,3 +727,25 @@
   color: #9ca3af;
 }
 
+/* Six Column Grid Layout */
+.sixCol {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr); /* 6 equal columns */
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+  .sixCol {
+    grid-template-columns: repeat(3, 1fr); /* 3 columns on medium screens */
+  }
+}
+
+@media (max-width: 768px) {
+  .sixCol {
+    grid-template-columns: 1fr; /* 1 column on mobile */
+    gap: 10px;
+  }
+}
+

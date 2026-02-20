@@ -132,8 +132,16 @@ export async function fetchSystems(): Promise<any[]> {
   return request("/api/systems");
 }
 
-export async function fetchActivityLog(): Promise<any[]> {
-  return request("/api/activity-logs");
+export async function fetchActivityLog(params?: { dateFrom?: string; dateTo?: string; page?: number; perPage?: number }): Promise<any[]> {
+  const q = new URLSearchParams();
+  if (params?.dateFrom) q.append("from", params.dateFrom);
+  if (params?.dateTo)   q.append("to",   params.dateTo);
+  if (params?.page)     q.append("page",    String(params.page));
+  if (params?.perPage)  q.append("perPage", String(params.perPage));
+  const qs = q.toString();
+  const res = await request(`/api/activity-logs${qs ? '?' + qs : ''}`);
+  // Backend may return { data: [], meta: {} } or plain array — normalise
+  return Array.isArray(res) ? res : (res?.data ?? []);
 }
 
 export async function fetchTaskLog(): Promise<any[]> {
@@ -730,9 +738,18 @@ export async function getMyPermissions() {
 /**
  * Fetch all approvals with optional filters
  */
-export const fetchApprovals = async (queryParams?: string): Promise<any[]> => {
+export interface ApprovalListResponse {
+  data: any[];
+  meta: { total: number; page: number; perPage: number; pages: number };
+}
+
+export const fetchApprovals = async (queryParams?: string): Promise<ApprovalListResponse> => {
   const q = queryParams ? `?${queryParams}` : "";
-  return request(`/api/master-approvals${q}`);
+  const res = await request(`/api/master-approvals${q}`);
+  // Normalise: backend always returns { data: [], meta: {} }
+  // Guard in case an old endpoint returns a plain array
+  if (Array.isArray(res)) return { data: res, meta: { total: res.length, page: 1, perPage: res.length, pages: 1 } };
+  return res as ApprovalListResponse;
 };
 
 /**
@@ -1018,4 +1035,3 @@ export async function searchApplicationActivityLogs(filters: {
 }
 
 // Add this to your existing api.ts file after the fetchApplicationActivityLogs function
-
