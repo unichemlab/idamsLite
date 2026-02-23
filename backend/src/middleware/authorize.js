@@ -80,22 +80,32 @@ const authorize = (requiredPermissions, options = {}) => {
       const decoded = jwt.verify(token, JWT_SECRET);
 
       const normalizedUser = {
-        id: decoded.user_id,
-        user_id: decoded.user_id,
-        username: decoded.username,
-        employee_name:decoded.employee_name,
-        role_id: decoded.role_id,
+        id:                decoded.user_id,
+        user_id:           decoded.user_id,
+        username:          decoded.username,
+        employee_name:     decoded.employee_name,
+        role_id:           decoded.role_id,
         roles: Array.isArray(decoded.role_id)
           ? decoded.role_id.map(Number)
           : [Number(decoded.role_id)],
-        permissions: decoded.permissions || [],
-        plantPermissions: decoded.plantPermissions || [],
+        permissions:       decoded.permissions       || [],
+        plantPermissions:  decoded.plantPermissions  || [],
         permittedPlantIds: (decoded.permittedPlantIds || []).map(Number),
-        isITBin: !!decoded.isITBin,
-        itPlantIds: (decoded.itPlantIds || []).map(Number),
-        isApprover: !!decoded.isApprover,
-        email: decoded.email,
-        isSuperAdmin: isSuperAdmin(decoded),
+        isITBin:           !!decoded.isITBin,
+        itPlantIds:        (decoded.itPlantIds || []).map(Number),
+        isApprover:        !!decoded.isApprover,
+        email:             decoded.email,
+        isSuperAdmin:      isSuperAdmin(decoded),
+        // Session tracking — needed by heartbeat, logout, and audit logger
+        session_id:        decoded.session_id   || null,
+        auth_method:       decoded.auth_method  || null,
+        location:          decoded.location     || null,
+        plant_name:        decoded.plant_name   || null,
+        department:        decoded.department   || null,
+        designation:       decoded.designation  || null,
+        subscription:      decoded.session_id   // used by logLogout
+                             ? null             // rebuilt from plant_id + location
+                             : null,
       };
 
       req.user = normalizedUser;
