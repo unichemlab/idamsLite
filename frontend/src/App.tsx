@@ -20,12 +20,14 @@ import { TaskProvider } from "pages/TaskClosureTracking/TaskContext";
 import { UserRequestProvider } from "pages/UserRequest/UserRequestContext";
 import {NetworkProvider} from "./context/NetworkContext";
 import {UserMasterProvider} from "./context/UserMasterContext";
+import { useSessionHeartbeat } from "./hooks/useSessionHeartbeat";
 
 import AppRoutes from "./routes/AppRoutes";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Analytics } from "@vercel/analytics/react";
 
 const App: React.FC = () => {
+  useSessionHeartbeat();
   return (
     <BrowserRouter>
       <ApproverProvider>
