@@ -294,11 +294,11 @@ const ActiveUserLog: React.FC = () => {
   };
 
   /* -------------------- Client-side Request For Filter -------------------- */
- const filteredLogs = filterRequestFor
-  ? filterRequestFor === "Self/Others"
-    ? accessLogs.filter((log) => log.request_for_by === "Self" || log.request_for_by === "Others")
-    : accessLogs.filter((log) => log.request_for_by === filterRequestFor)
-  : accessLogs;
+  const filteredLogs = filterRequestFor
+    ? filterRequestFor === "Self/Others"
+      ? accessLogs.filter((log) => log.request_for_by === "Self" || log.request_for_by === "Others")
+      : accessLogs.filter((log) => log.request_for_by === filterRequestFor)
+    : accessLogs;
 
   /* -------------------- Export PDF (All Columns) -------------------- */
   const handleExportPDF = useCallback(async () => {
@@ -371,7 +371,7 @@ const ActiveUserLog: React.FC = () => {
     // ✅ Export filteredLogs (respects Request For filter)
     const tableData = filteredLogs.map((log, index) => {
       const isVendor = log.request_for_by === "Vendor / OEM";
-      const isOther  = log.request_for_by === "Others";
+      const isOther = log.request_for_by === "Others";
 
       return [
         index + 1,
@@ -410,8 +410,8 @@ const ActiveUserLog: React.FC = () => {
       headStyles: { fillColor: [0, 82, 155], textColor: [255, 255, 255], fontSize: 7 },
       alternateRowStyles: { fillColor: [245, 247, 250] },
       columnStyles: {
-        8:  { cellWidth: 30 },
-        9:  { cellWidth: 25 },
+        8: { cellWidth: 30 },
+        9: { cellWidth: 25 },
         14: { cellWidth: 22 },
         15: { cellWidth: 22 },
         17: { cellWidth: 25 },
@@ -451,90 +451,177 @@ const ActiveUserLog: React.FC = () => {
       <AppHeader title="Active User Logs" />
 
       <div className={plantStyles.contentArea}>
-        <div className={plantStyles.controlPanel}>
-          <div className={plantStyles.actionRow}>
+        {/* -------------------- Filter Bar -------------------- */}
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+          padding: "10px 16px",
+          backgroundColor: "#fff",
+          borderRadius: "8px",
+          boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+          flexWrap: "nowrap",         // ✅ prevents breaking
+          overflowX: "auto",          // ✅ scrolls on small screens instead of wrapping
+          marginBottom: "12px",
+          border: "1px solid #e2e8f0"
+        }}>
 
-            {/* Location Filter */}
-            <div className={styles.filterGroup}>
-              <label>Location:</label>
-              <select
-                value={selectedLocationId || ""}
-                onChange={(e) => setSelectedLocationId(e.target.value ? Number(e.target.value) : null)}
-                disabled={loadingLocations}
-                style={filterSelectStyle}
-              >
-                <option value="">-- Select Location --</option>
-                {locations.map((loc) => (
-                  <option key={`location-${loc.location_id}`} value={loc.location_id}>
-                    {loc.location_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Department Filter */}
-            <div className={styles.filterGroup}>
-              <label>Department:</label>
-              <select
-                value={selectedDepartmentId || ""}
-                onChange={(e) => setSelectedDepartmentId(e.target.value ? Number(e.target.value) : null)}
-                disabled={!selectedLocationId || loadingDepartments}
-                style={{ ...filterSelectStyle, backgroundColor: selectedLocationId ? "#fff" : "#f9fafb" }}
-              >
-                <option value="">-- Select Department --</option>
-                {departments.map((dept) => (
-                  <option key={`department-${dept.department_id}`} value={dept.department_id}>
-                    {dept.department_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Application Filter */}
-            <div className={styles.filterGroup}>
-              <label>Application:</label>
-              <select
-                value={selectedApplicationId || ""}
-                onChange={(e) => setSelectedApplicationId(e.target.value ? Number(e.target.value) : null)}
-                disabled={!selectedDepartmentId || loadingApplications}
-                style={{ ...filterSelectStyle, backgroundColor: selectedDepartmentId ? "#fff" : "#f9fafb" }}
-              >
-                <option value="">-- Select Application --</option>
-                {applications.map((app) => (
-                  <option key={`application-${app.application_equip_id}`} value={app.application_equip_id}>
-                    {app.application_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* ✅ Request For Filter */}
-            <div className={styles.filterGroup}>
-              <label>Request For:</label>
-              <select
-                value={filterRequestFor}
-                onChange={(e) => {
-                  setFilterRequestFor(e.target.value);
-                  setCurrentPage(1);
-                }}
-                disabled={!selectedApplicationId}
-                style={{ ...filterSelectStyle, backgroundColor: selectedApplicationId ? "#fff" : "#f9fafb" }}
-              >
-                <option value="">-- All --</option>
-<option value="Self/Others">Self/Others</option>
-<option value="Vendor / OEM">Vendor / OEM</option>
-              </select>
-            </div>
-
-            <button
-              onClick={handleExportPDF}
-              disabled={filteredLogs.length === 0}
-              className={plantStyles.exportBtn}
+          {/* Location */}
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <label style={{ fontSize: "12px", fontWeight: 600, color: "#475569", whiteSpace: "nowrap" }}>
+              Location
+            </label>
+            <select
+              value={selectedLocationId || ""}
+              onChange={(e) => setSelectedLocationId(e.target.value ? Number(e.target.value) : null)}
+              disabled={loadingLocations}
+              style={{
+                padding: "5px 10px",
+                fontSize: "12px",
+                border: "1px solid #cbd5e1",
+                borderRadius: "5px",
+                backgroundColor: "#f8fafc",
+                color: "#1e293b",
+                minWidth: "160px",
+                cursor: "pointer",
+                outline: "none",
+              }}
             >
-              <FileText size={16} /> Export PDF
-            </button>
-
+              <option value="">-- Select --</option>
+              {locations.map((loc) => (
+                <option key={`location-${loc.location_id}`} value={loc.location_id}>
+                  {loc.location_name}
+                </option>
+              ))}
+            </select>
           </div>
+
+          {/* Divider */}
+          <div style={{ width: "1px", height: "28px", backgroundColor: "#e2e8f0" }} />
+
+          {/* Department */}
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <label style={{ fontSize: "12px", fontWeight: 600, color: "#475569", whiteSpace: "nowrap" }}>
+              Department
+            </label>
+            <select
+              value={selectedDepartmentId || ""}
+              onChange={(e) => setSelectedDepartmentId(e.target.value ? Number(e.target.value) : null)}
+              disabled={!selectedLocationId || loadingDepartments}
+              style={{
+                padding: "5px 10px",
+                fontSize: "12px",
+                border: "1px solid #cbd5e1",
+                borderRadius: "5px",
+                backgroundColor: !selectedLocationId ? "#f1f5f9" : "#f8fafc",
+                color: !selectedLocationId ? "#94a3b8" : "#1e293b",
+                minWidth: "160px",
+                cursor: !selectedLocationId ? "not-allowed" : "pointer",
+                outline: "none",
+              }}
+            >
+              <option value="">-- Select --</option>
+              {departments.map((dept) => (
+                <option key={`department-${dept.department_id}`} value={dept.department_id}>
+                  {dept.department_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Divider */}
+          <div style={{ width: "1px", height: "28px", backgroundColor: "#e2e8f0" }} />
+
+          {/* Application */}
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <label style={{ fontSize: "12px", fontWeight: 600, color: "#475569", whiteSpace: "nowrap" }}>
+              Application
+            </label>
+            <select
+              value={selectedApplicationId || ""}
+              onChange={(e) => setSelectedApplicationId(e.target.value ? Number(e.target.value) : null)}
+              disabled={!selectedDepartmentId || loadingApplications}
+              style={{
+                padding: "5px 10px",
+                fontSize: "12px",
+                border: "1px solid #cbd5e1",
+                borderRadius: "5px",
+                backgroundColor: !selectedDepartmentId ? "#f1f5f9" : "#f8fafc",
+                color: !selectedDepartmentId ? "#94a3b8" : "#1e293b",
+                minWidth: "160px",
+                cursor: !selectedDepartmentId ? "not-allowed" : "pointer",
+                outline: "none",
+              }}
+            >
+              <option value="">-- Select --</option>
+              {applications.map((app) => (
+                <option key={`application-${app.application_equip_id}`} value={app.application_equip_id}>
+                  {app.application_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Divider */}
+          <div style={{ width: "1px", height: "28px", backgroundColor: "#e2e8f0" }} />
+
+          {/* Request For */}
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <label style={{ fontSize: "12px", fontWeight: 600, color: "#475569", whiteSpace: "nowrap" }}>
+              Request For
+            </label>
+            <select
+              value={filterRequestFor}
+              onChange={(e) => {
+                setFilterRequestFor(e.target.value);
+                setCurrentPage(1);
+              }}
+              disabled={!selectedApplicationId}
+              style={{
+                padding: "5px 10px",
+                fontSize: "12px",
+                border: "1px solid #cbd5e1",
+                borderRadius: "5px",
+                backgroundColor: !selectedApplicationId ? "#f1f5f9" : "#f8fafc",
+                color: !selectedApplicationId ? "#94a3b8" : "#1e293b",
+                minWidth: "130px",
+                cursor: !selectedApplicationId ? "not-allowed" : "pointer",
+                outline: "none",
+              }}
+            >
+              <option value="">-- All --</option>
+              <option value="Self/Others">Self / Others</option>
+              <option value="Vendor / OEM">Vendor / OEM</option>
+            </select>
+          </div>
+
+          {/* Spacer */}
+          <div style={{ flex: 1 }} />
+
+          {/* Export Button */}
+          <button
+            onClick={handleExportPDF}
+            disabled={filteredLogs.length === 0}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "6px 14px",
+              fontSize: "12px",
+              fontWeight: 600,
+              backgroundColor: filteredLogs.length === 0 ? "#e2e8f0" : "#ecfdf5",
+              color: filteredLogs.length === 0 ? "#94a3b8" : "#059669",
+              border: `1px solid ${filteredLogs.length === 0 ? "#e2e8f0" : "#059669"}`, // ✅ combined
+              borderRadius: "5px",
+              cursor: filteredLogs.length === 0 ? "not-allowed" : "pointer",
+              whiteSpace: "nowrap",
+              transition: "background 0.2s",
+            }}
+          >
+            <FileText size={14} />
+            Export PDF
+          </button>
+
         </div>
 
         <div className={plantStyles.tableCard}>
@@ -583,8 +670,8 @@ const ActiveUserLog: React.FC = () => {
                       </tr>
                     ) : (
                       pageData.map((log, index) => {
-                        const isSelf   = log.request_for_by === "Self";
-                        const isOther  = log.request_for_by === "Others";
+                        const isSelf = log.request_for_by === "Self";
+                        const isOther = log.request_for_by === "Others";
                         const isVendor = log.request_for_by === "Vendor / OEM";
 
                         return (
