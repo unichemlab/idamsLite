@@ -139,7 +139,7 @@ const AddPlantITSupport: React.FC = () => {
       if (res.ok) {
         alert("IT Group Assignment saved successfully!");
         setShowConfirm(false);
-        navigate("/plant-itsupport");
+        navigate("/task-closure-bin");
       } else {
         const text = await res.text();
         alert("Error saving assignment: " + text);

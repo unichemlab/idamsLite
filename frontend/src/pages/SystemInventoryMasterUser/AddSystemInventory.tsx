@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useSystemContext } from "../SystemInventoryMasterUser/SystemContext";
 import { System } from "../../types/system";
-import { fetchPlants, fetchDepartments, fetchUsers, fetchVendors } from "../../utils/api";
+import { fetchPlants, fetchDepartments, fetchUsers, fetchVendors,API_BASE } from "../../utils/api";
 import styles from "../Plant/AddPlantMaster.module.css";
 import { getUniqueActiveUsers } from "../../utils/userUtils";
 import { useUserContext } from "../../context/UserContext";
@@ -242,11 +242,52 @@ const AddSystemInventory: React.FC = () => {
       }))
     : [];
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validateForm()) return; // ✅ stop submission if invalid
-    setShowConfirm(true);
-  };
+  // const handleSubmit = (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   if (!validateForm()) return; // ✅ stop submission if invalid
+  //   setShowConfirm(true);
+  // };
+
+
+
+   // ✅ Duplicate check — GxP only
+const checkDuplicate = async (): Promise<boolean> => {
+  const { plant_location_id, department_id, category_gxp, equipment_instrument_id } = form;
+
+  // Only check for GxP
+  if (category_gxp !== "GxP") return false;
+  if (!plant_location_id || !department_id || !equipment_instrument_id) return false;
+
+  try {
+    const params = new URLSearchParams({
+      plant_location_id: String(plant_location_id),
+      department_id: String(department_id),
+      equipment_instrument_id,
+    });
+
+    const res = await fetch(`${API_BASE}/api/systems/check-duplicate?${params.toString()}`);
+    const data = await res.json();
+    return data.isDuplicate === true;
+  } catch {
+    return false;
+  }
+};
+
+
+  const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!validateForm()) return;
+
+  const isDuplicate = await checkDuplicate();
+  if (isDuplicate) {
+    alert(
+      "Duplicate record found!\nA system with the same Plant, Department and Equipment/Instrument ID already exists for GxP category."
+    );
+    return;
+  }
+
+  setShowConfirm(true);
+};
 
   const validateForm = (): boolean => {
     // Warranty End Date must be after start date

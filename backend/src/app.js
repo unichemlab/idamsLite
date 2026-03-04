@@ -31,6 +31,7 @@ const plantITSupportRoutes = require("./routes/transaction");
 const masterApprovalRoutes = require("./routes/masterApprovalRoutes");
 const bulkImportRoutes = require('./routes/bulkImportRoutes');
 const { sendPasswordEmail } = require('./utils/emailTemplate');
+const runMonitor = require("./routes/taskDeactivationCronRoutes");
 const app = express();
 
 // Configure CORS to allow both localhost and deployed frontend
@@ -95,6 +96,7 @@ app.use('/api/send-password-email',sendPasswordEmail);
 app.use("/api/master-approvals", masterApprovalRoutes);
 // Use AD sync routes
 app.use('/api', adSyncRoutes);
+app.use('/api',runMonitor);
 app.use("/api/workflows", workflowRoutes);
 
 app.get("/api/tech-stack", (req, res) => {

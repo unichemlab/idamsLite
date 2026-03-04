@@ -120,7 +120,7 @@ const handleCloseModal = () => {
           />
           <button
             className={styles.addUserBtn}
-            onClick={() => navigate("/plant-itsupport/add")}
+            onClick={() => navigate("/task-closure-bin/add")}
           >
             + Add New
           </button>
@@ -236,7 +236,7 @@ const handleCloseModal = () => {
                   <td>
                     <button
                       className={`${styles["action-button"]} ${styles.edit}`}
-                      onClick={() => navigate(`/plant-itsupport/edit/${tx.id}`)}
+                      onClick={() => navigate(`/task-closure-bin/edit/${tx.id}`)}
                       title="Edit"
                     >
                       <FaEdit />

@@ -102,7 +102,8 @@ const getUserRequestWithTasks = async (id) => {
             tr.location,
             p.plant_name AS location_name,
             tr.reports_to,
-            tr.task_status
+            tr.task_status,
+            tr.task_action,
      FROM task_requests tr
      LEFT JOIN department_master d ON tr.department = d.id
      LEFT JOIN role_master r ON tr.role = r.id
@@ -126,6 +127,7 @@ const getUserRequestWithTasks = async (id) => {
     location_id: t.location,
     reports_to: t.reports_to,
     task_status: t.task_status,
+    task_action: t.task_action,
   }));
 
   return { request, tasks };
@@ -159,6 +161,7 @@ exports.getAllUserRequests = async (req, res) => {
               tr.department,
               d.department_name,
               tr.role,
+              tr.take_action,
               r.role_name AS role_name,
               p.plant_name AS plant_name,
               tr.location,
@@ -211,6 +214,7 @@ exports.getAllUserRequests = async (req, res) => {
           location: row.plant_name,
           reports_to: row.reports_to,
           task_status: row.task_status,
+          task_action: row.task_action,
         });
       }
     }
@@ -336,8 +340,8 @@ console.log("Created user request:", userRequest);
         `INSERT INTO task_requests
         (user_request_id, application_equip_id, department, role, location, reports_to, task_status,
          approver1_id, approver2_id, approver1_name, approver2_name, 
-         approver1_email, approver2_email, created_on)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW())`,
+         approver1_email, approver2_email,task_action, created_on)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,NOW())`,
         [
           userRequest.id,
           task.application_equip_id,
@@ -352,6 +356,7 @@ console.log("Created user request:", userRequest);
           approver2Name,
           approver1Email,
           approver2Email,
+          task.task_action,
         ]
       );
     }
@@ -525,6 +530,7 @@ exports.getUserRequestById = async (req, res) => {
               app.display_name AS application_name,
               tr.transaction_id AS task_request_transaction_id,
               tr.department,
+              tr.task_action,
               d.department_name,
               tr.role,
               r.role_name AS role_name,
@@ -577,6 +583,7 @@ exports.getUserRequestById = async (req, res) => {
           location_name: row.plant_name,
           reports_to: row.reports_to,
           task_status: row.task_status,
+          task_action:row.task_action,
         })),
     };
 
@@ -1592,12 +1599,14 @@ exports.createBulkDeactivationRequest = async (req, res) => {
     AND al.department::text = $2::text
     AND al.name ILIKE $3
     AND al.employee_code ILIKE $4
+    AND al.task_status::text = $5::text
   ORDER BY al.id`,
   [
     plant_location,
     department,
     `%${name}%`,
-    `%${employee_code}%`
+    `%${employee_code}%`,
+    'Closed'
   ]
 );
 
@@ -1610,6 +1619,45 @@ exports.createBulkDeactivationRequest = async (req, res) => {
     }
 
     console.log(`[BULK DEACTIVATION] Found ${accessLogs.length} active access logs`);
+
+      // --------------------------------------------------
+  // 2️⃣ Reject Open Requests (Pending / In Progress)
+  // --------------------------------------------------
+  const openRequests = await client.query(`
+    SELECT id
+    FROM user_requests
+    WHERE employee_code ILIKE $1
+    AND status IN ('Pending', 'In Progress') AND request_for_by IN ('Self','Others')
+  `, [`%${employee_code}%`]);
+console.log("openRequest",openRequests);
+  for (const req of openRequests.rows) {
+
+    await client.query(`
+      UPDATE user_requests
+      SET status = 'Rejected',
+          approver1_status = 
+            CASE WHEN approver1_status = 'Pending' THEN 'Rejected' ELSE approver1_status END,
+          approver2_status = 
+            CASE WHEN approver2_status = 'Pending' THEN 'Rejected' ELSE approver2_status END,
+          updated_on = NOW()
+      WHERE id = $1
+    `, [req.id]);
+
+    await client.query(`
+      UPDATE task_requests
+      SET task_status = 'Rejected',
+          approver1_action = 
+            CASE WHEN approver1_action IS NULL THEN 'Rejected' ELSE approver1_action END,
+          approver2_action = 
+            CASE WHEN approver2_action IS NULL THEN 'Rejected' ELSE approver2_action END,
+          updated_on = NOW()
+      WHERE user_request_id = $1
+    `, [req.id]);
+
+    console.log(`❌ Open request rejected for ${user.employee_code}`);
+  }
+
+
 
     // =====================================================
     // STEP 2: Create User Request (Auto-Approved)

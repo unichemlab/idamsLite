@@ -31,6 +31,7 @@ interface Task {
   location: string;
   reports_to: string;
   task_status: string;
+  task_action: string;
 }
 interface ApprovalAction {
   id: number;
@@ -485,6 +486,7 @@ const ApprovalHistoryPage: React.FC = () => {
                       <th>Role</th>
                       <th>Location</th>
                       <th>Reports To</th>
+                      <th>Task Action</th>
                       <th>Status</th>
                     </tr>
                   </thead>
@@ -497,6 +499,7 @@ const ApprovalHistoryPage: React.FC = () => {
                         <td>{task.role_name}</td>
                         <td>{task.location_name}</td>
                         <td>{task.reports_to}</td>
+                        <td>{task.task_action}</td>
                         <td>
                           <span
                             className={`${styles.statusBadge} ${

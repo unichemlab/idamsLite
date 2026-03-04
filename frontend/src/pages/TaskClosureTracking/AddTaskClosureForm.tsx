@@ -37,13 +37,15 @@ const TaskClosureForm = () => {
     task_updated: "",
     status: "",
     access_request_type: "",
+    task_action: "Grant",        // ← "Grant" | "Revoke" — drives RULE 12/13
     assignmentGroup: "",
     plant_name: "",
     userRequestType: "",
     fromDate: new Date().toISOString().split("T")[0],
     toDate: "",
-    userEmail: "", // Added for email functionality
+    userEmail: "",
   });
+
 
   const [itAdminUsers, setItAdminUsers] = useState<any[]>([]);
   const [showPassword, setShowPassword] = useState(false);
@@ -72,39 +74,17 @@ const TaskClosureForm = () => {
 
   // ========================================
   // RULE 12 & 13: Determine allowed access options
+  // Driven by task_action ("Grant" | "Revoke") set per-task at submission time.
+  // This correctly handles Modify Access where one sibling task is Grant
+  // and another is Revoke under the same RITM.
   // ========================================
   const getAllowedAccessOptions = () => {
-    const accessType = formData.access_request_type;
-
-    // RULE 12: These request types can only use "Granted" or "Not Processed"
-    const grantAccessTypes = [
-      "New User Creation",
-      "Modify Access",
-      "Active / Enable User Access",
-      "Password Reset",
-      "Account Unlock",
-      "Account Unlock and Password Reset",
-      "Bulk New User Creation",
-    ];
-
-
-
-
-
-    // RULE 13: These request types can only use "Revoked" or "Not Processed"
-    const revokeAccessTypes = [
-      "Deactivation / Disable / Remove User Access",
-      "Bulk De-activation",
-    ];
-
-    if (grantAccessTypes.includes(accessType)) {
-      return ["Not Processed", "Granted"];
-    } else if (revokeAccessTypes.includes(accessType)) {
+    if (formData.task_action === "Revoke") {
+      // RULE 13: Revoke task → only Revoked or Not Processed
       return ["Not Processed", "Revoked"];
     }
-
-    // Default: all options (shouldn't happen with current access types)
-    return ["Not Processed", "Granted", "Revoked"];
+    // RULE 12: Grant task (default) → only Granted or Not Processed
+    return ["Not Processed", "Granted"];
   };
   const allocatedIDEnabled = [
     "New User Creation",
@@ -161,6 +141,7 @@ const TaskClosureForm = () => {
             remarks: data.remarks || "",
             status: data.status || "",
             access_request_type: data.access_request_type || "",
+            task_action: data.tasks[0].task_action || "Grant", // ← from task_requests.task_action
             userRequestType: data.userRequestType || "",
             fromDate: data.fromDate ? new Date(data.fromDate).toISOString().split("T")[0] : "",
             toDate: data.toDate ? new Date(data.toDate).toISOString().split("T")[0] : "",
@@ -188,6 +169,7 @@ const TaskClosureForm = () => {
     logout();
     navigate("/");
   };
+
   useEffect(() => {
     if (!isRoleGrantAccess) {
       setFormData((prev: typeof formData) => ({
@@ -265,8 +247,62 @@ const TaskClosureForm = () => {
       }
     }
 
-    // RULE 12: Validate access options for grant-type requests
-    const grantAccessTypes = [
+    // // RULE 12: Validate access options for grant-type requests
+    // const grantAccessTypes = [
+    //   "New User Creation",
+    //   "Modify Access",
+    //   "Active / Enable User Access",
+    //   "Password Reset",
+    //   "Account Unlock",
+    //   "Account Unlock and Password Reset",
+    //   "Bulk New User Creation",
+    // ];
+
+    // if (grantAccessTypes.includes(formData.access_request_type)) {
+    //   if (formData.access === "Revoked") {
+    //     errors.push(
+    //       `❌ Access type "${formData.access_request_type}" cannot be set to "Revoked". Only "Granted" or "Not Processed" are allowed.`
+    //     );
+    //   }
+    // }
+
+    // // RULE 13: Validate access options for revoke-type requests
+    // const revokeAccessTypes = [
+    //   "Deactivation / Disable / Remove User Access",
+    //   "Bulk De-activation",
+    // ];
+
+    // if (revokeAccessTypes.includes(formData.access_request_type)) {
+    //   if (formData.access === "Granted") {
+    //     errors.push(
+    //       `❌ Access type "${formData.access_request_type}" cannot be set to "Granted". Only "Revoked" or "Not Processed" are allowed.`
+    //     );
+    //   }
+    // }
+
+
+// RULE 12 & 13: Validate access against BOTH access_request_type AND task_action.
+//
+// Priority logic:
+//   1. If task_action = "Revoke" → always treat as Revoke (RULE 13)
+//      even if access_request_type = "Modify Access" (which is a Grant type by name)
+//   2. If task_action = "Grant" (or missing) → fall back to access_request_type check
+//
+// This handles the Modify Access case where one sibling task is Grant
+// and another is Revoke under the same RITM.
+
+const isRevokeTask =
+  formData.task_action === "Revoke" ||
+  [
+    "Deactivation / Disable / Remove User Access",
+    "Bulk De-activation",
+  ].includes(formData.access_request_type);
+
+const isGrantTask =
+  !isRevokeTask &&
+  (
+    formData.task_action === "Grant" ||
+    [
       "New User Creation",
       "Modify Access",
       "Active / Enable User Access",
@@ -274,29 +310,21 @@ const TaskClosureForm = () => {
       "Account Unlock",
       "Account Unlock and Password Reset",
       "Bulk New User Creation",
-    ];
+    ].includes(formData.access_request_type)
+  );
 
-    if (grantAccessTypes.includes(formData.access_request_type)) {
-      if (formData.access === "Revoked") {
-        errors.push(
-          `❌ Access type "${formData.access_request_type}" cannot be set to "Revoked". Only "Granted" or "Not Processed" are allowed.`
-        );
-      }
-    }
+if (isRevokeTask && formData.access === "Granted") {
+  errors.push(
+    `❌ This is a Revoke task. Access cannot be "Granted". Only "Revoked" or "Not Processed" are allowed.`
+  );
+}
 
-    // RULE 13: Validate access options for revoke-type requests
-    const revokeAccessTypes = [
-      "Deactivation / Disable / Remove User Access",
-      "Bulk De-activation",
-    ];
+if (isGrantTask && formData.access === "Revoked") {
+  errors.push(
+    `❌ This is a Grant task. Access cannot be "Revoked". Only "Granted" or "Not Processed" are allowed.`
+  );
+}
 
-    if (revokeAccessTypes.includes(formData.access_request_type)) {
-      if (formData.access === "Granted") {
-        errors.push(
-          `❌ Access type "${formData.access_request_type}" cannot be set to "Granted". Only "Revoked" or "Not Processed" are allowed.`
-        );
-      }
-    }
 
     // Additional validation: Role Granted is required when closing
 
@@ -360,17 +388,12 @@ const TaskClosureForm = () => {
 
       console.log("Submitting task closure:", formData);
 
-      await updateTaskAPI(id, {
+       await updateTaskAPI(id, {
         requestStatus: formData.requestStatus,
         task_data: formData,
       });
 
-      // Send email if conditions are met
-      // Conditions:
-      // 1. Password access type (New User Creation, Password Reset, etc.)
-      // 2. Access is "Granted"
-      // 3. Password is provided
-      // 4. User email is available
+      // ── Send password email if conditions are met ──
       if (
         isPasswordAccess &&
         formData.access === "Granted" &&
@@ -848,6 +871,8 @@ const TaskClosureForm = () => {
                   {(formData.remarks?.length || 0)}/1000
                 </div>
               </div>
+
+
             </div>
 
 

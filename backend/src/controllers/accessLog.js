@@ -74,9 +74,34 @@ exports.getAccessLogById = async (req, res) => {
 
 
 // Get data of vendor firm
+// Supports optional query params: plant, department, application
+// Returns one entry per allocated_id, with all roles from the latest user_request_id grouped together.
 exports.getAccessLogByFirm = async (req, res) => {
   const { vendor_firm } = req.params;
+  const { plant, department, application } = req.query;
+
   try {
+    const conditions = [
+      `al.vendor_firm = $1`,
+      `al.task_status = 'Closed'`,
+      `al.request_for_by = 'Vendor / OEM'`,
+    ];
+    const values = [vendor_firm];
+    let idx = 2;
+
+    if (plant) {
+      conditions.push(`al.location = $${idx++}`);
+      values.push(plant);
+    }
+    if (department) {
+      conditions.push(`al.department = $${idx++}`);
+      values.push(department);
+    }
+    if (application) {
+      conditions.push(`al.application_equip_id = $${idx++}`);
+      values.push(application);
+    }
+
     const { rows } = await pool.query(
       `SELECT 
         al.*,
@@ -89,20 +114,55 @@ exports.getAccessLogByFirm = async (req, res) => {
       LEFT JOIN department_master dm ON al.department = dm.id
       LEFT JOIN role_master rm ON al.role = rm.id
       LEFT JOIN plant_master pm ON al.location = pm.id
-      WHERE al.vendor_firm = $1 
-        AND al.task_status = 'Closed'
-      ORDER BY al.created_on DESC`,
-      [vendor_firm]
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY al.vendor_allocated_id, al.user_request_id DESC, al.id DESC`,
+      values
     );
-    
+
     if (rows.length === 0) {
-      return res.status(404).json({ 
-        error: "No closed access logs found for this vendor firm" 
+      return res.status(404).json({
+        error: "No closed access logs found for this vendor firm"
       });
     }
-    
-    // Return all matching records (not just the first one)
-    res.json(rows);
+
+    // Group by vendor_allocated_id → pick the latest user_request_id per allocated ID
+    // then collect ALL roles from that latest request.
+    const latestRequestPerAllocId = {};
+    for (const row of rows) {
+      const key = row.vendor_allocated_id;
+      if (!latestRequestPerAllocId[key]) {
+        // First occurrence is the latest (rows sorted DESC by user_request_id)
+        latestRequestPerAllocId[key] = {
+          latestRequestId: row.user_request_id,
+          rows: [],
+        };
+      }
+      // Only collect rows belonging to the latest request for this allocated ID
+      if (row.user_request_id === latestRequestPerAllocId[key].latestRequestId) {
+        latestRequestPerAllocId[key].rows.push(row);
+      }
+    }
+
+    // Build one response entry per allocated_id:
+    // - Use first row for all scalar fields (vendor_name, vendor_code, location, etc.)
+    // - Collect role IDs and role names from all rows of the latest request
+    const grouped = Object.values(latestRequestPerAllocId).map(({ rows: groupRows }) => {
+      const base = groupRows[0];
+      const roles = groupRows
+        .map(r => ({ role_id: r.role, role_name: r.role_name }))
+        .filter(r => r.role_id !== null && r.role_id !== undefined);
+
+      return {
+        ...base,
+        // roles array — all roles granted in the latest request
+        roles,
+        // keep legacy `role` as the first role for backward compatibility
+        role: roles[0]?.role_id ?? base.role,
+        role_name: roles[0]?.role_name ?? base.role_name,
+      };
+    });
+
+    res.json(grouped);
   } catch (err) {
     console.error("Error fetching access logs by firm:", err);
     res.status(500).json({ error: err.message });
@@ -963,16 +1023,17 @@ exports.getAllActiveUserLogs = async (req, res) => {
           al.department,
           al.application_equip_id
         )
-          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END as user_name,
-          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END as user_code,
+          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END AS user_name,
+          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END AS user_code,
           al.location,
           al.department,
           al.application_equip_id,
           al.access_request_type
         FROM access_log al
-        WHERE al.location = $1
-          AND al.department = $2
+        WHERE al.location             = $1
+          AND al.department           = $2
           AND al.application_equip_id = $3
+          AND (al.task_status != 'Revoked' OR al.task_status IS NULL)
         ORDER BY
           CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
           CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
@@ -981,6 +1042,7 @@ exports.getAllActiveUserLogs = async (req, res) => {
           al.application_equip_id,
           al.id DESC
       ),
+
       regular_users AS (
         SELECT DISTINCT ON (
           CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
@@ -990,35 +1052,82 @@ exports.getAllActiveUserLogs = async (req, res) => {
           al.application_equip_id,
           al.role
         )
-          al.*,
+          al.id,
+          al.user_request_id,
+          al.task_id,
+          al.ritm_transaction_id,
+          al.task_transaction_id,
+          al.request_for_by,
+          al.name,
+          al.employee_code,
+          al.employee_location,
+          al.access_request_type,
+          al.training_status,
+          al.vendor_firm,
+          al.vendor_code,
+          al.vendor_name,
+          al.vendor_allocated_id,
+          al.user_request_status,
+          al.task_status,
+          al.application_equip_id,
+          al.department,
+          al.role,
+          al.location,
+          al.reports_to,
+          al.approver1_status,
+          al.approver2_status,
+          al.approver1_email,
+          al.approver2_email,
+          al.created_on,
+          al.updated_on,
+          al.completed_at,
+          al.remarks,
+          al.approver1_name,
+          al.approver2_name,
+          al.approver1_action,
+          al.approver2_action,
+          al.approver1_timestamp,
+          al.approver2_timestamp,
+          al.approver1_comments,
+          al.approver2_comments,
+          al.requested_role,
+          al.allocated_id,
+          al.role_granted,
+          al.access,
+          al.user_request_type,
+          al.from_date,
+          al.to_date,
+          al.password,
+          al.task_action,
           tc.assigned_to,
-          tc.allocated_id,
+          tc.assignment_group,
           tc.ritm_number,
           tc.task_number,
-          tc.access,
-          am.display_name AS application_name,
+          am.display_name  AS application_name,
           dm.department_name,
           rm.role_name,
-          pm.plant_name AS location_name,
+          pm.plant_name    AS location_name,
           um.employee_name AS assigned_to_name
         FROM access_log al
-        LEFT JOIN application_master am ON al.application_equip_id = am.id
-        LEFT JOIN department_master dm ON al.department = dm.id
-        LEFT JOIN role_master rm ON al.role = rm.id
-        LEFT JOIN plant_master pm ON al.location = pm.id
-        LEFT JOIN task_closure tc ON al.task_transaction_id = tc.task_number 
-                                  AND al.ritm_transaction_id = tc.ritm_number
-        LEFT JOIN user_master um ON tc.assigned_to = um.id
-        INNER JOIN latest_entries le ON 
+        LEFT JOIN application_master am  ON al.application_equip_id = am.id
+        LEFT JOIN department_master  dm  ON al.department            = dm.id
+        LEFT JOIN role_master        rm  ON al.role                  = rm.id
+        LEFT JOIN plant_master       pm  ON al.location              = pm.id
+        LEFT JOIN task_closure       tc  ON al.task_transaction_id   = tc.task_number
+                                        AND al.ritm_transaction_id   = tc.ritm_number
+        LEFT JOIN user_master        um  ON tc.assigned_to           = um.id
+        INNER JOIN latest_entries le ON
           (CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END) = le.user_name
           AND (CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END) = le.user_code
-          AND al.location = le.location
-          AND al.department = le.department
+          AND al.location             = le.location
+          AND al.department           = le.department
           AND al.application_equip_id = le.application_equip_id
-        WHERE al.location = $1
-          AND al.department = $2
+        WHERE al.location             = $1
+          AND al.department           = $2
           AND al.application_equip_id = $3
           AND le.access_request_type != 'Modify Access'
+          AND (al.task_status != 'Revoked' OR al.task_status IS NULL)
+          AND (LOWER(al.access) = 'granted' OR al.access IS NULL)
         ORDER BY
           CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
           CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
@@ -1028,58 +1137,108 @@ exports.getAllActiveUserLogs = async (req, res) => {
           al.role,
           al.id DESC
       ),
+
       modification_users AS (
         SELECT DISTINCT ON (
           CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
           CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
           al.location,
           al.department,
-          al.application_equip_id
+          al.application_equip_id,
+          al.role
         )
-          al.*,
+          al.id,
+          al.user_request_id,
+          al.task_id,
+          al.ritm_transaction_id,
+          al.task_transaction_id,
+          al.request_for_by,
+          al.name,
+          al.employee_code,
+          al.employee_location,
+          al.access_request_type,
+          al.training_status,
+          al.vendor_firm,
+          al.vendor_code,
+          al.vendor_name,
+          al.vendor_allocated_id,
+          al.user_request_status,
+          al.task_status,
+          al.application_equip_id,
+          al.department,
+          al.role,
+          al.location,
+          al.reports_to,
+          al.approver1_status,
+          al.approver2_status,
+          al.approver1_email,
+          al.approver2_email,
+          al.created_on,
+          al.updated_on,
+          al.completed_at,
+          al.remarks,
+          al.approver1_name,
+          al.approver2_name,
+          al.approver1_action,
+          al.approver2_action,
+          al.approver1_timestamp,
+          al.approver2_timestamp,
+          al.approver1_comments,
+          al.approver2_comments,
+          al.requested_role,
+          al.allocated_id,
+          al.role_granted,
+          al.access,
+          al.user_request_type,
+          al.from_date,
+          al.to_date,
+          al.password,
+          al.task_action,
           tc.assigned_to,
-          tc.allocated_id,
+          tc.assignment_group,
           tc.ritm_number,
           tc.task_number,
-          tc.access,
-          am.display_name AS application_name,
+          am.display_name  AS application_name,
           dm.department_name,
           rm.role_name,
-          pm.plant_name AS location_name,
+          pm.plant_name    AS location_name,
           um.employee_name AS assigned_to_name
         FROM access_log al
-        LEFT JOIN application_master am ON al.application_equip_id = am.id
-        LEFT JOIN department_master dm ON al.department = dm.id
-        LEFT JOIN role_master rm ON al.role = rm.id
-        LEFT JOIN plant_master pm ON al.location = pm.id
-        LEFT JOIN task_closure tc ON al.task_transaction_id = tc.task_number 
-                                  AND al.ritm_transaction_id = tc.ritm_number
-        LEFT JOIN user_master um ON tc.assigned_to = um.id
-        INNER JOIN latest_entries le ON 
+        LEFT JOIN application_master am  ON al.application_equip_id = am.id
+        LEFT JOIN department_master  dm  ON al.department            = dm.id
+        LEFT JOIN role_master        rm  ON al.role                  = rm.id
+        LEFT JOIN plant_master       pm  ON al.location              = pm.id
+        LEFT JOIN task_closure       tc  ON al.task_transaction_id   = tc.task_number
+                                        AND al.ritm_transaction_id   = tc.ritm_number
+        LEFT JOIN user_master        um  ON tc.assigned_to           = um.id
+        INNER JOIN latest_entries le ON
           (CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END) = le.user_name
           AND (CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END) = le.user_code
-          AND al.location = le.location
-          AND al.department = le.department
+          AND al.location             = le.location
+          AND al.department           = le.department
           AND al.application_equip_id = le.application_equip_id
-        WHERE al.location = $1
-          AND al.department = $2
+        WHERE al.location             = $1
+          AND al.department           = $2
           AND al.application_equip_id = $3
-          AND le.access_request_type = 'Modify Access'
+          AND le.access_request_type  = 'Modify Access'
+          AND (al.task_status != 'Revoked' OR al.task_status IS NULL)
+          AND (LOWER(al.access) = 'granted' OR al.access IS NULL)
         ORDER BY
           CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
           CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
           al.location,
           al.department,
           al.application_equip_id,
+          al.role,
           al.id DESC
       )
+
       SELECT * FROM (
         SELECT * FROM regular_users
         UNION ALL
         SELECT * FROM modification_users
       ) AS combined_results
       WHERE (combined_results.task_status != 'Deactivated' OR combined_results.task_status IS NULL)
-        AND (LOWER(combined_results.access) = 'granted' OR combined_results.access IS NULL)
     `;
 
     const params = [plant_id, department_id, application_id];
@@ -1151,7 +1310,9 @@ exports.getAccessLogsByUser = async (req, res) => {
         al.location,
         al.role,
         al.task_status,
-        al.access_request_type,          -- ✅ CRITICAL: was missing, needed for deactivation check
+        al.access_request_type,
+        al.access,
+        al.task_action,
         al.user_request_status,
         al.created_on,
         al.completed_at,
@@ -1170,15 +1331,17 @@ exports.getAccessLogsByUser = async (req, res) => {
         ON al.role::text = r.id::text
       WHERE al.location::text    = $1::text
         AND al.department::text  = $2::text
-        AND al.employee_code     = $3          -- ✅ FIXED: exact match, not ILIKE partial
+        AND al.employee_code     = $3
         AND ($4::text IS NULL OR al.application_equip_id::text = $4::text)
+        AND al.task_status        = 'Closed'
+        AND al.user_request_status = 'Completed'
       ORDER BY al.id DESC
     `;
 
     const values = [
       plant,
       department,
-      employee_code,          // ✅ no % wrapping
+      employee_code,
       application || null
     ];
 
@@ -1196,6 +1359,99 @@ exports.getAccessLogsByUser = async (req, res) => {
       success: false,
       message: "Failed to fetch access logs"
     });
+  }
+};
+
+
+exports.getAccessLogsForVendorModify = async (req, res) => {
+  const { plant, department, application } = req.query;
+
+  if (!plant || !department || !application) {
+    return res.status(400).json({
+      error: "plant, department, and application are required"
+    });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT
+        al.*,
+        am.display_name AS application_name,
+        dm.department_name,
+        rm.role_name,
+        pm.plant_name   AS location_name
+      FROM access_log al
+      LEFT JOIN application_master am ON al.application_equip_id = am.id
+      LEFT JOIN department_master  dm ON al.department            = dm.id
+      LEFT JOIN role_master        rm ON al.role                  = rm.id
+      LEFT JOIN plant_master       pm ON al.location              = pm.id
+      WHERE al.location::text              = $1::text
+        AND al.department::text            = $2::text
+        AND al.application_equip_id::text  = $3::text
+        AND al.task_status                 = 'Closed'
+        AND al.request_for_by              = 'Vendor / OEM'
+      ORDER BY al.allocated_id, al.application_equip_id DESC, al.id DESC`,
+      [plant, department, application]
+    );
+
+    if (rows.length === 0) {
+      return res.json([]); // return empty array, not 404
+    }
+
+    // Group by vendor_allocated_id → pick latest user_request_id per allocated ID
+    // then collect ALL roles from that latest request
+    const latestRequestPerAllocId = {};
+    for (const row of rows) {
+      const key = row.vendor_allocated_id;
+      if (!latestRequestPerAllocId[key]) {
+        latestRequestPerAllocId[key] = {
+          latestRequestId: row.user_request_id,
+          rows: [],
+        };
+      }
+      if (row.user_request_id === latestRequestPerAllocId[key].latestRequestId) {
+        latestRequestPerAllocId[key].rows.push(row);
+      }
+    }
+
+    const groupedMap = {};
+
+for (const row of rows) {
+
+  // fallback safe allocated id
+  const allocId = row.vendor_allocated_id || row.allocated_id;
+
+  if (!allocId) continue;
+
+  const key = `${allocId}_${row.location}_${row.department}_${row.application_equip_id}`;
+
+  if (!groupedMap[key]) {
+    groupedMap[key] = {
+      ...row,
+      roles: []
+    };
+  }
+
+  if (row.role) {
+    const exists = groupedMap[key].roles.find(
+      r => r.role_id === row.role
+    );
+
+    if (!exists) {
+      groupedMap[key].roles.push({
+        role_id: row.role,
+        role_name: row.role_name
+      });
+    }
+  }
+}
+
+const grouped = Object.values(groupedMap);
+
+    res.json(grouped);
+  } catch (err) {
+    console.error("[getAccessLogsForVendorModify] Error:", err);
+    res.status(500).json({ error: err.message });
   }
 };
 

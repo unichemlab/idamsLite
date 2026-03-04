@@ -21,7 +21,7 @@ exports.getDashboardCounts = async (req, res) => {
       networkInventory: `SELECT COUNT(*) AS total, SUM(CASE WHEN status='Active' THEN 1 ELSE 0 END) AS active, SUM(CASE WHEN status='Inactive' THEN 1 ELSE 0 END) AS inactive FROM network_inventory_master`,
       serverInventory: `SELECT COUNT(*) AS total, SUM(CASE WHEN status='Active' THEN 1 ELSE 0 END) AS active, SUM(CASE WHEN status='Inactive' THEN 1 ELSE 0 END) AS inactive FROM server_inventory_master`,
       systemInventory: `SELECT COUNT(*) AS total, SUM(CASE WHEN status='Active' THEN 1 ELSE 0 END) AS active, SUM(CASE WHEN status='Inactive' THEN 1 ELSE 0 END) AS inactive FROM system_inventory_master`,
-      users: `SELECT COUNT(*) AS total, SUM(CASE WHEN status='Active' THEN 1 ELSE 0 END) AS active, SUM(CASE WHEN status='Inactive' THEN 1 ELSE 0 END) AS inactive FROM user_master`,
+      users: `SELECT COUNT(*) AS total, SUM(CASE WHEN lower(status)=lower('Active') THEN 1 ELSE 0 END) AS active, SUM(CASE WHEN status='Inactive' THEN 1 ELSE 0 END) AS inactive FROM user_master`,
       userRequests: `SELECT SUM(CASE WHEN status='Pending' THEN 1 ELSE 0 END) AS pending, SUM(CASE WHEN status='Approved' THEN 1 ELSE 0 END) AS approved, SUM(CASE WHEN status='Rejected' THEN 1 ELSE 0 END) AS rejected FROM user_requests`
     };
 

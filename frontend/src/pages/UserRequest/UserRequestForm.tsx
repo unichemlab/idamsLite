@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useUserRequestContext, UserRequest, TaskRequest, Manager, BulkDeactivationLog } from "./UserRequestContext";
 import { FiChevronDown, FiLogOut } from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
-import { fetchPlants, fetchVendors, fetchAccessLogsForFirm } from "../../utils/api";
+import { fetchPlants, fetchVendors, fetchAccessLogsForFirm,fetchAccessLogsForVendorModify } from "../../utils/api";
 import login_headTitle2 from "../../assets/login_headTitle2.png";
 import addUserRequestStyles from "./AddUserRequest.module.css";
 import jsPDF from "jspdf";
@@ -44,6 +44,8 @@ const AddUserRequest: React.FC = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+  const [vendorOriginalRoles, setVendorOriginalRoles] = useState<string[]>([]);
+  const [vendorRoleChanged, setVendorRoleChanged] = useState(false);
   const { addUserRequest, fetchBulkDeactivationLogs } = useUserRequestContext();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -88,6 +90,8 @@ const AddUserRequest: React.FC = () => {
   const [allAppRoles, setAllAppRoles] = useState<
     { role_id: number; role_name: string; application_id: string }[]
   >([]);
+
+
 
   // ===================== Main Form State =====================
   const [form, setForm] = useState<UserRequest>({
@@ -216,6 +220,11 @@ const AddUserRequest: React.FC = () => {
 
     // MULTI SELECT
     if (Array.isArray(selected)) {
+      if (selected.length > 2) {
+        setValidationError("You can select a maximum of 2 roles only.");
+        return;
+      }
+      setValidationError(null);
       setValue(selected.map((opt) => opt.value));
       return;
     }
@@ -257,7 +266,19 @@ const AddUserRequest: React.FC = () => {
 
 
 
+  const totalApplications = applications.length;
 
+  const selectedApplications = bulkRows
+    .map((row) => row.applicationId)
+    .filter(Boolean);
+
+  const uniqueSelectedCount = new Set(selectedApplications).size;
+
+  const remainingApplications =
+    totalApplications - uniqueSelectedCount;
+
+  const noMoreApplicationsAvailable =
+    remainingApplications <= 0;
 
 
   // ===================== Helper Functions =====================
@@ -572,19 +593,31 @@ const AddUserRequest: React.FC = () => {
   };
 
   const handleAddRow = () => {
-    if (bulkRows.length < 7) {
-      setBulkRows([
-        ...bulkRows,
-        {
-          location: form.plant_location,
-          department: form.department,
-          applicationId: "",
-          role: [],
-        },
-      ]);
-    } else {
-      alert("You can only add up to 7 applications.");
+    // Check if there are no more applications left to select
+    if (noMoreApplicationsAvailable) {
+      setValidationError("No more applications available to add.");
+      return;
     }
+
+    // Check maximum 7 rows
+    if (bulkRows.length >= 7) {
+      setValidationError("Maximum 7 entries allowed.");
+      return;
+    }
+
+    // Add new row
+    setBulkRows([
+      ...bulkRows,
+      {
+        location: form.plant_location,
+        department: form.department,
+        applicationId: "",
+        role: [],
+      },
+    ]);
+
+    // Clear previous validation error
+    setValidationError("");
   };
 
   const handleRemoveRow = (index: number) => {
@@ -659,8 +692,8 @@ const AddUserRequest: React.FC = () => {
         vendorName: item.vendor_name ? [item.vendor_name] : [],
         vendorFirm: item.vendor_firm || "",
         vendorCode: item.vendor_code || "",
-        allocatedId: item.vendor_allocated_id
-          ? [item.vendor_allocated_id]
+        allocatedId: item.allocated_id
+          ? [item.allocated_id]
           : [],
         attachmentName: item.training_attachment || "",
         trainingStatus: item.training_status || "",
@@ -888,6 +921,20 @@ const AddUserRequest: React.FC = () => {
     setSuccessMessage(null);
 
     const token = localStorage.getItem("token");
+
+    if (isBulkNew) {
+      const appIds = bulkRows.map(row => row.applicationId).filter(Boolean);
+
+      const hasDuplicate =
+        new Set(appIds).size !== appIds.length;
+
+      if (hasDuplicate) {
+        setValidationError("Duplicate application selected in bulk entries.");
+        return;
+      }
+    }
+
+
 
     // =====================================================
     // HANDLE BULK DEACTIVATION (NO APPROVAL NEEDED)
@@ -1174,28 +1221,22 @@ const AddUserRequest: React.FC = () => {
       // =====================================================
       const tasks: TaskRequest[] = [];
 
-      // =====================================================
-      // BUILD TASKS - FIXED VERSION
-      // Replace the task building section in handleSubmit
-      // =====================================================
-
-      // Define access types that should generate only one task
+      // Access types that generate only ONE task regardless of roles
       const SINGLE_TASK_ACCESS_TYPES = [
         "Password Reset",
         "Account Unlock",
         "Account Unlock and Password Reset",
         "Active / Enable User Access",
       ];
-
       const shouldGenerateSingleTask = SINGLE_TASK_ACCESS_TYPES.includes(form.accessType);
 
+      // ─────────────────────────────────────────────────────────────────
+      // BULK NEW USER CREATION — one Grant task per role per row
+      // ─────────────────────────────────────────────────────────────────
       if (isBulk) {
-        // For bulk creation, iterate through each bulk row
         bulkRows.forEach((row) => {
-          // Get the roles for THIS specific row
           const rowRoles = Array.isArray(row.role) ? row.role : [row.role];
           if (shouldGenerateSingleTask) {
-            // Create only ONE task for the entire row (use first role)
             const firstRole = rowRoles[0];
             if (firstRole) {
               tasks.push({
@@ -1207,12 +1248,12 @@ const AddUserRequest: React.FC = () => {
                 task_status: "Pending",
                 approver1_id: approver1_id_str,
                 approver2_id: "",
+                task_action: "Grant",
               });
             }
           } else {
-            // Create a task for each role in this row
             rowRoles.forEach((roleId) => {
-              if (roleId) { // Only add if role exists
+              if (roleId) {
                 tasks.push({
                   application_equip_id: row.applicationId,
                   department: form.department,
@@ -1222,16 +1263,87 @@ const AddUserRequest: React.FC = () => {
                   task_status: "Pending",
                   approver1_id: approver1_id_str,
                   approver2_id: "",
+                  task_action: "Grant",
                 });
               }
             });
           }
         });
+
+      // ─────────────────────────────────────────────────────────────────
+      // MODIFY ACCESS — role diff
+      //   rolesToAdd    → Grant tasks  (task_action: "Grant")
+      //   rolesToRevoke → Revoke tasks (task_action: "Revoke")
+      //   rolesToKeep   → no tasks at all
+      // ─────────────────────────────────────────────────────────────────
+      } else if (form.accessType === "Modify Access") {
+
+         const selectedRoles = (Array.isArray(form.role) ? form.role : [form.role]).filter(Boolean).map(String);
+        const baselineRoles  = isVendorModify
+          ? vendorOriginalRoles.map(String)       // FIX 2: use only this allocated ID's roles
+          : existingAccessLogRoles.map(String);   // Self/Others: unchanged
+
+        const rolesToAdd    = selectedRoles.filter(r => !baselineRoles.includes(r));
+        const rolesToRevoke = baselineRoles.filter(r => !selectedRoles.includes(r));
+
+        console.log("[MODIFY ACCESS] isVendorModify:", isVendorModify);
+        console.log("[MODIFY ACCESS] baselineRoles:", baselineRoles);
+        console.log("[MODIFY ACCESS] selectedRoles:", selectedRoles);
+        console.log("[MODIFY ACCESS] rolesToAdd:", rolesToAdd, "| rolesToRevoke:", rolesToRevoke);
+                 
+        // Grant tasks — newly added roles
+        rolesToAdd.forEach((roleId) => {
+          tasks.push({
+            application_equip_id: form.applicationId,
+            department: form.department,
+            role: roleId,
+            location: form.plant_location,
+            reports_to: form.reportsTo,
+            task_status: "Pending",
+            approver1_id: approver1_id_str,
+            approver2_id: "",
+            task_action: "Grant",
+          });
+        });
+
+        // Revoke tasks — removed roles
+        // Carries the previous access_log row info in remarks so the backend
+        // knows exactly which row to mark Revoked at task closure time.
+        rolesToRevoke.forEach((roleId) => {
+          // For Vendor Modify: attach the specific access_log row info so backend
+          // knows exactly which row (this allocated ID's row) to mark as Revoked.
+          const logRow = isVendorModify
+            ? { logId: selectedAccessLog?.id, taskTransactionId: selectedAccessLog?.task_transaction_id || "" }
+            : existingAccessLogRowIds.find(r => r.role === roleId);
+          tasks.push({
+            application_equip_id: form.applicationId,
+            department: form.department,
+            role: roleId,
+            location: form.plant_location,
+            reports_to: form.reportsTo,
+            task_status: "Pending",
+            approver1_id: approver1_id_str,
+            approver2_id: "",
+            task_action: "Revoke",
+            remarks: logRow
+              ? `Revoke: previous_log_id=${logRow.logId}|previous_task_tx=${logRow.taskTransactionId}`
+              : "Revoke",
+          });
+        });
+
+        // Safety guard — duplicateRoleError should have blocked submit already
+        if (tasks.length === 0) {
+          setValidationError("No role changes detected. Please add, remove, or change a role before submitting.");
+          setIsSubmitting(false);
+          return;
+        }
+
+      // ─────────────────────────────────────────────────────────────────
+      // ALL OTHER TYPES — New User Creation, Password Reset, Deactivation…
+      // ─────────────────────────────────────────────────────────────────
       } else {
-        // For single creation, use form.role
         const selectedRoles = Array.isArray(form.role) ? form.role : [form.role];
         if (shouldGenerateSingleTask) {
-          // Create only ONE task (use first role)
           const firstRole = selectedRoles[0];
           if (firstRole) {
             tasks.push({
@@ -1243,11 +1355,12 @@ const AddUserRequest: React.FC = () => {
               task_status: "Pending",
               approver1_id: approver1_id_str,
               approver2_id: "",
+              task_action: "Grant",
             });
           }
         } else {
           selectedRoles.forEach((roleId) => {
-            if (roleId) { // Only add if role exists
+            if (roleId) {
               tasks.push({
                 application_equip_id: form.applicationId,
                 department: form.department,
@@ -1257,6 +1370,7 @@ const AddUserRequest: React.FC = () => {
                 task_status: "Pending",
                 approver1_id: approver1_id_str,
                 approver2_id: "",
+                task_action: "Grant",
               });
             }
           });
@@ -1292,7 +1406,7 @@ const AddUserRequest: React.FC = () => {
       formData.append("vendor_firm", form.vendorFirm || "");
       formData.append("vendor_code", form.vendorCode || "");
       formData.append("vendor_allocated_id", form.allocatedId?.toString() || "");
-
+      formData.append("allocated_id", form.allocatedId?.toString() || "");
       // ── Temporary / Permanent user-type dates ──────────────────
       formData.append("user_request_type", form.userRequestType || "");
       formData.append("from_date", form.fromDate || "");
@@ -1337,9 +1451,19 @@ const AddUserRequest: React.FC = () => {
 
 
 
+  // isVendorCard3: Vendor/OEM + any access type except New User Creation
+  // → shows Card 3 (vendor detail panel with allocated-ID lookup)
+  const isVendorCard3 =
+    form.request_for_by === "Vendor / OEM" &&
+    form.accessType !== "" &&
+    form.accessType !== "New User Creation";
+
+  // isVendorModify: Vendor/OEM + Modify Access specifically
+  // → role dropdown is EDITABLE and diff logic applies
   const isVendorModify =
     form.request_for_by === "Vendor / OEM" &&
     form.accessType === "Modify Access";
+
   const isBulkDeactivation = form.accessType === "Bulk De-activation";
   const isBulkNew = form.accessType === "Bulk New User Creation";
 
@@ -1568,6 +1692,23 @@ const AddUserRequest: React.FC = () => {
       setFilterRoles([]);
     }
   }, [filter.applicationId]);
+
+
+  useEffect(() => {
+    if (filter.applicationId) {
+      fetch(
+        `${API_BASE}/api/roles/${filter.applicationId}`
+      )
+        .then((res) => res.json())
+        .then((data) => setFilterRoles(Array.isArray(data) ? data : []))
+        .catch(() => setFilterRoles([]));
+    } else {
+      setFilterRoles([]);
+    }
+  }, [filter.applicationId]);
+
+
+
   useEffect(() => {
     if (filterModalOpen && user?.employee_code) {
       setFilter((prev) => ({
@@ -1588,76 +1729,272 @@ const AddUserRequest: React.FC = () => {
     }
   }, [form.request_for_by]);
 
+  // useEffect(() => {
+  //   const fetchVendorAccessLogs = async () => {
+  //     if (isVendorModify && form.vendorFirm && form.plant_location && form.department && form.applicationId) {
+  //       try {
+  //         console.log("[VENDOR MODIFY] Fetching access logs for:", form.vendorFirm, form.plant_location, form.department, form.applicationId);
+  //         const logs = await fetchAccessLogsForFirm(form.vendorFirm, {
+  //           plant: form.plant_location,
+  //           department: form.department,
+  //           application: form.applicationId,
+  //         });
+  //         console.log("[VENDOR MODIFY] Received logs:", logs);
+
+  //         // Filter logs with closed task status
+  //         const closedLogs = Array.isArray(logs)
+  //           ? logs.filter(log => log.task_status === 'Closed')
+  //           : [];
+
+  //         setVendorAccessLogs(closedLogs);
+
+  //         // Backend returns one grouped entry per allocated_id.
+  //         // Auto-select if only one entry exists.
+  //         if (closedLogs.length === 1) {
+  //           handleAccessLogSelectById(closedLogs[0].vendor_allocated_id, closedLogs);
+  //         } else {
+  //           // Multiple or no allocated IDs — wait for user to pick
+  //           setSelectedAccessLog(null);
+  //           setForm(prev => ({
+  //             ...prev,
+  //             allocatedId: [],
+  //             vendorName: [],
+  //             role: [],
+  //           }));
+  //         }
+  //       } catch (error) {
+  //         console.error("[VENDOR MODIFY] Error fetching access logs:", error);
+  //         setVendorAccessLogs([]);
+  //         // alert("Failed to fetch vendor access logs. Please try again.");
+  //       }
+  //     } else {
+  //       setVendorAccessLogs([]);
+  //       setSelectedAccessLog(null);
+  //     }
+  //   };
+
+  //   fetchVendorAccessLogs();
+  // }, [form.vendorFirm, form.plant_location, form.department, form.applicationId, isVendorModify]);
+
+  // Add handler function for allocated ID selection:
+
+  // Called when user picks an allocated ID from the dropdown (or on auto-select).
+  // The backend now returns one grouped entry per allocated_id with a `roles` array
+  // containing all roles from the latest request — so both roles come through together.
+  
+  // ───────────────────────────────────────────────────────────────────────────
+// CHANGE 3 — Replace the fetchVendorAccessLogs useEffect in AddUserRequest.tsx
+//
+// Now triggers on plant + department + applicationId (NOT vendorFirm).
+// vendorFirm is populated FROM the selected allocated ID.
+// ───────────────────────────────────────────────────────────────────────────
+
   useEffect(() => {
     const fetchVendorAccessLogs = async () => {
-      if (isVendorModify && form.vendorFirm) {
-        try {
-          console.log("[VENDOR MODIFY] Fetching access logs for:", form.vendorFirm);
-          const logs = await fetchAccessLogsForFirm(form.vendorFirm);
-          console.log("[VENDOR MODIFY] Received logs:", logs);
+      if (
+        isVendorCard3 &&
+        form.plant_location &&
+        form.department &&
+        form.applicationId
+      ) {
+        console.log(
+          "[VENDOR CARD3] Fetching logs for plant/dept/app:",
+          form.plant_location, form.department, form.applicationId
+        );
 
-          // Filter logs with closed task status
-          const closedLogs = Array.isArray(logs)
-            ? logs.filter(log => log.task_status === 'Closed')
-            : [];
+        const logs = await fetchAccessLogsForVendorModify({
+          plant:       form.plant_location,
+          department:  form.department,
+          application: form.applicationId,
+        });
 
-          setVendorAccessLogs(closedLogs);
+        console.log("[VENDOR CARD3] Received logs:", logs);
+        setVendorAccessLogs(logs);
 
-          // If only one log, auto-select it
-          if (closedLogs.length === 1) {
-            handleAccessLogSelect(closedLogs[0]);
-          } else {
-            // Reset form if multiple or no logs
-            setSelectedAccessLog(null);
-            setForm(prev => ({
-              ...prev,
-              allocatedId: [],
-              vendorName: [],
-              vendorCode: '',
-              plant_location: '',
-              department: '',
-              applicationId: '',
-              role: ''
-            }));
-          }
-        } catch (error) {
-          console.error("[VENDOR MODIFY] Error fetching access logs:", error);
-          setVendorAccessLogs([]);
-          // alert("Failed to fetch vendor access logs. Please try again.");
+        if (logs.length === 1) {
+          // Single allocated ID → auto-select everything
+          handleAccessLogSelectById(logs[0].allocated_id, logs);
+        } else {
+          // Multiple or none → clear dependent fields, wait for user to pick
+          setSelectedAccessLog(null);
+          setForm((prev) => ({
+            ...prev,
+            vendorFirm:  "",
+            vendorCode:  "",
+            allocatedId: [],
+            vendorName:  [],
+            role:        [],
+          }));
         }
       } else {
+        // Not enough fields yet
         setVendorAccessLogs([]);
         setSelectedAccessLog(null);
       }
     };
 
     fetchVendorAccessLogs();
-  }, [form.vendorFirm, isVendorModify]);
+  }, [
+    form.plant_location,
+    form.department,
+    form.applicationId,
+    isVendorCard3,
+  ]);
+  
+  
+  
+  // const handleAccessLogSelectById = (allocatedId: string, logs: any[]) => {
+  //   if (!allocatedId) {
+  //     setSelectedAccessLog(null);
+  //     return;
+  //   }
 
-  // Add handler function for allocated ID selection:
+  //   // Find the grouped entry for this allocated ID
+  //   const matchingLog = logs.find(l => l.vendor_allocated_id === allocatedId);
+  //   if (!matchingLog) {
+  //     setSelectedAccessLog(null);
+  //     return;
+  //   }
 
-  const handleAccessLogSelect = (log: any) => {
-    if (!log) {
+  //   // Backend groups roles as: [{ role_id, role_name }, ...]
+  //   // Fall back to collecting from raw rows if `roles` array not present (backward compat)
+  //   let allRoles: string[];
+  //   if (Array.isArray(matchingLog.roles) && matchingLog.roles.length > 0) {
+  //     allRoles = matchingLog.roles
+  //       .map((r: any) => String(r.role_id))
+  //       .filter(Boolean);
+  //   } else {
+  //     // Legacy: collect from all matching raw rows
+  //     const matchingLogs = logs.filter(l => l.vendor_allocated_id === allocatedId);
+  //     allRoles = [
+  //       ...new Set(
+  //         matchingLogs
+  //           .map(l => l.role)
+  //           .filter(r => r !== null && r !== undefined)
+  //           .map(String)
+  //       )
+  //     ];
+  //   }
+
+  //   console.log("[VENDOR MODIFY] Selected allocatedId:", allocatedId, "roles:", allRoles);
+
+  //   setSelectedAccessLog(matchingLog);
+
+  //   // Populate form — plant/dept/app are NOT overwritten (user selected those)
+  //   // allocatedId is string[] in UserRequest type, so wrap in array
+  //   setForm(prev => ({
+  //     ...prev,
+  //     allocatedId: allocatedId ? [allocatedId] : [],
+  //     vendorName: matchingLog.vendor_name ? [matchingLog.vendor_name] : [],
+  //     vendorCode: matchingLog.vendor_code || '',
+  //     role: allRoles,
+  //   }));
+  // };
+
+  // Keep legacy single-log helper for any remaining internal usage
+  
+  // ═══════════════════════════════════════════════════════════════════
+  // handleAccessLogSelectById — called on auto-select or dropdown pick
+  //
+  // FIX 1: stores vendorOriginalRoles (roles from the access log for
+  //         this allocated ID) — same concept as existingAccessLogRoles
+  //         for Self/Others Modify Access.
+  // FIX 3: resets vendorRoleChanged to false (user hasn't changed yet).
+  // ═══════════════════════════════════════════════════════════════════
+  const handleAccessLogSelectById = (allocatedId: string, logs: any[]) => {
+    if (!allocatedId) {
       setSelectedAccessLog(null);
+      setVendorOriginalRoles([]);
+      setVendorRoleChanged(false);
       return;
     }
 
-    console.log("[VENDOR MODIFY] Selected log:", log);
+    const matchingLog = logs.find(l => l.allocated_id === allocatedId);
+    if (!matchingLog) {
+      setSelectedAccessLog(null);
+      setVendorOriginalRoles([]);
+      setVendorRoleChanged(false);
+      return;
+    }
 
-    setSelectedAccessLog(log);
+    // Collect roles from the grouped `roles` array returned by backend
+    let allRoles: string[];
+    if (Array.isArray(matchingLog.roles) && matchingLog.roles.length > 0) {
+      allRoles = matchingLog.roles.map((r: any) => String(r.role_id)).filter(Boolean);
+    } else {
+      // Legacy fallback
+      const matchingLogs = logs.filter(l => l.allocated_id === allocatedId);
+      allRoles = [
+        ...new Set(
+          matchingLogs.map(l => l.role).filter(r => r !== null && r !== undefined).map(String)
+        ),
+      ];
+    }
 
-    // Populate form with selected access log data
+    console.log("[VENDOR MODIFY] Selected allocatedId:", allocatedId, "originalRoles:", allRoles);
+
+    setSelectedAccessLog(matchingLog);
+
+    // FIX 1 & 3 — store originals, reset changed flag
+    setVendorOriginalRoles(allRoles);
+    setVendorRoleChanged(false);
+
     setForm(prev => ({
       ...prev,
-      allocatedId: log.vendor_allocated_id || '',
-      vendorName: log.vendor_name || '',
-      vendorCode: log.vendor_code || '',
-      plant_location: log.location || '', // plant ID
-      department: log.department || '', // department ID
-      applicationId: log.application_equip_id || '', // application ID
-      role: log.role || '' // role ID
+      allocatedId: allocatedId ? [allocatedId] : [],
+      vendorFirm:  matchingLog.vendor_firm  ?? "",
+      vendorName:  matchingLog.vendor_name  ? [matchingLog.vendor_name] : [],
+      vendorCode:  matchingLog.vendor_code  ?? "",
+      role:        allRoles,   // pre-fill with existing roles (same as Self/Others Modify)
     }));
   };
+
+  const handleAccessLogSelect = (log: any) => {
+    if (!log) { setSelectedAccessLog(null); return; }
+    handleAccessLogSelectById(log.allocated_id, [log]);
+  };
+
+   // ═══════════════════════════════════════════════════════════════════
+  // FIX 3 — Detect vendor role change whenever form.role updates
+  // Same logic as the Self/Others duplicateRoleError effect but scoped
+  // to vendorOriginalRoles and the vendorRoleChanged flag.
+  // ═══════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    if (!isVendorCard3 || vendorOriginalRoles.length === 0) {
+      // Not in vendor card3 mode OR no allocated ID selected yet
+      return;
+    }
+
+    const currentRoles = (Array.isArray(form.role) ? form.role : (form.role ? [form.role] : [])).map(String);
+    const originalSet  = new Set(vendorOriginalRoles.map(String));
+    const currentSet   = new Set(currentRoles);
+
+    // Identical = same size AND every item matches
+    const identical =
+      originalSet.size === currentSet.size &&
+      [...originalSet].every(r => currentSet.has(r));
+
+    setVendorRoleChanged(!identical);
+
+    // duplicateRoleError (submit-lock) only applies to Modify Access
+    if (isVendorModify) {
+      if (identical) {
+        const roleLabels = [...originalSet]
+          .map(id => roles.find(r => String(r.id) === id)?.name)
+          .filter(Boolean)
+          .join(", ");
+        setDuplicateRoleError(
+          `Role is the same as existing access${roleLabels ? ` (${roleLabels})` : ""}. ` +
+          `Please add or remove a role to submit.`
+        );
+      } else {
+        setDuplicateRoleError(null);
+      }
+    }
+  }, [form.role, vendorOriginalRoles, isVendorCard3, isVendorModify]);
+
+
+
   // ===================== Bulk Deactivation: Fetch Logs =====================
   useEffect(() => {
     const fetchLogs = async () => {
@@ -1697,6 +2034,11 @@ const AddUserRequest: React.FC = () => {
   //                           state for optional informational warning (non-blocking)
   //   All other types      → pre-fill role, dropdown LOCKED (unchanged)
   const [existingAccessLogRoles, setExistingAccessLogRoles] = useState<string[]>([]);
+  // Stores the access_log row id + task_transaction_id per active role.
+  // Passed in Revoke task remarks so the backend knows exactly which row to mark Revoked at closure.
+  const [existingAccessLogRowIds, setExistingAccessLogRowIds] = useState<
+    { role: string; logId: number; taskTransactionId: string }[]
+  >([]);
 
   // ===================== Deactivated Access Warning =====================
   // When the latest access log for plant+user+department+application has
@@ -1781,6 +2123,9 @@ const AddUserRequest: React.FC = () => {
 
 
   useEffect(() => {
+    // Skip for all Vendor Card3 flows — handled via vendorOriginalRoles
+    if (isVendorCard3) return;
+
     // Skip entirely for Bulk De-activation (no single app) and when nothing is selected
     if (
       form.accessType === "Bulk De-activation" ||
@@ -1790,6 +2135,7 @@ const AddUserRequest: React.FC = () => {
       setAccessLogRoleFound(false);
       setDuplicateRoleError(null);
       setExistingAccessLogRoles([]);
+      setExistingAccessLogRowIds([]);
       return;
     }
 
@@ -1799,6 +2145,7 @@ const AddUserRequest: React.FC = () => {
       setAccessLogRoleFound(false);
       setDuplicateRoleError(null);
       setExistingAccessLogRoles([]);
+      setExistingAccessLogRowIds([]);
       return;
     }
 
@@ -1807,6 +2154,7 @@ const AddUserRequest: React.FC = () => {
     setAccessLogRoleFound(false);
     setDuplicateRoleError(null);
     setExistingAccessLogRoles([]);
+    setExistingAccessLogRowIds([]);
 
     // Only clear the selected role for types that will pre-fill and lock it
     if (
@@ -1858,7 +2206,24 @@ const AddUserRequest: React.FC = () => {
           const roleStrArr: string[] = allRoles.map(String);
 
           setAccessLogRoleFound(true);
-          setExistingAccessLogRoles(roleStrArr); // save for comparison in separate effect
+          setExistingAccessLogRoles(roleStrArr);
+
+          // Store the latest access_log row id + transaction_id per role.
+          // Used in Revoke tasks so the backend knows exactly which row to mark Revoked at closure.
+          const latestPerRole: { [roleId: string]: any } = {};
+          data.data.forEach((log: any) => {
+            const rId = String(log.role);
+            if (!latestPerRole[rId] || (log.id || 0) > (latestPerRole[rId].id || 0)) {
+              latestPerRole[rId] = log;
+            }
+          });
+          setExistingAccessLogRowIds(
+            Object.entries(latestPerRole).map(([roleId, log]) => ({
+              role: roleId,
+              logId: (log as any).id,
+              taskTransactionId: (log as any).task_transaction_id || "",
+            }))
+          );
 
           if (form.accessType === "Modify Access") {
             // ── Modify Access: pre-fill BUT keep dropdown editable ──
@@ -1895,12 +2260,15 @@ const AddUserRequest: React.FC = () => {
     };
 
     fetchRoleFromAccessLog();
-  }, [form.accessType, form.plant_location, form.department, form.applicationId, form.employeeCode]);
+  }, [form.accessType, form.plant_location, form.department, form.applicationId, form.employeeCode, isVendorCard3]);
 
   // ── Separate effect: watch form.role and compare against existingAccessLogRoles ──
   // For Modify Access: clear duplicateRoleError when user changes role to something different
   // For New / Bulk-New: show informational warning (amber) if user picks a role that already exists
   useEffect(() => {
+       // Skip for all Vendor Card3 flows (uses its own effect above)
+    if (isVendorCard3) return;
+
     if (
       form.accessType !== "Modify Access" &&
       form.accessType !== "New User Creation" &&
@@ -1960,7 +2328,7 @@ const AddUserRequest: React.FC = () => {
         setDuplicateRoleError(null);
       }
     }
-  }, [form.role, existingAccessLogRoles, form.accessType]);
+  }, [form.role, existingAccessLogRoles, form.accessType, isVendorCard3]);
 
   const handleLogout = () => {
     logout();
@@ -1982,6 +2350,18 @@ const AddUserRequest: React.FC = () => {
     // general validation error blocks all types
     if (validationError) return true;
 
+    // Vendor Card3 (all Vendor/OEM except New User Creation) specific blocks
+    if (isVendorCard3) {
+      if (!form.plant_location || !form.department || !form.applicationId) return true;
+      if (!form.vendorFirm) return true;
+      if (!form.allocatedId || (Array.isArray(form.allocatedId) && form.allocatedId.length === 0)) return true;
+      if (!form.role || form.role.length === 0) return true;
+      // Only for Modify Access: block submit until role is actually changed
+      if (isVendorModify && !vendorRoleChanged) return true;
+      if (!form.reportsTo) return true;
+      return false;
+    }
+
     // duplicateRoleError ONLY blocks Modify Access (for New/Bulk-New it's just informational)
     if (form.accessType === "Modify Access" && duplicateRoleError) return true;
 
@@ -1998,7 +2378,7 @@ const AddUserRequest: React.FC = () => {
     // Block submission if access type requires existing log but none was found
     if (
       requiresExistingLog.includes(form.accessType) &&
-      !isVendorModify &&                          // vendor-modify has its own flow
+      !isVendorCard3 &&                          // vendor card3 has its own flow
       form.plant_location &&
       form.department &&
       form.applicationId &&
@@ -2022,7 +2402,7 @@ const AddUserRequest: React.FC = () => {
       if (bulkRows.some(r => !r.applicationId || r.role.length === 0)) return true;
     } else {
       // single-row flows (New, Modify, Password Reset, etc.)
-      if (!isVendorModify) {
+      if (!isVendorCard3) {
         // Card 4 is visible → plant + dept required; app + role required when role is enabled
         if (!form.plant_location || !form.department) return true;
         if (isRoleEnabled) {
@@ -2030,7 +2410,7 @@ const AddUserRequest: React.FC = () => {
           if (!form.role || form.role.length === 0) return true;
         }
       } else {
-        // Vendor Modify: vendorFirm + allocatedId required
+        // Vendor Card3: vendorFirm + allocatedId required
         if (!form.vendorFirm) return true;
         if (!form.allocatedId || (Array.isArray(form.allocatedId) && form.allocatedId.length === 0)) return true;
       }
@@ -2845,8 +3225,8 @@ const AddUserRequest: React.FC = () => {
                 </div>
               </div>
 
-              {/* Card 2 Vendor Details */}
-              {form.request_for_by === "Vendor / OEM" && !isVendorModify && (
+              {/* Card 2 Vendor Details — only for New User Creation */}
+              {form.request_for_by === "Vendor / OEM" && form.accessType === "New User Creation" && (
                 <div className={addUserRequestStyles.section}>
                   <span className={addUserRequestStyles.sectionHeaderTitle}>
                     Vendor Details
@@ -2859,7 +3239,7 @@ const AddUserRequest: React.FC = () => {
                         onChange={handleChange}
                         required
                       />
-                      <label htmlFor="trainingAttachment" className={addUserRequestStyles.floatingLabel}>
+                      <label htmlFor="vendorName" className={addUserRequestStyles.floatingLabel}>
                         Vendor Name <span style={{ color: "red" }}>*</span></label>
                     </div>
 
@@ -2897,131 +3277,38 @@ const AddUserRequest: React.FC = () => {
                   </div>
                 </div>
               )}
+{/*
+              // ───────────────────────────────────────────────────────────────────────────
+// CHANGE 4 — Replace Card 3 JSX in AddUserRequest.tsx
+//
+// Field order:
+//   Row 1: Plant | Department | Application  (triggers the fetch)
+//   Row 2: Allocated ID dropdown             (populated from fetch result)
+//   Row 3: Vendor Firm (read-only) | Vendor Name (read-only) | Vendor Code (read-only) | Role (editable)
+// ─────────────────────────────────────────────────────────────────────────── */}
 
-              {/* Card 3 Vendor Modify */}
-              {isVendorModify && (
+              {/* Card 3 — Vendor / OEM (all types except New User Creation) */}
+              {isVendorCard3 && (
                 <div className={addUserRequestStyles.section}>
                   <span className={addUserRequestStyles.sectionHeaderTitle}>
-                    Vendor Modify
+                    Vendor Details{form.accessType ? ` — ${form.accessType}` : ""}
                   </span>
 
-                  {/* Row 1: Vendor Firm Selection */}
-                  <div className={addUserRequestStyles.fourCol}>
-                    <div className={addUserRequestStyles.formGroup}>
-                      <Select
-                        classNamePrefix="react-select"
-                        placeholder="Search Vendor Firm"
-                        options={vendorFirmOptions}
-                        value={vendorFirmOptions.find(
-                          opt => opt.value === form.vendorFirm
-                        )}
-                        onChange={(selected) => {
-                          setForm(prev => ({
-                            ...prev,
-                            vendorFirm: selected?.value || "",
-                            vendorCode: selected?.vendorCode || "",
-                            // Reset dependent fields
-                            allocatedId: [],
-                            vendorName: [],
-                            plant_location: '',
-                            department: '',
-                            applicationId: '',
-                            role: ''
-                          }));
-                          setSelectedAccessLog(null);
-                        }}
-                        isClearable
-                      />
-                      <label htmlFor="vendorFirm" className={addUserRequestStyles.floatingLabel}>
-                        Vendor Firm <span style={{ color: "red" }}>*</span>
-                      </label>
-                    </div>
-
-                    {/* Show Allocated ID dropdown if multiple logs found */}
-                    {vendorAccessLogs.length > 1 && (
-                      <div className={addUserRequestStyles.formGroup}>
-                        <select
-                          name="allocatedId"
-                          value={selectedAccessLog?.vendor_allocated_id || ''}
-                          onChange={(e) => {
-                            const selected = vendorAccessLogs.find(
-                              log => log.vendor_allocated_id === e.target.value
-                            );
-                            handleAccessLogSelect(selected);
-                          }}
-                          required
-                        >
-                          <option value="">Select Allocated ID</option>
-                          {vendorAccessLogs.map((log, idx) => (
-                            <option
-                              key={idx}
-                              value={log.vendor_allocated_id}
-                              title={`${log.vendor_allocated_id} - ${log.vendor_name}`}
-                            >
-                              {log.vendor_allocated_id}
-                            </option>
-                          ))}
-                        </select>
-                        <label htmlFor="allocatedId" className={addUserRequestStyles.floatingLabel}>
-                          Allocated ID <span style={{ color: "red" }}>*</span>
-                        </label>
-                      </div>
-                    )}
-
-                    {/* Show Allocated ID as input if only one log found */}
-                    {vendorAccessLogs.length === 1 && (
-                      <div className={addUserRequestStyles.formGroup}>
-                        <input
-                          name="allocatedId"
-                          value={form.allocatedId}
-                          readOnly
-                        />
-                        <label htmlFor="allocatedId" className={addUserRequestStyles.floatingLabel}>
-                          Allocated ID <span style={{ color: "red" }}>*</span>
-                        </label>
-                      </div>
-                    )}
-
-                    <div className={addUserRequestStyles.formGroup}>
-                      <input
-                        name="vendorName"
-                        value={form.vendorName}
-                        readOnly
-                      />
-                      <label htmlFor="vendorName" className={addUserRequestStyles.floatingLabel}>
-                        Vendor Name <span style={{ color: "red" }}>*</span>
-                      </label>
-                    </div>
-
-                    <div className={addUserRequestStyles.formGroup}>
-                      <input
-                        name="vendorCode"
-                        value={form.vendorCode}
-                        readOnly
-                      />
-                      <label htmlFor="vendorCode" className={addUserRequestStyles.floatingLabel}>
-                        Vendor Code
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Row 2: Access Information (auto-filled from selected log) */}
+                  {/* ── Row 1: Plant + Department + Application (triggers fetch) ── */}
                   <div className={addUserRequestStyles.fourCol}>
                     <div className={addUserRequestStyles.formGroup}>
                       <select
                         name="plant_location"
                         value={form.plant_location}
-                        onChange={handleChange}
-                        disabled
+                         onChange={e => {
+                          setForm(prev => ({ ...prev, plant_location: e.target.value, department: "", applicationId: "", allocatedId: [], vendorFirm: "", vendorCode: "", vendorName: [], role: [] }));
+                          setSelectedAccessLog(null); setVendorAccessLogs([]); setVendorOriginalRoles([]); setVendorRoleChanged(false);
+                        }}
                         required
                       >
                         <option value="">Select Plant</option>
                         {plants.map((plant) => (
-                          <option
-                            key={plant.id}
-                            value={plant.id}
-                            title={plant.plant_name}
-                          >
+                          <option key={plant.id} value={plant.id} title={plant.plant_name}>
                             {plant.plant_name}
                           </option>
                         ))}
@@ -3035,17 +3322,15 @@ const AddUserRequest: React.FC = () => {
                       <select
                         name="department"
                         value={form.department}
-                        onChange={handleChange}
-                        disabled
+                        onChange={e => {
+                          setForm(prev => ({ ...prev,department: e.target.value, applicationId: e.target.value, allocatedId: [], vendorFirm: "", vendorCode: "", vendorName: [], role: [] }));
+                          setSelectedAccessLog(null); setVendorAccessLogs([]); setVendorOriginalRoles([]); setVendorRoleChanged(false);
+                        }}
                         required
                       >
                         <option value="">Select Department</option>
                         {departments.map((dept) => (
-                          <option
-                            key={dept.id}
-                            value={dept.id}
-                            title={dept.department_name}
-                          >
+                          <option key={dept.id} value={dept.id} title={dept.department_name}>
                             {dept.department_name}
                           </option>
                         ))}
@@ -3059,7 +3344,19 @@ const AddUserRequest: React.FC = () => {
                       <select
                         name="applicationId"
                         value={form.applicationId}
-                        onChange={handleChange}
+                        onChange={(e) => {
+                          setForm((prev) => ({
+                            ...prev,
+                            applicationId: e.target.value,
+                            allocatedId:   [],
+                            vendorFirm:    "",
+                            vendorCode:    "",
+                            vendorName:    [],
+                            role:          [],
+                          }));
+                          setSelectedAccessLog(null);
+                          setVendorAccessLogs([]);
+                        }}
                         required
                       >
                         <option value="">Select Application / Equipment ID</option>
@@ -3073,119 +3370,195 @@ const AddUserRequest: React.FC = () => {
                         Application / Equipment ID <span style={{ color: "red" }}>*</span>
                       </label>
                     </div>
-
-                    <div className={addUserRequestStyles.formGroup}>
-                      <Select<RoleOption, boolean>
-                        isMulti={isMultipleRoleAllowed}
-                        options={roleOptions}
-                        isDisabled={!isRoleEnabled}
-                        value={
-                          isMultipleRoleAllowed
-                            ? roleOptions.filter(opt => form.role.includes(opt.value))
-                            : roleOptions.find(opt => opt.value === form.role[0]) ?? null
-                        }
-                        onChange={(selected) =>
-                          handleRoleChange(selected, (roles) =>
-                            setForm(prev => ({ ...prev, role: roles }))
-                          )
-                        }
-                        // placeholder={
-                        //   isRoleEnabled ? "Select Role" : "Role not applicable"
-                        // }
-                        closeMenuOnSelect={!isMultipleRoleAllowed}
-                        classNamePrefix="react-select"
-                      />
-
-                      <label htmlFor="role" className={addUserRequestStyles.floatingLabel}>
-                        Role1{" "}
-                        {isRoleEnabled && <span style={{ color: "red" }}>*</span>}
-                      </label>
-                    </div>
-
-                  </div>
-                  {/* ── User Type (Permanent / Temporary) – single New User Creation ── */}
-                  {(form.accessType === "New User Creation" || form.accessType === "Bulk New User Creation") && (
+                    {/* ── Row 2: Allocated ID (populated after fetch) ── */}
+                  {form.plant_location && form.department && form.applicationId && (
                     <div className={addUserRequestStyles.fourCol}>
-                      <div className={addUserRequestStyles.formGroup}>
-                        <select
-                          name="userRequestType"
-                          value={form.userRequestType}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            if (value === "Temporary") {
-                              const today = new Date().toISOString().split("T")[0];
-                              setForm((prev) => ({
-                                ...prev,
-                                userRequestType: "Temporary",
-                                fromDate: today,
-                                toDate: "",
-                              }));
-                            } else {
-                              setForm((prev) => ({
-                                ...prev,
-                                userRequestType: value as "Permanent" | "",
-                                fromDate: "",
-                                toDate: "",
-                              }));
+                      {vendorAccessLogs.length > 1 ? (
+                        /* Multiple allocated IDs → dropdown */
+                        <div className={addUserRequestStyles.formGroup}>
+                          <select
+                            name="allocatedId"
+                            value={selectedAccessLog?.allocated_id ?? ""}
+                            onChange={(e) =>
+                              handleAccessLogSelectById(e.target.value, vendorAccessLogs)
                             }
+                            required
+                          >
+                            <option value="">Select Allocated ID</option>
+                            {vendorAccessLogs.map((log, idx) => (
+                              <option
+                                key={idx}
+                                value={log.allocated_id}
+                                title={`${log.allocated_id} – ${log.vendor_name} (${log.vendor_firm})`}
+                              >
+                                {log.allocated_id} — {log.vendor_name}
+                              </option>
+                            ))}
+                          </select>
+                          <label htmlFor="allocatedId" className={addUserRequestStyles.floatingLabel}>
+                            Allocated ID <span style={{ color: "red" }}>*</span>
+                          </label>
+                        </div>
+                      ) : vendorAccessLogs.length === 1 ? (
+                        /* Single allocated ID → auto-filled, read-only */
+                        <div className={addUserRequestStyles.formGroup}>
+                          <input
+                            name="allocatedId"
+                            value={
+                              Array.isArray(form.allocatedId)
+                                ? form.allocatedId[0] ?? ""
+                                : form.allocatedId ?? ""
+                            }
+                            readOnly
+                          />
+                          <label htmlFor="allocatedId" className={addUserRequestStyles.floatingLabel}>
+                            Allocated ID <span style={{ color: "red" }}>*</span>
+                          </label>
+                        </div>
+                      ) : (
+                        /* No logs found — warning */
+                        <div
+                          style={{
+                            padding: "12px",
+                            backgroundColor: "#fff3cd",
+                            border: "1px solid #ffc107",
+                            borderRadius: "4px",
+                            color: "#856404",
+                            fontSize: "14px",
+                            gridColumn: "1 / -1",
                           }}
-                          className={addUserRequestStyles.selectBox}
-                          required
                         >
-                          <option value="">-- Select User Type --</option>
-                          <option value="Permanent">Permanent</option>
-                          <option value="Temporary">Temporary</option>
-                        </select>
-                        <label htmlFor="userRequestType" className={addUserRequestStyles.floatingLabel}>
-                          User Type <span style={{ color: "red" }}>*</span>
-                        </label>
-                      </div>
-
-                      {form.userRequestType === "Temporary" && (
-                        <>
-                          <div className={addUserRequestStyles.formGroup}>
-                            <input
-                              type="date"
-                              name="fromDate"
-                              value={form.fromDate}
-                              readOnly
-                              className={addUserRequestStyles.inputField}
-                            />
-                            <label htmlFor="fromDate" className={addUserRequestStyles.floatingLabel}>From Date</label>
-                          </div>
-                          <div className={addUserRequestStyles.formGroup}>
-                            <input
-                              type="date"
-                              name="toDate"
-                              value={form.toDate}
-                              min={form.fromDate}
-                              onChange={handleChange}
-                              className={addUserRequestStyles.inputField}
-                              required
-                            />
-                            <label htmlFor="toDate" className={addUserRequestStyles.floatingLabel}>
-                              To Date <span style={{ color: "red" }}>*</span>
-                            </label>
-                          </div>
-                        </>
+                          ⚠️ No closed Vendor / OEM access logs found for the selected
+                          Plant, Department &amp; Application.
+                        </div>
                       )}
                     </div>
                   )}
-                  {/* Row 3: Remarks */}
+                  </div>
+
+                  
+
+                  {/* ── Row 3: Auto-filled vendor details + Role ── */}
+                  {selectedAccessLog && (
+                    <div className={addUserRequestStyles.fourCol}>
+                      {/* Vendor Firm (read-only, from selected log) */}
+                      <div className={addUserRequestStyles.formGroup}>
+                        <input
+                          name="vendorFirm"
+                          value={form.vendorFirm ?? ""}
+                          readOnly
+                        />
+                        <label htmlFor="vendorFirm" className={addUserRequestStyles.floatingLabel}>
+                          Vendor Firm <span style={{ color: "red" }}>*</span>
+                        </label>
+                      </div>
+
+                      {/* Vendor Name (read-only) */}
+                      <div className={addUserRequestStyles.formGroup}>
+                        <input
+                          name="vendorName"
+                          value={
+                            Array.isArray(form.vendorName)
+                              ? form.vendorName[0] ?? ""
+                              : form.vendorName ?? ""
+                          }
+                          readOnly
+                        />
+                        <label htmlFor="vendorName" className={addUserRequestStyles.floatingLabel}>
+                          Vendor Name <span style={{ color: "red" }}>*</span>
+                        </label>
+                      </div>
+
+                      {/* Vendor Code (read-only) */}
+                      <div className={addUserRequestStyles.formGroup}>
+                        <input
+                          name="vendorCode"
+                          value={form.vendorCode ?? ""}
+                          readOnly
+                        />
+                        <label htmlFor="vendorCode" className={addUserRequestStyles.floatingLabel}>
+                          Vendor Code
+                        </label>
+                      </div>
+
+                      {/* Role — editable only for Modify Access, read-only (pre-filled) for all other types */}
+                      <div className={addUserRequestStyles.formGroup}>
+                        <Select<RoleOption, boolean>
+                          isMulti={isMultipleRoleAllowed}
+                          options={roleOptions}
+                          value={
+                            isMultipleRoleAllowed
+                              ? roleOptions.filter((opt) =>
+                                  Array.isArray(form.role)
+                                    ? form.role.includes(opt.value)
+                                    : form.role === opt.value
+                                )
+                              : roleOptions.find(
+                                  (opt) =>
+                                    opt.value ===
+                                    (Array.isArray(form.role) ? form.role[0] : form.role)
+                                ) ?? null
+                          }
+                          onChange={(selected) =>
+                            handleRoleChange(selected, (roles) =>
+                              setForm((prev) => ({ ...prev, role: roles }))
+                            )
+                          }
+                          isOptionDisabled={() =>
+                            isMultipleRoleAllowed &&
+                            Array.isArray(form.role) &&
+                            form.role.length >= 2
+                          }
+                          closeMenuOnSelect={!isMultipleRoleAllowed}
+                          classNamePrefix="react-select"
+                          placeholder="Select Role"
+                          // Editable ONLY for Modify Access; all other vendor types lock the role
+                          isDisabled={!isVendorModify}
+                        />
+                        <label htmlFor="role" className={addUserRequestStyles.floatingLabel}>
+                          Role <span style={{ color: "red" }}>*</span>
+                        </label>
+
+                        {/* Banner: Modify Access — role-change UX */}
+                        {isVendorModify && vendorOriginalRoles.length > 0 && (
+                          vendorRoleChanged ? (
+                            <div style={{ marginTop: '6px', backgroundColor: '#e8f5e9', border: '1px solid #a5d6a7', borderRadius: '4px', color: '#2e7d32', fontSize: '13px', padding: '6px 10px' }}>
+                              ✅ Role changed. You may submit to modify access.
+                            </div>
+                          ) : (
+                            <div style={{ marginTop: '6px', backgroundColor: '#fdecea', border: '2px solid #f5c6cb', borderRadius: '4px', color: '#b71c1c', fontSize: '13px', fontWeight: '500', padding: '6px 10px' }}>
+                              ⛔ Role is the same as existing access. Please add or remove a role to submit.
+                            </div>
+                          )
+                        )}
+
+                        {/* Banner: all other vendor types — role is pre-filled and locked */}
+                        {!isVendorModify && vendorOriginalRoles.length > 0 && (
+                          <div style={{ marginTop: '6px', backgroundColor: '#e3f2fd', border: '1px solid #90caf9', borderRadius: '4px', color: '#1565c0', fontSize: '13px', padding: '6px 10px' }}>
+                            ℹ️ Role pre-filled from existing access log (read-only).
+                          </div>
+                        )}
+
+                        {isMultipleRoleAllowed &&
+                          Array.isArray(form.role) &&
+                          form.role.length >= 2 && (
+                            <div style={{ marginTop: "5px", fontSize: "12px", color: "#f57f17", fontWeight: "500" }}>
+                              ⚠ Maximum 2 roles can be selected.
+                            </div>
+                          )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Remarks ── */}
                   <div className={addUserRequestStyles.formGroup}>
                     <textarea
                       name="remarks"
                       value={form.remarks}
                       onChange={(e) => {
-                        if (e.target.value.length <= 1000) {
-                          handleChange(e);
-                        }
+                        if (e.target.value.length <= 1000) handleChange(e);
                       }}
-                      style={{
-                        minHeight: "40px",
-                        maxHeight: "42px",
-                        resize: "vertical",
-                      }}
+                      style={{ minHeight: "40px", maxHeight: "42px", resize: "vertical" }}
                       maxLength={50}
                     />
                     <label htmlFor="remarks" className={addUserRequestStyles.floatingLabel}>
@@ -3195,27 +3568,14 @@ const AddUserRequest: React.FC = () => {
                       {(form.remarks?.length || 0)}/1000
                     </div>
                   </div>
-
-                  {/* Info message */}
-                  {vendorAccessLogs.length === 0 && form.vendorFirm && (
-                    <div style={{
-                      padding: '12px',
-                      backgroundColor: '#fff3cd',
-                      border: '1px solid #ffc107',
-                      borderRadius: '4px',
-                      color: '#856404',
-                      fontSize: '14px',
-                      marginTop: '10px'
-                    }}>
-                      ⚠️ No closed access logs found for this vendor firm.
-                    </div>
-                  )}
                 </div>
               )}
 
-              {/* Card 4 Access Information */}
+              
+
+              {/* Card 4 Access Information — hidden for all Vendor/OEM except New User Creation */}
               {(isBulkDeactivation ||
-                (!isVendorModify && !isBulkDeactivation)) && (
+                (!isVendorCard3 && !isBulkDeactivation)) && (
                   <div className={addUserRequestStyles.section}>
                     <span className={addUserRequestStyles.sectionHeaderTitle}>
                       Access Information
@@ -3303,6 +3663,11 @@ const AddUserRequest: React.FC = () => {
                                 setForm(prev => ({ ...prev, role: newRoles }))
                               )
                             }
+                            // ── Disable once 2 selected for this row ─────────────────────
+                            isOptionDisabled={() =>
+                              isMultipleRoleAllowed &&
+                              form.role.length >= 2
+                            }
                             placeholder={isRoleEnabled ? "Select Role" : "Role not applicable"}
                             closeMenuOnSelect={!isMultipleRoleAllowed}
                             classNamePrefix="react-select"
@@ -3324,7 +3689,11 @@ const AddUserRequest: React.FC = () => {
                             Role{" "}
                             {isRoleEnabled && <span style={{ color: "red" }}>*</span>}
                           </label>
-
+                          {isMultipleRoleAllowed && Array.isArray(form.role) && form.role.length >= 2 && (
+                            <div style={{ marginTop: '5px', fontSize: '12px', color: '#f57f17', fontWeight: '500' }}>
+                              ⚠ Maximum 2 roles can be selected.
+                            </div>
+                          )}
                           {/* ─────────────────────────────────────────────────────────
                               STATUS BANNERS
                               Shown when all 3 keys are filled AND accessType is relevant
@@ -3352,7 +3721,7 @@ const AddUserRequest: React.FC = () => {
                                     {/* user has NOT changed role from what's in log → red error (blocks submit) */}
                                     {accessLogRoleFound && duplicateRoleError && (
                                       <div style={{
-                                        marginTop: '6px', padding: '10px 12px',
+                                        marginTop: '6px',
                                         backgroundColor: '#fdecea', border: '2px solid #f5c6cb',
                                         borderRadius: '4px', color: '#b71c1c',
                                         fontSize: '13px', fontWeight: '500'
@@ -3363,7 +3732,7 @@ const AddUserRequest: React.FC = () => {
                                     {/* user HAS changed role to something different → green confirmation */}
                                     {accessLogRoleFound && !duplicateRoleError && (
                                       <div style={{
-                                        marginTop: '6px', padding: '8px 10px',
+                                        marginTop: '6px',
                                         backgroundColor: '#e8f5e9', border: '1px solid #a5d6a7',
                                         borderRadius: '4px', color: '#2e7d32', fontSize: '13px'
                                       }}>
@@ -3373,7 +3742,7 @@ const AddUserRequest: React.FC = () => {
                                     {/* no log at all → red error (blocks submit) */}
                                     {!accessLogRoleFound && (
                                       <div style={{
-                                        marginTop: '6px', padding: '10px 12px',
+                                        marginTop: '6px',
                                         backgroundColor: '#fdecea', border: '2px solid #f5c6cb',
                                         borderRadius: '4px', color: '#b71c1c',
                                         fontSize: '13px', fontWeight: '500'
@@ -3391,7 +3760,7 @@ const AddUserRequest: React.FC = () => {
                                     {/* user picked a role that already exists → amber warning (not blocking) */}
                                     {duplicateRoleError && (
                                       <div style={{
-                                        marginTop: '6px', padding: '10px 12px',
+                                        marginTop: '6px',
                                         backgroundColor: '#fff3cd', border: '1px solid #ffc107',
                                         borderRadius: '4px', color: '#856404', fontSize: '13px'
                                       }}>
@@ -3409,7 +3778,7 @@ const AddUserRequest: React.FC = () => {
                                     <>
                                       {accessLogRoleFound && (
                                         <div style={{
-                                          marginTop: '6px', padding: '8px 10px',
+                                          marginTop: '6px',
                                           backgroundColor: '#e8f5e9', border: '1px solid #a5d6a7',
                                           borderRadius: '4px', color: '#2e7d32', fontSize: '13px'
                                         }}>
@@ -3418,7 +3787,7 @@ const AddUserRequest: React.FC = () => {
                                       )}
                                       {!accessLogRoleFound && (
                                         <div style={{
-                                          marginTop: '6px', padding: '10px 12px',
+                                          marginTop: '6px',
                                           backgroundColor: '#fdecea', border: '2px solid #f5c6cb',
                                           borderRadius: '4px', color: '#b71c1c',
                                           fontSize: '13px', fontWeight: '500'
@@ -3596,7 +3965,7 @@ const AddUserRequest: React.FC = () => {
 
                   <div>
                     <div>
-                      {bulkRows.length < 7 && (
+                      {bulkRows.length < 7 && !noMoreApplicationsAvailable && (
                         <div className={addUserRequestStyles.addRowWrapper}>
                           <button
                             type="button"
@@ -3605,6 +3974,16 @@ const AddUserRequest: React.FC = () => {
                           >
                             +
                           </button>
+                        </div>
+                      )}
+                      {validationError && (
+                        <div className={addUserRequestStyles.errorMessage}>
+                          {validationError}
+                        </div>
+                      )}
+                      {noMoreApplicationsAvailable && (
+                        <div className={addUserRequestStyles.infoText}>
+                          All available applications have been selected.
                         </div>
                       )}
                       <div className={addUserRequestStyles.tableContainer}>
@@ -3663,15 +4042,25 @@ const AddUserRequest: React.FC = () => {
                                     required
                                   >
                                     <option value="">Select Application</option>
-                                    {applications.map((app) => (
-                                      <option
-                                        key={app.id}
-                                        value={app.id}
-                                        title={app.name}
-                                      >
-                                        {app.name}
-                                      </option>
-                                    ))}
+
+                                    {applications
+                                      .filter((app) => {
+                                        // Get all selected applicationIds except current row
+                                        const selectedApps = bulkRows
+                                          .map((r, i) => (i !== index ? r.applicationId : null))
+                                          .filter(Boolean);
+
+                                        return !selectedApps.includes(String(app.id));
+                                      })
+                                      .map((app) => (
+                                        <option
+                                          key={app.id}
+                                          value={app.id}
+                                          title={app.name}
+                                        >
+                                          {app.name}
+                                        </option>
+                                      ))}
                                   </select>
                                 </td>
 
@@ -3689,6 +4078,11 @@ const AddUserRequest: React.FC = () => {
                                         updated[index].role = roles;
                                         setBulkRows(updated);
                                       })
+                                    }
+                                    // ── Disable once 2 selected for this row ─────────────────────
+                                    isOptionDisabled={() =>
+                                      isMultipleRoleAllowed &&
+                                      row.role.length >= 2
                                     }
                                     closeMenuOnSelect={!isMultipleRoleAllowed}
                                     classNamePrefix="react-select"
@@ -3717,9 +4111,74 @@ const AddUserRequest: React.FC = () => {
                 </div>
               )}
 
-              {/* Move the footer buttons to the top */}
+              {/* Footer */}
               <div className={addUserRequestStyles.formFooter}>
                 <div className={addUserRequestStyles.formActions}>
+
+                  {/* Why submit is blocked - auto-clears when user fixes the issue */}
+                  {isSubmitDisabled && !isSubmitting && (() => {
+                    let reason = "";
+
+                    if (validationError) {
+                      reason = validationError;
+                    } else if (form.accessType === "Modify Access" && duplicateRoleError) {
+                      reason = duplicateRoleError;
+                    } else if (
+                      ["Modify Access", "Password Reset", "Account Unlock", "Account Unlock and Password Reset",
+                        "Active / Enable User Access", "Deactivation / Disable / Remove User Access"].includes(form.accessType) &&
+                      !isVendorCard3 &&
+                      form.plant_location && form.department && form.applicationId &&
+                      accessLogRoleLoaded && !accessLogRoleFound
+                    ) {
+                      reason = "No existing access log found for this user. Cannot proceed.";
+                    } else if (!form.accessType) {
+                      reason = "Please select an Access Request Type.";
+                    } else if (!form.employeeCode) {
+                      reason = "Employee Code is required.";
+                    } else if (!form.name) {
+                      reason = "Employee Name is required.";
+                    } else if (form.accessType === "Bulk De-activation") {
+                      if (!form.plant_location || !form.department) reason = "Plant and Department are required.";
+                      else if (bulkDeactivationLogs.length === 0) reason = "No active access logs found to deactivate.";
+                    } else if (form.accessType === "Bulk New User Creation") {
+                      if (!form.plant_location || !form.department) reason = "Plant and Department are required.";
+                      else if (bulkRows.length === 0) reason = "Please add at least one bulk entry.";
+                      else if (bulkRows.some(r => !r.applicationId || r.role.length === 0)) reason = "Each bulk row must have an Application and at least one Role.";
+                    } else if (!isVendorCard3) {
+                      if (!form.plant_location || !form.department) reason = "Plant and Department are required.";
+                      else if (isRoleEnabled && !form.applicationId) reason = "Please select an Application.";
+                      else if (isRoleEnabled && (!form.role || form.role.length === 0)) reason = "Please select at least one Role.";
+                    } else {
+                      if (!form.vendorFirm) reason = "Vendor Firm is required.";
+                      else if (!form.allocatedId || form.allocatedId.length === 0) reason = "Allocated ID is required.";
+                      else if (isVendorModify && !vendorRoleChanged) reason = "Role is the same as existing access. Please add or remove a role to submit.";
+                    }
+
+                    if (!reason && form.accessType !== "Bulk De-activation" && !form.reportsTo)
+                      reason = "Approver (Reports To) is required.";
+                    if (!reason && form.trainingStatus === "Yes" &&
+                      (form.accessType === "New User Creation" || form.accessType === "Bulk New User Creation") &&
+                      attachments.length === 0)
+                      reason = "Training attachment is required.";
+                    if (!reason &&
+                      (form.accessType === "New User Creation" || form.accessType === "Bulk New User Creation") &&
+                      form.userRequestType === "Temporary" && !form.toDate)
+                      reason = "To Date is required for Temporary user type.";
+
+                    return reason ? (
+                      <div style={{
+                        marginBottom: "8px",
+                        fontSize: "12px",
+                        color: "#b71c1c",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "5px",
+                      }}>
+                        🔒 {reason}
+                      </div>
+                    ) : null;
+                  })()}
+
                   <button
                     type="submit"
                     className={addUserRequestStyles.saveBtn}
@@ -3729,7 +4188,6 @@ const AddUserRequest: React.FC = () => {
                       cursor: 'not-allowed',
                       pointerEvents: 'none',
                     } : {}}
-                    title={isSubmitDisabled ? "Please fill all required fields and resolve any errors before submitting." : ""}
                   >
                     {isSubmitting ? "Submitting..." : "Submit Request"}
                   </button>

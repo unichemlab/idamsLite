@@ -11,7 +11,7 @@
 //      clears storage and redirects to login instantly.
 
 import { useState, useEffect, useRef, useCallback } from "react";
-
+import { API_BASE } from "utils/api";
 /* ─────────────────────────────────────────────────────────────────────────────
  * Config
  * ───────────────────────────────────────────────────────────────────────────── */
@@ -68,7 +68,7 @@ function redirectToLogin() {
  * ───────────────────────────────────────────────────────────────────────────── */
 async function pingHeartbeat(sessionId: string): Promise<"ok" | "expired" | "network_error"> {
   try {
-    const res = await fetch("/api/auth/heartbeat", {
+    const res = await fetch(`${API_BASE}/api/auth/heartbeat`, {
       method:  "POST",
       headers: {
         "Content-Type":  "application/json",

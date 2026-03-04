@@ -616,4 +616,46 @@ console.log("Validating inactivation for system ID:", systemId);
 };
 
 
+// ------------------------------
+// CHECK DUPLICATE SYSTEM (GxP only)
+// ------------------------------
+exports.checkSystemDuplicate = async (req, res) => {
+  try {
+    const { plant_location_id, department_id, equipment_instrument_id, exclude_id } = req.query;
+
+    if (!plant_location_id || !department_id || !equipment_instrument_id) {
+      return res.status(400).json({ error: "plant_location_id, department_id, and equipment_instrument_id are required" });
+    }
+
+    let query = `
+      SELECT id FROM system_inventory_master
+      WHERE plant_location_id = $1::integer
+        AND department_id = $2::integer
+        AND category_gxp = 'GxP'
+        AND LOWER(TRIM(equipment_instrument_id::text)) = LOWER(TRIM($3::text))
+        AND status != 'INACTIVE'
+    `;
+    const values = [
+      parseInt(plant_location_id, 10),
+      parseInt(department_id, 10),
+      String(equipment_instrument_id),
+    ];
+
+    if (exclude_id) {
+      query += ` AND id != $4::integer`;
+      values.push(parseInt(exclude_id, 10));
+    }
+
+    query += ` LIMIT 1`;
+
+    const result = await pool.query(query, values);
+    res.json({ isDuplicate: result.rows.length > 0 });
+
+  } catch (err) {
+    console.error("Error checking system duplicate:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+
 module.exports=exports;

@@ -11,12 +11,6 @@ import { API_BASE, fetchActiveUserLogs, fetchPlants, fetchActivityLogs } from ".
 import { useDebounce } from "../../hooks/useDebounce";
 import AppHeader from "../../components/Common/AppHeader";
 import { sortByString } from "../../utils/sortHelpers";
-import {
-  IconButton,
-  Tooltip,
-} from "@mui/material";
-import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
-
 /* -------------------- Types -------------------- */
 
 interface AccessLog {
@@ -307,7 +301,7 @@ const ActiveUserLog: React.FC = () => {
   };
 
 
-  
+
 
   /* -------------------- Render -------------------- */
   const totalPages = Math.max(1, Math.ceil(accessLogs.length / rowsPerPage));
@@ -323,151 +317,150 @@ const ActiveUserLog: React.FC = () => {
   };
 
   const handleExportPDF = useCallback(async () => {
-  const jsPDF = (await import("jspdf")).default;
-  const autoTable = (await import("jspdf-autotable")).default;
+    const jsPDF = (await import("jspdf")).default;
+    const autoTable = (await import("jspdf-autotable")).default;
 
-  const doc = new jsPDF({ orientation: "landscape" });
-  const today = new Date();
-  const fileName = `ActiveUserLog_${today.toISOString().split("T")[0]}.pdf`;
+    const doc = new jsPDF({ orientation: "landscape" });
+    const today = new Date();
+    const fileName = `ActiveUserLog_${today.toISOString().split("T")[0]}.pdf`;
 
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageMargin = 14;
-  const headerHeight = 15;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageMargin = 14;
+    const headerHeight = 15;
 
-  // ==========================
-  // 🔹 HEADER (Blue Bar)
-  // ==========================
-  doc.setFillColor(0, 82, 155);
-  doc.rect(0, 0, pageWidth, headerHeight, "F");
+    // ==========================
+    // 🔹 HEADER (Blue Bar)
+    // ==========================
+    doc.setFillColor(0, 82, 155);
+    doc.rect(0, 0, pageWidth, headerHeight, "F");
 
-  let logoWidth = 0;
-  let logoHeight = 0;
+    let logoWidth = 0;
+    let logoHeight = 0;
 
-  if (login_headTitle2) {
-    try {
-      const loadImage = (src: string): Promise<HTMLImageElement> => {
-        return new Promise((resolve, reject) => {
-          const img = new Image();
-          img.crossOrigin = "anonymous";
-          img.onload = () => resolve(img);
-          img.onerror = reject;
-          img.src = src;
-        });
-      };
+    if (login_headTitle2) {
+      try {
+        const loadImage = (src: string): Promise<HTMLImageElement> => {
+          return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+            img.src = src;
+          });
+        };
 
-      const img = await loadImage(login_headTitle2);
-      const maxLogoHeight = headerHeight * 0.6;
-      const scale = maxLogoHeight / img.height;
+        const img = await loadImage(login_headTitle2);
+        const maxLogoHeight = headerHeight * 0.6;
+        const scale = maxLogoHeight / img.height;
 
-      logoWidth = img.width * scale;
-      logoHeight = img.height * scale;
+        logoWidth = img.width * scale;
+        logoHeight = img.height * scale;
 
-      const logoY = headerHeight / 2 - logoHeight / 2;
-      doc.addImage(img, "PNG", pageMargin, logoY, logoWidth, logoHeight);
-    } catch (e) {
-      console.warn("Logo load failed", e);
+        const logoY = headerHeight / 2 - logoHeight / 2;
+        doc.addImage(img, "PNG", pageMargin, logoY, logoWidth, logoHeight);
+      } catch (e) {
+        console.warn("Logo load failed", e);
+      }
     }
-  }
 
-  // Title
-  doc.setFontSize(16);
-  doc.setTextColor(255, 255, 255);
-  const titleX = pageMargin + logoWidth + 10;
-  const titleY = headerHeight / 2 + 5;
-  doc.text("Active User Log Report", titleX, titleY);
+    // Title
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    const titleX = pageMargin + logoWidth + 10;
+    const titleY = headerHeight / 2 + 5;
+    doc.text("Active User Log Report", titleX, titleY);
 
-  // Generated Info
-  doc.setFontSize(9);
-  doc.setTextColor(200, 200, 200);
-  const exportText = `Generated: ${today.toLocaleDateString("en-GB")} by ${
-    user?.name || "User"
-  }`;
-  const exportTextWidth = doc.getTextWidth(exportText);
-  const exportX = pageWidth - pageMargin - exportTextWidth;
-  const exportY = headerHeight / 2 + 3;
-  doc.text(exportText, exportX, exportY);
+    // Generated Info
+    doc.setFontSize(9);
+    doc.setTextColor(200, 200, 200);
+    const exportText = `Generated: ${today.toLocaleDateString("en-GB")} by ${user?.name || "User"
+      }`;
+    const exportTextWidth = doc.getTextWidth(exportText);
+    const exportX = pageWidth - pageMargin - exportTextWidth;
+    const exportY = headerHeight / 2 + 3;
+    doc.text(exportText, exportX, exportY);
 
-  // ==========================
-  // 🔹 FILTER DETAILS (Bold - Single Line)
-  // ==========================
-  let startY = headerHeight + 12;
+    // ==========================
+    // 🔹 FILTER DETAILS (Bold - Single Line)
+    // ==========================
+    let startY = headerHeight + 12;
 
-  const locationName =
-    locations.find((l) => l.location_id === selectedLocationId)
-      ?.location_name || "All";
+    const locationName =
+      locations.find((l) => l.location_id === selectedLocationId)
+        ?.location_name || "All";
 
-  const departmentName =
-    departments.find((d) => d.department_id === selectedDepartmentId)
-      ?.department_name || "All";
+    const departmentName =
+      departments.find((d) => d.department_id === selectedDepartmentId)
+        ?.department_name || "All";
 
-  const applicationName =
-    applications.find((a) => a.application_equip_id === selectedApplicationId)
-      ?.application_name || "All";
+    const applicationName =
+      applications.find((a) => a.application_equip_id === selectedApplicationId)
+        ?.application_name || "All";
 
-  const filterText = `Location: ${locationName}   |   Department: ${departmentName}   |   Application: ${applicationName}`;
+    const filterText = `Location: ${locationName}   |   Department: ${departmentName}   |   Application: ${applicationName}`;
 
-  doc.setFontSize(10);
-  doc.setTextColor(0, 0, 0);
-  doc.setFont(undefined, "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont(undefined, "bold");
 
-  const textWidth = doc.getTextWidth(filterText);
-  const centerX = (pageWidth - textWidth) / 2;
+    const textWidth = doc.getTextWidth(filterText);
+    const centerX = (pageWidth - textWidth) / 2;
 
-  doc.text(filterText, centerX, startY);
+    doc.text(filterText, centerX, startY);
 
-  doc.setFont(undefined, "normal");
+    doc.setFont(undefined, "normal");
 
-  startY += 10;
+    startY += 10;
 
-  // ==========================
-  // 🔹 TABLE DATA (Current Page)
-  // ==========================
-  const exportData = pageData;
+    // ==========================
+    // 🔹 TABLE DATA (Current Page)
+    // ==========================
+    const exportData = pageData;
 
-  const tableData = exportData.map((log, index) => [
-    (currentPage - 1) * rowsPerPage + index + 1,
-    log.employee_code || "--",
-    log.name || "--",
-    log.allocated_id || "--",
-    log.role_name || "--",
-    log.ritm_transaction_id || "--",
-    log.task_transaction_id || "--",
+    const tableData = exportData.map((log, index) => [
+      (currentPage - 1) * rowsPerPage + index + 1,
+      log.employee_code || "--",
+      log.name || "--",
+      log.allocated_id || "--",
+      log.role_name || "--",
+      log.ritm_transaction_id || "--",
+      log.task_transaction_id || "--",
+    ]);
+
+    autoTable(doc, {
+      head: [[
+        "S.No",
+        "Employee Code",
+        "Name",
+        "Allocated ID",
+        "Role",
+        "RITM ID",
+        "Task ID",
+      ]],
+      body: tableData,
+      startY: startY,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [0, 82, 155], textColor: [255, 255, 255] },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      margin: { left: pageMargin, right: pageMargin },
+    });
+
+    doc.save(fileName);
+  }, [
+    pageData,
+    currentPage,
+    rowsPerPage,
+    user,
+    selectedLocationId,
+    selectedDepartmentId,
+    selectedApplicationId,
+    locations,
+    departments,
+    applications,
+    login_headTitle2,
   ]);
 
-  autoTable(doc, {
-    head: [[
-      "S.No",
-      "Employee Code",
-      "Name",
-      "Allocated ID",
-      "Role",
-      "RITM ID",
-      "Task ID",
-    ]],
-    body: tableData,
-    startY: startY,
-    styles: { fontSize: 8, cellPadding: 2 },
-    headStyles: { fillColor: [0, 82, 155], textColor: [255, 255, 255] },
-    alternateRowStyles: { fillColor: [245, 247, 250] },
-    margin: { left: pageMargin, right: pageMargin },
-  });
-
-  doc.save(fileName);
-}, [
-  pageData,
-  currentPage,
-  rowsPerPage,
-  user,
-  selectedLocationId,
-  selectedDepartmentId,
-  selectedApplicationId,
-  locations,
-  departments,
-  applications,
-  login_headTitle2,
-]);
-
-
+  console.log("Data fetched", pageData);
 
 
   return (
@@ -596,16 +589,17 @@ const ActiveUserLog: React.FC = () => {
           ) : (
             <>
               <div className={plantStyles.tableContainer}>
-                <table className={plantStyles.table}>
+                {/* <table className={plantStyles.table}>
                   <thead>
                     <tr>
                       <th>S.No</th>
                       <th>Employee Code</th>
                       <th>Name</th>
                       <th>Allocated ID</th>
+                      <th>Vendor Details</th>
                       <th>Role</th>
-                      <th>RITM ID</th>
-                      <th>Task ID</th>
+                      <th>Request ID</th>
+                      <th>Transaction ID</th>
                       
                     </tr>
                   </thead>
@@ -623,9 +617,55 @@ const ActiveUserLog: React.FC = () => {
                           <td>{log.employee_code}</td>
                           <td>{log.name}</td>
                           <td>{log.allocated_id}</td>
+                          <td>(log.access_request_type == 'Vendor / OEM')?Vendor Name: {log.vendor_name}| vendor firm: {log.vendor_firm}:'--'</td>
                           <td>{log.role_name}</td>
                           <td>{log.ritm_transaction_id}</td>
                           <td>{log.task_transaction_id}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table> */}
+                <table className={plantStyles.table}>
+                  <thead>
+                    <tr>
+                      <th>S.No</th>
+                      <th>Employee Code</th>
+                      <th>Name</th>
+                      <th>Allocated ID</th>
+                      <th>Role</th>
+                      <th>Request ID</th>
+                      <th>Transaction ID(Task)</th>
+                      <th>Vendor Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pageData.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} style={{ textAlign: "center", padding: 24 }}>
+                          No records found
+                        </td>
+                      </tr>
+                    ) : (
+                      pageData.map((log, index) => (
+                        <tr key={log.id}>
+                          <td>{(currentPage - 1) * rowsPerPage + index + 1}</td>
+                          <td>{log.employee_code}</td>
+                          <td>{log.name}</td>
+                          <td>{log.allocated_id}</td>
+                          <td>{log.role_name}</td>
+                          <td>{log.ritm_transaction_id}</td>
+                          <td>{log.task_transaction_id}</td>
+                           <td>
+                            {log.request_for_by === "Vendor / OEM" ? (
+                              <div className={plantStyles.vendorCell}>
+                                <div><strong>Name:</strong> {log.vendor_name}</div>
+                                <div><strong>Firm:</strong> {log.vendor_firm}</div>
+                              </div>
+                            ) : (
+                              <span className={plantStyles.noData}>--</span>
+                            )}
+                          </td>
                         </tr>
                       ))
                     )}

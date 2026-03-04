@@ -16,55 +16,134 @@ const isSuperAdmin = (user) => {
   return false;
 };
 
-/**
- * Generate unique transaction ID by checking both application_master and pending approvals
- */
-const generateUniqueTransactionId = async () => {
-  try {
-    let maxNum = 0;
 
-    const existingAppsResult = await db.query(
-      `SELECT transaction_id FROM application_master
-       WHERE transaction_id LIKE 'APP%'
-       ORDER BY transaction_id DESC
-       LIMIT 1`
-    );
+// ─────────────────────────────────────────────────────────────────────────────
+// DUPLICATE CHECK HELPER
+// Checks plant + department + application_hmi_type + equipment_instrument_id
+// across application_master (ACTIVE) and pending approvals (create / update).
+// Pass excludeId to ignore the record currently being edited.
+// ─────────────────────────────────────────────────────────────────────────────
+const isDuplicateCombination = async ({
+  plant_location_id,
+  department_id,
+  application_hmi_type,
+  equipment_instrument_id,
+  excludeId = null,          // set to the record id when editing
+}) => {
+  // 1️⃣  Check application_master (status = ACTIVE)
+  let existingQuery, existingParams;
 
-    if (existingAppsResult.rows.length > 0) {
-      const lastId = existingAppsResult.rows[0].transaction_id;
-      const match = lastId.match(/APP(\d+)/);
-      if (match) maxNum = Math.max(maxNum, parseInt(match[1], 10));
+  if (excludeId !== null) {
+    existingQuery = `
+      SELECT id FROM application_master
+      WHERE plant_location_id      = $1
+        AND department_id          = $2
+        AND application_hmi_type   = $3
+        AND equipment_instrument_id= $4
+        AND status                 = 'ACTIVE'
+        AND id                     <> $5
+      LIMIT 1`;
+    existingParams = [
+      plant_location_id,
+      department_id,
+      application_hmi_type,
+      equipment_instrument_id,
+      excludeId,
+    ];
+  } else {
+    existingQuery = `
+      SELECT id FROM application_master
+      WHERE plant_location_id      = $1
+        AND department_id          = $2
+        AND application_hmi_type   = $3
+        AND equipment_instrument_id= $4
+        AND status                 = 'ACTIVE'
+      LIMIT 1`;
+    existingParams = [
+      plant_location_id,
+      department_id,
+      application_hmi_type,
+      equipment_instrument_id,
+    ];
+  }
+
+  const existingResult = await db.query(existingQuery, existingParams);
+  if (existingResult.rows.length > 0) return true;
+
+  // 2️⃣  Check pending approvals (create + update, status = PENDING)
+  const pendingResult = await db.query(
+    `SELECT id, record_id, new_value FROM pending_approvals
+      WHERE module     = 'application'
+        AND table_name = 'application_master'
+        AND action     IN ('create', 'update')
+        AND status     = 'PENDING'`
+  );
+
+  for (const row of pendingResult.rows) {
+    // When editing, skip the pending row that belongs to the record we are editing
+    if (excludeId !== null && Number(row.record_id) === Number(excludeId)) {
+      continue;
     }
 
-    const pendingApprovalsResult = await db.query(
-      `SELECT new_value FROM pending_approvals
-       WHERE module     = 'application'
-         AND table_name = 'application_master'
-         AND action     = 'create'
-         AND status     = 'PENDING'`
-    );
+    try {
+      const nv =
+        typeof row.new_value === "string"
+          ? JSON.parse(row.new_value)
+          : row.new_value;
 
-    for (const row of pendingApprovalsResult.rows) {
-      try {
-        const newValue =
-          typeof row.new_value === "string"
-            ? JSON.parse(row.new_value)
-            : row.new_value;
-        if (newValue?.transaction_id) {
-          const match = newValue.transaction_id.match(/APP(\d+)/);
-          if (match) maxNum = Math.max(maxNum, parseInt(match[1], 10));
-        }
-      } catch (e) {
-        console.warn("Error parsing new_value in pending approval:", e);
+      if (
+        nv &&
+        String(nv.plant_location_id)    === String(plant_location_id) &&
+        String(nv.department_id)         === String(department_id) &&
+        String(nv.application_hmi_type)  === String(application_hmi_type) &&
+        String(nv.equipment_instrument_id) === String(equipment_instrument_id)
+      ) {
+        return true;
       }
+    } catch (e) {
+      console.warn("Error parsing pending_approvals new_value during duplicate check:", e);
+    }
+  }
+
+  return false;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CHECK DUPLICATE COMBINATION (POST)
+// Used by frontend on form submit — before confirmation modal opens.
+// ─────────────────────────────────────────────────────────────────────────────
+exports.checkDuplicateCombination = async (req, res) => {
+  try {
+    const {
+      plant_location_id,
+      department_id,
+      application_hmi_type,
+      equipment_instrument_id,
+      excludeId = null,
+    } = req.body;
+
+    const duplicate = await isDuplicateCombination({
+      plant_location_id,
+      department_id,
+      application_hmi_type,
+      equipment_instrument_id,
+      excludeId,
+    });
+
+    if (duplicate) {
+      return res.status(409).json({
+        error:
+          excludeId
+            ? "Another application with the same Plant, Department, Application/HMI Type, and Equipment ID already exists."
+            : "An application with the same Plant, Department, Application/HMI Type, and Equipment ID already exists.",
+        code: "DUPLICATE_COMBINATION",
+      });
     }
 
-    const nextNum = maxNum + 1;
-    return `APP${String(nextNum).padStart(7, "0")}`;
+    res.status(200).json({ duplicate: false });
   } catch (err) {
-    console.error("Error generating transaction_id:", err);
-    const timestamp = Date.now().toString().slice(-7);
-    return `APP${timestamp}`;
+    console.error("Error checking duplicate combination:", err);
+    res.status(500).json({ error: err.message });
   }
 };
 
@@ -122,12 +201,24 @@ exports.addApplication = async (req, res) => {
       }
     }
 
-    const transaction_id = await generateUniqueTransactionId();
+    // ✅ Duplicate combination check (plant + department + type + equipment_id)
+    const duplicate = await isDuplicateCombination({
+      plant_location_id,
+      department_id,
+      application_hmi_type,
+      equipment_instrument_id,
+    });
+    if (duplicate) {
+      return res.status(409).json({
+        error:
+          "An application with the same Plant, Department, Application/HMI Type, and Equipment ID already exists.",
+        code: "DUPLICATE_COMBINATION",
+      });
+    }
 
     const roleIdStr = Array.isArray(role_id) ? role_id.join(",") : String(role_id);
 
     const newData = {
-      transaction_id,
       plant_location_id,
       department_id,
       application_hmi_name,
@@ -169,15 +260,15 @@ exports.addApplication = async (req, res) => {
     // ── No approval workflow configured → insert directly ──
     const result = await db.query(
       `INSERT INTO application_master (
-         transaction_id, plant_location_id, department_id, application_hmi_name,
+         plant_location_id, department_id, application_hmi_name,
          application_hmi_version, equipment_instrument_id, application_hmi_type,
          display_name, role_id, system_name, system_inventory_id,
          multiple_role_access, role_lock, status, created_on, updated_on
        ) VALUES (
-         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,NOW(),NOW()
+         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW(),NOW()
        ) RETURNING *`,
       [
-        transaction_id, plant_location_id, department_id, application_hmi_name,
+        plant_location_id, department_id, application_hmi_name,
         application_hmi_version, equipment_instrument_id, application_hmi_type,
         display_name, roleIdStr, system_name, system_inventory_id,
         multiple_role_access, role_lock, status,
@@ -203,13 +294,6 @@ exports.addApplication = async (req, res) => {
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error("[addApplication] Error:", err);
-
-    if (err.code === "23505" && err.constraint === "application_master_transaction_id_key") {
-      return res.status(409).json({
-        error: "Transaction ID already exists. Please try again.",
-        code: "DUPLICATE_TRANSACTION_ID",
-      });
-    }
 
     res.status(500).json({ error: err.message });
   }
@@ -266,6 +350,22 @@ exports.editApplication = async (req, res) => {
           });
         }
       }
+    }
+
+    // ✅ Duplicate combination check — exclude the current record being edited
+    const duplicate = await isDuplicateCombination({
+      plant_location_id,
+      department_id,
+      application_hmi_type,
+      equipment_instrument_id,
+      excludeId: id,
+    });
+    if (duplicate) {
+      return res.status(409).json({
+        error:
+          "Another application with the same Plant, Department, Application/HMI Type, and Equipment ID already exists.",
+        code: "DUPLICATE_COMBINATION",
+      });
     }
 
     const roleIdStr = Array.isArray(role_id) ? role_id.join(",") : String(role_id);
@@ -447,8 +547,6 @@ exports.bulkImportApplications = async (req, res) => {
     for (let i = 0; i < records.length; i++) {
       try {
         const record = { ...records[i] };
-        const transaction_id = await generateUniqueTransactionId();
-        record.transaction_id = transaction_id;
 
         if (record.plant_location_id)   record.plant_location_id   = parseInt(record.plant_location_id, 10);
         if (record.department_id)        record.department_id        = parseInt(record.department_id, 10);

@@ -65,7 +65,6 @@ const EditApplicationFormPage: React.FC = () => {
 
   type FormType = {
     id: number;
-    transaction_id: string;
     plant_location_id: string;
     department_id: string;
     application_hmi_name: string;
@@ -84,7 +83,6 @@ const EditApplicationFormPage: React.FC = () => {
     if (applicationData) {
       return {
         id: applicationData.id,
-        transaction_id: applicationData.transaction_id || "",
         plant_location_id: String(applicationData.plant_location_id || ""),
         department_id: String(applicationData.department_id || ""),
         application_hmi_name: applicationData.application_hmi_name || "",
@@ -106,7 +104,6 @@ const EditApplicationFormPage: React.FC = () => {
     }
     return {
       id: 0,
-      transaction_id: "",
       plant_location_id: "",
       department_id: "",
       application_hmi_name: "",
@@ -218,8 +215,49 @@ const EditApplicationFormPage: React.FC = () => {
   };
 
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // 1️⃣ Validate roles
+    if (!form.role_id || form.role_id.length === 0) {
+      alert("Please select at least one role before updating.");
+      return;
+    }
+
+    // 2️⃣ Duplicate combination check (excludes current record)
+    try {
+      const checkRes = await fetch(`${API_BASE}/api/applications/check-duplicate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          plant_location_id: form.plant_location_id,
+          department_id: form.department_id,
+          application_hmi_type: form.application_hmi_type,
+          equipment_instrument_id: form.equipment_instrument_id,
+          excludeId: form.id,
+        }),
+      });
+
+      if (checkRes.status === 409) {
+        const errData = await checkRes.json();
+        alert(errData.error || "Duplicate combination found.");
+        return;
+      }
+
+      if (!checkRes.ok) {
+        const errData = await checkRes.json();
+        alert(errData.error || "Validation failed. Please try again.");
+        return;
+      }
+    } catch (err) {
+      alert("Could not validate form. Please try again.");
+      return;
+    }
+
+    // 3️⃣ All validations passed — open confirmation modal
     setShowModal(true);
   };
 
@@ -240,21 +278,23 @@ const EditApplicationFormPage: React.FC = () => {
             : null,
           role_lock: true,
         };
-        setShowModal(false);
+
         const res = await fetch(`${API_BASE}/api/applications/${form.id}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`, // 🔥 REQUIRED
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(payload),
         });
 
         if (!res.ok) {
-          const errorText = await res.text();
-          throw new Error(errorText);
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || "Failed to update application");
         }
+
         const updated = await res.json();
+        setShowModal(false);
         setApplications((prev: any[]) =>
           prev.map((app) =>
             app.id === updated.id ? { ...app, ...updated } : app
@@ -337,7 +377,7 @@ const EditApplicationFormPage: React.FC = () => {
         }));
 
         const serverOptions = serverData.map((row: any) => ({
-          value: String(row.id),
+          value: String(row.application),
           label: `${row.application} (${row.host_name})`,
           hostname: row.host_name,
           system_inventory_id: "", // keep empty
@@ -414,7 +454,7 @@ const EditApplicationFormPage: React.FC = () => {
           <div className={addStyles.formCard}>
             <div className={addStyles.formHeader}>
               <h2>Edit Application</h2>
-              <p>Update application details in the system12</p>
+              <p>Update application details in the system</p>
             </div>
 
             <form className={addStyles.form} onSubmit={handleSubmit}>

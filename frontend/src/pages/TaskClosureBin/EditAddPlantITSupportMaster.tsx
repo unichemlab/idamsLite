@@ -152,7 +152,7 @@ const EditPlantITSupport: React.FC = () => {
 
       if (res.ok) {
         alert("IT Group Assignment updated successfully!");
-        navigate("/plant-itsupport");
+        navigate("/task-closure-bin");
       } else {
         const text = await res.text();
         alert("Error updating assignment: " + text);
