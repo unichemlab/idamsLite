@@ -1426,7 +1426,7 @@ exports.updateTask = async (req, res) => {
              ur.status          AS user_request_status,
              ur.approver1_status, ur.approver2_status,
              ur.approver1_email, ur.approver2_email,
-             ur.user_request_type, ur.from_date, ur.to_date,
+             ur.user_request_type, ur.from_date, ur.to_date,ur.request_raised_by,ur.request_raised_by_emp_code,
              ur.completed_at,
              p.plant_name,
              d.department_name,
@@ -1504,10 +1504,10 @@ exports.updateTask = async (req, res) => {
         task_created, task_updated, remarks, status,
         access_request_type, task_action,
         user_request_type, from_date, to_date, password,
-        created_on, updated_on
+        created_on, updated_on, request_raised_by,request_raised_by_emp_code
       ) VALUES (
         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,
-        $17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,NOW(),NOW()
+        $17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,NOW(),NOW(),$29,$30
       )
       ON CONFLICT (ritm_number, task_number) DO UPDATE SET
         request_by          = EXCLUDED.request_by,
@@ -1566,7 +1566,9 @@ exports.updateTask = async (req, res) => {
         task_data.userRequestType     || existingTask.user_request_type,
         task_data.fromDate            || existingTask.from_date,
         task_data.toDate              || existingTask.to_date,
-        hashedPassword                || null
+        hashedPassword                || null,
+        existingTask.request_raised_by,
+        existingTask.request_raised_by_emp_code
       ]
     );
 
@@ -1648,11 +1650,11 @@ exports.updateTask = async (req, res) => {
             approver1_name, approver2_name,
             approver1_action, approver2_action,
             approver1_timestamp, approver2_timestamp,
-            approver1_comments, approver2_comments, assignment_group
+            approver1_comments, approver2_comments, assignment_group ,request_raised_by,request_raised_by_emp_code
           ) VALUES (
             $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
             $18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,
-            NOW(),NOW(),$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44
+            NOW(),NOW(),$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46
           )
           RETURNING *`,
           [
@@ -1699,7 +1701,9 @@ exports.updateTask = async (req, res) => {
             existingTask.approver2_action_timestamp,
             existingTask.approver1_comments,
             existingTask.approver2_comments,
-            task_data.assignmentGroup || ""
+            task_data.assignmentGroup || "",
+            existingTask.request_raised_by,
+            existingTask.request_raised_by_emp_code,
           ]
         );
         accessLogResult = rows[0];
@@ -1769,11 +1773,11 @@ exports.updateTask = async (req, res) => {
             approver1_name, approver2_name,
             approver1_action, approver2_action,
             approver1_timestamp, approver2_timestamp,
-            approver1_comments, approver2_comments, assignment_group
+            approver1_comments, approver2_comments, assignment_group,request_raised_by,request_raised_by_emp_code
           ) VALUES (
             $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
             $18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,
-            NOW(),NOW(),$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44
+            NOW(),NOW(),$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46
           )
           ON CONFLICT (user_request_id, task_id) DO UPDATE SET
             task_status       = EXCLUDED.task_status,
@@ -1833,7 +1837,9 @@ exports.updateTask = async (req, res) => {
             existingTask.approver2_action_timestamp,
             existingTask.approver1_comments,
             existingTask.approver2_comments,
-            task_data.assignmentGroup || ""
+            task_data.assignmentGroup || "",
+            existingTask.request_raised_by,
+            existingTask.request_raised_by_emp_code
           ]
         );
         accessLogResult = rows[0];
@@ -1857,11 +1863,11 @@ exports.updateTask = async (req, res) => {
           approver1_name, approver2_name,
           approver1_action, approver2_action,
           approver1_timestamp, approver2_timestamp,
-          approver1_comments, approver2_comments, assignment_group
+          approver1_comments, approver2_comments, assignment_group,request_raised_by,request-raised_by_emp_code
         ) VALUES (
           $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
           $18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,
-          NOW(),NOW(),$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44
+          NOW(),NOW(),$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46
         )
         ON CONFLICT (user_request_id, task_id) DO UPDATE SET
           task_status       = EXCLUDED.task_status,
@@ -1920,7 +1926,9 @@ exports.updateTask = async (req, res) => {
           existingTask.approver2_action_timestamp,
           existingTask.approver1_comments,
           existingTask.approver2_comments,
-          task_data.assignmentGroup
+          task_data.assignmentGroup,
+           existingTask.request_raised_by,
+            existingTask.request_raised_by_emp_code
         ]
       );
       accessLogResult = rows[0];

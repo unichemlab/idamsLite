@@ -246,6 +246,8 @@ exports.createUserRequest = async (req, res) => {
        user_request_type,
         from_date,
         to_date,
+        request_raised_by,
+        request_raised_by_emp_code
     } = req.body;
 
     // Parse tasks safely
@@ -267,8 +269,8 @@ exports.createUserRequest = async (req, res) => {
        training_status, training_attachment, training_attachment_name,
        vendor_name, vendor_firm, vendor_code, vendor_allocated_id, status,
        approver1_email, approver1_status, approver2_email, approver2_status, created_on,
-       user_request_type,from_date,to_date)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'Pending',$15,'Pending',NOW(),$16,$17,$18)
+       user_request_type,from_date,to_date,request_raised_by,request_raised_by_emp_code)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'Pending',$15,'Pending',NOW(),$16,$17,$18,$19,$20)
       RETURNING *`,
       [
         request_for_by,
@@ -289,6 +291,8 @@ exports.createUserRequest = async (req, res) => {
         user_request_type || null,
         from_date || null,
         to_date || null,
+        request_raised_by,
+        request_raised_by_emp_code
       ]
     );
 

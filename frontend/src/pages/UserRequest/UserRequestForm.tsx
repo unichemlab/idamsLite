@@ -120,6 +120,8 @@ const AddUserRequest: React.FC = () => {
     userRequestType: "" as "Permanent" | "Temporary" | "",
     fromDate: "",
     toDate: "",
+    request_raised_by:"",
+    request_raised_by_emp_code:""
 
   });
   console.log("form data", form);
@@ -1417,7 +1419,8 @@ const AddUserRequest: React.FC = () => {
       formData.append("approver2_email", "");
       formData.append("approver1_status", "Pending");
       formData.append("approver2_status", "Pending");
-
+      formData.append("request_raised_by",user?.name||"");
+      formData.append("request_raised_by_emp_code", user?.employee_code||"");
       if (attachments.length > 0) {
         formData.append("training_attachment", attachments[0]);
       }
