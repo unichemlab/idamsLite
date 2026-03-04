@@ -683,126 +683,127 @@ exports.updateApproverStatus = async (req, res) => {
  * 
  * Checks: Plant + Department + Application (Display Name) + task_status
  */
-exports.checkAccessLogConflict = async (req, res) => {
-  const { 
-    applicationId, 
-    request_for_by, 
-    name, 
-    vendor_name, 
-    plant_location, 
-    department, 
-    accessType 
-  } = req.body;
+// exports.checkAccessLogConflict = async (req, res) => {
+//   const { 
+//     applicationId, 
+//     request_for_by, 
+//     name, 
+//     vendor_name, 
+//     plant_location, 
+//     department, 
+//     accessType 
+//   } = req.body;
 
-  console.log("[RULE 2/3 - ACCESS LOG CHECK]", {
-    request_for_by,
-    name: name || vendor_name,
-    plant_location,
-    department,
-    applicationId,
-    accessType
-  });
+//   console.log("[RULE 2/3 - ACCESS LOG CHECK]", {
+//     request_for_by,
+//     name: name || vendor_name,
+//     plant_location,
+//     department,
+//     applicationId,
+//     accessType
+//   });
 
-  try {
-    const appIds = Array.isArray(applicationId) ? applicationId : [applicationId];
-    const isVendor = request_for_by === "Vendor / OEM";
+//   try {
+//     const appIds = Array.isArray(applicationId) ? applicationId : [applicationId];
+//     const isVendor = request_for_by === "Vendor / OEM";
 
-    const params = [plant_location, department, appIds];
-    if (isVendor) {
-      params.push(vendor_name);
-    } else {
-      params.push(name);
-    }
+//     const params = [plant_location, department, appIds];
+//     if (isVendor) {
+//       params.push(vendor_name);
+//     } else {
+//       params.push(name);
+//     }
 
-    // Check access_log for existing records
-    const query = `
-      SELECT
-        COUNT(*) FILTER (WHERE task_status = 'Closed') AS closed_count,
-        COUNT(*) FILTER (WHERE task_status IN ('Pending','In Progress','Approved')) AS active_count,
-        COUNT(*) AS total_count,
-        MAX(CASE WHEN task_status = 'Closed' THEN 1 ELSE 0 END) AS has_closed,
-        MAX(CASE WHEN task_status IN ('Pending','In Progress','Approved') THEN 1 ELSE 0 END) AS has_active,
-        STRING_AGG(DISTINCT app.display_name, ', ') AS application_names
-      FROM access_log al
-      LEFT JOIN application_master app ON al.application_equip_id::text = app.id::text
-      WHERE al.location::text = $1::text
-        AND al.department::text = $2::text
-        AND al.application_equip_id::text = ANY($3::text[])
-        AND ${isVendor 
-          ? "LOWER(TRIM(al.vendor_name)) = LOWER(TRIM($4))" 
-          : "LOWER(TRIM(al.name)) = LOWER(TRIM($4))"
-        }
-    `;
+//     // Check access_log for existing records
+//     const query = `
+//       SELECT
+//         COUNT(*) FILTER (WHERE task_status = 'Closed') AS closed_count,
+//         COUNT(*) FILTER (WHERE task_status IN ('Pending','In Progress','Approved')) AS active_count,
+//         COUNT(*) AS total_count,
+//         MAX(CASE WHEN task_status = 'Closed' THEN 1 ELSE 0 END) AS has_closed,
+//         MAX(CASE WHEN task_status IN ('Pending','In Progress','Approved') THEN 1 ELSE 0 END) AS has_active,
+//         STRING_AGG(DISTINCT app.display_name, ', ') AS application_names
+//       FROM access_log al
+//       LEFT JOIN application_master app ON al.application_equip_id::text = app.id::text
+//       WHERE al.location::text = $1::text
+//         AND al.department::text = $2::text
+//         AND al.application_equip_id::text = ANY($3::text[])
+//         AND ${isVendor 
+//           ? "LOWER(TRIM(al.vendor_name)) = LOWER(TRIM($4))" 
+//           : "LOWER(TRIM(al.name)) = LOWER(TRIM($4))"
+//         }
+//     `;
 
-    const { rows } = await pool.query(query, params);
-    const result = {
-      exists: rows[0]?.has_closed === 1,              // Has closed access
-      taskNotClosed: rows[0]?.has_active === 1,       // Has active/unclosed tasks
-      closedCount: parseInt(rows[0]?.closed_count || '0', 10),
-      activeCount: parseInt(rows[0]?.active_count || '0', 10),
-      totalCount: parseInt(rows[0]?.total_count || '0', 10),
-      applicationNames: rows[0]?.application_names || ''
-    };
+//     const { rows } = await pool.query(query, params);
+//     console.log("access log active user",  query);
+//     const result = {
+//       exists: rows[0]?.has_closed === 1,              // Has closed access
+//       taskNotClosed: rows[0]?.has_active === 1,       // Has active/unclosed tasks
+//       closedCount: parseInt(rows[0]?.closed_count || '0', 10),
+//       activeCount: parseInt(rows[0]?.active_count || '0', 10),
+//       totalCount: parseInt(rows[0]?.total_count || '0', 10),
+//       applicationNames: rows[0]?.application_names || ''
+//     };
 
-    // Apply rules based on access type
-    let ruleViolation = null;
+//     // Apply rules based on access type
+//     let ruleViolation = null;
 
-    // RULE 2: Modify Access requires existing closed access
-    if (accessType === "Modify Access") {
-      if (!result.exists) {
-        ruleViolation = {
-          rule: "RULE_2",
-          message: "Cannot modify access - No existing closed access found in Access Log for this combination."
-        };
-      } else if (result.taskNotClosed) {
-        ruleViolation = {
-          rule: "RULE_4",
-          message: "Cannot modify access - An active/unclosed task already exists. Please wait for it to complete."
-        };
-      }
-    }
+//     // RULE 2: Modify Access requires existing closed access
+//     if (accessType === "Modify Access") {
+//       if (!result.exists) {
+//         ruleViolation = {
+//           rule: "RULE_2",
+//           message: "Cannot modify access - No existing closed access found in Access Log for this combination."
+//         };
+//       } else if (result.taskNotClosed) {
+//         ruleViolation = {
+//           rule: "RULE_4",
+//           message: "Cannot modify access - An active/unclosed task already exists. Please wait for it to complete."
+//         };
+//       }
+//     }
 
-    // RULE 3: New User Creation blocked if access exists
-    if (accessType === "New User Creation" || accessType === "Bulk New User Creation") {
-      if (result.exists) {
-        ruleViolation = {
-          rule: "RULE_3",
-          message: "Duplicate request not allowed - Access already exists in Access Log for this combination."
-        };
-      } else if (result.taskNotClosed) {
-        ruleViolation = {
-          rule: "RULE_4",
-          message: "Duplicate request not allowed - An active/unclosed task already exists."
-        };
-      }
-    }
+//     // RULE 3: New User Creation blocked if access exists
+//     if (accessType === "New User Creation" || accessType === "Bulk New User Creation") {
+//       if (result.exists) {
+//         ruleViolation = {
+//           rule: "RULE_3",
+//           message: "Duplicate request not allowed - Access already exists in Access Log for this combination."
+//         };
+//       } else if (result.taskNotClosed) {
+//         ruleViolation = {
+//           rule: "RULE_4",
+//           message: "Duplicate request not allowed - An active/unclosed task already exists."
+//         };
+//       }
+//     }
 
-    // Other access types - just check for active tasks
-    if (!["Modify Access", "New User Creation", "Bulk New User Creation"].includes(accessType)) {
-      if (result.taskNotClosed) {
-        ruleViolation = {
-          rule: "RULE_4",
-          message: "Cannot proceed - An active/unclosed task already exists for this combination."
-        };
-      }
-    }
+//     // Other access types - just check for active tasks
+//     if (!["Modify Access", "New User Creation", "Bulk New User Creation"].includes(accessType)) {
+//       if (result.taskNotClosed) {
+//         ruleViolation = {
+//           rule: "RULE_4",
+//           message: "Cannot proceed - An active/unclosed task already exists for this combination."
+//         };
+//       }
+//     }
 
-    console.log("[RULE 2/3] Result:", {
-      ...result,
-      ruleViolation: ruleViolation ? ruleViolation.rule : "PASS"
-    });
+//     console.log("[RULE 2/3] Result:", {
+//       ...result,
+//       ruleViolation: ruleViolation ? ruleViolation.rule : "PASS"
+//     });
 
-    res.json({
-      ...result,
-      conflict: !!ruleViolation,
-      ...ruleViolation
-    });
+//     res.json({
+//       ...result,
+//       conflict: !!ruleViolation,
+//       ...ruleViolation
+//     });
 
-  } catch (err) {
-    console.error("[RULE 2/3] ERROR:", err);
-    res.status(500).json({ error: "Validation failed", details: err.message });
-  }
-};
+//   } catch (err) {
+//     console.error("[RULE 2/3] ERROR:", err);
+//     res.status(500).json({ error: "Validation failed", details: err.message });
+//   }
+// };
 
 
 // exports.getAccessLogsByUser = async (req, res) => {
@@ -989,6 +990,446 @@ exports.checkAccessLogConflict = async (req, res) => {
 //   }
 // };
 
+exports.checkAccessLogConflict = async (req, res) => {
+  const { 
+    applicationId, 
+    request_for_by, 
+    name, 
+    employee_code,
+    vendor_name, 
+    plant_location, 
+    department, 
+    accessType 
+  } = req.body;
+
+  console.log("[RULE 2/3 - ACCESS LOG CHECK]", {
+    request_for_by,
+    name: name || vendor_name,
+    employee_code,
+    plant_location,
+    department,
+    applicationId,
+    accessType
+  });
+
+  try {
+    const appIds = Array.isArray(applicationId) ? applicationId : [applicationId];
+    const isVendor = request_for_by === "Vendor / OEM";
+
+    let query;
+    let params;
+
+    if (isVendor) {
+      // Vendor: match on vendor_name only
+      params = [plant_location, department, appIds, vendor_name];
+      query = `
+        SELECT
+          COUNT(*) FILTER (WHERE task_status = 'Closed') AS closed_count,
+          COUNT(*) FILTER (WHERE task_status IN ('Pending','In Progress','Approved')) AS active_count,
+          COUNT(*) AS total_count,
+          MAX(CASE WHEN task_status = 'Closed' THEN 1 ELSE 0 END) AS has_closed,
+          MAX(CASE WHEN task_status IN ('Pending','In Progress','Approved') THEN 1 ELSE 0 END) AS has_active,
+          STRING_AGG(DISTINCT app.display_name, ', ') AS application_names
+        FROM access_log al
+        LEFT JOIN application_master app ON al.application_equip_id::text = app.id::text
+        WHERE al.location::text = $1::text
+          AND al.department::text = $2::text
+          AND al.application_equip_id::text = ANY($3::text[])
+          AND LOWER(TRIM(al.vendor_name)) = LOWER(TRIM($4))
+      `;
+    } else {
+      // Self / Others: match on name + employee_code, exclude vendor rows
+      params = [plant_location, department, appIds, name, employee_code];
+      query = `
+        SELECT
+          COUNT(*) FILTER (WHERE task_status = 'Closed') AS closed_count,
+          COUNT(*) FILTER (WHERE task_status IN ('Pending','In Progress','Approved')) AS active_count,
+          COUNT(*) AS total_count,
+          MAX(CASE WHEN task_status = 'Closed' THEN 1 ELSE 0 END) AS has_closed,
+          MAX(CASE WHEN task_status IN ('Pending','In Progress','Approved') THEN 1 ELSE 0 END) AS has_active,
+          STRING_AGG(DISTINCT app.display_name, ', ') AS application_names
+        FROM access_log al
+        LEFT JOIN application_master app ON al.application_equip_id::text = app.id::text
+        WHERE al.location::text = $1::text
+          AND al.department::text = $2::text
+          AND al.application_equip_id::text = ANY($3::text[])
+          AND LOWER(TRIM(al.name)) = LOWER(TRIM($4))
+          AND LOWER(TRIM(al.employee_code::text)) = LOWER(TRIM($5::text))
+          AND LOWER(TRIM(al.request_for_by)) != 'vendor / oem'
+      `;
+    }
+
+    const { rows } = await pool.query(query, params);
+    const result = {
+      exists: rows[0]?.has_closed === 1,
+      taskNotClosed: rows[0]?.has_active === 1,
+      closedCount: parseInt(rows[0]?.closed_count || '0', 10),
+      activeCount: parseInt(rows[0]?.active_count || '0', 10),
+      totalCount: parseInt(rows[0]?.total_count || '0', 10),
+      applicationNames: rows[0]?.application_names || ''
+    };
+
+    // Apply rules based on access type
+    let ruleViolation = null;
+
+    // RULE 2: Modify Access requires existing closed access
+    if (accessType === "Modify Access") {
+      if (!result.exists) {
+        ruleViolation = {
+          rule: "RULE_2",
+          message: "Cannot modify access - No existing closed access found in Access Log for this combination."
+        };
+      } else if (result.taskNotClosed) {
+        ruleViolation = {
+          rule: "RULE_4",
+          message: "Cannot modify access - An active/unclosed task already exists. Please wait for it to complete."
+        };
+      }
+    }
+
+    // RULE 3: New User Creation blocked if access exists
+    if (accessType === "New User Creation" || accessType === "Bulk New User Creation") {
+      if (result.exists) {
+        ruleViolation = {
+          rule: "RULE_3",
+          message: "Duplicate request not allowed - Access already exists in Access Log for this combination."
+        };
+      } else if (result.taskNotClosed) {
+        ruleViolation = {
+          rule: "RULE_4",
+          message: "Duplicate request not allowed - An active/unclosed task already exists."
+        };
+      }
+    }
+
+    // Other access types - just check for active tasks
+    if (!["Modify Access", "New User Creation", "Bulk New User Creation"].includes(accessType)) {
+      if (result.taskNotClosed) {
+        ruleViolation = {
+          rule: "RULE_4",
+          message: "Cannot proceed - An active/unclosed task already exists for this combination."
+        };
+      }
+    }
+
+    console.log("[RULE 2/3] Result:", {
+      ...result,
+      ruleViolation: ruleViolation ? ruleViolation.rule : "PASS"
+    });
+
+    res.json({
+      ...result,
+      conflict: !!ruleViolation,
+      ...ruleViolation
+    });
+
+  } catch (err) {
+    console.error("[RULE 2/3] ERROR:", err);
+    res.status(500).json({ error: "Validation failed", details: err.message });
+  }
+};
+
+
+// coment on 4 march 2026
+// exports.getAllActiveUserLogs = async (req, res) => {
+//   console.log("=== DEBUG START ===");
+//   console.log("Full URL:", req.originalUrl);
+//   console.log("Query params:", req.query);
+//   console.log("plant_id:", req.query.plant_id, "Type:", typeof req.query.plant_id);
+//   console.log("department_id:", req.query.department_id, "Type:", typeof req.query.department_id);
+//   console.log("application_id:", req.query.application_id, "Type:", typeof req.query.application_id);
+//   console.log("=== DEBUG END ===");
+
+//   const { plant_id, department_id, application_id, page = 1, limit = 10, search, value } = req.query;
+
+//   // Validation - check if required parameters are present
+//   if (!plant_id || !department_id || !application_id) {
+//     console.log("❌ Validation failed - missing params");
+//     return res.status(400).json({
+//       success: false,
+//       message: "Missing required query parameters: plant_id, department_id, application_id",
+//       received: { plant_id, department_id, application_id }
+//     });
+//   }
+
+//   console.log("✅ Validation passed");
+
+//   try {
+//     // Use a CTE to determine query type based on latest entries per user+location+dept+app
+//     let query = `
+//       WITH latest_entries AS (
+//         SELECT DISTINCT ON (
+//           CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
+//           CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
+//           al.location,
+//           al.department,
+//           al.application_equip_id
+//         )
+//           CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END AS user_name,
+//           CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END AS user_code,
+//           al.location,
+//           al.department,
+//           al.application_equip_id,
+//            al.request_raised_by,
+//           al.request_raised_by_emp_code,
+//           al.access_request_type
+//         FROM access_log al
+//         WHERE al.location             = $1
+//           AND al.department           = $2
+//           AND al.application_equip_id = $3
+//           AND (al.task_status != 'Revoked' OR al.task_status IS NULL)
+//         ORDER BY
+//           CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
+//           CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
+//           al.location,
+//           al.department,
+//           al.application_equip_id,
+//           al.id DESC
+//       ),
+
+//       regular_users AS (
+//         SELECT DISTINCT ON (
+//           CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
+//           CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
+//           al.location,
+//           al.department,
+//           al.application_equip_id,
+//           al.role
+//         )
+//           al.id,
+//           al.user_request_id,
+//           al.task_id,
+//           al.ritm_transaction_id,
+//           al.task_transaction_id,
+//           al.request_for_by,
+//           al.request_raised_by,
+//           al.request_raised_by_emp_code,
+//           al.name,
+//           al.employee_code,
+//           al.employee_location,
+//           al.access_request_type,
+//           al.training_status,
+//           al.vendor_firm,
+//           al.vendor_code,
+//           al.vendor_name,
+//           al.vendor_allocated_id,
+//           al.user_request_status,
+//           al.task_status,
+//           al.application_equip_id,
+//           al.department,
+//           al.role,
+//           al.location,
+//           al.reports_to,
+//           al.approver1_status,
+//           al.approver2_status,
+//           al.approver1_email,
+//           al.approver2_email,
+//           al.created_on,
+//           al.updated_on,
+//           al.completed_at,
+//           al.remarks,
+//           al.approver1_name,
+//           al.approver2_name,
+//           al.approver1_action,
+//           al.approver2_action,
+//           al.approver1_timestamp,
+//           al.approver2_timestamp,
+//           al.approver1_comments,
+//           al.approver2_comments,
+//           al.requested_role,
+//           al.allocated_id,
+//           al.role_granted,
+//           al.access,
+//           al.user_request_type,
+//           al.from_date,
+//           al.to_date,
+//           al.password,
+//           al.task_action,
+//           tc.assigned_to,
+//           tc.assignment_group,
+//           tc.ritm_number,
+//           tc.task_number,
+//           am.display_name  AS application_name,
+//           dm.department_name,
+//           rm.role_name,
+//           pm.plant_name    AS location_name,
+//           um.employee_name AS assigned_to_name
+//         FROM access_log al
+//         LEFT JOIN application_master am  ON al.application_equip_id = am.id
+//         LEFT JOIN department_master  dm  ON al.department            = dm.id
+//         LEFT JOIN role_master        rm  ON al.role                  = rm.id
+//         LEFT JOIN plant_master       pm  ON al.location              = pm.id
+//         LEFT JOIN task_closure       tc  ON al.task_transaction_id   = tc.task_number
+//                                         AND al.ritm_transaction_id   = tc.ritm_number
+//         LEFT JOIN user_master        um  ON tc.assigned_to           = um.id
+//         INNER JOIN latest_entries le ON
+//           (CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END) = le.user_name
+//           AND (CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END) = le.user_code
+//           AND al.location             = le.location
+//           AND al.department           = le.department
+//           AND al.application_equip_id = le.application_equip_id
+//         WHERE al.location             = $1
+//           AND al.department           = $2
+//           AND al.application_equip_id = $3
+//           AND le.access_request_type != 'Modify Access'
+//           AND (al.task_status != 'Revoked' OR al.task_status IS NULL)
+//           AND (LOWER(al.access) = 'granted' OR al.access IS NULL)
+//         ORDER BY
+//           CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
+//           CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
+//           al.location,
+//           al.department,
+//           al.application_equip_id,
+//           al.role,
+//           al.id DESC
+//       ),
+
+//       modification_users AS (
+//         SELECT DISTINCT ON (
+//           CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
+//           CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
+//           al.location,
+//           al.department,
+//           al.application_equip_id,
+//           al.role
+//         )
+//           al.id,
+//           al.user_request_id,
+//           al.task_id,
+//           al.ritm_transaction_id,
+//           al.task_transaction_id,
+//           al.request_for_by,
+//           al.request_raised_by,
+//           al.request_raised_by_emp_code,
+//           al.name,
+//           al.employee_code,
+//           al.employee_location,
+//           al.access_request_type,
+//           al.training_status,
+//           al.vendor_firm,
+//           al.vendor_code,
+//           al.vendor_name,
+//           al.vendor_allocated_id,
+//           al.user_request_status,
+//           al.task_status,
+//           al.application_equip_id,
+//           al.department,
+//           al.role,
+//           al.location,
+//           al.reports_to,
+//           al.approver1_status,
+//           al.approver2_status,
+//           al.approver1_email,
+//           al.approver2_email,
+//           al.created_on,
+//           al.updated_on,
+//           al.completed_at,
+//           al.remarks,
+//           al.approver1_name,
+//           al.approver2_name,
+//           al.approver1_action,
+//           al.approver2_action,
+//           al.approver1_timestamp,
+//           al.approver2_timestamp,
+//           al.approver1_comments,
+//           al.approver2_comments,
+//           al.requested_role,
+//           al.allocated_id,
+//           al.role_granted,
+//           al.access,
+//           al.user_request_type,
+//           al.from_date,
+//           al.to_date,
+//           al.password,
+//           al.task_action,
+//           tc.assigned_to,
+//           tc.assignment_group,
+//           tc.ritm_number,
+//           tc.task_number,
+//           am.display_name  AS application_name,
+//           dm.department_name,
+//           rm.role_name,
+//           pm.plant_name    AS location_name,
+//           um.employee_name AS assigned_to_name
+//         FROM access_log al
+//         LEFT JOIN application_master am  ON al.application_equip_id = am.id
+//         LEFT JOIN department_master  dm  ON al.department            = dm.id
+//         LEFT JOIN role_master        rm  ON al.role                  = rm.id
+//         LEFT JOIN plant_master       pm  ON al.location              = pm.id
+//         LEFT JOIN task_closure       tc  ON al.task_transaction_id   = tc.task_number
+//                                         AND al.ritm_transaction_id   = tc.ritm_number
+//         LEFT JOIN user_master        um  ON tc.assigned_to           = um.id
+//         INNER JOIN latest_entries le ON
+//           (CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END) = le.user_name
+//           AND (CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END) = le.user_code
+//           AND al.location             = le.location
+//           AND al.department           = le.department
+//           AND al.application_equip_id = le.application_equip_id
+//         WHERE al.location             = $1
+//           AND al.department           = $2
+//           AND al.application_equip_id = $3
+//           AND le.access_request_type  = 'Modify Access'
+//           AND (al.task_status != 'Revoked' OR al.task_status IS NULL)
+//           AND (LOWER(al.access) = 'granted' OR al.access IS NULL)
+//         ORDER BY
+//           CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
+//           CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
+//           al.location,
+//           al.department,
+//           al.application_equip_id,
+//           al.role,
+//           al.id DESC
+//       )
+
+//       SELECT * FROM (
+//         SELECT * FROM regular_users
+//         UNION ALL
+//         SELECT * FROM modification_users
+//       ) AS combined_results
+//       WHERE (combined_results.task_status != 'Deactivated' OR combined_results.task_status IS NULL)
+//     `;
+
+//     const params = [plant_id, department_id, application_id];
+//     let paramIndex = 4;
+
+//     // Add search filter if provided
+//     if (search && value) {
+//       query += ` AND combined_results.${search} ILIKE $${paramIndex}`;
+//       params.push(`%${value}%`);
+//       paramIndex++;
+//     }
+
+//     query += ` ORDER BY combined_results.id DESC`;
+
+//     // Add pagination
+//     const offset = (parseInt(page) - 1) * parseInt(limit);
+//     query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+//     params.push(parseInt(limit), offset);
+
+//     console.log("📊 Executing query with params:", params);
+//     const result = await pool.query(query, params);
+
+//     console.log("✅ Query successful, rows returned:", result.rows.length);
+
+//     res.json({
+//       success: true,
+//       data: result.rows,
+//       total: result.rows.length,
+//       page: parseInt(page),
+//       limit: parseInt(limit)
+//     });
+
+//   } catch (error) {
+//     console.error('❌ Error fetching access logs:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: 'Failed to fetch access logs',
+//       message: error.message
+//     });
+//   }
+// };
+
+
 exports.getAllActiveUserLogs = async (req, res) => {
   console.log("=== DEBUG START ===");
   console.log("Full URL:", req.originalUrl);
@@ -1000,7 +1441,6 @@ exports.getAllActiveUserLogs = async (req, res) => {
 
   const { plant_id, department_id, application_id, page = 1, limit = 10, search, value } = req.query;
 
-  // Validation - check if required parameters are present
   if (!plant_id || !department_id || !application_id) {
     console.log("❌ Validation failed - missing params");
     return res.status(400).json({
@@ -1013,21 +1453,22 @@ exports.getAllActiveUserLogs = async (req, res) => {
   console.log("✅ Validation passed");
 
   try {
-    // Use a CTE to determine query type based on latest entries per user+location+dept+app
     let query = `
       WITH latest_entries AS (
         SELECT DISTINCT ON (
-          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
-          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
+          CASE WHEN al.request_for_by = 'Vendor / OEM' THEN al.vendor_name ELSE al.name END,
+          CASE WHEN al.request_for_by = 'Vendor / OEM' THEN al.vendor_code ELSE al.employee_code END,
           al.location,
           al.department,
           al.application_equip_id
         )
-          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END AS user_name,
-          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END AS user_code,
+          CASE WHEN al.request_for_by = 'Vendor / OEM' THEN al.vendor_name ELSE al.name END AS user_name,
+          CASE WHEN al.request_for_by = 'Vendor / OEM' THEN al.vendor_code ELSE al.employee_code END AS user_code,
           al.location,
           al.department,
           al.application_equip_id,
+          al.request_raised_by,
+          al.request_raised_by_emp_code,
           al.access_request_type
         FROM access_log al
         WHERE al.location             = $1
@@ -1035,8 +1476,8 @@ exports.getAllActiveUserLogs = async (req, res) => {
           AND al.application_equip_id = $3
           AND (al.task_status != 'Revoked' OR al.task_status IS NULL)
         ORDER BY
-          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
-          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
+          CASE WHEN al.request_for_by = 'Vendor / OEM' THEN al.vendor_name ELSE al.name END,
+          CASE WHEN al.request_for_by = 'Vendor / OEM' THEN al.vendor_code ELSE al.employee_code END,
           al.location,
           al.department,
           al.application_equip_id,
@@ -1045,8 +1486,8 @@ exports.getAllActiveUserLogs = async (req, res) => {
 
       regular_users AS (
         SELECT DISTINCT ON (
-          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
-          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
+          CASE WHEN al.request_for_by = 'Vendor / OEM' THEN al.vendor_name ELSE al.name END,
+          CASE WHEN al.request_for_by = 'Vendor / OEM' THEN al.vendor_code ELSE al.employee_code END,
           al.location,
           al.department,
           al.application_equip_id,
@@ -1058,6 +1499,8 @@ exports.getAllActiveUserLogs = async (req, res) => {
           al.ritm_transaction_id,
           al.task_transaction_id,
           al.request_for_by,
+          al.request_raised_by,
+          al.request_raised_by_emp_code,
           al.name,
           al.employee_code,
           al.employee_location,
@@ -1091,6 +1534,8 @@ exports.getAllActiveUserLogs = async (req, res) => {
           al.approver1_comments,
           al.approver2_comments,
           al.requested_role,
+          al.assignment_group,
+          al.assigned_to,
           al.allocated_id,
           al.role_granted,
           al.access,
@@ -1099,26 +1544,12 @@ exports.getAllActiveUserLogs = async (req, res) => {
           al.to_date,
           al.password,
           al.task_action,
-          tc.assigned_to,
-          tc.assignment_group,
-          tc.ritm_number,
-          tc.task_number,
-          am.display_name  AS application_name,
-          dm.department_name,
-          rm.role_name,
-          pm.plant_name    AS location_name,
-          um.employee_name AS assigned_to_name
+          rm.role_name
         FROM access_log al
-        LEFT JOIN application_master am  ON al.application_equip_id = am.id
-        LEFT JOIN department_master  dm  ON al.department            = dm.id
-        LEFT JOIN role_master        rm  ON al.role                  = rm.id
-        LEFT JOIN plant_master       pm  ON al.location              = pm.id
-        LEFT JOIN task_closure       tc  ON al.task_transaction_id   = tc.task_number
-                                        AND al.ritm_transaction_id   = tc.ritm_number
-        LEFT JOIN user_master        um  ON tc.assigned_to           = um.id
+        LEFT JOIN role_master rm ON al.role = rm.id
         INNER JOIN latest_entries le ON
-          (CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END) = le.user_name
-          AND (CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END) = le.user_code
+          (CASE WHEN al.request_for_by = 'Vendor / OEM' THEN al.vendor_name ELSE al.name END) = le.user_name
+          AND (CASE WHEN al.request_for_by = 'Vendor / OEM' THEN al.vendor_code ELSE al.employee_code END) = le.user_code
           AND al.location             = le.location
           AND al.department           = le.department
           AND al.application_equip_id = le.application_equip_id
@@ -1129,8 +1560,8 @@ exports.getAllActiveUserLogs = async (req, res) => {
           AND (al.task_status != 'Revoked' OR al.task_status IS NULL)
           AND (LOWER(al.access) = 'granted' OR al.access IS NULL)
         ORDER BY
-          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
-          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
+          CASE WHEN al.request_for_by = 'Vendor / OEM' THEN al.vendor_name ELSE al.name END,
+          CASE WHEN al.request_for_by = 'Vendor / OEM' THEN al.vendor_code ELSE al.employee_code END,
           al.location,
           al.department,
           al.application_equip_id,
@@ -1140,8 +1571,8 @@ exports.getAllActiveUserLogs = async (req, res) => {
 
       modification_users AS (
         SELECT DISTINCT ON (
-          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
-          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
+          CASE WHEN al.request_for_by = 'Vendor / OEM' THEN al.vendor_name ELSE al.name END,
+          CASE WHEN al.request_for_by = 'Vendor / OEM' THEN al.vendor_code ELSE al.employee_code END,
           al.location,
           al.department,
           al.application_equip_id,
@@ -1153,6 +1584,8 @@ exports.getAllActiveUserLogs = async (req, res) => {
           al.ritm_transaction_id,
           al.task_transaction_id,
           al.request_for_by,
+          al.request_raised_by,
+          al.request_raised_by_emp_code,
           al.name,
           al.employee_code,
           al.employee_location,
@@ -1186,6 +1619,8 @@ exports.getAllActiveUserLogs = async (req, res) => {
           al.approver1_comments,
           al.approver2_comments,
           al.requested_role,
+          al.assignment_group,
+          al.assigned_to,
           al.allocated_id,
           al.role_granted,
           al.access,
@@ -1194,26 +1629,12 @@ exports.getAllActiveUserLogs = async (req, res) => {
           al.to_date,
           al.password,
           al.task_action,
-          tc.assigned_to,
-          tc.assignment_group,
-          tc.ritm_number,
-          tc.task_number,
-          am.display_name  AS application_name,
-          dm.department_name,
-          rm.role_name,
-          pm.plant_name    AS location_name,
-          um.employee_name AS assigned_to_name
+          rm.role_name
         FROM access_log al
-        LEFT JOIN application_master am  ON al.application_equip_id = am.id
-        LEFT JOIN department_master  dm  ON al.department            = dm.id
-        LEFT JOIN role_master        rm  ON al.role                  = rm.id
-        LEFT JOIN plant_master       pm  ON al.location              = pm.id
-        LEFT JOIN task_closure       tc  ON al.task_transaction_id   = tc.task_number
-                                        AND al.ritm_transaction_id   = tc.ritm_number
-        LEFT JOIN user_master        um  ON tc.assigned_to           = um.id
+        LEFT JOIN role_master rm ON al.role = rm.id
         INNER JOIN latest_entries le ON
-          (CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END) = le.user_name
-          AND (CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END) = le.user_code
+          (CASE WHEN al.request_for_by = 'Vendor / OEM' THEN al.vendor_name ELSE al.name END) = le.user_name
+          AND (CASE WHEN al.request_for_by = 'Vendor / OEM' THEN al.vendor_code ELSE al.employee_code END) = le.user_code
           AND al.location             = le.location
           AND al.department           = le.department
           AND al.application_equip_id = le.application_equip_id
@@ -1224,8 +1645,8 @@ exports.getAllActiveUserLogs = async (req, res) => {
           AND (al.task_status != 'Revoked' OR al.task_status IS NULL)
           AND (LOWER(al.access) = 'granted' OR al.access IS NULL)
         ORDER BY
-          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_name ELSE al.name END,
-          CASE WHEN al.request_for_by = 'Vendor' THEN al.vendor_code ELSE al.employee_code END,
+          CASE WHEN al.request_for_by = 'Vendor / OEM' THEN al.vendor_name ELSE al.name END,
+          CASE WHEN al.request_for_by = 'Vendor / OEM' THEN al.vendor_code ELSE al.employee_code END,
           al.location,
           al.department,
           al.application_equip_id,
@@ -1244,7 +1665,6 @@ exports.getAllActiveUserLogs = async (req, res) => {
     const params = [plant_id, department_id, application_id];
     let paramIndex = 4;
 
-    // Add search filter if provided
     if (search && value) {
       query += ` AND combined_results.${search} ILIKE $${paramIndex}`;
       params.push(`%${value}%`);
@@ -1253,7 +1673,6 @@ exports.getAllActiveUserLogs = async (req, res) => {
 
     query += ` ORDER BY combined_results.id DESC`;
 
-    // Add pagination
     const offset = (parseInt(page) - 1) * parseInt(limit);
     query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(parseInt(limit), offset);

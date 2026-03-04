@@ -81,6 +81,8 @@ toDate: string;
   tasks?: TaskRequest[];
   created_on?: string;
   updated_on?: string;
+   request_raised_by: string;
+    request_raised_by_emp_code: string;
 };
 
 // New type for bulk deactivation access log
@@ -149,6 +151,8 @@ export const UserRequestProvider: React.FC<{ children: React.ReactNode }> = ({
     userRequestType: "" as "Permanent" | "Temporary" | "",
     fromDate: "",
     toDate: "",
+    request_raised_by:"",
+    request_raised_by_emp_code:""
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
