@@ -1402,3 +1402,79 @@ input, select {
   color: #6b7280;
   margin-top: 4px;
 }
+
+/* ===== Bulk User Creation: Centered Button + Text ===== */
+
+/* Wrapper for Add button + info text */
+.addRowWrapper {
+  display: flex;
+  justify-content: flex-end;   /* keeps button + text on the right */
+  align-items: center;         /* vertically center both elements */
+  gap: 6px;                     /* space between button and text */
+  margin-bottom: 4px;           /* minimal gap before table */
+}
+
+/* Add button adjustments */
+.addRowBtn {
+  width: 28px;                  /* compact size */
+  height: 28px;
+  font-size: 1rem;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  margin: 0;                     /* remove extra margin */
+}
+
+/* Info text next to Add button */
+.addRowInfo {
+  font-size: 13px;
+  color: #555;
+  margin: 0;                     /* remove extra spacing */
+  line-height: 1.2;              /* vertically compact */
+}
+
+/* Table container spacing */
+.tableContainer {
+  margin-top: 2px;               /* minimal gap after Add button */
+  max-height: 250px;
+  overflow-y: auto;
+  overflow-x: auto;
+  border: 1px solid #e0e6ed;
+  border-radius: 6px;
+}
+
+/* Table cells padding slightly reduced */
+.table th,
+.table td {
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+/* Optional: tighter action buttons in table */
+.deleteBtn {
+  padding: 3px 8px;
+  font-size: 12px;
+}
+
+.errorMessage {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background-color: #fdecea;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+  color: #b71c1c;
+  font-size: 13px;
+}
+
+/* Info Text (All applications selected) */
+.infoText {
+  font-size: 13px;
+  color: #856404;
+  background-color: #fff3cd;
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid #ffc107;
+}
+

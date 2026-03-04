@@ -5,6 +5,7 @@ const authorize = require("../middleware/authorize");
 
 // ⚠️ IMPORTANT: Specific routes MUST come BEFORE parameterized routes like /:id
 router.get("/by-user", authorize(), accessLogController.getAccessLogsByUser);
+router.get("/vendor-modify", accessLogController.getAccessLogsForVendorModify);
 // Get activity logs for access log module
 router.get("/activity-logs/all", authorize(), accessLogController.getAccessLogActivityLogs);
 router.get('/active-user-logs', accessLogController.getAllActiveUserLogs);
@@ -23,12 +24,13 @@ router.get('/bulk-deactivation', async (req, res) => {
   try {
     const pool = require("../config/db");
 
-    let params = [plant, department];
-    let paramIndex = 3;
+    let params = [plant, department,'Closed'];
+    let paramIndex = 4;
 
     let filters = `
       al.location::text = $1::text
       AND al.department::text = $2::text
+      AND al.task_status::text = $3::text
     `;
 
     // ✅ Optional Filters

@@ -40,7 +40,7 @@ router.post(
   }),
   applicationController.addApplication
 );
-
+router.post("/check-duplicate", applicationController.checkDuplicateCombination);
 /**
  * PUT /api/applications/:id
  * Update application

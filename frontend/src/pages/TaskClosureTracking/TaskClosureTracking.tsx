@@ -54,6 +54,7 @@ interface TaskLog {
   assignment_group?: string;
   role_granted?: string;
   access?: string;
+  task_action?:string;
   assigned_to_name?: string;
 }
 
@@ -513,6 +514,7 @@ const TaskTable: React.FC = () => {
                                       <th>Application / Equip ID</th>
                                       <th>Department</th>
                                       <th>Location</th>
+                                       <th>Task Action</th>
                                       <th>Requestor Role</th>
                                       <th>Granted Role</th>
                                       <th>Access</th>
@@ -567,6 +569,7 @@ const TaskTable: React.FC = () => {
                                             <td>{task.application_name || "-"}</td>
                                             <td>{task.department_name || "-"}</td>
                                             <td>{task.plant_name || "-"}</td>
+                                            <td>{task.task_action || "-"}</td>
                                             <td>{task.role_name || "-"}</td>
                                             <td colSpan={4} style={{ textAlign: "center", color: "#64748b", fontStyle: "italic" }}>
                                               No task closures available
@@ -619,6 +622,7 @@ const TaskTable: React.FC = () => {
                                           <td>{idx === 0 ? task.application_name || "-" : ""}</td>
                                           <td>{idx === 0 ? task.department_name || "-" : ""}</td>
                                           <td>{idx === 0 ? task.plant_name || "-" : ""}</td>
+                                          <td>{idx === 0 ? task.task_action || "-" : ""}</td>
                                           <td>{idx === 0 ? task.role_name || "-" : ""}</td>
                                           <td>{closure.role_granted || "-"}</td>
                                           <td>{closure.access || "-"}</td>

@@ -145,7 +145,10 @@ const TaskDetailView: React.FC = () => {
                 <input value={task.task_status} readOnly />
                 <label htmlFor="taskStatus" className={addUserRequestStyles.floatingLabel}>Task Status</label>
               </div>
-
+<div className={addUserRequestStyles.formGroup}>
+                <input value={task.access} readOnly />
+                <label htmlFor="access" className={addUserRequestStyles.floatingLabel}>Access</label>
+              </div>
               <div className={addUserRequestStyles.formGroup}>
                 <input
                   value={

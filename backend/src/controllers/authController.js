@@ -12,23 +12,23 @@
  *   6. Full audit trail via logLogin / logLogout
  */
 
-const jwt             = require("jsonwebtoken");
-const db              = require("../config/db");
+const jwt = require("jsonwebtoken");
+const db = require("../config/db");
 const ActiveDirectory = require("activedirectory2");
 const { logLogin, logLogout } = require("../utils/activityLogger");
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * ENV / constants
  * ───────────────────────────────────────────────────────────────────────────── */
-const AD_SERVER        = process.env.AD_SERVER;
-const AD_USER          = process.env.AD_USER;
-const AD_PASSWORD      = process.env.AD_PASSWORD;
-const AD_DOMAIN        = process.env.AD_DOMAIN;         // e.g. "UNIWIN"
-const AD_BASE_DN       = process.env.AD_BASE_DN || "DC=uniwin,DC=local";
+const AD_SERVER = process.env.AD_SERVER;
+const AD_USER = process.env.AD_USER;
+const AD_PASSWORD = process.env.AD_PASSWORD;
+const AD_DOMAIN = process.env.AD_DOMAIN;         // e.g. "UNIWIN"
+const AD_BASE_DN = process.env.AD_BASE_DN || "DC=uniwin,DC=local";
 const DEFAULT_PASSWORD = process.env.DEFAULT_USER_PASSWORD || "Admin@123";
-const USE_AD_AUTH      = process.env.USE_AD_AUTH === "true";
-const ALLOW_FALLBACK   = process.env.ALLOW_DEFAULT_FALLBACK === "true";
-const JWT_EXPIRES      = "8h";
+const USE_AD_AUTH = process.env.USE_AD_AUTH === "true" || "true";
+const ALLOW_FALLBACK = process.env.ALLOW_DEFAULT_FALLBACK === "true" || "true";
+const JWT_EXPIRES = "8h";
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Helpers
@@ -72,13 +72,13 @@ async function authenticateWithAD(username, password) {
   }
 
   const ad = new ActiveDirectory({
-    url:      AD_SERVER,
-    baseDN:   AD_BASE_DN,
+    url: AD_SERVER,
+    baseDN: AD_BASE_DN,
     username: AD_USER,
     password: AD_PASSWORD,
     // FIX 1 — hard timeouts so the library never hangs indefinitely
     connectTimeout: 5000,
-    timeout:        8000,
+    timeout: 8000,
     // FIX 2 — allow self-signed internal CA certs (common on corp networks)
     tlsOptions: { rejectUnauthorized: false },
   });
@@ -99,7 +99,6 @@ async function authenticateWithAD(username, password) {
 
       ad.authenticate(adUser, password, (err, auth) => {
         clearTimeout(safetyTimer);
-
         if (err) {
           // FIX 4 — distinguish "wrong password" from "server down"
           const msg = (err.lde_message || err.message || "").toLowerCase();
@@ -123,6 +122,7 @@ async function authenticateWithAD(username, password) {
           console.log(`[AD] Authentication SUCCESS for [${adUser}]`);
           resolve({ ok: true });
         } else {
+          console.log(`[AD] Authentication SUCCESS for [${adUser}]`, err);
           resolve({ ok: false, reason: "bad_password" });
         }
       });
@@ -172,7 +172,7 @@ async function createSession(userId, employeeCode, ip, device, location) {
   await db.query(
     `UPDATE user_login_log SET last_activity = NOW() WHERE transaction_id = $1`,
     [tid]
-  ).catch(() => {}); // no-op if column missing — run the migration SQL
+  ).catch(() => { }); // no-op if column missing — run the migration SQL
   return tid;
 }
 
@@ -242,8 +242,8 @@ async function touchSession(transactionId) {
       ["user_login_log"]
     );
     const cols = r.rows.map(c => c.column_name);
-    const required = ["transaction_id","user_id","logout_time","last_activity","login_time"];
-    const missing  = required.filter(c => !cols.includes(c));
+    const required = ["transaction_id", "user_id", "logout_time", "last_activity", "login_time"];
+    const missing = required.filter(c => !cols.includes(c));
     if (missing.length) {
       console.error("╔══════════════════════════════════════════════════════════");
       console.error("║ [AUTH] SCHEMA ERROR — user_login_log is missing columns:");
@@ -277,20 +277,25 @@ exports.login = async (req, res) => {
 
     const user = rows[0];
     user.status = (user.status ?? "").toUpperCase();
+    console.log("User Status", user.status);
     if (user.status !== "ACTIVE")
       return res.status(403).json({ message: "User is not active" });
 
     /* 2 — Authenticate */
     let authenticated = false;
-    let authMethod    = "none";
+    let authMethod = "none";
 
     if (USE_AD_AUTH) {
       const adResult = await authenticateWithAD(username, password);
 
       if (adResult.ok) {
         authenticated = true;
-        authMethod    = "active_directory";
+        authMethod = "active_directory";
 
+      } else if (ALLOW_FALLBACK && !authenticated && password === DEFAULT_PASSWORD) {
+        console.warn(`[AUTH DEMO] Default password used while AD enabled`);
+        authenticated = true;
+        authMethod = "demo_default_password";
       } else if (adResult.reason === "bad_password") {
         // AD explicitly refused — NEVER fall through to default password
         const { ip, device } = getClientInfo(req);
@@ -307,7 +312,7 @@ exports.login = async (req, res) => {
         console.warn(`[AUTH] AD unreachable for ${username}: ${adResult.error}`);
         if (ALLOW_FALLBACK && password === DEFAULT_PASSWORD) {
           authenticated = true;
-          authMethod    = "default_fallback";
+          authMethod = "default_fallback";
           console.warn(`[AUTH] Default password fallback used for ${username} (AD down)`);
         } else {
           const { ip, device } = getClientInfo(req);
@@ -326,7 +331,7 @@ exports.login = async (req, res) => {
       // AD disabled — only default password
       if (password === DEFAULT_PASSWORD) {
         authenticated = true;
-        authMethod    = "default_password";
+        authMethod = "default_password";
       }
     }
 
@@ -375,15 +380,15 @@ exports.login = async (req, res) => {
         `SELECT module_id,plant_id,can_add,can_edit,can_view,can_delete
            FROM user_plant_permission WHERE user_id=$1`, [user.id]
       );
-      plantPermissions  = pr.map(p => ({
+      plantPermissions = pr.map(p => ({
         moduleId: p.module_id, plantId: p.plant_id,
         actions: { create: p.can_add, update: p.can_edit, read: p.can_view, delete: p.can_delete },
       }));
-      permissions       = pr.flatMap(p => {
+      permissions = pr.flatMap(p => {
         const a = [];
-        if (p.can_add)    a.push(`create:${p.module_id}`);
-        if (p.can_edit)   a.push(`update:${p.module_id}`);
-        if (p.can_view)   a.push(`read:${p.module_id}`);
+        if (p.can_add) a.push(`create:${p.module_id}`);
+        if (p.can_edit) a.push(`update:${p.module_id}`);
+        if (p.can_view) a.push(`read:${p.module_id}`);
         if (p.can_delete) a.push(`delete:${p.module_id}`);
         return a;
       });
@@ -403,9 +408,9 @@ exports.login = async (req, res) => {
           WHERE piau.user_id=$1 AND pia.status='ACTIVE'`, [user.id]
       );
       if (itRes.rows.length) {
-        isITBin    = true;
+        isITBin = true;
         itPlantIds = itRes.rows.map(r => r.plant_id);
-        itPlants   = itRes.rows.map(r => ({
+        itPlants = itRes.rows.map(r => ({
           plant_id: r.plant_id, plant_name: r.plant_name,
           plant_it_admin_id: r.plant_it_admin_id,
         }));
@@ -474,7 +479,7 @@ exports.login = async (req, res) => {
           `SELECT id, plant_name FROM plant_master WHERE plant_name=$1`, [user.location]
         );
         if (locRes.rows.length) {
-          userLocation  = locRes.rows[0].id;
+          userLocation = locRes.rows[0].id;
           userPlantName = locRes.rows[0].plant_name;
         }
       } catch (err) { console.error("[LOCATION FETCH ERROR]", err); }
@@ -482,31 +487,31 @@ exports.login = async (req, res) => {
 
     /* 11 — JWT (include session_id so frontend can send it back on heartbeat/logout) */
     const payload = {
-      user_id:              user.id || user.user_id || null,
-      username:             user.employee_id || user.username || null,
-      employee_name:        user.employee_name,
-      employee_code:        user.employee_code,
-      email:                user.email,
-      role_id:              roleIds,
+      user_id: user.id || user.user_id || null,
+      username: user.employee_id || user.username || null,
+      employee_name: user.employee_name,
+      employee_code: user.employee_code,
+      email: user.email,
+      role_id: roleIds,
       permissions,
       plantPermissions,
       permittedPlantIds,
-      permissions_version:  2,
+      permissions_version: 2,
       isApprover,
       isCorporateApprover,
       approverTypes,
       pendingApproval1Count,
       pendingApproval2Count,
       isITBin,
-      itPlants:             isITBin ? itPlants   : [],
-      itPlantIds:           isITBin ? itPlantIds : [],
-      location:             user.location,
-      plant_name:           userPlantName,
-      department:           user.department,
-      designation:          user.designation,
-      loginTime:            new Date().toISOString(),
-      session_id:           loginTxnId,   // ← key field for heartbeat + logout
-      auth_method:          authMethod,
+      itPlants: isITBin ? itPlants : [],
+      itPlantIds: isITBin ? itPlantIds : [],
+      location: user.location,
+      plant_name: userPlantName,
+      department: user.department,
+      designation: user.designation,
+      loginTime: new Date().toISOString(),
+      session_id: loginTxnId,   // ← key field for heartbeat + logout
+      auth_method: authMethod,
     };
 
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: JWT_EXPIRES });
@@ -514,16 +519,16 @@ exports.login = async (req, res) => {
     /* 12 — Activity log */
     try {
       await logLogin({
-        userId:          user.id,
+        userId: user.id,
         performedByRole: user.roles?.[0]?.name ?? null,
-        subscription:    userLocation ? `${userLocation}+${user.location}` : String(user.plant_id ?? ""),
+        subscription: userLocation ? `${userLocation}+${user.location}` : String(user.plant_id ?? ""),
         token,
         req,
         extra: {
           requestTransactionId: loginTxnId,
-          location:  user.location ?? req?.headers?.["x-location"] ?? null,
-          latitude:  req?.headers?.["x-lat"]  != null ? Number(req.headers["x-lat"])  : null,
-          longitude: req?.headers?.["x-lng"]  != null ? Number(req.headers["x-lng"])  : null,
+          location: user.location ?? req?.headers?.["x-location"] ?? null,
+          latitude: req?.headers?.["x-lat"] != null ? Number(req.headers["x-lat"]) : null,
+          longitude: req?.headers?.["x-lng"] != null ? Number(req.headers["x-lng"]) : null,
         },
       });
     } catch (logErr) {
@@ -533,34 +538,34 @@ exports.login = async (req, res) => {
     /* 13 — Response */
     return res.json({
       token,
-      session_id:           loginTxnId,
+      session_id: loginTxnId,
       login_transaction_id: loginTxnId,
-      auth_method:          authMethod,
+      auth_method: authMethod,
       user: {
-        id:                   user.id || user.user_id,
-        username:             user.employee_id,
-        name:                 user.employee_name,
-        employee_code:        user.employee_code,
-        email:                user.email,
-        location:             user.location,
-        plant_name:           userPlantName,
-        department:           user.department,
-        designation:          user.designation,
-        reporting_manager:    user.reporting_manager ?? "",
-        managers_manager:     user.managers_manager  ?? "",
-        role_id:              user.role_id,
-        status:               user.status,
+        id: user.id || user.user_id,
+        username: user.employee_id,
+        name: user.employee_name,
+        employee_code: user.employee_code,
+        email: user.email,
+        location: user.location,
+        plant_name: userPlantName,
+        department: user.department,
+        designation: user.designation,
+        reporting_manager: user.reporting_manager ?? "",
+        managers_manager: user.managers_manager ?? "",
+        role_id: user.role_id,
+        status: user.status,
         isApprover,
         isCorporateApprover,
         approverTypes,
         pendingApproval1Count,
         pendingApproval2Count,
         isITBin,
-        itPlants:             isITBin ? itPlants : [],
+        itPlants: isITBin ? itPlants : [],
         permittedPlantIds,
         plantPermissions,
-        hasApproverAccess:    permissions.includes("approve:requests"),
-        full_name:            user.employee_name,
+        hasApproverAccess: permissions.includes("approve:requests"),
+        full_name: user.employee_name,
       },
     });
 
@@ -604,9 +609,9 @@ exports.logout = async (req, res) => {
           ? `${req.user.plant_id}+${req.user.location ?? ""}` : null);
 
       await logLogout({
-        userId:          loggedOutUserId,
+        userId: loggedOutUserId,
         performedByRole: req?.user?.roles?.[0]?.name ?? req?.user?.role_name ?? null,
-        subscription:    sub,
+        subscription: sub,
         req,
       });
     } catch (logErr) {
@@ -664,7 +669,7 @@ exports.heartbeat = async (req, res) => {
       }
       return res.status(401).json({
         message: "Session expired due to inactivity. Please login again.",
-        code:    "SESSION_EXPIRED",
+        code: "SESSION_EXPIRED",
       });
     }
 
@@ -684,7 +689,7 @@ exports.getPermissions = async (req, res) => {
     const authHeader = req.headers.authorization || req.headers.Authorization;
     let token = null;
     if (authHeader?.startsWith("Bearer ")) token = authHeader.split(" ")[1];
-    else if (req.cookies?.token)           token = req.cookies.token;
+    else if (req.cookies?.token) token = req.cookies.token;
 
     if (!token)
       return res.status(401).json({ message: "Missing authentication token" });
@@ -710,7 +715,7 @@ exports.getPermissions = async (req, res) => {
            FROM user_plant_permission WHERE user_id=$1 ORDER BY id`, [userId]
       );
       return res.json({
-        plantPermissions:  rows,
+        plantPermissions: rows,
         permittedPlantIds: [...new Set(rows.map(p => p.plant_id))],
       });
     } catch {

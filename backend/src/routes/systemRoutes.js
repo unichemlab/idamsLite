@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const systemController = require("../controllers/systemController");
 const  authorize  = require("../middleware/authorize");
+router.get("/check-duplicate", systemController.checkSystemDuplicate);
 // Create, Read, Update, Delete for systems
 router.get("/:systemId/validate-inactivate", systemController.validateSystemInactivation);
 

@@ -284,6 +284,7 @@ exports.getAllTasks = async (req, res) => {
         tr.id AS task_id,
         tr.transaction_id AS task_request_transaction_id,
         tr.application_equip_id,
+        tr.task_action,
         app.display_name AS application_name,
         tr.department,
         d.department_name,
@@ -481,6 +482,7 @@ exports.getITBinTasks = async (req, res) => {
         tr.id AS task_id,
         tr.transaction_id AS task_request_transaction_id,
         tr.application_equip_id,
+        tr.task_action,
         app.display_name AS application_name,
         tr.department,
         d.department_name,
@@ -554,323 +556,1390 @@ exports.getITBinTasks = async (req, res) => {
 };
 
 // Update task by ID
+// exports.updateTask = async (req, res) => {
+//   const { id } = req.params; // task_request ID
+//   const { requestStatus } = req.body;
+//   const task_data = req.body.task_data || req.body;
+//   const client = await pool.connect();
+
+//   try {
+//     await client.query("BEGIN");
+
+//     console.log('Updating task:', { id, requestStatus, task_data });
+
+//     // 0️⃣ Get existing task and user request info
+//     const existingTaskQuery = `
+//       SELECT tr.*, ur.transaction_id as ritm_transaction_id,
+//              ur.request_for_by, ur.name, ur.employee_code, ur.employee_location,
+//              ur.access_request_type, ur.training_status, ur.vendor_firm,
+//              ur.vendor_code, ur.vendor_name, ur.vendor_allocated_id,
+//              ur.status as user_request_status, ur.approver1_status, ur.approver2_status,
+//              ur.approver1_email, ur.approver2_email, ur.completed_at,
+//              p.plant_name, d.department_name, r.role_name, app.display_name as application_name
+//       FROM task_requests tr
+//       LEFT JOIN user_requests ur ON tr.user_request_id = ur.id
+//       LEFT JOIN plant_master p ON tr.location = p.id
+//       LEFT JOIN department_master d ON tr.department = d.id
+//       LEFT JOIN role_master r ON tr.role = r.id
+//       LEFT JOIN application_master app ON tr.application_equip_id = app.id
+//       WHERE tr.id = $1
+//     `;
+
+//     const { rows: existingRows } = await client.query(existingTaskQuery, [id]);
+//     if (existingRows.length === 0) {
+//       await client.query("ROLLBACK");
+//       return res.status(404).json({ error: 'Task not found' });
+//     }
+
+//     const existingTask = existingRows[0];
+
+//     // Check if both approvers have approved before allowing completion
+//     if (requestStatus === 'Closed' || requestStatus === 'Completed') {
+//       if (existingTask.approver1_status !== 'Approved' || existingTask.approver2_status !== 'Approved') {
+//         await client.query("ROLLBACK");
+//         return res.status(403).json({
+//           error: 'Cannot complete task. Both approvers must approve first.',
+//           details: {
+//             approver1_status: existingTask.approver1_status,
+//             approver2_status: existingTask.approver2_status
+//           }
+//         });
+//       }
+//     }
+
+//     // 1️⃣ Update task_requests table
+//     const updateRequestQuery = `
+//       UPDATE task_requests
+//       SET task_status = $1, 
+//           remarks = $2,
+//           updated_on = NOW()
+//       WHERE id = $3
+//       RETURNING *;
+//     `;
+//     const { rows: updatedRequestRows } = await client.query(updateRequestQuery, [
+//       requestStatus || "Pending",
+//       task_data.remarks || existingTask.remarks,
+//       id,
+//     ]);
+
+//     const updatedRequest = updatedRequestRows[0];
+
+//     // 2️⃣ Hash password if provided
+//     let hashedPassword = null;
+//     if (task_data.password) {
+//       const salt = await bcrypt.genSalt(10);
+//       hashedPassword = await bcrypt.hash(task_data.password, salt);
+//     }
+
+//     // 3️⃣ UPSERT in task_closure based on ritm_number + task_number
+//     const upsertClosureQuery = `
+//       INSERT INTO task_closure (
+//         ritm_number,
+//         task_number,
+//         request_by,
+//         employee_code,
+//         name,
+//         description,
+//         location,
+//         plant_name,
+//         department,
+//         application_name,
+//         requested_role,
+//         request_status,
+//         assignment_group,
+//         assigned_to,
+//         allocated_id,
+//         role_granted,
+//         access,
+//         additional_info,
+//         task_created,
+//         task_updated,
+//         remarks,
+//         status,
+//         access_request_type,
+//         user_request_type,
+//         from_date,
+//         to_date,
+//         password,
+//         created_on,
+//         updated_on
+//       )
+//       VALUES (
+//         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,
+//         $17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,NOW(),NOW()
+//       )
+//       ON CONFLICT (ritm_number, task_number)
+//       DO UPDATE SET
+//         request_by = EXCLUDED.request_by,
+//         employee_code = EXCLUDED.employee_code,
+//         name = EXCLUDED.name,
+//         description = EXCLUDED.description,
+//         location = EXCLUDED.location,
+//         plant_name = EXCLUDED.plant_name,
+//         department = EXCLUDED.department,
+//         application_name = EXCLUDED.application_name,
+//         requested_role = EXCLUDED.requested_role,
+//         request_status = EXCLUDED.request_status,
+//         assignment_group = EXCLUDED.assignment_group,
+//         assigned_to = EXCLUDED.assigned_to,
+//         allocated_id = EXCLUDED.allocated_id,
+//         role_granted = EXCLUDED.role_granted,
+//         access = EXCLUDED.access,
+//         additional_info = EXCLUDED.additional_info,
+//         task_created = EXCLUDED.task_created,
+//         task_updated = EXCLUDED.task_updated,
+//         remarks = EXCLUDED.remarks,
+//         status = EXCLUDED.status,
+//         access_request_type = EXCLUDED.access_request_type,
+//         user_request_type = EXCLUDED.user_request_type,
+//         from_date = EXCLUDED.from_date,
+//         to_date = EXCLUDED.to_date,
+//         password = EXCLUDED.password,
+//         updated_on = NOW()
+//       RETURNING *;
+//     `;
+
+//     const closureValues = [
+//       task_data.ritmNumber || existingTask.ritm_transaction_id,
+//       task_data.taskNumber || existingTask.transaction_id,
+//       task_data.requestBy || existingTask.request_for_by,
+//       task_data.employeeCode || existingTask.employee_code,
+//       task_data.name || existingTask.name,
+//       task_data.description || null,
+//       task_data.location || existingTask.location,
+//       task_data.plant_name || existingTask.plant_name,
+//       task_data.department || existingTask.department_name,
+//       task_data.applicationName || existingTask.application_name,
+//       task_data.requestedRole || existingTask.role_name,
+//       task_data.requestStatus || requestStatus,
+//       task_data.assignmentGroup || null,
+//       task_data.assignedTo || null,
+//       task_data.allocatedId || null,
+//       task_data.roleGranted || null,
+//       task_data.access || null,
+//       task_data.additionalInfo || null,
+//       task_data.task_created || existingTask.created_on,
+//       task_data.task_updated || updatedRequest.updated_on,
+//       task_data.remarks || updatedRequest.remarks,
+//       task_data.status || requestStatus,
+//       task_data.access_request_type || existingTask.access_request_type,
+//       task_data.userRequestType || null,
+//       task_data.fromDate || null,
+//       task_data.toDate || null,
+//       hashedPassword || null
+//     ];
+
+//     const { rows: closureRows } = await client.query(upsertClosureQuery, closureValues);
+
+//     // 4️⃣ UPSERT in access_log table
+//     const upsertAccessLogQuery = `
+//       INSERT INTO access_log (
+//         user_request_id,
+//         task_id,
+//         ritm_transaction_id,
+//         task_transaction_id,
+//         request_for_by,
+//         name,
+//         employee_code,
+//         employee_location,
+//         access_request_type,
+//         training_status,
+//         vendor_firm,
+//         vendor_code,
+//         vendor_name,
+//         vendor_allocated_id,
+//         user_request_status,
+//         task_status,
+//         application_equip_id,
+//         department,
+//         role,
+//         location,
+//         reports_to,
+//         approver1_status,
+//         approver2_status,
+//         approver1_email,
+//         approver2_email,
+//         created_on,
+//         updated_on,
+//         completed_at,
+//         remarks,
+//         approver1_name,
+//         approver2_name,
+//         approver1_action,
+//         approver2_action,
+//         approver1_timestamp,
+//         approver2_timestamp,
+//         approver1_comments,
+//         approver2_comments
+//       )
+//       VALUES (
+//         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,
+//         $19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37
+//       )
+//       ON CONFLICT (user_request_id, task_id)
+//       DO UPDATE SET
+//         ritm_transaction_id = EXCLUDED.ritm_transaction_id,
+//         task_transaction_id = EXCLUDED.task_transaction_id,
+//         request_for_by = EXCLUDED.request_for_by,
+//         name = EXCLUDED.name,
+//         employee_code = EXCLUDED.employee_code,
+//         employee_location = EXCLUDED.employee_location,
+//         access_request_type = EXCLUDED.access_request_type,
+//         training_status = EXCLUDED.training_status,
+//         vendor_firm = EXCLUDED.vendor_firm,
+//         vendor_code = EXCLUDED.vendor_code,
+//         vendor_name = EXCLUDED.vendor_name,
+//         vendor_allocated_id = EXCLUDED.vendor_allocated_id,
+//         user_request_status = EXCLUDED.user_request_status,
+//         task_status = EXCLUDED.task_status,
+//         application_equip_id = EXCLUDED.application_equip_id,
+//         department = EXCLUDED.department,
+//         role = EXCLUDED.role,
+//         location = EXCLUDED.location,
+//         reports_to = EXCLUDED.reports_to,
+//         approver1_status = EXCLUDED.approver1_status,
+//         approver2_status = EXCLUDED.approver2_status,
+//         approver1_email = EXCLUDED.approver1_email,
+//         approver2_email = EXCLUDED.approver2_email,
+//         updated_on = EXCLUDED.updated_on,
+//         completed_at = EXCLUDED.completed_at,
+//         remarks = EXCLUDED.remarks,
+//         approver1_name = EXCLUDED.approver1_name,
+//         approver2_name = EXCLUDED.approver2_name,
+//         approver1_action = EXCLUDED.approver1_action,
+//         approver2_action = EXCLUDED.approver2_action,
+//         approver1_timestamp = EXCLUDED.approver1_timestamp,
+//         approver2_timestamp = EXCLUDED.approver2_timestamp,
+//         approver1_comments = EXCLUDED.approver1_comments,
+//         approver2_comments = EXCLUDED.approver2_comments
+//       RETURNING *;
+//     `;
+
+//     const accessLogValues = [
+//       existingTask.user_request_id,
+//       id,
+//       existingTask.ritm_transaction_id,
+//       existingTask.transaction_id,
+//       existingTask.request_for_by,
+//       existingTask.name,
+//       existingTask.employee_code,
+//       existingTask.employee_location,
+//       existingTask.access_request_type,
+//       existingTask.training_status,
+//       existingTask.vendor_firm,
+//       existingTask.vendor_code,
+//       existingTask.vendor_name,
+//       existingTask.vendor_allocated_id,
+//       existingTask.user_request_status,
+//       requestStatus || updatedRequest.task_status,
+//       existingTask.application_equip_id,
+//       existingTask.department,
+//       existingTask.role,
+//       existingTask.location,
+//       existingTask.reports_to,
+//       existingTask.approver1_status,
+//       existingTask.approver2_status,
+//       existingTask.approver1_email,
+//       existingTask.approver2_email,
+//       existingTask.created_on,
+//       updatedRequest.updated_on,
+//       existingTask.completed_at,
+//       updatedRequest.remarks,
+//       existingTask.approver1_name,
+//       existingTask.approver2_name,
+//       existingTask.approver1_action,
+//       existingTask.approver2_action,
+//       existingTask.approver1_action_timestamp,
+//       existingTask.approver2_action_timestamp,
+//       existingTask.approver1_comments,
+//       existingTask.approver2_comments
+//     ];
+
+//     const { rows: accessLogRows } = await client.query(upsertAccessLogQuery, accessLogValues);
+
+//     // 5️⃣ Check if all tasks under same user_request_id are Closed
+//     const userRequestId = updatedRequest.user_request_id;
+//     if (userRequestId) {
+//       const { rows: allTasks } = await client.query(
+//         `SELECT task_status FROM task_requests WHERE user_request_id = $1`,
+//         [userRequestId]
+//       );
+
+//       const allClosed = allTasks.every(t => t.task_status === "Closed" || t.task_status === "Completed");
+
+//       if (allClosed) {
+//         await client.query(
+//           `UPDATE user_requests
+//            SET status = 'Completed', 
+//                completed_at = NOW(),
+//                updated_on = NOW()
+//            WHERE id = $1`,
+//           [userRequestId]
+//         );
+//       }
+//     }
+
+//     await client.query("COMMIT");
+
+//     res.status(200).json({
+//       message: "✅ Task updated successfully - task_requests, task_closure, and access_log updated",
+//       updatedRequest,
+//       taskClosure: closureRows[0],
+//       accessLog: accessLogRows[0],
+//     });
+//   } catch (err) {
+//     await client.query("ROLLBACK");
+//     console.error("❌ Error in updateTask:", err);
+//     res.status(500).json({ error: err.message });
+//   } finally {
+//     client.release();
+//   }
+// };
+
+// exports.updateTask = async (req, res) => {
+//   const { id } = req.params;
+//   const { requestStatus } = req.body;
+//   const task_data = req.body.task_data || req.body; // handles nested { requestStatus, task_data: {...} }
+
+//   console.log("[updateTask] id:", id);
+//   console.log("[updateTask] requestStatus:", requestStatus);
+//   console.log("[updateTask] task_data:", task_data);
+//   const client = await pool.connect();
+
+//   try {
+//     await client.query("BEGIN");
+
+//     // ── 0. Fetch existing task + user request info ──────────────────────────
+//     const existingTaskQuery = `
+//       SELECT tr.*, tr.task_action,
+//              ur.transaction_id  AS ritm_transaction_id,
+//              ur.request_for_by, ur.name, ur.employee_code, ur.employee_location,
+//              ur.access_request_type, ur.training_status,
+//              ur.vendor_firm, ur.vendor_code, ur.vendor_name, ur.vendor_allocated_id,
+//              ur.status          AS user_request_status,
+//              ur.approver1_status, ur.approver2_status,
+//              ur.approver1_email, ur.approver2_email,
+//              ur.user_request_type, ur.from_date, ur.to_date,
+//              ur.completed_at,
+//              p.plant_name,
+//              d.department_name,
+//              r.role_name,
+//              app.display_name   AS application_name,
+//              app.multiple_role_access
+//       FROM task_requests tr
+//       LEFT JOIN user_requests     ur  ON tr.user_request_id      = ur.id
+//       LEFT JOIN plant_master      p   ON tr.location             = p.id
+//       LEFT JOIN department_master d   ON tr.department           = d.id
+//       LEFT JOIN role_master       r   ON tr.role                 = r.id
+//       LEFT JOIN application_master app ON tr.application_equip_id = app.id
+//       WHERE tr.id = $1
+//     `;
+//     const { rows: existingRows } = await client.query(existingTaskQuery, [id]);
+//     if (existingRows.length === 0) {
+//       await client.query("ROLLBACK");
+//       return res.status(404).json({ error: "Task not found" });
+//     }
+
+//     const existingTask = existingRows[0];
+//  console.log("existing Task update",existingTask);
+
+//     // ── Guard: both approvers must have approved before closing ──────────────
+//     if (requestStatus === "Closed" || requestStatus === "Completed") {
+//       if (
+//         existingTask.approver1_status !== "Approved" ||
+//         existingTask.approver2_status !== "Approved"
+//       ) {
+//         await client.query("ROLLBACK");
+//         return res.status(403).json({
+//           error: "Cannot complete task. Both approvers must approve first.",
+//           details: {
+//             approver1_status: existingTask.approver1_status,
+//             approver2_status: existingTask.approver2_status,
+//           },
+//         });
+//       }
+//     }
+
+//     // ── 1. Update task_requests ─────────────────────────────────────────────
+//     const { rows: updatedRequestRows } = await client.query(
+//       `UPDATE task_requests
+//        SET task_status = $1,
+//            remarks     = $2,
+//            updated_on  = NOW()
+//        WHERE id = $3
+//        RETURNING *`,
+//       [
+//         requestStatus || "Pending",
+//         task_data.remarks || existingTask.remarks,
+//         id,
+//       ]
+//     );
+//     const updatedRequest = updatedRequestRows[0];
+
+//     // ── 2. Hash password if provided ────────────────────────────────────────
+//     let hashedPassword = null;
+//     if (task_data.password) {
+//       const salt = await bcrypt.genSalt(10);
+//       hashedPassword = await bcrypt.hash(task_data.password, salt);
+//     }
+
+//     // ── 3. Determine task_action ────────────────────────────────────────────
+//     // Priority: task_requests.task_action (set at submission) → body field → default Grant
+//     const taskAction = existingTask.task_action || task_data.task_action || "Grant";
+
+//     // ── 4. UPSERT task_closure ──────────────────────────────────────────────
+//     const { rows: closureRows } = await client.query(
+//       `INSERT INTO task_closure (
+//         ritm_number, task_number, request_by, employee_code, name,
+//         description, location, plant_name, department, application_name,
+//         requested_role, request_status, assignment_group, assigned_to,
+//         allocated_id, role_granted, access, additional_info,
+//         task_created, task_updated, remarks, status,
+//         access_request_type, task_action,
+//         user_request_type, from_date, to_date, password,
+//         created_on, updated_on
+//       ) VALUES (
+//         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,
+//         $17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,NOW(),NOW()
+//       )
+//       ON CONFLICT (ritm_number, task_number) DO UPDATE SET
+//         request_by          = EXCLUDED.request_by,
+//         employee_code       = EXCLUDED.employee_code,
+//         name                = EXCLUDED.name,
+//         description         = EXCLUDED.description,
+//         location            = EXCLUDED.location,
+//         plant_name          = EXCLUDED.plant_name,
+//         department          = EXCLUDED.department,
+//         application_name    = EXCLUDED.application_name,
+//         requested_role      = EXCLUDED.requested_role,
+//         request_status      = EXCLUDED.request_status,
+//         assignment_group    = EXCLUDED.assignment_group,
+//         assigned_to         = EXCLUDED.assigned_to,
+//         allocated_id        = EXCLUDED.allocated_id,
+//         role_granted        = EXCLUDED.role_granted,
+//         access              = EXCLUDED.access,
+//         additional_info     = EXCLUDED.additional_info,
+//         task_created        = EXCLUDED.task_created,
+//         task_updated        = EXCLUDED.task_updated,
+//         remarks             = EXCLUDED.remarks,
+//         status              = EXCLUDED.status,
+//         access_request_type = EXCLUDED.access_request_type,
+//         task_action         = EXCLUDED.task_action,
+//         user_request_type   = EXCLUDED.user_request_type,
+//         from_date           = EXCLUDED.from_date,
+//         to_date             = EXCLUDED.to_date,
+//         password            = EXCLUDED.password,
+//         updated_on          = NOW()
+//       RETURNING *`,
+//       [
+//         task_data.ritmNumber          || existingTask.ritm_transaction_id,
+//         task_data.taskNumber          || existingTask.transaction_id,
+//         task_data.requestBy           || existingTask.request_for_by,
+//         task_data.employeeCode        || existingTask.employee_code,
+//         task_data.name                || existingTask.name,
+//         task_data.description         || null,
+//         task_data.location            || existingTask.employee_location,
+//         task_data.plant_name          || existingTask.plant_name,
+//         task_data.department          || existingTask.department_name,
+//         task_data.applicationName     || existingTask.application_name,
+//         task_data.requestedRole       || existingTask.role_name,
+//         task_data.requestStatus       || requestStatus,
+//         task_data.assignmentGroup     || null,
+//         task_data.assignedTo          || null,
+//         task_data.allocatedId         || null,
+//         task_data.roleGranted         || null,
+//         task_data.access              || null,
+//         task_data.additionalInfo      || null,
+//         task_data.task_created        || existingTask.created_on,
+//         task_data.task_updated        || updatedRequest.updated_on,
+//         task_data.remarks             || updatedRequest.remarks,
+//         task_data.status              || requestStatus,
+//         task_data.access_request_type || existingTask.access_request_type,
+//         taskAction,
+//         task_data.userRequestType     || existingTask.user_request_type,
+//         task_data.fromDate            || existingTask.from_date,
+//         task_data.toDate              || existingTask.to_date,
+//         hashedPassword                || null
+//       ]
+//     );
+
+//     // ── 5. access_log logic ─────────────────────────────────────────────────
+//     let accessLogResult = null;
+
+//     if (requestStatus === "Closed") {
+//       const empCode = existingTask.employee_code;
+//       const appId   = existingTask.application_equip_id;
+//       const roleId  = existingTask.role;
+//       const departmentId   = existingTask.department;
+//       const locationId   = existingTask.location;
+//       const isMulti = existingTask.multiple_role_access === true;
+
+//       // ── 5a. REVOKE task ──────────────────────────────────────────────────
+//       if (taskAction === "Revoke") {
+//         // Deactivate the most recent active access_log row for this employee/app/role
+//         await client.query(
+//           `UPDATE access_log
+//            SET task_status = 'Revoked', updated_on = NOW()
+//            WHERE id = (
+//              SELECT id FROM access_log
+//              WHERE employee_code         = $1
+//                AND application_equip_id  = $2
+//                AND role                  = $3
+//                AND department            = $4
+//                AND location              = $5
+//                AND task_status           = 'Closed'
+//                AND (access IS NULL OR access != 'Revoked')
+//              ORDER BY id DESC
+//              LIMIT 1
+//            )`,
+//           [empCode, appId, roleId,departmentId,locationId]
+//         );
+
+//         // Insert new access_log row recording the revocation
+//         const { rows } = await client.query(
+//           `INSERT INTO access_log (
+//             user_request_id, task_id,
+//             ritm_transaction_id, task_transaction_id,
+//             request_for_by, name, employee_code, employee_location,
+//             access_request_type, task_action,
+//             training_status, vendor_firm, vendor_code, vendor_name, vendor_allocated_id,
+//             user_request_status, task_status,
+//             application_equip_id, department, role, location, reports_to,
+//             approver1_status, approver2_status, approver1_email, approver2_email,
+//             requested_role, allocated_id, role_granted, access,
+//             user_request_type, from_date, to_date,
+//             created_on, updated_on, completed_at, remarks,
+//             approver1_name, approver2_name,
+//             approver1_action, approver2_action,
+//             approver1_timestamp, approver2_timestamp,
+//             approver1_comments, approver2_comments,assignment_group
+//           ) VALUES (
+//             $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
+//             $18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,
+//             NOW(),NOW(),$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44
+//           )
+//           RETURNING *`,
+//           [
+//             existingTask.user_request_id,
+//             id,
+//             existingTask.ritm_transaction_id,
+//             existingTask.transaction_id,
+//             existingTask.request_for_by,
+//             existingTask.name,
+//             existingTask.employee_code,
+//             existingTask.employee_location,
+//             existingTask.access_request_type,
+//             taskAction,
+//             existingTask.training_status,
+//             existingTask.vendor_firm,
+//             existingTask.vendor_code,
+//             existingTask.vendor_name,
+//             existingTask.vendor_allocated_id,
+//             existingTask.user_request_status,
+//             "Revoked",
+//             existingTask.application_equip_id,
+//             existingTask.department,
+//             existingTask.role,
+//             existingTask.location,
+//             existingTask.reports_to,
+//             existingTask.approver1_status,
+//             existingTask.approver2_status,
+//             existingTask.approver1_email,
+//             existingTask.approver2_email,
+//             task_data.requestedRole || existingTask.role_name,
+//             task_data.allocatedId   || null,
+//             task_data.roleGranted   || null,
+//             task_data.access        || "Revoked",
+//             existingTask.user_request_type || task_data.userRequestType,
+//             existingTask.from_date   || task_data.fromDate || null,
+//             existingTask.to_date     || task_data.toDate || null,
+//             existingTask.completed_at,
+//             updatedRequest.remarks,
+//             existingTask.approver1_name,
+//             existingTask.approver2_name,
+//             existingTask.approver1_action,
+//             existingTask.approver2_action,
+//             existingTask.approver1_action_timestamp,
+//             existingTask.approver2_action_timestamp,
+//             existingTask.approver1_comments,
+//             existingTask.approver2_comments,
+//             task_data.assignmentGroup || ""
+//           ]
+//         );
+//         accessLogResult = rows[0];
+
+//       // ── 5b. GRANT task ───────────────────────────────────────────────────
+//       } else {
+//         // Single-role app only: deactivate any active row for a DIFFERENT role
+//         if (!isMulti) {
+//            await client.query(
+//           `UPDATE access_log
+//            SET task_status = 'Revoked', updated_on = NOW()
+//            WHERE id = (
+//              SELECT id FROM access_log
+//              WHERE employee_code         = $1
+//                AND application_equip_id  = $2
+//                AND role                  = $3
+//                AND department            = $4
+//                AND location              = $5
+//                AND task_status           = 'Closed'
+//                AND (access IS NULL OR access != 'Revoked')
+//              ORDER BY id DESC
+//              LIMIT 1
+//            )`,
+//           [empCode, appId, roleId,departmentId,locationId]
+//         );
+//         }
+//         // Multi-role app: never deactivate on Grant — only Revoke tasks do that
+
+//         // Insert / update access_log row for the granted role
+//         const { rows } = await client.query(
+//           `INSERT INTO access_log (
+//             user_request_id, task_id,
+//             ritm_transaction_id, task_transaction_id,
+//             request_for_by, name, employee_code, employee_location,
+//             access_request_type, task_action,
+//             training_status, vendor_firm, vendor_code, vendor_name, vendor_allocated_id,
+//             user_request_status, task_status,
+//             application_equip_id, department, role, location, reports_to,
+//             approver1_status, approver2_status, approver1_email, approver2_email,
+//             requested_role, allocated_id, role_granted, access,
+//             user_request_type, from_date, to_date,
+//             created_on, updated_on, completed_at, remarks,
+//             approver1_name, approver2_name,
+//             approver1_action, approver2_action,
+//             approver1_timestamp, approver2_timestamp,
+//             approver1_comments, approver2_comments,assignment_group
+//           ) VALUES (
+//             $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
+//             $18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,
+//             NOW(),NOW(),$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44
+//           )
+//           ON CONFLICT (user_request_id, task_id) DO UPDATE SET
+//             task_status       = EXCLUDED.task_status,
+//             access            = EXCLUDED.access,
+//             requested_role    = EXCLUDED.requested_role,
+//             allocated_id      = EXCLUDED.allocated_id,
+//             role_granted      = EXCLUDED.role_granted,
+//             user_request_type = EXCLUDED.user_request_type,
+//             from_date         = EXCLUDED.from_date,
+//             to_date           = EXCLUDED.to_date,
+//             task_action       = EXCLUDED.task_action,
+//             updated_on        = NOW(),
+//             completed_at      = EXCLUDED.completed_at,
+//             remarks           = EXCLUDED.remarks
+//           RETURNING *`,
+//           [
+//             existingTask.user_request_id,
+//             id,
+//             existingTask.ritm_transaction_id,
+//             existingTask.transaction_id,
+//             existingTask.request_for_by,
+//             existingTask.name,
+//             existingTask.employee_code,
+//             existingTask.employee_location,
+//             existingTask.access_request_type,
+//             taskAction,
+//             existingTask.training_status,
+//             existingTask.vendor_firm,
+//             existingTask.vendor_code,
+//             existingTask.vendor_name,
+//             existingTask.vendor_allocated_id,
+//             existingTask.user_request_status,
+//             requestStatus,
+//             existingTask.application_equip_id,
+//             existingTask.department,
+//             existingTask.role,
+//             existingTask.location,
+//             existingTask.reports_to,
+//             existingTask.approver1_status,
+//             existingTask.approver2_status,
+//             existingTask.approver1_email,
+//             existingTask.approver2_email,
+//             task_data.requestedRole || existingTask.role_name,
+//             task_data.allocatedId   || null,
+//             task_data.roleGranted   || null,
+//             task_data.access        || "Granted",
+//             existingTask.user_request_type || task_data.userRequestType,
+//             existingTask.from_date   || task_data.fromDate || null,
+//             existingTask.to_date     || task_data.toDate || null,
+//             existingTask.completed_at,
+//             updatedRequest.remarks,
+//             existingTask.approver1_name,
+//             existingTask.approver2_name,
+//             existingTask.approver1_action,
+//             existingTask.approver2_action,
+//             existingTask.approver1_action_timestamp,
+//             existingTask.approver2_action_timestamp,
+//             existingTask.approver1_comments,
+//             existingTask.approver2_comments,
+//             task_data.assignmentGroup || ""
+//           ]
+//         );
+//         accessLogResult = rows[0];
+//       }
+
+//     } else {
+//       // ── Non-closure save: UPSERT access_log with current status ─────────
+//       const { rows } = await client.query(
+//         `INSERT INTO access_log (
+//           user_request_id, task_id,
+//           ritm_transaction_id, task_transaction_id,
+//           request_for_by, name, employee_code, employee_location,
+//           access_request_type, task_action,
+//           training_status, vendor_firm, vendor_code, vendor_name, vendor_allocated_id,
+//           user_request_status, task_status,
+//           application_equip_id, department, role, location, reports_to,
+//           approver1_status, approver2_status, approver1_email, approver2_email,
+//           requested_role, allocated_id, role_granted, access,
+//           user_request_type, from_date, to_date,
+//           created_on, updated_on, completed_at, remarks,
+//           approver1_name, approver2_name,
+//           approver1_action, approver2_action,
+//           approver1_timestamp, approver2_timestamp,
+//           approver1_comments, approver2_comments,assignment_group
+//         ) VALUES (
+//           $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
+//           $18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,
+//           NOW(),NOW(),$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44
+//         )
+//         ON CONFLICT (user_request_id, task_id) DO UPDATE SET
+//           task_status       = EXCLUDED.task_status,
+//           access            = EXCLUDED.access,
+//           requested_role    = EXCLUDED.requested_role,
+//           allocated_id      = EXCLUDED.allocated_id,
+//           role_granted      = EXCLUDED.role_granted,
+//           user_request_type = EXCLUDED.user_request_type,
+//           from_date         = EXCLUDED.from_date,
+//           to_date           = EXCLUDED.to_date,
+//           task_action       = EXCLUDED.task_action,
+//           updated_on        = NOW(),
+//           remarks           = EXCLUDED.remarks
+//         RETURNING *`,
+//         [
+//           existingTask.user_request_id,
+//           id,
+//           existingTask.ritm_transaction_id,
+//           existingTask.transaction_id,
+//           existingTask.request_for_by,
+//           existingTask.name,
+//           existingTask.employee_code,
+//           existingTask.employee_location,
+//           existingTask.access_request_type,
+//           taskAction,
+//           existingTask.training_status,
+//           existingTask.vendor_firm,
+//           existingTask.vendor_code,
+//           existingTask.vendor_name,
+//           existingTask.vendor_allocated_id,
+//           existingTask.user_request_status,
+//           requestStatus || updatedRequest.task_status,
+//           existingTask.application_equip_id,
+//           existingTask.department,
+//           existingTask.role,
+//           existingTask.location,
+//           existingTask.reports_to,
+//           existingTask.approver1_status,
+//           existingTask.approver2_status,
+//           existingTask.approver1_email,
+//           existingTask.approver2_email,
+//           task_data.requestedRole || existingTask.role_name,
+//           task_data.allocatedId   || null,
+//           task_data.roleGranted   || null,
+//           task_data.access        || null,
+//           existingTask.user_request_type || task_data.userRequestType,
+//           existingTask.from_date   || task_data.fromDate|| null,
+//           existingTask.to_date     || task_data.toDate|| null,
+//           existingTask.completed_at,
+//           updatedRequest.remarks,
+//           existingTask.approver1_name,
+//           existingTask.approver2_name,
+//           existingTask.approver1_action,
+//           existingTask.approver2_action,
+//           existingTask.approver1_action_timestamp,
+//           existingTask.approver2_action_timestamp,
+//           existingTask.approver1_comments,
+//           existingTask.approver2_comments,
+//           task_data.assignmentGroup
+//         ]
+//       );
+//       accessLogResult = rows[0];
+//     }
+
+//     // ── 6. Mark user_request Completed when all tasks are closed ────────────
+//     const userRequestId = updatedRequest.user_request_id;
+//     if (userRequestId) {
+//       const { rows: allTasks } = await client.query(
+//         `SELECT task_status FROM task_requests WHERE user_request_id = $1`,
+//         [userRequestId]
+//       );
+//       const allClosed = allTasks.every(
+//         (t) => t.task_status === "Closed" || t.task_status === "Completed"
+//       );
+//       if (allClosed) {
+//         await client.query(
+//           `UPDATE user_requests
+//            SET status = 'Completed', completed_at = NOW(), updated_on = NOW()
+//            WHERE id = $1`,
+//           [userRequestId]
+//         );
+//       }
+//     }
+
+//     await client.query("COMMIT");
+
+//     res.status(200).json({
+//       message: "✅ Task updated — task_requests, task_closure, and access_log updated",
+//       updatedRequest,
+//       taskClosure: closureRows[0],
+//       accessLog: accessLogResult,
+//     });
+//   } catch (err) {
+//     await client.query("ROLLBACK");
+//     console.error("❌ Error in updateTask:", err);
+//     res.status(500).json({ error: err.message });
+//   } finally {
+//     client.release();
+//   }
+// };
+
 exports.updateTask = async (req, res) => {
-  const { id } = req.params; // task_request ID
+  const { id } = req.params;
   const { requestStatus } = req.body;
-  const task_data = req.body.task_data || req.body;
+  const task_data = req.body.task_data || req.body; // handles nested { requestStatus, task_data: {...} }
+
+  console.log("[updateTask] id:", id);
+  console.log("[updateTask] requestStatus:", requestStatus);
+  console.log("[updateTask] task_data:", task_data);
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
 
-    console.log('Updating task:', { id, requestStatus, task_data });
-
-    // 0️⃣ Get existing task and user request info
+    // ── 0. Fetch existing task + user request info ──────────────────────────
     const existingTaskQuery = `
-      SELECT tr.*, ur.transaction_id as ritm_transaction_id,
+      SELECT tr.*, tr.task_action,
+             ur.transaction_id  AS ritm_transaction_id,
              ur.request_for_by, ur.name, ur.employee_code, ur.employee_location,
-             ur.access_request_type, ur.training_status, ur.vendor_firm,
-             ur.vendor_code, ur.vendor_name, ur.vendor_allocated_id,
-             ur.status as user_request_status, ur.approver1_status, ur.approver2_status,
-             ur.approver1_email, ur.approver2_email, ur.completed_at,
-             p.plant_name, d.department_name, r.role_name, app.display_name as application_name
+             ur.access_request_type, ur.training_status,
+             ur.vendor_firm, ur.vendor_code, ur.vendor_name, ur.vendor_allocated_id,
+             ur.status          AS user_request_status,
+             ur.approver1_status, ur.approver2_status,
+             ur.approver1_email, ur.approver2_email,
+             ur.user_request_type, ur.from_date, ur.to_date,
+             ur.completed_at,
+             p.plant_name,
+             d.department_name,
+             r.role_name,
+             app.display_name   AS application_name,
+             app.multiple_role_access
       FROM task_requests tr
-      LEFT JOIN user_requests ur ON tr.user_request_id = ur.id
-      LEFT JOIN plant_master p ON tr.location = p.id
-      LEFT JOIN department_master d ON tr.department = d.id
-      LEFT JOIN role_master r ON tr.role = r.id
+      LEFT JOIN user_requests     ur  ON tr.user_request_id      = ur.id
+      LEFT JOIN plant_master      p   ON tr.location             = p.id
+      LEFT JOIN department_master d   ON tr.department           = d.id
+      LEFT JOIN role_master       r   ON tr.role                 = r.id
       LEFT JOIN application_master app ON tr.application_equip_id = app.id
       WHERE tr.id = $1
     `;
-
     const { rows: existingRows } = await client.query(existingTaskQuery, [id]);
     if (existingRows.length === 0) {
       await client.query("ROLLBACK");
-      return res.status(404).json({ error: 'Task not found' });
+      return res.status(404).json({ error: "Task not found" });
     }
 
     const existingTask = existingRows[0];
+    console.log("existing Task update", existingTask);
 
-    // Check if both approvers have approved before allowing completion
-    if (requestStatus === 'Closed' || requestStatus === 'Completed') {
-      if (existingTask.approver1_status !== 'Approved' || existingTask.approver2_status !== 'Approved') {
+    // ── Guard: both approvers must have approved before closing ──────────────
+    if (requestStatus === "Closed" || requestStatus === "Completed") {
+      if (
+        existingTask.approver1_status !== "Approved" ||
+        existingTask.approver2_status !== "Approved"
+      ) {
         await client.query("ROLLBACK");
         return res.status(403).json({
-          error: 'Cannot complete task. Both approvers must approve first.',
+          error: "Cannot complete task. Both approvers must approve first.",
           details: {
             approver1_status: existingTask.approver1_status,
-            approver2_status: existingTask.approver2_status
-          }
+            approver2_status: existingTask.approver2_status,
+          },
         });
       }
     }
 
-    // 1️⃣ Update task_requests table
-    const updateRequestQuery = `
-      UPDATE task_requests
-      SET task_status = $1, 
-          remarks = $2,
-          updated_on = NOW()
-      WHERE id = $3
-      RETURNING *;
-    `;
-    const { rows: updatedRequestRows } = await client.query(updateRequestQuery, [
-      requestStatus || "Pending",
-      task_data.remarks || existingTask.remarks,
-      id,
-    ]);
-
+    // ── 1. Update task_requests ─────────────────────────────────────────────
+    const { rows: updatedRequestRows } = await client.query(
+      `UPDATE task_requests
+       SET task_status = $1,
+           remarks     = $2,
+           updated_on  = NOW()
+       WHERE id = $3
+       RETURNING *`,
+      [
+        requestStatus || "Pending",
+        task_data.remarks || existingTask.remarks,
+        id,
+      ]
+    );
     const updatedRequest = updatedRequestRows[0];
 
-    // 2️⃣ Hash password if provided
+    // ── 2. Hash password if provided ────────────────────────────────────────
     let hashedPassword = null;
     if (task_data.password) {
       const salt = await bcrypt.genSalt(10);
       hashedPassword = await bcrypt.hash(task_data.password, salt);
     }
 
-    // 3️⃣ UPSERT in task_closure based on ritm_number + task_number
-    const upsertClosureQuery = `
-      INSERT INTO task_closure (
-        ritm_number,
-        task_number,
-        request_by,
-        employee_code,
-        name,
-        description,
-        location,
-        plant_name,
-        department,
-        application_name,
-        requested_role,
-        request_status,
-        assignment_group,
-        assigned_to,
-        allocated_id,
-        role_granted,
-        access,
-        additional_info,
-        task_created,
-        task_updated,
-        remarks,
-        status,
-        access_request_type,
-        user_request_type,
-        from_date,
-        to_date,
-        password,
-        created_on,
-        updated_on
-      )
-      VALUES (
+    // ── 3. Determine task_action ────────────────────────────────────────────
+    // Priority: task_requests.task_action (set at submission) → body field → default Grant
+    const taskAction = existingTask.task_action || task_data.task_action || "Grant";
+
+    // ── 4. UPSERT task_closure ──────────────────────────────────────────────
+    const { rows: closureRows } = await client.query(
+      `INSERT INTO task_closure (
+        ritm_number, task_number, request_by, employee_code, name,
+        description, location, plant_name, department, application_name,
+        requested_role, request_status, assignment_group, assigned_to,
+        allocated_id, role_granted, access, additional_info,
+        task_created, task_updated, remarks, status,
+        access_request_type, task_action,
+        user_request_type, from_date, to_date, password,
+        created_on, updated_on
+      ) VALUES (
         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,
-        $17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,NOW(),NOW()
+        $17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,NOW(),NOW()
       )
-      ON CONFLICT (ritm_number, task_number)
-      DO UPDATE SET
-        request_by = EXCLUDED.request_by,
-        employee_code = EXCLUDED.employee_code,
-        name = EXCLUDED.name,
-        description = EXCLUDED.description,
-        location = EXCLUDED.location,
-        plant_name = EXCLUDED.plant_name,
-        department = EXCLUDED.department,
-        application_name = EXCLUDED.application_name,
-        requested_role = EXCLUDED.requested_role,
-        request_status = EXCLUDED.request_status,
-        assignment_group = EXCLUDED.assignment_group,
-        assigned_to = EXCLUDED.assigned_to,
-        allocated_id = EXCLUDED.allocated_id,
-        role_granted = EXCLUDED.role_granted,
-        access = EXCLUDED.access,
-        additional_info = EXCLUDED.additional_info,
-        task_created = EXCLUDED.task_created,
-        task_updated = EXCLUDED.task_updated,
-        remarks = EXCLUDED.remarks,
-        status = EXCLUDED.status,
+      ON CONFLICT (ritm_number, task_number) DO UPDATE SET
+        request_by          = EXCLUDED.request_by,
+        employee_code       = EXCLUDED.employee_code,
+        name                = EXCLUDED.name,
+        description         = EXCLUDED.description,
+        location            = EXCLUDED.location,
+        plant_name          = EXCLUDED.plant_name,
+        department          = EXCLUDED.department,
+        application_name    = EXCLUDED.application_name,
+        requested_role      = EXCLUDED.requested_role,
+        request_status      = EXCLUDED.request_status,
+        assignment_group    = EXCLUDED.assignment_group,
+        assigned_to         = EXCLUDED.assigned_to,
+        allocated_id        = EXCLUDED.allocated_id,
+        role_granted        = EXCLUDED.role_granted,
+        access              = EXCLUDED.access,
+        additional_info     = EXCLUDED.additional_info,
+        task_created        = EXCLUDED.task_created,
+        task_updated        = EXCLUDED.task_updated,
+        remarks             = EXCLUDED.remarks,
+        status              = EXCLUDED.status,
         access_request_type = EXCLUDED.access_request_type,
-        user_request_type = EXCLUDED.user_request_type,
-        from_date = EXCLUDED.from_date,
-        to_date = EXCLUDED.to_date,
-        password = EXCLUDED.password,
-        updated_on = NOW()
-      RETURNING *;
-    `;
+        task_action         = EXCLUDED.task_action,
+        user_request_type   = EXCLUDED.user_request_type,
+        from_date           = EXCLUDED.from_date,
+        to_date             = EXCLUDED.to_date,
+        password            = EXCLUDED.password,
+        updated_on          = NOW()
+      RETURNING *`,
+      [
+        task_data.ritmNumber          || existingTask.ritm_transaction_id,
+        task_data.taskNumber          || existingTask.transaction_id,
+        task_data.requestBy           || existingTask.request_for_by,
+        task_data.employeeCode        || existingTask.employee_code,
+        task_data.name                || existingTask.name,
+        task_data.description         || null,
+        task_data.location            || existingTask.employee_location,
+        task_data.plant_name          || existingTask.plant_name,
+        task_data.department          || existingTask.department_name,
+        task_data.applicationName     || existingTask.application_name,
+        task_data.requestedRole       || existingTask.role_name,
+        task_data.requestStatus       || requestStatus,
+        task_data.assignmentGroup     || null,
+        task_data.assignedTo          || null,
+        task_data.allocatedId         || null,
+        task_data.roleGranted         || null,
+        task_data.access              || null,
+        task_data.additionalInfo      || null,
+        task_data.task_created        || existingTask.created_on,
+        task_data.task_updated        || updatedRequest.updated_on,
+        task_data.remarks             || updatedRequest.remarks,
+        task_data.status              || requestStatus,
+        task_data.access_request_type || existingTask.access_request_type,
+        taskAction,
+        task_data.userRequestType     || existingTask.user_request_type,
+        task_data.fromDate            || existingTask.from_date,
+        task_data.toDate              || existingTask.to_date,
+        hashedPassword                || null
+      ]
+    );
 
-    const closureValues = [
-      task_data.ritmNumber || existingTask.ritm_transaction_id,
-      task_data.taskNumber || existingTask.transaction_id,
-      task_data.requestBy || existingTask.request_for_by,
-      task_data.employeeCode || existingTask.employee_code,
-      task_data.name || existingTask.name,
-      task_data.description || null,
-      task_data.location || existingTask.location,
-      task_data.plant_name || existingTask.plant_name,
-      task_data.department || existingTask.department_name,
-      task_data.applicationName || existingTask.application_name,
-      task_data.requestedRole || existingTask.role_name,
-      task_data.requestStatus || requestStatus,
-      task_data.assignmentGroup || null,
-      task_data.assignedTo || null,
-      task_data.allocatedId || null,
-      task_data.roleGranted || null,
-      task_data.access || null,
-      task_data.additionalInfo || null,
-      task_data.task_created || existingTask.created_on,
-      task_data.task_updated || updatedRequest.updated_on,
-      task_data.remarks || updatedRequest.remarks,
-      task_data.status || requestStatus,
-      task_data.access_request_type || existingTask.access_request_type,
-      task_data.userRequestType || null,
-      task_data.fromDate || null,
-      task_data.toDate || null,
-      hashedPassword || null
-    ];
+    // ── 5. access_log logic ─────────────────────────────────────────────────
+    let accessLogResult = null;
 
-    const { rows: closureRows } = await client.query(upsertClosureQuery, closureValues);
+    if (requestStatus === "Closed") {
+      const empCode      = existingTask.employee_code;
+      const appId        = existingTask.application_equip_id;
+      const roleId       = existingTask.role;           // the specific role on THIS task
+      const departmentId = existingTask.department;
+      const locationId   = existingTask.location;
+      const isMulti      = existingTask.multiple_role_access === true;
+      const isVendor     = existingTask.request_for_by === "Vendor / OEM";
+      const vendorAllocatedId = existingTask.vendor_allocated_id;
 
-    // 4️⃣ UPSERT in access_log table
-    const upsertAccessLogQuery = `
-      INSERT INTO access_log (
-        user_request_id,
-        task_id,
-        ritm_transaction_id,
-        task_transaction_id,
-        request_for_by,
-        name,
-        employee_code,
-        employee_location,
-        access_request_type,
-        training_status,
-        vendor_firm,
-        vendor_code,
-        vendor_name,
-        vendor_allocated_id,
-        user_request_status,
-        task_status,
-        application_equip_id,
-        department,
-        role,
-        location,
-        reports_to,
-        approver1_status,
-        approver2_status,
-        approver1_email,
-        approver2_email,
-        created_on,
-        updated_on,
-        completed_at,
-        remarks,
-        approver1_name,
-        approver2_name,
-        approver1_action,
-        approver2_action,
-        approver1_timestamp,
-        approver2_timestamp,
-        approver1_comments,
-        approver2_comments
-      )
-      VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,
-        $19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37
-      )
-      ON CONFLICT (user_request_id, task_id)
-      DO UPDATE SET
-        ritm_transaction_id = EXCLUDED.ritm_transaction_id,
-        task_transaction_id = EXCLUDED.task_transaction_id,
-        request_for_by = EXCLUDED.request_for_by,
-        name = EXCLUDED.name,
-        employee_code = EXCLUDED.employee_code,
-        employee_location = EXCLUDED.employee_location,
-        access_request_type = EXCLUDED.access_request_type,
-        training_status = EXCLUDED.training_status,
-        vendor_firm = EXCLUDED.vendor_firm,
-        vendor_code = EXCLUDED.vendor_code,
-        vendor_name = EXCLUDED.vendor_name,
-        vendor_allocated_id = EXCLUDED.vendor_allocated_id,
-        user_request_status = EXCLUDED.user_request_status,
-        task_status = EXCLUDED.task_status,
-        application_equip_id = EXCLUDED.application_equip_id,
-        department = EXCLUDED.department,
-        role = EXCLUDED.role,
-        location = EXCLUDED.location,
-        reports_to = EXCLUDED.reports_to,
-        approver1_status = EXCLUDED.approver1_status,
-        approver2_status = EXCLUDED.approver2_status,
-        approver1_email = EXCLUDED.approver1_email,
-        approver2_email = EXCLUDED.approver2_email,
-        updated_on = EXCLUDED.updated_on,
-        completed_at = EXCLUDED.completed_at,
-        remarks = EXCLUDED.remarks,
-        approver1_name = EXCLUDED.approver1_name,
-        approver2_name = EXCLUDED.approver2_name,
-        approver1_action = EXCLUDED.approver1_action,
-        approver2_action = EXCLUDED.approver2_action,
-        approver1_timestamp = EXCLUDED.approver1_timestamp,
-        approver2_timestamp = EXCLUDED.approver2_timestamp,
-        approver1_comments = EXCLUDED.approver1_comments,
-        approver2_comments = EXCLUDED.approver2_comments
-      RETURNING *;
-    `;
+      // ── 5a. REVOKE task ──────────────────────────────────────────────────
+      if (taskAction === "Revoke") {
 
-    const accessLogValues = [
-      existingTask.user_request_id,
-      id,
-      existingTask.ritm_transaction_id,
-      existingTask.transaction_id,
-      existingTask.request_for_by,
-      existingTask.name,
-      existingTask.employee_code,
-      existingTask.employee_location,
-      existingTask.access_request_type,
-      existingTask.training_status,
-      existingTask.vendor_firm,
-      existingTask.vendor_code,
-      existingTask.vendor_name,
-      existingTask.vendor_allocated_id,
-      existingTask.user_request_status,
-      requestStatus || updatedRequest.task_status,
-      existingTask.application_equip_id,
-      existingTask.department,
-      existingTask.role,
-      existingTask.location,
-      existingTask.reports_to,
-      existingTask.approver1_status,
-      existingTask.approver2_status,
-      existingTask.approver1_email,
-      existingTask.approver2_email,
-      existingTask.created_on,
-      updatedRequest.updated_on,
-      existingTask.completed_at,
-      updatedRequest.remarks,
-      existingTask.approver1_name,
-      existingTask.approver2_name,
-      existingTask.approver1_action,
-      existingTask.approver2_action,
-      existingTask.approver1_action_timestamp,
-      existingTask.approver2_action_timestamp,
-      existingTask.approver1_comments,
-      existingTask.approver2_comments
-    ];
+        if (isVendor) {
+          // ── Vendor Modify Revoke ─────────────────────────────────────────
+          // For vendors, employee_code is null — use vendor_allocated_id instead.
+          // The task's `role` (roleId) IS the specific old role the frontend marked
+          // for revocation, so we still filter by role to be precise.
+          console.log("[Revoke] Vendor path — vendor_allocated_id:", vendorAllocatedId, "role:", roleId);
+          await client.query(
+            `UPDATE access_log
+             SET task_status = 'Revoked', updated_on = NOW()
+             WHERE id = (
+               SELECT id FROM access_log
+               WHERE vendor_allocated_id   = $1
+                 AND application_equip_id  = $2
+                 AND role                  = $3
+                 AND department            = $4
+                 AND location              = $5
+                 AND task_status           = 'Closed'
+                 AND (access IS NULL OR access != 'Revoked')
+               ORDER BY id DESC
+               LIMIT 1
+             )`,
+            [vendorAllocatedId, appId, roleId, departmentId, locationId]
+          );
+        } else {
+          // ── Self / Other Revoke ──────────────────────────────────────────
+          console.log("[Revoke] Self/Other path — employee_code:", empCode, "role:", roleId);
+          await client.query(
+            `UPDATE access_log
+             SET task_status = 'Revoked', updated_on = NOW()
+             WHERE id = (
+               SELECT id FROM access_log
+               WHERE employee_code         = $1
+                 AND application_equip_id  = $2
+                 AND role                  = $3
+                 AND department            = $4
+                 AND location              = $5
+                 AND task_status           = 'Closed'
+                 AND (access IS NULL OR access != 'Revoked')
+               ORDER BY id DESC
+               LIMIT 1
+             )`,
+            [empCode, appId, roleId, departmentId, locationId]
+          );
+        }
 
-    const { rows: accessLogRows } = await client.query(upsertAccessLogQuery, accessLogValues);
+        // Insert new access_log row recording the revocation
+        const { rows } = await client.query(
+          `INSERT INTO access_log (
+            user_request_id, task_id,
+            ritm_transaction_id, task_transaction_id,
+            request_for_by, name, employee_code, employee_location,
+            access_request_type, task_action,
+            training_status, vendor_firm, vendor_code, vendor_name, vendor_allocated_id,
+            user_request_status, task_status,
+            application_equip_id, department, role, location, reports_to,
+            approver1_status, approver2_status, approver1_email, approver2_email,
+            requested_role, allocated_id, role_granted, access,
+            user_request_type, from_date, to_date,
+            created_on, updated_on, completed_at, remarks,
+            approver1_name, approver2_name,
+            approver1_action, approver2_action,
+            approver1_timestamp, approver2_timestamp,
+            approver1_comments, approver2_comments, assignment_group
+          ) VALUES (
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
+            $18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,
+            NOW(),NOW(),$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44
+          )
+          RETURNING *`,
+          [
+            existingTask.user_request_id,
+            id,
+            existingTask.ritm_transaction_id,
+            existingTask.transaction_id,
+            existingTask.request_for_by,
+            existingTask.name,
+            existingTask.employee_code,
+            existingTask.employee_location,
+            existingTask.access_request_type,
+            taskAction,
+            existingTask.training_status,
+            existingTask.vendor_firm,
+            existingTask.vendor_code,
+            existingTask.vendor_name,
+            existingTask.vendor_allocated_id,
+            existingTask.user_request_status,
+            "Revoked",
+            existingTask.application_equip_id,
+            existingTask.department,
+            existingTask.role,
+            existingTask.location,
+            existingTask.reports_to,
+            existingTask.approver1_status,
+            existingTask.approver2_status,
+            existingTask.approver1_email,
+            existingTask.approver2_email,
+            task_data.requestedRole || existingTask.role_name,
+            task_data.allocatedId   || null,
+            task_data.roleGranted   || null,
+            task_data.access        || "Revoked",
+            existingTask.user_request_type || task_data.userRequestType,
+            existingTask.from_date   || task_data.fromDate || null,
+            existingTask.to_date     || task_data.toDate   || null,
+            existingTask.completed_at,
+            updatedRequest.remarks,
+            existingTask.approver1_name,
+            existingTask.approver2_name,
+            existingTask.approver1_action,
+            existingTask.approver2_action,
+            existingTask.approver1_action_timestamp,
+            existingTask.approver2_action_timestamp,
+            existingTask.approver1_comments,
+            existingTask.approver2_comments,
+            task_data.assignmentGroup || ""
+          ]
+        );
+        accessLogResult = rows[0];
 
-    // 5️⃣ Check if all tasks under same user_request_id are Closed
+      // ── 5b. GRANT task ───────────────────────────────────────────────────
+      } else {
+        // Single-role app only: deactivate the existing active row for this role
+        if (!isMulti) {
+          if (isVendor) {
+            // ── Vendor Grant: revoke previous role by vendor_allocated_id ──
+            console.log("[Grant] Vendor path — vendor_allocated_id:", vendorAllocatedId, "role:", roleId);
+            await client.query(
+              `UPDATE access_log
+               SET task_status = 'Revoked', updated_on = NOW()
+               WHERE id = (
+                 SELECT id FROM access_log
+                 WHERE vendor_allocated_id   = $1
+                   AND application_equip_id  = $2
+                   AND role                  = $3
+                   AND department            = $4
+                   AND location              = $5
+                   AND task_status           = 'Closed'
+                   AND (access IS NULL OR access != 'Revoked')
+                 ORDER BY id DESC
+                 LIMIT 1
+               )`,
+              [vendorAllocatedId, appId, roleId, departmentId, locationId]
+            );
+          } else {
+            // ── Self / Other Grant: revoke previous role by employee_code ──
+            console.log("[Grant] Self/Other path — employee_code:", empCode, "role:", roleId);
+            await client.query(
+              `UPDATE access_log
+               SET task_status = 'Revoked', updated_on = NOW()
+               WHERE id = (
+                 SELECT id FROM access_log
+                 WHERE employee_code         = $1
+                   AND application_equip_id  = $2
+                   AND role                  = $3
+                   AND department            = $4
+                   AND location              = $5
+                   AND task_status           = 'Closed'
+                   AND (access IS NULL OR access != 'Revoked')
+                 ORDER BY id DESC
+                 LIMIT 1
+               )`,
+              [empCode, appId, roleId, departmentId, locationId]
+            );
+          }
+        }
+        // Multi-role app: never deactivate on Grant — only Revoke tasks do that
+
+        // Insert / update access_log row for the granted role
+        const { rows } = await client.query(
+          `INSERT INTO access_log (
+            user_request_id, task_id,
+            ritm_transaction_id, task_transaction_id,
+            request_for_by, name, employee_code, employee_location,
+            access_request_type, task_action,
+            training_status, vendor_firm, vendor_code, vendor_name, vendor_allocated_id,
+            user_request_status, task_status,
+            application_equip_id, department, role, location, reports_to,
+            approver1_status, approver2_status, approver1_email, approver2_email,
+            requested_role, allocated_id, role_granted, access,
+            user_request_type, from_date, to_date,
+            created_on, updated_on, completed_at, remarks,
+            approver1_name, approver2_name,
+            approver1_action, approver2_action,
+            approver1_timestamp, approver2_timestamp,
+            approver1_comments, approver2_comments, assignment_group
+          ) VALUES (
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
+            $18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,
+            NOW(),NOW(),$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44
+          )
+          ON CONFLICT (user_request_id, task_id) DO UPDATE SET
+            task_status       = EXCLUDED.task_status,
+            access            = EXCLUDED.access,
+            requested_role    = EXCLUDED.requested_role,
+            allocated_id      = EXCLUDED.allocated_id,
+            role_granted      = EXCLUDED.role_granted,
+            user_request_type = EXCLUDED.user_request_type,
+            from_date         = EXCLUDED.from_date,
+            to_date           = EXCLUDED.to_date,
+            task_action       = EXCLUDED.task_action,
+            updated_on        = NOW(),
+            completed_at      = EXCLUDED.completed_at,
+            remarks           = EXCLUDED.remarks
+          RETURNING *`,
+          [
+            existingTask.user_request_id,
+            id,
+            existingTask.ritm_transaction_id,
+            existingTask.transaction_id,
+            existingTask.request_for_by,
+            existingTask.name,
+            existingTask.employee_code,
+            existingTask.employee_location,
+            existingTask.access_request_type,
+            taskAction,
+            existingTask.training_status,
+            existingTask.vendor_firm,
+            existingTask.vendor_code,
+            existingTask.vendor_name,
+            existingTask.vendor_allocated_id,
+            existingTask.user_request_status,
+            requestStatus,
+            existingTask.application_equip_id,
+            existingTask.department,
+            existingTask.role,
+            existingTask.location,
+            existingTask.reports_to,
+            existingTask.approver1_status,
+            existingTask.approver2_status,
+            existingTask.approver1_email,
+            existingTask.approver2_email,
+            task_data.requestedRole || existingTask.role_name,
+            task_data.allocatedId   || null,
+            task_data.roleGranted   || null,
+            task_data.access        || "Granted",
+            existingTask.user_request_type || task_data.userRequestType,
+            existingTask.from_date   || task_data.fromDate || null,
+            existingTask.to_date     || task_data.toDate   || null,
+            existingTask.completed_at,
+            updatedRequest.remarks,
+            existingTask.approver1_name,
+            existingTask.approver2_name,
+            existingTask.approver1_action,
+            existingTask.approver2_action,
+            existingTask.approver1_action_timestamp,
+            existingTask.approver2_action_timestamp,
+            existingTask.approver1_comments,
+            existingTask.approver2_comments,
+            task_data.assignmentGroup || ""
+          ]
+        );
+        accessLogResult = rows[0];
+      }
+
+    } else {
+      // ── Non-closure save: UPSERT access_log with current status ─────────
+      const { rows } = await client.query(
+        `INSERT INTO access_log (
+          user_request_id, task_id,
+          ritm_transaction_id, task_transaction_id,
+          request_for_by, name, employee_code, employee_location,
+          access_request_type, task_action,
+          training_status, vendor_firm, vendor_code, vendor_name, vendor_allocated_id,
+          user_request_status, task_status,
+          application_equip_id, department, role, location, reports_to,
+          approver1_status, approver2_status, approver1_email, approver2_email,
+          requested_role, allocated_id, role_granted, access,
+          user_request_type, from_date, to_date,
+          created_on, updated_on, completed_at, remarks,
+          approver1_name, approver2_name,
+          approver1_action, approver2_action,
+          approver1_timestamp, approver2_timestamp,
+          approver1_comments, approver2_comments, assignment_group
+        ) VALUES (
+          $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
+          $18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,
+          NOW(),NOW(),$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44
+        )
+        ON CONFLICT (user_request_id, task_id) DO UPDATE SET
+          task_status       = EXCLUDED.task_status,
+          access            = EXCLUDED.access,
+          requested_role    = EXCLUDED.requested_role,
+          allocated_id      = EXCLUDED.allocated_id,
+          role_granted      = EXCLUDED.role_granted,
+          user_request_type = EXCLUDED.user_request_type,
+          from_date         = EXCLUDED.from_date,
+          to_date           = EXCLUDED.to_date,
+          task_action       = EXCLUDED.task_action,
+          updated_on        = NOW(),
+          remarks           = EXCLUDED.remarks
+        RETURNING *`,
+        [
+          existingTask.user_request_id,
+          id,
+          existingTask.ritm_transaction_id,
+          existingTask.transaction_id,
+          existingTask.request_for_by,
+          existingTask.name,
+          existingTask.employee_code,
+          existingTask.employee_location,
+          existingTask.access_request_type,
+          taskAction,
+          existingTask.training_status,
+          existingTask.vendor_firm,
+          existingTask.vendor_code,
+          existingTask.vendor_name,
+          existingTask.vendor_allocated_id,
+          existingTask.user_request_status,
+          requestStatus || updatedRequest.task_status,
+          existingTask.application_equip_id,
+          existingTask.department,
+          existingTask.role,
+          existingTask.location,
+          existingTask.reports_to,
+          existingTask.approver1_status,
+          existingTask.approver2_status,
+          existingTask.approver1_email,
+          existingTask.approver2_email,
+          task_data.requestedRole || existingTask.role_name,
+          task_data.allocatedId   || null,
+          task_data.roleGranted   || null,
+          task_data.access        || null,
+          existingTask.user_request_type || task_data.userRequestType,
+          existingTask.from_date   || task_data.fromDate || null,
+          existingTask.to_date     || task_data.toDate   || null,
+          existingTask.completed_at,
+          updatedRequest.remarks,
+          existingTask.approver1_name,
+          existingTask.approver2_name,
+          existingTask.approver1_action,
+          existingTask.approver2_action,
+          existingTask.approver1_action_timestamp,
+          existingTask.approver2_action_timestamp,
+          existingTask.approver1_comments,
+          existingTask.approver2_comments,
+          task_data.assignmentGroup
+        ]
+      );
+      accessLogResult = rows[0];
+    }
+
+    // ── 6. Mark user_request Completed when all tasks are closed ────────────
     const userRequestId = updatedRequest.user_request_id;
     if (userRequestId) {
       const { rows: allTasks } = await client.query(
         `SELECT task_status FROM task_requests WHERE user_request_id = $1`,
         [userRequestId]
       );
-
-      const allClosed = allTasks.every(t => t.task_status === "Closed" || t.task_status === "Completed");
-
+      const allClosed = allTasks.every(
+        (t) => t.task_status === "Closed" || t.task_status === "Completed"
+      );
       if (allClosed) {
         await client.query(
           `UPDATE user_requests
-           SET status = 'Completed', 
-               completed_at = NOW(),
-               updated_on = NOW()
+           SET status = 'Completed', completed_at = NOW(), updated_on = NOW()
            WHERE id = $1`,
           [userRequestId]
         );
@@ -880,10 +1949,10 @@ exports.updateTask = async (req, res) => {
     await client.query("COMMIT");
 
     res.status(200).json({
-      message: "✅ Task updated successfully - task_requests, task_closure, and access_log updated",
+      message: "✅ Task updated — task_requests, task_closure, and access_log updated",
       updatedRequest,
       taskClosure: closureRows[0],
-      accessLog: accessLogRows[0],
+      accessLog: accessLogResult,
     });
   } catch (err) {
     await client.query("ROLLBACK");
@@ -893,6 +1962,7 @@ exports.updateTask = async (req, res) => {
     client.release();
   }
 };
+
 
 exports.deleteTask = async (req, res) => {
   const client = await pool.connect();
@@ -933,12 +2003,13 @@ exports.getUserTaskRequestById = async (req, res) => {
           ur.approver1_status,
           ur.approver2_status,
           ur.user_request_type,
-          ur.from_date AS user_request_from_date,
-          ur.to_date AS user_request_to_date,
+         ur.from_date::text AS user_request_from_date,
+         ur.to_date::text AS user_request_to_date,
           ur.created_on,
           tr.id AS task_id,
           tr.transaction_id AS task_request_transaction_id,
           tr.application_equip_id,
+          tr.task_action,
           tr.created_on AS task_created,
           tr.updated_on AS task_updated,
           app.display_name AS application_name,
@@ -960,8 +2031,8 @@ exports.getUserTaskRequestById = async (req, res) => {
           tc.assigned_to,
           tc.allocated_id,
           tc.status,
-          tc.from_date,
-          tc.to_date,
+          tc.from_date::text as from_date,
+          tc.to_date::text as to_date,
           tc.updated_on,
           umr.employee_name AS username,
           umr.email AS userEmail,
@@ -1116,6 +2187,7 @@ const TaskClosureAllocated = await pool.query(
           assigned_to: row.assigned_to,
           assigned_user: assignedUserDetails,
           access: row.access,
+          task_action:row.task_action,
         })),
       it_admin_group: itAdminGroup,
       it_admin_users: itAdminUsers,
@@ -1158,6 +2230,7 @@ exports.getUserTaskRequestByEmployeeCOde = async (req, res) => {
           tr.application_equip_id,
           tr.created_on AS task_created,
           tr.updated_on AS task_updated,
+          tr.task_action,
           app.display_name AS application_name,
           tr.department,
           d.department_name,
@@ -1302,6 +2375,7 @@ exports.getUserTaskRequestByEmployeeCOde = async (req, res) => {
           assigned_to: row.assigned_to,
           assigned_user: assignedUserDetails,
           access: row.access,
+          task_action:row.task_action,
         })),
       it_admin_group: itAdminGroup,
       it_admin_users: itAdminUsers,

@@ -49,6 +49,7 @@ interface Task {
   location: string;
   reports_to: string;
   task_status: string;
+  task_action: string;
 }
 
 interface AccessRequest {
@@ -514,6 +515,9 @@ const PendingApprovalPage: React.FC = () => {
                   <TableCell sx={{ fontWeight: 600 }}>
                     Location
                   </TableCell>
+                   <TableCell sx={{ fontWeight: 600 }}>
+                    Task Status
+                  </TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>
                     Status
                   </TableCell>
@@ -537,6 +541,9 @@ const PendingApprovalPage: React.FC = () => {
                     </TableCell>
                     <TableCell sx={{ py: 0.75 }}>
                       {task.location_name}
+                    </TableCell>
+                    <TableCell sx={{ py: 0.75 }}>
+                      {task.task_action}
                     </TableCell>
                     <TableCell sx={{ py: 0.75 }}>
                       <Chip
@@ -1000,6 +1007,7 @@ const PendingApprovalPage: React.FC = () => {
                       <th>Role</th>
                       <th>Location</th>
                       <th>Reports To</th>
+                      <th>Task Action</th>
                       <th>Status</th>
                     </tr>
                   </thead>
@@ -1012,6 +1020,7 @@ const PendingApprovalPage: React.FC = () => {
                         <td>{task.role_name}</td>
                         <td>{task.location_name}</td>
                         <td>{task.reports_to}</td>
+                        <td>{task.task_action}</td>
                         <td>
                           <span
                             className={`${styles.statusBadge} ${

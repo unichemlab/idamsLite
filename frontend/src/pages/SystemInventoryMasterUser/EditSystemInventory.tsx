@@ -237,11 +237,50 @@ const EditSystemInventory: React.FC = () => {
     });
   };
 
+  // ✅ Duplicate check — GxP only (excludes self)
+const checkDuplicate = async (): Promise<boolean> => {
+  if (!form) return false;
+  const { plant_location_id, department_id, category_gxp, equipment_instrument_id } = form;
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setConfirm(true);
-  };
+  // Only check for GxP
+  if (category_gxp !== "GxP") return false;
+  if (!plant_location_id || !department_id || !equipment_instrument_id) return false;
+
+  try {
+    const params = new URLSearchParams({
+      plant_location_id: String(plant_location_id),
+      department_id: String(department_id),
+      equipment_instrument_id,
+      exclude_id: String(form.id), // 🔑 exclude self
+    });
+
+    const res = await fetch(`${API_BASE}/api/systems/check-duplicate?${params.toString()}`);
+    const data = await res.json();
+    return data.isDuplicate === true;
+  } catch {
+    return false;
+  }
+};
+
+
+  // const submit = (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   setConfirm(true);
+  // };
+
+  const submit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  const isDuplicate = await checkDuplicate();
+  if (isDuplicate) {
+    alert(
+      "Duplicate record found!\nAnother system with the same Plant, Department and Equipment/Instrument ID already exists for GxP category."
+    );
+    return;
+  }
+
+  setConfirm(true);
+};
 
   const confirmSubmit = async () => {
     if (!form) return;

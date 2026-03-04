@@ -63,7 +63,6 @@ const AddApplicationFormPage: React.FC = () => {
   const { setApplications, applications } = useApplications();
 
   type FormType = {
-    transaction_id: string;
     plant_location_id: string;
     department_id: string;
     application_hmi_name: string;
@@ -79,7 +78,6 @@ const AddApplicationFormPage: React.FC = () => {
   };
 
   const [form, setForm] = useState<FormType>({
-    transaction_id: "",
     plant_location_id: "",
     department_id: "",
     application_hmi_name: "",
@@ -215,15 +213,48 @@ const AddApplicationFormPage: React.FC = () => {
 
 
   // In handleSubmit
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // ✅ Validate roles are selected
+    // 1️⃣ Validate roles
     if (!form.role_id || form.role_id.length === 0) {
       alert("Please select at least one role before saving.");
       return;
     }
 
+    // 2️⃣ Duplicate combination check
+    try {
+      const checkRes = await fetch(`${API_BASE}/api/applications/check-duplicate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          plant_location_id: form.plant_location_id,
+          department_id: form.department_id,
+          application_hmi_type: form.application_hmi_type,
+          equipment_instrument_id: form.equipment_instrument_id,
+        }),
+      });
+
+      if (checkRes.status === 409) {
+        const errData = await checkRes.json();
+        alert(errData.error || "Duplicate combination found.");
+        return;
+      }
+
+      if (!checkRes.ok) {
+        const errData = await checkRes.json();
+        alert(errData.error || "Validation failed. Please try again.");
+        return;
+      }
+    } catch (err) {
+      alert("Could not validate form. Please try again.");
+      return;
+    }
+
+    // 3️⃣ All validations passed — open confirmation modal
     setShowModal(true);
   };
 

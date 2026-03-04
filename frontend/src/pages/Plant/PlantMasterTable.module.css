@@ -749,3 +749,55 @@
   }
 }
 
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  background: #ffffff;
+}
+
+.table thead {
+  background: #1e293b;
+  color: #ffffff;
+}
+
+.table th {
+  padding: 10px;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.table td {
+  padding: 10px;
+  border-bottom: 1px solid #e5e7eb;
+  vertical-align: top;
+}
+
+.table tbody tr:hover {
+  background: #f8fafc;
+  transition: 0.2s ease;
+}
+
+.vendorCell {
+  line-height: 1.4;
+  font-size: 12px;
+}
+
+.noData {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+
+.table th:nth-child(1),
+.table td:nth-child(1) {
+  width: 60px;
+  text-align: center;
+}
+
+.table th:nth-child(4),
+.table td:nth-child(4) {
+  text-align: center;
+}
+

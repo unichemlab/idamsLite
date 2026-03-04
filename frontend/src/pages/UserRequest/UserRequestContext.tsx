@@ -13,6 +13,7 @@ export type TaskRequest = {
   task_id?: number;
   transaction_id?: string;
   access_request_type?: string;
+  task_action?: "Grant" | "Revoke";   // ← drives RULE 12/13 in task closure form
   application_equip_id: string;
   application_name?: string;
   department: string;

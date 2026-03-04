@@ -462,8 +462,16 @@ export async function fetchAccessLogs(params?: {
 export async function fetchActivityLogs(ritm: string) {
   return request(`/api/access-logs/${ritm}/activity`);
 }
-export async function fetchAccessLogsForFirm(vendor_firm: string) {
-  return request(`/api/access-logs/firm/${vendor_firm}`);
+export async function fetchAccessLogsForFirm(
+  vendor_firm: string,
+  filters?: { plant?: string; department?: string; application?: string }
+) {
+  const params = new URLSearchParams();
+  if (filters?.plant) params.append("plant", filters.plant);
+  if (filters?.department) params.append("department", filters.department);
+  if (filters?.application) params.append("application", filters.application);
+  const qs = params.toString();
+  return request(`/api/access-logs/firm/${encodeURIComponent(vendor_firm)}${qs ? `?${qs}` : ""}`);
 }
 // In utils/api.ts or api.js
 export const fetchActiveUserLogs = async (params: {
@@ -1032,6 +1040,28 @@ export async function searchApplicationActivityLogs(filters: {
   
   const queryString = params.toString();
   return request(`/api/applications/activity-logs/search${queryString ? '?' + queryString : ''}`);
+}
+
+export async function fetchAccessLogsForVendorModify(filters: {
+  plant: string;
+  department: string;
+  application: string;
+}): Promise<any[]> {
+  const params = new URLSearchParams({
+    plant:       filters.plant,
+    department:  filters.department,
+    application: filters.application,
+  });
+
+  try {
+    const result = await request(`/api/access-logs/vendor-modify?${params.toString()}`);
+    return Array.isArray(result) ? result : [];
+  } catch (err: any) {
+    if (!err?.message?.includes("404")) {
+      console.error("[fetchAccessLogsForVendorModify] Error:", err);
+    }
+    return [];
+  }
 }
 
 // Add this to your existing api.ts file after the fetchApplicationActivityLogs function
