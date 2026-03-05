@@ -301,136 +301,341 @@ const ActiveUserLog: React.FC = () => {
     : accessLogs;
 
   /* -------------------- Export PDF (All Columns) -------------------- */
+  // const handleExportPDF = useCallback(async () => {
+  //   const jsPDF = (await import("jspdf")).default;
+  //   const autoTable = (await import("jspdf-autotable")).default;
+
+  //   const doc = new jsPDF({ orientation: "landscape" });
+  //   const today = new Date();
+  //   const fileName = `ActiveUserLog_${today.toISOString().split("T")[0]}.pdf`;
+
+  //   const pageWidth = doc.internal.pageSize.getWidth();
+  //   const pageMargin = 14;
+  //   const headerHeight = 15;
+
+  //   // Header bar
+  //   doc.setFillColor(0, 82, 155);
+  //   doc.rect(0, 0, pageWidth, headerHeight, "F");
+
+  //   let logoWidth = 0;
+  //   let logoHeight = 0;
+
+  //   if (login_headTitle2) {
+  //     try {
+  //       const loadImage = (src: string): Promise<HTMLImageElement> => {
+  //         return new Promise((resolve, reject) => {
+  //           const img = new Image();
+  //           img.crossOrigin = "anonymous";
+  //           img.onload = () => resolve(img);
+  //           img.onerror = reject;
+  //           img.src = src;
+  //         });
+  //       };
+  //       const img = await loadImage(login_headTitle2);
+  //       const maxLogoHeight = headerHeight * 0.6;
+  //       const scale = maxLogoHeight / img.height;
+  //       logoWidth = img.width * scale;
+  //       logoHeight = img.height * scale;
+  //       const logoY = headerHeight / 2 - logoHeight / 2;
+  //       doc.addImage(img, "PNG", pageMargin, logoY, logoWidth, logoHeight);
+  //     } catch (e) {
+  //       console.warn("Logo load failed", e);
+  //     }
+  //   }
+
+  //   // Title
+  //   doc.setFontSize(16);
+  //   doc.setTextColor(255, 255, 255);
+  //   doc.text("Active User Log Report", pageMargin + logoWidth + 10, headerHeight / 2 + 5);
+
+  //   // Generated info
+  //   doc.setFontSize(9);
+  //   doc.setTextColor(200, 200, 200);
+  //   const exportText = `Generated: ${today.toLocaleDateString("en-GB")} by ${user?.name || "User"}`;
+  //   doc.text(exportText, pageWidth - pageMargin - doc.getTextWidth(exportText), headerHeight / 2 + 3);
+
+  //   // Filter details
+  //   let startY = headerHeight + 12;
+  //   const locationName = locations.find((l) => l.location_id === selectedLocationId)?.location_name || "All";
+  //   const departmentName = departments.find((d) => d.department_id === selectedDepartmentId)?.department_name || "All";
+  //   const applicationName = applications.find((a) => a.application_equip_id === selectedApplicationId)?.application_name || "All";
+  //   const filterText = `Location: ${locationName}   |   Department: ${departmentName}   |   Application: ${applicationName}${filterRequestFor ? `   |   Request For: ${filterRequestFor}` : ""}`;
+
+  //   doc.setFontSize(10);
+  //   doc.setTextColor(0, 0, 0);
+  //   doc.setFont("helvetica", "bold"); // ✅ fixed
+  //   doc.text(filterText, (pageWidth - doc.getTextWidth(filterText)) / 2, startY);
+  //   doc.setFont("helvetica", "normal"); // ✅ fixed
+  //   startY += 10;
+
+  //   // ✅ Export filteredLogs (respects Request For filter)
+  //   const tableData = filteredLogs.map((log, index) => {
+  //     const isVendor = log.request_for_by === "Vendor / OEM";
+  //     const isOther = log.request_for_by === "Others";
+
+  //     return [
+  //       index + 1,
+  //       log.request_for_by || "--",
+  //       isVendor ? "--" : (log.employee_code || "--"),
+  //       isVendor ? "--" : (log.name || "--"),
+  //       log.allocated_id || "--",
+  //       log.role_name || "--",
+  //       log.ritm_transaction_id || "--",
+  //       log.task_transaction_id || "--",
+  //       isVendor
+  //         ? `Firm: ${log.vendor_firm || "--"}\nName: ${log.vendor_name || "--"}\nCode: ${log.vendor_code || "--"}\nAllocated: ${log.vendor_allocated_id || "--"}`
+  //         : "--",
+  //       (isOther || isVendor)
+  //         ? `${log.request_raised_by || "--"} (${log.request_raised_by_emp_code || "--"})`
+  //         : "--",
+  //     ];
+  //   });
+
+  //   autoTable(doc, {
+  //     head: [[
+  //       "S.No",
+  //       "Request For",
+  //       "Emp Code",
+  //       "Name",
+  //       "Allocated ID",
+  //       "Role",
+  //       "RITM ID",
+  //       "Task ID",
+  //       "Vendor Details",
+  //       "Raised By",
+  //     ]],
+  //     body: tableData,
+  //     startY,
+  //     styles: { fontSize: 6.5, cellPadding: 2, overflow: "linebreak" },
+  //     headStyles: { fillColor: [0, 82, 155], textColor: [255, 255, 255], fontSize: 7 },
+  //     alternateRowStyles: { fillColor: [245, 247, 250] },
+  //     columnStyles: {
+  //       8: { cellWidth: 30 },
+  //       9: { cellWidth: 25 },
+  //       14: { cellWidth: 22 },
+  //       15: { cellWidth: 22 },
+  //       17: { cellWidth: 25 },
+  //     },
+  //     margin: { left: pageMargin, right: pageMargin },
+  //   });
+
+  //   doc.save(fileName);
+  // }, [
+  //   filteredLogs,
+  //   user,
+  //   selectedLocationId,
+  //   selectedDepartmentId,
+  //   selectedApplicationId,
+  //   filterRequestFor,
+  //   locations,
+  //   departments,
+  //   applications,
+  // ]);
+
   const handleExportPDF = useCallback(async () => {
-    const jsPDF = (await import("jspdf")).default;
-    const autoTable = (await import("jspdf-autotable")).default;
+  const jsPDF = (await import("jspdf")).default;
+  const autoTable = (await import("jspdf-autotable")).default;
 
-    const doc = new jsPDF({ orientation: "landscape" });
-    const today = new Date();
-    const fileName = `ActiveUserLog_${today.toISOString().split("T")[0]}.pdf`;
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const today = new Date();
+  const fileName = `ActiveUserLog_${today.toISOString().split("T")[0]}.pdf`;
 
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageMargin = 14;
-    const headerHeight = 15;
+  const pageWidth  = doc.internal.pageSize.getWidth();   // 297mm
+  const pageHeight = doc.internal.pageSize.getHeight();  // 210mm
+  const pageMargin = 10;
+  const headerHeight = 14;
 
-    // Header bar
-    doc.setFillColor(0, 82, 155);
-    doc.rect(0, 0, pageWidth, headerHeight, "F");
+  // ── Blue Header Bar ──
+  doc.setFillColor(0, 82, 155);
+  doc.rect(0, 0, pageWidth, headerHeight, "F");
 
-    let logoWidth = 0;
-    let logoHeight = 0;
-
-    if (login_headTitle2) {
-      try {
-        const loadImage = (src: string): Promise<HTMLImageElement> => {
-          return new Promise((resolve, reject) => {
-            const img = new Image();
-            img.crossOrigin = "anonymous";
-            img.onload = () => resolve(img);
-            img.onerror = reject;
-            img.src = src;
-          });
-        };
-        const img = await loadImage(login_headTitle2);
-        const maxLogoHeight = headerHeight * 0.6;
-        const scale = maxLogoHeight / img.height;
-        logoWidth = img.width * scale;
-        logoHeight = img.height * scale;
-        const logoY = headerHeight / 2 - logoHeight / 2;
-        doc.addImage(img, "PNG", pageMargin, logoY, logoWidth, logoHeight);
-      } catch (e) {
-        console.warn("Logo load failed", e);
-      }
+  let logoWidth = 0;
+  let logoHeight = 0;
+  if (login_headTitle2) {
+    try {
+      const loadImage = (src: string): Promise<HTMLImageElement> =>
+        new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => resolve(img);
+          img.onerror = reject;
+          img.src = src;
+        });
+      const img = await loadImage(login_headTitle2);
+      const maxLogoHeight = headerHeight * 0.65;
+      const scale = maxLogoHeight / img.height;
+      logoWidth  = img.width  * scale;
+      logoHeight = img.height * scale;
+      doc.addImage(img, "PNG", pageMargin, headerHeight / 2 - logoHeight / 2, logoWidth, logoHeight);
+    } catch (e) {
+      console.warn("Logo load failed", e);
     }
+  }
 
-    // Title
-    doc.setFontSize(16);
-    doc.setTextColor(255, 255, 255);
-    doc.text("Active User Log Report", pageMargin + logoWidth + 10, headerHeight / 2 + 5);
+  // Title
+  doc.setFontSize(13);
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.text("Active User Log Report", pageMargin + logoWidth + 6, headerHeight / 2 + 4);
+  doc.setFont("helvetica", "normal");
 
-    // Generated info
-    doc.setFontSize(9);
-    doc.setTextColor(200, 200, 200);
-    const exportText = `Generated: ${today.toLocaleDateString("en-GB")} by ${user?.name || "User"}`;
-    doc.text(exportText, pageWidth - pageMargin - doc.getTextWidth(exportText), headerHeight / 2 + 3);
+  // Generated info — right side
+  doc.setFontSize(7.5);
+  doc.setTextColor(210, 225, 245);
+  const exportText = `Generated: ${today.toLocaleDateString("en-GB")}  |  By: ${user?.name || "User"}`;
+  doc.text(exportText, pageWidth - pageMargin - doc.getTextWidth(exportText), headerHeight / 2 + 3);
 
-    // Filter details
-    let startY = headerHeight + 12;
-    const locationName = locations.find((l) => l.location_id === selectedLocationId)?.location_name || "All";
-    const departmentName = departments.find((d) => d.department_id === selectedDepartmentId)?.department_name || "All";
-    const applicationName = applications.find((a) => a.application_equip_id === selectedApplicationId)?.application_name || "All";
-    const filterText = `Location: ${locationName}   |   Department: ${departmentName}   |   Application: ${applicationName}${filterRequestFor ? `   |   Request For: ${filterRequestFor}` : ""}`;
+  // ── Filter Info Line ──
+  let startY = headerHeight + 6;
+  const locationName    = locations.find((l) => l.location_id === selectedLocationId)?.location_name || "All";
+  const departmentName  = departments.find((d) => d.department_id === selectedDepartmentId)?.department_name || "All";
+  const applicationName = applications.find((a) => a.application_equip_id === selectedApplicationId)?.application_name || "All";
 
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-    doc.setFont("helvetica", "bold"); // ✅ fixed
-    doc.text(filterText, (pageWidth - doc.getTextWidth(filterText)) / 2, startY);
-    doc.setFont("helvetica", "normal"); // ✅ fixed
-    startY += 10;
+  const filterParts = [
+    `Location: ${locationName}`,
+    `Department: ${departmentName}`,
+    `Application: ${applicationName}`,
+    filterRequestFor ? `Request For: ${filterRequestFor}` : null,
+  ].filter(Boolean).join("   |   ");
 
-    // ✅ Export filteredLogs (respects Request For filter)
-    const tableData = filteredLogs.map((log, index) => {
-      const isVendor = log.request_for_by === "Vendor / OEM";
-      const isOther = log.request_for_by === "Others";
+  doc.setFontSize(8.5);
+  doc.setTextColor(20, 20, 20);
+  doc.setFont("helvetica", "bold");
+  doc.text(filterParts, (pageWidth - doc.getTextWidth(filterParts)) / 2, startY);
+  doc.setFont("helvetica", "normal");
+  startY += 5;
 
-      return [
-        index + 1,
-        log.request_for_by || "--",
-        isVendor ? "--" : (log.employee_code || "--"),
-        isVendor ? "--" : (log.name || "--"),
-        log.allocated_id || "--",
-        log.role_name || "--",
-        log.ritm_transaction_id || "--",
-        log.task_transaction_id || "--",
-        isVendor
-          ? `Firm: ${log.vendor_firm || "--"}\nName: ${log.vendor_name || "--"}\nCode: ${log.vendor_code || "--"}\nAllocated: ${log.vendor_allocated_id || "--"}`
-          : "--",
-        (isOther || isVendor)
-          ? `${log.request_raised_by || "--"} (${log.request_raised_by_emp_code || "--"})`
-          : "--",
-      ];
-    });
+  // Separator
+  doc.setDrawColor(200, 210, 230);
+  doc.setLineWidth(0.25);
+  doc.line(pageMargin, startY, pageWidth - pageMargin, startY);
+  startY += 4;
 
-    autoTable(doc, {
-      head: [[
-        "S.No",
-        "Request For",
-        "Emp Code",
-        "Name",
-        "Allocated ID",
-        "Role",
-        "RITM ID",
-        "Task ID",
-        "Vendor Details",
-        "Raised By",
-      ]],
-      body: tableData,
-      startY,
-      styles: { fontSize: 6.5, cellPadding: 2, overflow: "linebreak" },
-      headStyles: { fillColor: [0, 82, 155], textColor: [255, 255, 255], fontSize: 7 },
-      alternateRowStyles: { fillColor: [245, 247, 250] },
-      columnStyles: {
-        8: { cellWidth: 30 },
-        9: { cellWidth: 25 },
-        14: { cellWidth: 22 },
-        15: { cellWidth: 22 },
-        17: { cellWidth: 25 },
-      },
-      margin: { left: pageMargin, right: pageMargin },
-    });
+  // ── Table Data — exactly mirrors screen columns ──
+  const tableData = filteredLogs.map((log, index) => {
+    const isVendor = log.request_for_by === "Vendor / OEM";
+    const isOther  = log.request_for_by === "Others";
 
-    doc.save(fileName);
-  }, [
-    filteredLogs,
-    user,
-    selectedLocationId,
-    selectedDepartmentId,
-    selectedApplicationId,
-    filterRequestFor,
-    locations,
-    departments,
-    applications,
-  ]);
+    return [
+      // S.No
+      index + 1,
+
+      // Request For
+      log.request_for_by || "--",
+
+      // Employee Code — blank for vendor
+      isVendor ? "--" : (log.employee_code || "--"),
+
+      // Name — blank for vendor
+      isVendor ? "--" : (log.name || "--"),
+
+      // Allocated ID
+      log.allocated_id || "--",
+
+      // Role
+      log.role_name || "--",
+
+      // Request ID (RITM)
+      log.ritm_transaction_id || "--",
+
+      // Transaction ID (Task)
+      log.task_transaction_id || "--",
+
+      // Vendor Details — exactly as shown on screen
+      isVendor
+        ? `Firm: ${log.vendor_firm || "--"}\nName: ${log.vendor_name || "--"}`
+        : "--",
+
+      // Raised By — exactly as shown on screen
+      (isOther || isVendor)
+        ? `Name: ${log.request_raised_by || "--"}\nEmp Code: ${log.request_raised_by_emp_code || "--"}`
+        : "--",
+    ];
+  });
+
+  // Column widths — total must = 277mm (297 - 10 - 10)
+  // 10 + 22 + 20 + 30 + 32 + 28 + 32 + 28 + 42 + 33 = 277mm ✅
+  autoTable(doc, {
+    head: [[
+      "S.No",
+      "Request For",
+      "Employee Code",
+      "Name",
+      "Allocated ID",
+      "Role",
+      "Request ID",
+      "Transaction ID (Task)",
+      "Vendor Details",
+      "Raised By",
+    ]],
+    body: tableData,
+    startY,
+    tableWidth: pageWidth - pageMargin * 2,
+    styles: {
+      fontSize: 9,
+      cellPadding: { top: 4, bottom: 4, left: 3, right: 3 },
+      valign: "middle",
+      overflow: "linebreak",
+      lineColor: [210, 220, 235],
+      lineWidth: 0.2,
+      textColor: [25, 25, 25],
+      font: "helvetica",
+    },
+    headStyles: {
+      fillColor: [13, 71, 161],       // matches screen header blue
+      textColor: [255, 255, 255],
+      fontSize: 9,
+      fontStyle: "bold",
+      halign: "center",
+      valign: "middle",
+      cellPadding: { top: 4, bottom: 4, left: 3, right: 3 },
+    },
+    alternateRowStyles: {
+      fillColor: [243, 247, 253],     // subtle blue tint like screen
+    },
+    columnStyles: {
+      0: { cellWidth: 10,  halign: "center" },  // S.No
+      1: { cellWidth: 22,  halign: "center" },  // Request For
+      2: { cellWidth: 20,  halign: "center" },  // Employee Code
+      3: { cellWidth: 30,  halign: "left"   },  // Name
+      4: { cellWidth: 32,  halign: "left"   },  // Allocated ID
+      5: { cellWidth: 28,  halign: "left"   },  // Role
+      6: { cellWidth: 32,  halign: "center" },  // Request ID
+      7: { cellWidth: 28,  halign: "center" },  // Transaction ID (Task)
+      8: { cellWidth: 42,  halign: "left"   },  // Vendor Details
+      9: { cellWidth: 33,  halign: "left"   },  // Raised By
+    },
+    margin: { left: pageMargin, right: pageMargin },
+    didDrawPage: (data: any) => {
+      // ── Footer ──
+      doc.setFontSize(7.5);
+      doc.setTextColor(130);
+      doc.setFont("helvetica", "normal");
+      doc.setDrawColor(190, 200, 220);
+      doc.setLineWidth(0.25);
+      doc.line(pageMargin, pageHeight - 9, pageWidth - pageMargin, pageHeight - 9);
+      doc.text("Unichem Laboratories — Confidential", pageMargin, pageHeight - 5);
+      doc.text(
+        `Page ${data.pageNumber}`,
+        pageWidth - pageMargin - doc.getTextWidth(`Page ${data.pageNumber}`),
+        pageHeight - 5
+      );
+    },
+  });
+
+  doc.save(fileName);
+}, [
+  filteredLogs,
+  user,
+  selectedLocationId,
+  selectedDepartmentId,
+  selectedApplicationId,
+  filterRequestFor,
+  locations,
+  departments,
+  applications,
+]);
+
 
   /* -------------------- Pagination -------------------- */
   const totalPages = Math.max(1, Math.ceil(filteredLogs.length / rowsPerPage));

@@ -55,8 +55,13 @@ interface AccessLog {
   approver1_comments: string | null;
   approver2_comments: string | null;
   created_on: string;
-  updated_on: string;
-  completed_at: string | null;
+  // ✅ NEW: from task_request table
+  task_updated_on: string | null;
+  approver1_action_date: string | null;   // formatted HH:MM from task_request
+  approver2_action_date: string | null;   // formatted HH:MM from task_request
+  // ✅ NEW: from user_requests table
+  request_completed_at: string | null;
+  request_created_on:string|null;
   remarks: string | null;
 }
 
@@ -70,6 +75,17 @@ interface ActivityLog {
   date_time_ist: string;
   comments: string;
 }
+
+/* -------------------- Helpers -------------------- */
+const fmtDateTime = (val: string | null | undefined): string => {
+  if (!val) return "--";
+  return new Date(val.replace(" ", "T")).toLocaleString("en-GB");
+};
+
+const fmtDate = (val: string | null | undefined): string => {
+  if (!val) return "--";
+  return new Date(val.replace(" ", "T")).toLocaleDateString("en-GB");
+};
 
 /* -------------------- Component -------------------- */
 const AccessLogTable: React.FC = () => {
@@ -87,7 +103,7 @@ const AccessLogTable: React.FC = () => {
   const [tempFilterValue, setTempFilterValue] = useState(filterValue);
   const debouncedFilterValue = useDebounce(filterValue, 500);
 
-  // ✅ Client-side filters
+  // Client-side filters
   const [filterPlant, setFilterPlant] = useState("");
   const [filterDepartment, setFilterDepartment] = useState("");
   const [filterApplication, setFilterApplication] = useState("");
@@ -153,7 +169,7 @@ const AccessLogTable: React.FC = () => {
     return plantMatch && deptMatch && appMatch && roleMatch && accessMatch;
   });
 
-  // ✅ Derive unique options from loaded data
+  // Derive unique options from loaded data
   const uniquePlants = Array.from(new Set(
     accessLogs.map((l) => l.location_name ?? String(l.location ?? "")).filter(Boolean)
   )).sort();
@@ -188,141 +204,270 @@ const AccessLogTable: React.FC = () => {
     }
   };
 
-  /* -------------------- PDF Export -------------------- */
+  /* ─────────────────────────────────────────────────────────────────────────
+     PDF EXPORT  –  A4 Landscape, single table, all 27 columns visible
+     Key fix: NO tableWidth prop — jsPDF uses exact cellWidth values.
+              Column widths are mathematically verified to sum = PW - 2*M.
+  ───────────────────────────────────────────────────────────────────────── */
   const handleExportPDF = useCallback(async () => {
-    const jsPDF = (await import("jspdf")).default;
+    const jsPDF     = (await import("jspdf")).default;
     const autoTable = (await import("jspdf-autotable")).default;
-    const doc = new jsPDF({ orientation: "landscape" });
-    const today = new Date();
+
+    const doc      = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const today    = new Date();
     const fileName = `AccessLogReport_${today.toISOString().split("T")[0]}.pdf`;
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const pageMargin = 14;
-    const headerHeight = 15;
+    const PW       = doc.internal.pageSize.getWidth();   // 297 mm
+    const PH       = doc.internal.pageSize.getHeight();  // 210 mm
+    const M        = 6;    // left/right margin
+    const HDR      = 15;   // header bar height
+    const FOOT_H   = 14;   // footer zone height (abbrev legend + page line)
+    // Usable table width = 297 - 6 - 6 = 285 mm
+    // Column widths below are verified to sum exactly to 285.
 
-    doc.setFillColor(0, 82, 155);
-    doc.rect(0, 0, pageWidth, headerHeight, "F");
-
-    let logoWidth = 0;
-    let logoHeight = 0;
+    // ── 1. Pre-load logo → dataURL so drawHeader stays synchronous ───────────
+    let logoUrl = "";
+    let logoW   = 0;
+    let logoH   = 0;
     if (login_headTitle2) {
       try {
-        const loadImage = (src: string): Promise<HTMLImageElement> =>
-          new Promise((resolve, reject) => {
-            const img = new Image();
-            img.crossOrigin = "anonymous";
-            img.onload = () => resolve(img);
-            img.onerror = reject;
-            img.src = src;
-          });
-        const img = await loadImage(login_headTitle2);
-        const maxLogoHeight = headerHeight * 0.6;
-        const scale = maxLogoHeight / img.height;
-        logoWidth = img.width * scale;
-        logoHeight = img.height * scale;
-        doc.addImage(img, "PNG", pageMargin, headerHeight / 2 - logoHeight / 2, logoWidth, logoHeight);
-      } catch (e) {
-        console.warn("Logo load failed", e);
-      }
+        const img = await new Promise<HTMLImageElement>((res, rej) => {
+          const el = new Image();
+          el.crossOrigin = "anonymous";
+          el.onload  = () => res(el);
+          el.onerror = rej;
+          el.src     = login_headTitle2;
+        });
+        const cvs = document.createElement("canvas");
+        cvs.width  = img.width;
+        cvs.height = img.height;
+        cvs.getContext("2d")!.drawImage(img, 0, 0);
+        logoUrl = cvs.toDataURL("image/png");
+        const sc = (HDR * 0.62) / img.height;
+        logoW    = img.width  * sc;
+        logoH    = img.height * sc;
+      } catch { /* logo optional */ }
     }
 
-    doc.setFontSize(16);
-    doc.setTextColor(255, 255, 255);
-    doc.text("Access Log Report", pageMargin + logoWidth + 10, headerHeight / 2 + 5);
+    const byName    = (user && (user.name || user.username)) || "Unknown";
+    const exportTxt = `Exported by: ${byName}   ${today.toLocaleDateString("en-GB")}  ${today.toLocaleTimeString()}`;
 
-    doc.setFontSize(9);
-    doc.setTextColor(220, 230, 245);
-    const exportedByName = (user && (user.name || user.username)) || "Unknown User";
-    const exportedText = `Exported by: ${exportedByName}  On: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`;
-    doc.text(exportedText, pageWidth - pageMargin - doc.getTextWidth(exportedText), headerHeight / 2 + 3);
+    // ── 2. Sync header painter ────────────────────────────────────────────────
+    const drawHeader = () => {
+      doc.setFillColor(0, 82, 155);
+      doc.rect(0, 0, PW, HDR, "F");
+      doc.setDrawColor(70, 130, 210);
+      doc.setLineWidth(0.5);
+      doc.line(0, HDR, PW, HDR);
 
-    doc.setDrawColor(0, 82, 155);
-    doc.setLineWidth(0.5);
-    doc.line(0, headerHeight, pageWidth, headerHeight);
+      if (logoUrl) {
+        doc.addImage(logoUrl, "PNG", M, (HDR - logoH) / 2, logoW, logoH);
+      }
+      const titleX = logoUrl ? M + logoW + 3 : M;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(255, 255, 255);
+      doc.text("Access Log Report", titleX, HDR / 2 + 3.5);
 
-    // Active filters info line
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(195, 220, 250);
+      doc.text(exportTxt, PW - M - doc.getTextWidth(exportTxt), HDR / 2 + 3);
+    };
+
+    // ── 3. Sync footer painter (abbreviation legend + page placeholder) ───────
+    //   Abbreviations used in column headers:
+    const ABBREVS = [
+      "Req For* = Requested For",
+      "Vnd* = Vendor",
+      "Dept* = Department",
+      "Rpts To* = Reports To",
+      "Usr Type* = User Type",
+      "Req Sts* = Request Status",
+      "Task Sts* = Task Status",
+      "Appr* = Approver",
+      "Req* = Request",
+    ];
+
+    const drawFooter = (pageNum: number) => {
+      // Separator line
+      doc.setDrawColor(200, 210, 225);
+      doc.setLineWidth(0.25);
+      doc.line(M, PH - FOOT_H, PW - M, PH - FOOT_H);
+
+      // Abbreviation legend — two rows of 4
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(5.8);
+      doc.setTextColor(100, 100, 100);
+      const row1 = ABBREVS.slice(0, 4).join("   |   ");
+      const row2 = ABBREVS.slice(4).join("   |   ");
+      doc.text(row1, M, PH - FOOT_H + 4);
+      doc.text(row2, M, PH - FOOT_H + 8);
+
+      // Company left, page right
+      doc.setFontSize(7);
+      doc.setTextColor(110, 110, 110);
+      doc.text("Unichem Laboratories  |  Confidential", M, PH - 3);
+      // placeholder — overwritten after render with correct total
+      doc.text(`Page ${pageNum}`, PW - M - doc.getTextWidth(`Page ${pageNum}`), PH - 3);
+    };
+
+    // ── 4. Filter banner on page 1 ────────────────────────────────────────────
     const activeFilters = [
-      filterPlant && `Plant: ${filterPlant}`,
-      filterDepartment && `Dept: ${filterDepartment}`,
+      filterPlant       && `Plant: ${filterPlant}`,
+      filterDepartment  && `Dept: ${filterDepartment}`,
       filterApplication && `App: ${filterApplication}`,
-      filterRole && `Role: ${filterRole}`,
-      filterAccess && `Access: ${filterAccess}`,
+      filterRole        && `Role: ${filterRole}`,
+      filterAccess      && `Access: ${filterAccess}`,
     ].filter(Boolean).join("   |   ");
 
+    drawHeader();
+    let startY = HDR + 2;
     if (activeFilters) {
-      doc.setFontSize(9);
-      doc.setTextColor(0, 0, 0);
+      doc.setFillColor(235, 243, 255);
+      doc.roundedRect(M, startY, PW - M * 2, 7, 1.5, 1.5, "F");
       doc.setFont("helvetica", "bold");
-      doc.text(activeFilters, (pageWidth - doc.getTextWidth(activeFilters)) / 2, headerHeight + 7);
+      doc.setFontSize(7);
+      doc.setTextColor(20, 60, 150);
+      doc.text(`Filters:  ${activeFilters}`, M + 3, startY + 4.8);
       doc.setFont("helvetica", "normal");
+      startY += 9;
     }
 
-    const startY = activeFilters ? headerHeight + 13 : headerHeight + 8;
+    // ── 5. Build data rows ────────────────────────────────────────────────────
+    const shortApp = (v: string | null | undefined, fb: any): string => {
+      const s = v ?? String(fb ?? "-");
+      const i = s.indexOf(" | v");
+      return i > 0 ? s.substring(0, i) : s;
+    };
+    const apprCell = (
+      name: string | null, status: string,
+      action: string | null, date: string | null,
+    ) => {
+      const n  = name || status || "-";
+      const dt = date || "";
+      const ac = action || "";
+      return dt ? `${n}\n${[ac, dt].filter(Boolean).join(" ")}` : n;
+    };
 
-    const rows = filteredLogs.map((log: any) => [
-      log.ritm_transaction_id || "-",
-      log.task_transaction_id || "-",
-      log.name || "-",
-      log.employee_code || "-",
-      log.access_request_type || "-",
-      log.vendor_firm || "-",
-      log.vendor_code || "-",
-      log.vendor_name || "-",
-      log.vendor_allocated_id || "-",
-      log.location_name ?? log.location ?? "-",
-      log.department_name ?? log.department ?? "-",
-      log.application_name ?? log.application_equip_id ?? "-",
-      log.role_name ?? log.role ?? "-",
-      log.reports_to || "-",
-      log.access ?? "-",
-      log.assigned_to_name ?? "-",
-      log.user_request_type ?? "-",
-      log.from_date ? new Date(log.from_date.replace(" ", "T")).toLocaleDateString("en-GB") : "--",
-      log.to_date ? new Date(log.to_date.replace(" ", "T")).toLocaleDateString("en-GB") : "--",
-      log.user_request_status || "-",
-      log.task_status || "-",
-      log.approver1_status || "-",
-      log.approver2_status || "-",
-      log.created_on ? new Date(log.created_on.replace(" ", "T")).toLocaleDateString("en-GB") : "--",
+    const rows = filteredLogs.map((log) => [
+      log.ritm_transaction_id                                      || "-",
+      log.task_transaction_id                                      || "-",
+      log.request_for_by                                           || "-",
+      log.name                                                     || "-",
+      log.employee_code                                            || "-",
+      log.employee_location                                        || "-",
+      log.access_request_type                                      || "-",
+      log.vendor_firm                                              || "-",
+      log.vendor_code                                              || "-",
+      log.vendor_name                                              || "-",
+      log.location_name   ?? String(log.location   ?? "-"),
+      log.department_name ?? String(log.department ?? "-"),
+      shortApp(log.application_name, log.application_equip_id),
+      log.role_name       ?? String(log.role       ?? "-"),
+      log.reports_to                                               || "-",
+      log.access                                                   || "-",
+      log.assigned_to_name                                         || "-",
+      log.user_request_type                                        || "-",
+      fmtDate(log.from_date),
+      fmtDate(log.to_date),
+      log.user_request_status                                      || "-",
+      log.task_status                                              || "-",
+      apprCell(log.approver1_name, log.approver1_status, log.approver1_action, log.approver1_action_date),
+      apprCell(log.approver2_name, log.approver2_status, log.approver2_action, log.approver2_action_date),
+      fmtDateTime(log.request_created_on),
+      fmtDateTime(log.task_updated_on),
+      fmtDateTime(log.request_completed_at),
     ]);
 
+    // ── 6. Column widths — VERIFIED sum = 285 (= 297 - 6 - 6) ───────────────
+    //   DO NOT add tableWidth — jsPDF respects exact cellWidth values only
+    //   when tableWidth is absent. With tableWidth set, columns get scaled
+    //   proportionally and rightmost columns overflow or get clipped.
+    //
+    //   Σ = 13+12+9+13+9+9+11+11+10+9+11+12+13+9+9+8+11+8+9+9+9+9+14+14+12+11+11 = 285 ✓
+    const COL: Record<number, { cellWidth: number }> = {
+      0:  { cellWidth: 13 },  // RITM No.
+      1:  { cellWidth: 12 },  // Task No.
+      2:  { cellWidth:  9 },  // Req For*
+      3:  { cellWidth: 13 },  // Name
+      4:  { cellWidth:  9 },  // Emp Code
+      5:  { cellWidth:  9 },  // Location
+      6:  { cellWidth: 11 },  // Access Type
+      7:  { cellWidth: 11 },  // Vnd* Firm
+      8:  { cellWidth: 10 },  // Vnd* Code
+      9:  { cellWidth:  9 },  // Vnd* Name
+      10: { cellWidth: 11 },  // Plant
+      11: { cellWidth: 12 },  // Dept*
+      12: { cellWidth: 13 },  // Application
+      13: { cellWidth:  9 },  // Role
+      14: { cellWidth:  9 },  // Rpts To*
+      15: { cellWidth:  8 },  // Access
+      16: { cellWidth: 11 },  // Assigned
+      17: { cellWidth:  8 },  // Usr Type*
+      18: { cellWidth:  9 },  // From
+      19: { cellWidth:  9 },  // To
+      20: { cellWidth:  9 },  // Req Sts*
+      21: { cellWidth:  9 },  // Task Sts*
+      22: { cellWidth: 14 },  // Appr* 1
+      23: { cellWidth: 14 },  // Appr* 2
+      24: { cellWidth: 12 },  // Created
+      25: { cellWidth: 11 },  // Updated
+      26: { cellWidth: 11 },  // Completed
+    };
+
+    // ── 7. Render table ───────────────────────────────────────────────────────
     autoTable(doc, {
       head: [[
-        "RITM ID", "Task", "Name", "Emp Code", "Access Type",
-        "Vendor Firm", "Vendor Code", "Vendor Name", "Vendor ID",
-        "Plant", "Department", "Application", "Role", "Reports To",
-        "Access", "Assigned", "User Type", "From Date", "To Date",
-        "Req Status", "Task Status", "Appr 1", "Appr 2", "Created",
+        "RITM No.", "Task No.", "Req For*", "Name", "Emp Code", "Location",
+        "Access Type", "Vnd* Firm", "Vnd* Code", "Vnd* Name",
+        "Plant", "Dept*", "Application", "Role", "Rpts To*",
+        "Access", "Assigned", "Usr Type*", "From", "To",
+        "Req Sts*", "Task Sts*",
+        "Appr* 1", "Appr* 2",
+        "Req* Created", "Task Updated", "Req* Completed",
       ]],
       body: rows,
       startY,
-      styles: { fontSize: 7, cellPadding: 2.5, halign: "left", valign: "middle", textColor: 80, lineColor: [220, 220, 220], lineWidth: 0.1 },
-      headStyles: { fillColor: [11, 99, 206], textColor: 255, fontStyle: "bold", fontSize: 8, halign: "center" },
-      alternateRowStyles: { fillColor: [240, 245, 255] },
-      margin: { left: pageMargin, right: pageMargin },
-      tableWidth: "auto",
-      columnStyles: {
-        0: { cellWidth: 12 }, 1: { cellWidth: 12 }, 2: { cellWidth: 15 },
-        3: { cellWidth: 10 }, 4: { cellWidth: 12 }, 5: { cellWidth: 13 },
-        6: { cellWidth: 10 }, 7: { cellWidth: 14 }, 8: { cellWidth: 10 },
-        9: { cellWidth: 10 }, 10: { cellWidth: 12 }, 11: { cellWidth: 14 },
-        12: { cellWidth: 11 }, 13: { cellWidth: 12 }, 14: { cellWidth: 10 },
-        15: { cellWidth: 12 }, 16: { cellWidth: 10 }, 17: { cellWidth: 12 },
-        18: { cellWidth: 12 }, 19: { cellWidth: 11 }, 20: { cellWidth: 11 },
-        21: { cellWidth: 10 }, 22: { cellWidth: 10 }, 23: { cellWidth: 12 },
+      // ── NO tableWidth — this is the critical fix ──────────────────────────
+      styles: {
+        fontSize:    5.8,
+        cellPadding: { top: 2, right: 1.2, bottom: 2, left: 1.2 },
+        halign:      "left"      as const,
+        valign:      "top"       as const,
+        textColor:   [25, 25, 25]    as [number, number, number],
+        lineColor:   [210, 218, 228] as [number, number, number],
+        lineWidth:   0.13,
+        overflow:    "linebreak" as const,
+      },
+      headStyles: {
+        fillColor:   [11, 99, 206]   as [number, number, number],
+        textColor:   [255, 255, 255] as [number, number, number],
+        fontStyle:   "bold"   as const,
+        fontSize:    6,
+        halign:      "center" as const,
+        valign:      "middle" as const,
+        cellPadding: { top: 2.5, right: 1.2, bottom: 2.5, left: 1.2 },
+      },
+      alternateRowStyles: { fillColor: [244, 247, 254] as [number, number, number] },
+      margin: { top: HDR + 2, left: M, right: M, bottom: FOOT_H + 2 },
+      columnStyles: COL,
+      didDrawPage: (data) => {     // ← fully synchronous, no TS error
+        drawHeader();
+        drawFooter(data.pageNumber);
       },
     });
 
-    const pageCount = (doc as any).getNumberOfPages?.() || (doc as any).internal?.getNumberOfPages?.() || 1;
-    doc.setDrawColor(200, 200, 200);
-    doc.setLineWidth(0.3);
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.line(pageMargin, pageHeight - 15, pageWidth - pageMargin, pageHeight - 15);
-      doc.setFontSize(8);
-      doc.setTextColor(100);
-      doc.text("Unichem Laboratories", pageMargin, pageHeight - 10);
-      doc.text(`Page ${i} of ${pageCount}`, pageWidth - pageMargin - 30, pageHeight - 10);
+    // ── 8. Second pass: replace "Page N" with "Page N of Total" ─────────────
+    const pageCount = (doc as any).getNumberOfPages?.() ?? 1;
+    for (let p = 1; p <= pageCount; p++) {
+      doc.setPage(p);
+      doc.setFillColor(255, 255, 255);
+      doc.rect(PW - M - 32, PH - 6, 32, 5, "F");
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(110, 110, 110);
+      const pg = `Page ${p} of ${pageCount}`;
+      doc.text(pg, PW - M - doc.getTextWidth(pg), PH - 3);
     }
 
     doc.save(fileName);
@@ -339,7 +484,7 @@ const AccessLogTable: React.FC = () => {
       body: activityLog.logs.map((log) => [
         log.action, log.old_value ?? "", log.new_value ?? "",
         log.action_performed_by, log.approve_status,
-        log.date_time_ist ? new Date(log.date_time_ist.replace(" ", "T")).toLocaleString("en-GB") : "--",
+        fmtDateTime(log.date_time_ist),
         log.comments ?? "",
       ]),
       styles: { fontSize: 9 },
@@ -389,7 +534,7 @@ const AccessLogTable: React.FC = () => {
 
       <div className={styles.contentArea}>
 
-        {/* ✅ Compact Enterprise Filter Bar */}
+        {/* Compact Enterprise Filter Bar */}
         <div style={{
           display: "flex",
           alignItems: "center",
@@ -407,11 +552,7 @@ const AccessLogTable: React.FC = () => {
           {/* Plant */}
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <label style={labelStyle}>Plant</label>
-            <select
-              value={filterPlant}
-              onChange={(e) => { setFilterPlant(e.target.value); setCurrentPage(1); }}
-              style={selectStyle}
-            >
+            <select value={filterPlant} onChange={(e) => { setFilterPlant(e.target.value); setCurrentPage(1); }} style={selectStyle}>
               <option value="">-- All --</option>
               {uniquePlants.map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
@@ -422,11 +563,7 @@ const AccessLogTable: React.FC = () => {
           {/* Department */}
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <label style={labelStyle}>Department</label>
-            <select
-              value={filterDepartment}
-              onChange={(e) => { setFilterDepartment(e.target.value); setCurrentPage(1); }}
-              style={selectStyle}
-            >
+            <select value={filterDepartment} onChange={(e) => { setFilterDepartment(e.target.value); setCurrentPage(1); }} style={selectStyle}>
               <option value="">-- All --</option>
               {uniqueDepartments.map((d) => <option key={d} value={d}>{d}</option>)}
             </select>
@@ -437,11 +574,7 @@ const AccessLogTable: React.FC = () => {
           {/* Application */}
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <label style={labelStyle}>Application</label>
-            <select
-              value={filterApplication}
-              onChange={(e) => { setFilterApplication(e.target.value); setCurrentPage(1); }}
-              style={selectStyle}
-            >
+            <select value={filterApplication} onChange={(e) => { setFilterApplication(e.target.value); setCurrentPage(1); }} style={selectStyle}>
               <option value="">-- All --</option>
               {uniqueApplications.map((a) => <option key={a} value={a}>{a}</option>)}
             </select>
@@ -452,11 +585,7 @@ const AccessLogTable: React.FC = () => {
           {/* Role */}
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <label style={labelStyle}>Role</label>
-            <select
-              value={filterRole}
-              onChange={(e) => { setFilterRole(e.target.value); setCurrentPage(1); }}
-              style={selectStyle}
-            >
+            <select value={filterRole} onChange={(e) => { setFilterRole(e.target.value); setCurrentPage(1); }} style={selectStyle}>
               <option value="">-- All --</option>
               {uniqueRoles.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
@@ -467,11 +596,7 @@ const AccessLogTable: React.FC = () => {
           {/* Access */}
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <label style={labelStyle}>Access</label>
-            <select
-              value={filterAccess}
-              onChange={(e) => { setFilterAccess(e.target.value); setCurrentPage(1); }}
-              style={selectStyle}
-            >
+            <select value={filterAccess} onChange={(e) => { setFilterAccess(e.target.value); setCurrentPage(1); }} style={selectStyle}>
               <option value="">-- All --</option>
               {uniqueAccess.map((a) => <option key={a} value={a}>{a}</option>)}
             </select>
@@ -492,15 +617,10 @@ const AccessLogTable: React.FC = () => {
                 setCurrentPage(1);
               }}
               style={{
-                padding: "5px 12px",
-                fontSize: "12px",
-                fontWeight: 600,
-                backgroundColor: "#fff5f5",
-                color: "#dc2626",
-                border: "1px solid #fca5a5",
-                borderRadius: "5px",
-                cursor: "pointer",
-                whiteSpace: "nowrap",
+                padding: "5px 12px", fontSize: "12px", fontWeight: 600,
+                backgroundColor: "#fff5f5", color: "#dc2626",
+                border: "1px solid #fca5a5", borderRadius: "5px",
+                cursor: "pointer", whiteSpace: "nowrap",
               }}
             >
               ✕ Clear
@@ -512,12 +632,8 @@ const AccessLogTable: React.FC = () => {
             onClick={handleExportPDF}
             disabled={filteredLogs.length === 0}
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              padding: "6px 14px",
-              fontSize: "12px",
-              fontWeight: 600,
+              display: "flex", alignItems: "center", gap: "6px",
+              padding: "6px 14px", fontSize: "12px", fontWeight: 600,
               backgroundColor: filteredLogs.length === 0 ? "#e2e8f0" : "#ecfdf5",
               color: filteredLogs.length === 0 ? "#94a3b8" : "#059669",
               border: `1px solid ${filteredLogs.length === 0 ? "#e2e8f0" : "#059669"}`,
@@ -571,16 +687,19 @@ const AccessLogTable: React.FC = () => {
                   <th>To Date</th>
                   <th>Req Status</th>
                   <th>Task Status</th>
-                  <th>Appr 1</th>
-                  <th>Appr 2</th>
-                  <th>Created</th>
-                  <th>Completed</th>
+                  {/* ✅ UPDATED: Appr columns now show name + timestamp */}
+                  <th>Appr 1 (Date &amp; Time)</th>
+                  <th>Appr 2 (Date &amp; Time)</th>
+                  <th>Req Created</th>
+                  {/* ✅ NEW columns */}
+                  <th>Task  Updated</th>
+                  <th>Req Completed At</th>
                 </tr>
               </thead>
               <tbody>
                 {pageData.length === 0 ? (
                   <tr>
-                    <td colSpan={27} style={{ textAlign: "center", padding: 24 }}>
+                    <td colSpan={28} style={{ textAlign: "center", padding: 24 }}>
                       No records found
                     </td>
                   </tr>
@@ -606,14 +725,50 @@ const AccessLogTable: React.FC = () => {
                       <td>{log.access ?? "-"}</td>
                       <td>{log.assigned_to_name ?? "-"}</td>
                       <td>{log.user_request_type ?? "-"}</td>
-                      <td>{log.from_date ? new Date(log.from_date.replace(" ", "T")).toLocaleString("en-GB") : "--"}</td>
-                      <td>{log.to_date ? new Date(log.to_date.replace(" ", "T")).toLocaleString("en-GB") : "--"}</td>
+                      <td>{fmtDate(log.from_date)}</td>
+                      <td>{fmtDate(log.to_date)}</td>
                       <td>{log.user_request_status}</td>
                       <td>{log.task_status}</td>
-                      <td>{log.approver1_status}</td>
-                      <td>{log.approver2_status}</td>
-                      <td>{log.created_on ? new Date(log.created_on.replace(" ", "T")).toLocaleString("en-GB") : "--"}</td>
-                      <td>{log.completed_at ? new Date(log.completed_at.replace(" ", "T")).toLocaleString("en-GB") : "--"}</td>
+
+                      {/* ✅ Approver 1: name on top, HH:MM action date below */}
+                      <td>
+                        {log.approver1_name ? (
+                          <div>
+                            <div style={{ fontWeight: 500 }}>{log.approver1_name}</div>
+                            {log.approver1_action_date && (
+                              <div style={{ fontSize: "11px", color: "#6b7280", marginTop: 2 }}>
+                                {log.approver1_action_date}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          log.approver1_status ?? "-"
+                        )}
+                      </td>
+
+                      {/* ✅ Approver 2: name on top, HH:MM action date below */}
+                      <td>
+                        {log.approver2_name ? (
+                          <div>
+                            <div style={{ fontWeight: 500 }}>{log.approver2_name}</div>
+                            {log.approver2_action_date && (
+                              <div style={{ fontSize: "11px", color: "#6b7280", marginTop: 2 }}>
+                                {log.approver2_action_date}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          log.approver2_status ?? "-"
+                        )}
+                      </td>
+
+                      <td>{fmtDateTime(log.request_created_on)}</td>
+
+                      {/* ✅ NEW: task_request.updated_on */}
+                      <td>{fmtDateTime(log.task_updated_on)}</td>
+
+                      {/* ✅ NEW: user_requests.completed_at */}
+                      <td>{fmtDateTime(log.request_completed_at)}</td>
                     </tr>
                   ))
                 )}
@@ -692,7 +847,7 @@ const AccessLogTable: React.FC = () => {
                           <td>{a.action}</td>
                           <td>{a.action_performed_by}</td>
                           <td>{a.approve_status}</td>
-                          <td>{a.date_time_ist ? new Date(a.date_time_ist.replace(" ", "T")).toLocaleString("en-GB") : "--"}</td>
+                          <td>{fmtDateTime(a.date_time_ist)}</td>
                           <td>{a.comments}</td>
                         </tr>
                       ))}

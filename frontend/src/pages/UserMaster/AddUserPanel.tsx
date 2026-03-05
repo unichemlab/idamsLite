@@ -18,6 +18,8 @@ const plantWiseModules = [
 ];
 
 const corporateModules = [
+  "Access Log",
+  "Active User Log",
   "Approval Workflow",
   "Dashboard",
   "Department Master",
@@ -776,6 +778,16 @@ const AddUserPanel = ({
                             ) {
                               isDisabled = true;
                             }
+                             const isAccesslog  = mod === "Access Log";
+                             const isActiveUserlog  = mod === "Active User Log";
+                            if (
+                              (isAccesslog &&
+                              (perm === "Add" || perm === "Delete"|| perm === "Edit"))||(isActiveUserlog &&
+                              (perm === "Add" || perm === "Delete"|| perm === "Edit"))
+                            ) {
+                              isDisabled = true;
+                            }
+
                             const triggers = ["Add", "Edit", "Delete"];
                             if (!isDisabled && perm === "View") {
                               const anyTriggerChecked = triggers.some((t) =>
