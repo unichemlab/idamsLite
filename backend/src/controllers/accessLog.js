@@ -7,28 +7,81 @@ exports.getAllAccessLogs = async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT 
-  al.*,
-  tc.*,
+  -- Access Log core fields
+  al.id,
+  al.user_request_id,
+  al.task_id,
+  al.ritm_transaction_id,
+  al.task_transaction_id,
+  al.request_for_by,
+  al.name,
+  al.employee_code,
+  al.employee_location,
+  al.access_request_type,
+  al.training_status,
+  al.vendor_firm,
+  al.vendor_code,
+  al.vendor_name,
+  al.vendor_allocated_id,
+  al.user_request_status,
+  al.task_status,
+  al.reports_to,
+  al.approver1_status,
+  al.approver2_status,
+  al.approver1_email,
+  al.approver2_email,
+  al.approver1_name,
+  al.approver2_name,
+  al.approver1_action,
+  al.approver2_action,
+  al.approver1_timestamp,
+  al.approver2_timestamp,
+  al.approver1_comments,
+  al.approver2_comments,
+  al.requested_role,
+  al.assignment_group,
+  al.assigned_to,
+  al.allocated_id,
+  al.role_granted,
+  al.access,
+  al.user_request_type,
+  al.from_date,
+  al.to_date,
+  al.password,
+  al.task_action,
+  al.request_raised_by,
+  al.request_raised_by_emp_code,
+  al.remarks,
+  al.created_on,
 
-  am.display_name  AS application_name,
+  -- Lookup master names
+  am.display_name       AS application_name,
   dm.department_name,
   rm.role_name,
-  pm.plant_name    AS location_name,
+  pm.plant_name         AS location_name,
 
-  um.employee_name AS assigned_to_name
+  -- From task_request: updated_on + approver timestamps formatted
+  tr.updated_on         AS task_updated_on,
+  TO_CHAR(tr.approver1_action_timestamp, 'DD-Mon-YYYY HH24:MI') AS approver1_action_date,
+  TO_CHAR(tr.approver2_action_timestamp, 'DD-Mon-YYYY HH24:MI') AS approver2_action_date,
+
+  -- From user_requests: completed_at
+  ur.completed_at       AS request_completed_at,
+    ur.created_on       AS request_created_on,
+  -- Assigned user name from user_master
+  um.employee_name      AS assigned_to_name
 
 FROM access_log al
-LEFT JOIN application_master am ON al.application_equip_id = am.id
-LEFT JOIN department_master dm ON al.department = dm.id
-LEFT JOIN role_master rm ON al.role = rm.id
-LEFT JOIN plant_master pm ON al.location = pm.id
 
-LEFT JOIN task_closure tc 
-   ON al.task_transaction_id = tc.task_number
-  AND al.ritm_transaction_id = tc.ritm_number
+LEFT JOIN application_master am  ON al.application_equip_id = am.id
+LEFT JOIN department_master  dm  ON al.department            = dm.id
+LEFT JOIN role_master        rm  ON al.role                  = rm.id
+LEFT JOIN plant_master       pm  ON al.location              = pm.id
 
-LEFT JOIN user_master um 
-   ON tc.assigned_to = um.id     -- ✅ join here
+LEFT JOIN task_requests       tr  ON al.task_id               = tr.id
+LEFT JOIN user_requests      ur  ON al.user_request_id       = ur.id
+
+LEFT JOIN user_master        um  ON al.assigned_to           = um.id
 
 ORDER BY al.created_on DESC;
 `

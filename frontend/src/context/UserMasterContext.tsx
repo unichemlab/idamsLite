@@ -75,6 +75,8 @@ const MODULE_TO_ID: Record<string, string> = {
     "Reports": "reports",
     "Task Clouser Bin": "task_clouser_bin",
     "Vendor Information": "vendor_information",
+    "Access Log": "access_log",
+    "Active User Log": "active_user_log",
 };
 
 const toSnakeCase = (str: string) => {
