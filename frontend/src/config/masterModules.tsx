@@ -7,6 +7,7 @@ import {
   FiDatabase,
   FiUsers,
   FiFileText,
+  FiBriefcase
 } from "react-icons/fi";
 
 export interface MenuItem {
@@ -31,29 +32,11 @@ export const MENU_CONFIG: MenuItem[] = [
     permission: "read:dashboard",
   },
   {
-    label: "Activity Logs",
-    route: "/activity-log",
-    icon: FiActivity,
-    permission: "read:activity_logs",
-  },
-  {
     label: "Admin Approval",
     route: "/admin-approval",
     icon: FiCheckSquare,
     permission: "read:admin_approval",
      condition: (user) => user?.isCorporateApprover,
-  },
-  {
-    label: "Access Log",
-    route: "/access-logs",
-    icon: FiFileText,
-    permission: "read:access_log",
-  },
-  {
-    label: "Active User Log",
-    route: "/active-user-logs",
-    icon: FiFileText,
-    permission: "read:active_user_log",
   },
 
   // 🔹 Approval Group
@@ -133,7 +116,31 @@ export const MENU_CONFIG: MenuItem[] = [
       },
     ],
   },
-
+// 🔹 Report GROUP
+  {
+    label: "Report",
+    icon: FiBriefcase,
+    children: [
+       {
+    label: "Access Log",
+    route: "/access-logs",
+    icon: FiFileText,
+    permission: "read:access_log",
+  },
+  {
+    label: "Active User Log",
+    route: "/active-user-logs",
+    icon: FiFileText,
+    permission: "read:active_user_log",
+  },
+  {
+    label: "Activity Logs",
+    route: "/activity-log",
+    icon: FiActivity,
+    permission: "read:activity_logs",
+  }
+    ],
+  },
   {
     label: "Task Closure",
     route: "/task",
