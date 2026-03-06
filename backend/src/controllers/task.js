@@ -1863,7 +1863,7 @@ exports.updateTask = async (req, res) => {
           approver1_name, approver2_name,
           approver1_action, approver2_action,
           approver1_timestamp, approver2_timestamp,
-          approver1_comments, approver2_comments, assignment_group,request_raised_by,request-raised_by_emp_code
+          approver1_comments, approver2_comments, assignment_group,request_raised_by,request_raised_by_emp_code
         ) VALUES (
           $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
           $18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,
