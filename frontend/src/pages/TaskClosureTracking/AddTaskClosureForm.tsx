@@ -134,11 +134,9 @@ const TaskClosureForm = () => {
             assignmentGroup: data.it_admin_group?.assignment_it_group || "",
             assignedTo: data.tasks?.[0]?.assigned_to?.toString() || "",
             // allocatedId: data.allocatedId || "",
-            allocatedId: data.allocatedId || (
-              ["New User Creation", "Bulk New User Creation"].includes(data.access_request_type)
-                ? (data.employee_code || "")
-                : ""
-            ),
+           allocatedId: ["New User Creation", "Bulk New User Creation"].includes(data.access_request_type)
+  ? (data.employee_code || "")
+  : (data.allocatedId || ""),
             // FIX: roleGranted defaults to requestedRole if empty
             roleGranted: data.roleGranted || data.tasks[0].role_name || "",
             access: initialAccess,
