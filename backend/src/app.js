@@ -1073,26 +1073,30 @@ app.get("/api/user/:username", async (req, res) => {
   }
 });
 
-// ✅ API to get laptop login user
+// ─── Replace your existing /api/current-user with this ───────────────────────
+// Only change: added  networkInterfaces: os.networkInterfaces()
+// This gives activityLogger both the MAC address and real LAN IP (server_ip)
+
 app.get("/api/current-user", (req, res) => {
   try {
-    const userInfo = os.userInfo(); // username, homedir, shell
+    const userInfo = os.userInfo();
+
     const systemInfo = {
-      platform: os.platform(), // e.g., 'win32'
-      release: os.release(), // OS version
-      arch: os.arch(), // CPU architecture
-      hostname: os.hostname(), // machine name
-      totalMem: os.totalmem(), // total system memory
-      freeMem: os.freemem(), // free memory
-      cpus: os.cpus().map((cpu) => cpu.model), // CPU model info
+      platform:          os.platform(),                     // 'win32'
+      release:           os.release(),                      // '10.0.26200'
+      arch:              os.arch(),                         // 'x64'
+      hostname:          os.hostname(),                     // 'ULLLSELT0271'
+      totalMem:          os.totalmem(),                     // bytes
+      freeMem:           os.freemem(),                      // bytes
+      cpus:              os.cpus().map((cpu) => cpu.model), // ['12th Gen Intel...']
+      networkInterfaces: os.networkInterfaces(),            // ← NEW: MAC + LAN IP
     };
 
     res.json({
-      username: userInfo.username,
-      homedir: userInfo.homedir,
-      shell: userInfo.shell,
-      system: systemInfo,
-      os: os
+      username: userInfo.username,   // 'nishant1.singh'
+      homedir:  userInfo.homedir,    // 'C:\Users\nishant1.singh'
+      shell:    userInfo.shell,
+      system:   systemInfo,
     });
   } catch (err) {
     console.error(err);

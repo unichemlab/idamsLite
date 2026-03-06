@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const { logActivity } = require("../utils/activityLogger");
+const path = require("path"); // ✅ ADDED
 
 // Helper to get user request details
 async function getUserRequestById(userRequestId) {
@@ -13,6 +14,76 @@ async function getTasksByUserRequestId(userRequestId) {
   const q = `SELECT * FROM task_requests WHERE user_request_id = $1`;
   const { rows } = await db.query(q, [userRequestId]);
   return rows;
+}
+
+// ✅ ADDED - Insert access log for each task (mirrored from approvalController.js)
+async function insertAccessLog(request, task, action, approverEmail, approverName) {
+  const isApprover2 = request.approver2_emails?.includes(approverEmail)
+    || request.approver2_email?.includes(approverEmail);
+
+  await db.query(
+    `INSERT INTO access_log(
+      user_request_id,
+      task_id,
+      ritm_transaction_id,
+      task_transaction_id,
+      request_for_by, name, employee_code, employee_location,
+      access_request_type, training_status,
+      vendor_firm, vendor_code, vendor_name, vendor_allocated_id,
+      user_request_status, task_status,
+      application_equip_id, department, role, location, reports_to,
+      approver1_status, approver2_status, approver1_email, approver2_email,
+      approver1_name, approver2_name,
+      approver1_action, approver2_action,
+      approver1_timestamp, approver2_timestamp,
+      created_on, updated_on, completed_at, remarks
+    ) VALUES(
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
+      $11,$12,$13,$14,$15,$16,
+      $17,$18,$19,$20,$21,
+      $22,$23,$24,$25,
+      $26,$27,$28,$29,
+      $30,$31,
+      $32,$33,$34,$35
+    )`,
+    [
+      request.id,
+      task.id,
+      request.transaction_id,
+      task.transaction_id || task.task_id,
+      request.request_for_by,
+      request.name,
+      request.employee_code,
+      request.employee_location,
+      request.access_request_type,
+      request.training_status,
+      request.vendor_firm,
+      request.vendor_code,
+      request.vendor_name,
+      request.vendor_allocated_id,
+      request.status,
+      task.task_status,
+      task.application_equip_id,
+      task.department,
+      task.role,
+      task.location,
+      task.reports_to,
+      request.approver1_status,
+      request.approver2_status,
+      request.approver1_email,
+      request.approver2_email || request.approver2_emails,
+      request.approver1_name || null,
+      isApprover2 ? approverName : null,
+      isApprover2 ? null : action,
+      isApprover2 ? action : null,
+      request.approver1_timestamp || null,
+      isApprover2 ? new Date() : null,
+      request.created_on,
+      request.updated_on,
+      request.completed_at,
+      task.remarks,
+    ]
+  );
 }
 
 // Approve request by user_requests.id
@@ -140,15 +211,6 @@ exports.approveByTransaction = async (req, res) => {
       });
     }
 
-    // Check if approver 2 has already acted (someone from the pool already approved/rejected)
-    if (isApprover2 && userRequest.approver2_status && userRequest.approver2_status !== 'Pending') {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ 
-        error: `This request has already been ${userRequest.approver2_status.toLowerCase()} by another Approver 2`,
-        actedBy: userRequest.approver2_email
-      });
-    }
-
     // Get old state for logging
     const oldTasks = await getTasksByUserRequestId(userRequestId);
 
@@ -164,7 +226,7 @@ exports.approveByTransaction = async (req, res) => {
         WHERE id = $1 
         RETURNING *`;
       userRequestParams = [userRequestId];
-    } else     if (isApprover2) {
+    } else if (isApprover2) {
       // If approver 2 approves, set their email and complete the request
       userRequestUpdateQuery = `
         UPDATE user_requests 
@@ -198,7 +260,7 @@ exports.approveByTransaction = async (req, res) => {
         WHERE user_request_id = $3 
         RETURNING *`;
       taskParams = [approverName, comments || null, userRequestId];
-    } else     if (isApprover2) {
+    } else if (isApprover2) {
       // Approver 2 approval - also update task_status to Approved and set approver2_email, approver2_id, and approver2_name
       taskUpdateQuery = `
         UPDATE task_requests 
@@ -245,6 +307,19 @@ exports.approveByTransaction = async (req, res) => {
         comments: `Task approved by ${approverName || `Approver ${approver_id}`} (Level ${isApprover1 ? 1 : 2})`,
         reqMeta: req._meta,
       });
+    }
+
+    // ✅ ADDED - Insert access log for each task when approver 2 approves (request completed)
+    if (isApprover2) {
+      for (const task of updatedTasks) {
+        await insertAccessLog(
+          { ...updatedUserRequest, approver2_emails: updatedUserRequest.approver2_email },
+          task,
+          "approve",
+          approverEmail,
+          approverName
+        );
+      }
     }
 
     await client.query('COMMIT');
@@ -403,7 +478,7 @@ exports.rejectByTransaction = async (req, res) => {
         WHERE id = $1 
         RETURNING *`;
       userRequestParams = [userRequestId];
-    } else     if (isApprover2) {
+    } else if (isApprover2) {
       // If approver 2 rejects, set their email and reject the entire request
       userRequestUpdateQuery = `
         UPDATE user_requests 
@@ -438,7 +513,7 @@ exports.rejectByTransaction = async (req, res) => {
         WHERE user_request_id = $3 
         RETURNING *`;
       taskParams = [approverName, comments, userRequestId];
-    } else     if (isApprover2) {
+    } else if (isApprover2) {
       taskUpdateQuery = `
         UPDATE task_requests 
         SET approver2_action = 'Rejected',
@@ -484,6 +559,17 @@ exports.rejectByTransaction = async (req, res) => {
         comments: `Task rejected by ${approverName || `Approver ${approver_id}`} (Level ${isApprover1 ? 1 : 2})`,
         reqMeta: req._meta,
       });
+    }
+
+    // ✅ ADDED - Insert access log for each task on any rejection (either approver level)
+    for (const task of updatedTasks) {
+      await insertAccessLog(
+        { ...updatedUserRequest, approver2_emails: updatedUserRequest.approver2_email },
+        task,
+        "reject",
+        approverEmail,
+        approverName
+      );
     }
 
     await client.query('COMMIT');

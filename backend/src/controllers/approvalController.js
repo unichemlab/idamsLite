@@ -3,6 +3,7 @@
 const pool = require("../config/db");
 const { sendEmail } = require("../utils/email");
 const { getApprovalEmail } = require("../utils/emailTemplate");
+const { logActivity } = require("../utils/activityLogger"); // ✅ ADDED
 const path = require("path");
 
 // --------------------- TOKEN HELPERS ---------------------
@@ -94,12 +95,16 @@ exports.handleApproval = async (req, res) => {
     if (!["approve", "reject"].includes(action)) {
       return res.status(400).send("Invalid action type");
     }
-console.log("approverID",id, approverEmail, action);
+    console.log("approverID", id, approverEmail, action);
+
     // Fetch the full request + task data
     const data = await getUserRequestWithTasks(id);
     if (!data) return res.status(404).send("Request not found");
 
     const { request, tasks } = data;
+    // ✅ Snapshot old request state for logging
+    const oldRequest = { ...request };
+
     request.approver2_emails = tasks[0]?.approver2_emails;
     console.log("request", request);
     console.log("tasks", tasks);
@@ -147,21 +152,51 @@ console.log("approverID",id, approverEmail, action);
         const approver1Name =
           approver1Result.rows[0]?.employee_name || approverEmail;
 
-        await pool.query(
+        const { rows: [updatedRequest] } = await pool.query(
           `UPDATE user_requests 
            SET approver1_status='Approved', updated_on=NOW() 
-           WHERE id=$1`,
+           WHERE id=$1
+           RETURNING *`,
           [id]
         );
 
         // Update task_requests with approver1 action details
-        await pool.query(
+        const { rows: updatedTasks } = await pool.query(
           `UPDATE task_requests 
            SET approver1_action='Approved', approver1_action_timestamp=NOW(),
                approver1_comments=$1
-           WHERE user_request_id=$2`,
+           WHERE user_request_id=$2
+           RETURNING *`,
           [null, id]
         );
+
+        // ✅ Log activity for approver 1 approval
+        await logActivity({
+          userId: null,
+          module: "approvals",
+          tableName: "user_requests",
+          recordId: id,
+          action: "approve",
+          oldValue: oldRequest,
+          newValue: updatedRequest,
+          comments: `Request approved by Approver 1 (${approver1Name}) via email link | token: ${token}`,
+          reqMeta: { ...req._meta, approvalToken: token, approverType: "approver1" },
+        });
+
+        for (const task of updatedTasks) {
+          const oldTask = tasks.find((t) => t.id === task.id);
+          await logActivity({
+            userId: null,
+            module: "approvals",
+            tableName: "task_requests",
+            recordId: task.id,
+            action: "approve",
+            oldValue: oldTask,
+            newValue: task,
+            comments: `Task approved by Approver 1 (${approver1Name}) via email link | token: ${token}`,
+            reqMeta: { ...req._meta, approvalToken: token, approverType: "approver1" },
+          });
+        }
 
         // Create and send tokens for all Approver 2 users
         if (request.approver2_emails) {
@@ -235,18 +270,50 @@ console.log("approverID",id, approverEmail, action);
         const approver1Name =
           approver1Result.rows[0]?.employee_name || approverEmail;
 
-        await pool.query(
-          "UPDATE user_requests SET status='Rejected', approver1_status='Rejected', updated_on=NOW() WHERE id=$1",
+        const { rows: [updatedRequest] } = await pool.query(
+          `UPDATE user_requests 
+           SET status='Rejected', approver1_status='Rejected', updated_on=NOW() 
+           WHERE id=$1
+           RETURNING *`,
           [id]
         );
 
         // Update task_requests with approver1 rejection
-        await pool.query(
+        const { rows: updatedTasks } = await pool.query(
           `UPDATE task_requests 
            SET approver1_action='Rejected', approver1_action_timestamp=NOW()
-           WHERE user_request_id=$1`,
+           WHERE user_request_id=$1
+           RETURNING *`,
           [id]
         );
+
+        // ✅ Log activity for approver 1 rejection
+        await logActivity({
+          userId: null,
+          module: "approvals",
+          tableName: "user_requests",
+          recordId: id,
+          action: "reject",
+          oldValue: oldRequest,
+          newValue: updatedRequest,
+          comments: `Request rejected by Approver 1 (${approver1Name}) via email link | token: ${token}`,
+          reqMeta: { ...req._meta, approvalToken: token, approverType: "approver1" },
+        });
+
+        for (const task of updatedTasks) {
+          const oldTask = tasks.find((t) => t.id === task.id);
+          await logActivity({
+            userId: null,
+            module: "approvals",
+            tableName: "task_requests",
+            recordId: task.id,
+            action: "reject",
+            oldValue: oldTask,
+            newValue: task,
+            comments: `Task rejected by Approver 1 (${approver1Name}) via email link | token: ${token}`,
+            reqMeta: { ...req._meta, approvalToken: token, approverType: "approver1" },
+          });
+        }
 
         return res.send("❌ You rejected the request.");
       }
@@ -265,17 +332,21 @@ console.log("approverID",id, approverEmail, action);
         const approver2Name =
           approver2Result.rows[0]?.employee_name || approverEmail;
 
-        await pool.query(
-          "UPDATE user_requests SET approver2_status='Approved', status='Completed', completed_at=NOW() WHERE id=$1",
+        const { rows: [updatedRequest] } = await pool.query(
+          `UPDATE user_requests 
+           SET approver2_status='Approved', status='Completed', completed_at=NOW() 
+           WHERE id=$1
+           RETURNING *`,
           [id]
         );
 
         // Update task_requests with approver2 action details
-        await pool.query(
+        const { rows: updatedTasks } = await pool.query(
           `UPDATE task_requests 
            SET approver2_action='Approved', approver2_action_timestamp=NOW(),
                approver2_name=$1, approver2_email=$2
-           WHERE user_request_id=$3`,
+           WHERE user_request_id=$3
+           RETURNING *`,
           [approver2Name, approverEmail, id]
         );
 
@@ -286,6 +357,34 @@ console.log("approverID",id, approverEmail, action);
            WHERE request_id=$1 AND approver_type='approver2'`,
           [id, action]
         );
+
+        // ✅ Log activity for approver 2 approval
+        await logActivity({
+          userId: null,
+          module: "approvals",
+          tableName: "user_requests",
+          recordId: id,
+          action: "approve",
+          oldValue: oldRequest,
+          newValue: updatedRequest,
+          comments: `Request approved by Approver 2 (${approver2Name}) via email link | token: ${token}`,
+          reqMeta: { ...req._meta, approvalToken: token, approverType: "approver2" },
+        });
+
+        for (const task of updatedTasks) {
+          const oldTask = tasks.find((t) => t.id === task.id);
+          await logActivity({
+            userId: null,
+            module: "approvals",
+            tableName: "task_requests",
+            recordId: task.id,
+            action: "approve",
+            oldValue: oldTask,
+            newValue: task,
+            comments: `Task approved by Approver 2 (${approver2Name}) via email link | token: ${token}`,
+            reqMeta: { ...req._meta, approvalToken: token, approverType: "approver2" },
+          });
+        }
 
         // INSERT ACCESS LOG FOR EACH TASK
         for (const task of tasks) {
@@ -307,17 +406,21 @@ console.log("approverID",id, approverEmail, action);
         const approver2Name =
           approver2Result.rows[0]?.employee_name || approverEmail;
 
-        await pool.query(
-          "UPDATE user_requests SET status='Rejected', approver2_status='Rejected', updated_on=NOW() WHERE id=$1",
+        const { rows: [updatedRequest] } = await pool.query(
+          `UPDATE user_requests 
+           SET status='Rejected', approver2_status='Rejected', updated_on=NOW() 
+           WHERE id=$1
+           RETURNING *`,
           [id]
         );
 
         // Update task_requests with approver2 rejection
-        await pool.query(
+        const { rows: updatedTasks } = await pool.query(
           `UPDATE task_requests 
            SET approver2_action='Rejected', approver2_action_timestamp=NOW(),
                approver2_name=$1, approver2_email=$2
-           WHERE user_request_id=$3`,
+           WHERE user_request_id=$3
+           RETURNING *`,
           [approver2Name, approverEmail, id]
         );
 
@@ -327,6 +430,35 @@ console.log("approverID",id, approverEmail, action);
            WHERE request_id=$1 AND approver_type='approver2'`,
           [id, action]
         );
+
+        // ✅ Log activity for approver 2 rejection
+        await logActivity({
+          userId: null,
+          module: "approvals",
+          tableName: "user_requests",
+          recordId: id,
+          action: "reject",
+          oldValue: oldRequest,
+          newValue: updatedRequest,
+          comments: `Request rejected by Approver 2 (${approver2Name}) via email link | token: ${token}`,
+          reqMeta: { ...req._meta, approvalToken: token, approverType: "approver2" },
+        });
+
+        for (const task of updatedTasks) {
+          const oldTask = tasks.find((t) => t.id === task.id);
+          await logActivity({
+            userId: null,
+            module: "approvals",
+            tableName: "task_requests",
+            recordId: task.id,
+            action: "reject",
+            oldValue: oldTask,
+            newValue: task,
+            comments: `Task rejected by Approver 2 (${approver2Name}) via email link | token: ${token}`,
+            reqMeta: { ...req._meta, approvalToken: token, approverType: "approver2" },
+          });
+        }
+
         console.log("tasks", tasks);
         // INSERT ACCESS LOG FOR EACH TASK
         for (const task of tasks) {
@@ -352,7 +484,7 @@ console.log("approverID",id, approverEmail, action);
   }
 };
 
-// --------------------- HANDLE APPROVAL ---------------------
+// --------------------- INSERT ACCESS LOG ---------------------
 async function insertAccessLog(
   request,
   task,
@@ -438,7 +570,7 @@ exports.approveRejectRequest = async (req, res) => {
   }
 
   try {
-    console.log("approverID",id, approverEmail, action);
+    console.log("approverID", id, approverEmail, action);
     const data = await getUserRequestWithTasks(id);
     if (!data) return res.status(404).json({ error: "Request not found" });
 
