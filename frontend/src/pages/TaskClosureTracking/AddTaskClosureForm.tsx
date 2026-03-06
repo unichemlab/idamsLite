@@ -44,6 +44,8 @@ const TaskClosureForm = () => {
     fromDate: new Date().toISOString().split("T")[0],
     toDate: "",
     userEmail: "",
+    vendorFirm: "",
+    vendorName: "",
   });
 
 
@@ -131,7 +133,12 @@ const TaskClosureForm = () => {
             taskNumber: data.tasks[0].taskNumber || "",
             assignmentGroup: data.it_admin_group?.assignment_it_group || "",
             assignedTo: data.tasks?.[0]?.assigned_to?.toString() || "",
-            allocatedId: data.allocatedId || "",
+            // allocatedId: data.allocatedId || "",
+            allocatedId: data.allocatedId || (
+              ["New User Creation", "Bulk New User Creation"].includes(data.access_request_type)
+                ? (data.employee_code || "")
+                : ""
+            ),
             // FIX: roleGranted defaults to requestedRole if empty
             roleGranted: data.roleGranted || data.tasks[0].role_name || "",
             access: initialAccess,
@@ -146,6 +153,8 @@ const TaskClosureForm = () => {
             fromDate: data.fromDate ? new Date(data.fromDate).toISOString().split("T")[0] : "",
             toDate: data.toDate ? new Date(data.toDate).toISOString().split("T")[0] : "",
             userEmail: data.email || "", // Capture user email from API
+            vendorFirm: data.vendor_firm || "",
+            vendorName: data.vendor_name || "",
           });
 
 
@@ -240,11 +249,11 @@ const TaskClosureForm = () => {
       }
 
       // Additional validation: If status is "Closed", access cannot be "Not Processed"
-      if (formData.access === "Not Processed") {
-        errors.push(
-          `❌ Cannot close task with Access status "Not Processed". Please grant or revoke access first.`
-        );
-      }
+      // if (formData.access === "Not Processed") {
+      //   errors.push(
+      //     `❌ Cannot close task with Access status "Not Processed". Please grant or revoke access first.`
+      //   );
+      // }
     }
 
     // // RULE 12: Validate access options for grant-type requests
@@ -281,48 +290,69 @@ const TaskClosureForm = () => {
     // }
 
 
-// RULE 12 & 13: Validate access against BOTH access_request_type AND task_action.
-//
-// Priority logic:
-//   1. If task_action = "Revoke" → always treat as Revoke (RULE 13)
-//      even if access_request_type = "Modify Access" (which is a Grant type by name)
-//   2. If task_action = "Grant" (or missing) → fall back to access_request_type check
-//
-// This handles the Modify Access case where one sibling task is Grant
-// and another is Revoke under the same RITM.
+    // RULE 12 & 13: Validate access against BOTH access_request_type AND task_action.
+    //
+    // Priority logic:
+    //   1. If task_action = "Revoke" → always treat as Revoke (RULE 13)
+    //      even if access_request_type = "Modify Access" (which is a Grant type by name)
+    //   2. If task_action = "Grant" (or missing) → fall back to access_request_type check
+    //
+    // This handles the Modify Access case where one sibling task is Grant
+    // and another is Revoke under the same RITM.
 
-const isRevokeTask =
-  formData.task_action === "Revoke" ||
-  [
-    "Deactivation / Disable / Remove User Access",
-    "Bulk De-activation",
-  ].includes(formData.access_request_type);
+    const isRevokeTask =
+      formData.task_action === "Revoke" ||
+      [
+        "Deactivation / Disable / Remove User Access",
+        "Bulk De-activation",
+      ].includes(formData.access_request_type);
 
-const isGrantTask =
-  !isRevokeTask &&
-  (
-    formData.task_action === "Grant" ||
-    [
-      "New User Creation",
-      "Modify Access",
-      "Active / Enable User Access",
-      "Password Reset",
-      "Account Unlock",
-      "Account Unlock and Password Reset",
-      "Bulk New User Creation",
-    ].includes(formData.access_request_type)
-  );
+    const isGrantTask =
+      !isRevokeTask &&
+      (
+        formData.task_action === "Grant" ||
+        [
+          "New User Creation",
+          "Modify Access",
+          "Active / Enable User Access",
+          "Password Reset",
+          "Account Unlock",
+          "Account Unlock and Password Reset",
+          "Bulk New User Creation",
+        ].includes(formData.access_request_type)
+      );
 
-if (isRevokeTask && formData.access === "Granted") {
+    if (isRevokeTask && formData.access === "Granted") {
+      errors.push(
+        `❌ This is a Revoke task. Access cannot be "Granted". Only "Revoked" or "Not Processed" are allowed.`
+      );
+    }
+
+    if (isGrantTask && formData.access === "Revoked") {
+      errors.push(
+        `❌ This is a Grant task. Access cannot be "Revoked". Only "Granted" or "Not Processed" are allowed.`
+      );
+    }
+   
+
+   // RULE: Remarks mandatory when access = "Not Processed"
+if (formData.requestStatus === "Closed"&&formData.access === "Not Processed" && !formData.remarks?.trim()) {
   errors.push(
-    `❌ This is a Revoke task. Access cannot be "Granted". Only "Revoked" or "Not Processed" are allowed.`
+    "❌ REMARKS REQUIRED: Remarks are mandatory when Access is set to 'Not Processed'."
   );
 }
 
-if (isGrantTask && formData.access === "Revoked") {
-  errors.push(
-    `❌ This is a Grant task. Access cannot be "Revoked". Only "Granted" or "Not Processed" are allowed.`
-  );
+// RULE: Vendor Firm & Vendor Name mandatory when requestBy = "Vendor/OEM"
+if (
+  formData.requestBy?.toLowerCase().includes("vendor") ||
+  formData.requestBy?.toLowerCase().includes("oem")
+) {
+  if (!formData.vendorFirm?.trim()) {
+    errors.push("❌ VENDOR FIRM REQUIRED: Vendor Firm is mandatory for Vendor/OEM requests.");
+  }
+  if (!formData.vendorName?.trim()) {
+    errors.push("❌ VENDOR NAME REQUIRED: Vendor Name is mandatory for Vendor/OEM requests.");
+  }
 }
 
 
@@ -388,7 +418,7 @@ if (isGrantTask && formData.access === "Revoked") {
 
       console.log("Submitting task closure:", formData);
 
-       await updateTaskAPI(id, {
+      await updateTaskAPI(id, {
         requestStatus: formData.requestStatus,
         task_data: formData,
       });
@@ -617,6 +647,34 @@ if (isGrantTask && formData.access === "Revoked") {
                   <label htmlFor="status" className={addUserRequestStyles.floatingLabel}>Status</label>
                 </div>
               </div>
+              {/* Vendor fields - shown only for Vendor/OEM */}
+{(formData.requestBy?.toLowerCase().includes("vendor") ||
+  formData.requestBy?.toLowerCase().includes("oem")) && (
+  <div className={addUserRequestStyles.sixCol}>
+    <div  className={`${addUserRequestStyles.formGroup} ${addUserRequestStyles.span2}`}>
+      <input
+        name="vendorFirm"
+        value={formData.vendorFirm}
+        onChange={handleChange}
+        readOnly
+      />
+      <label htmlFor="vendorFirm" className={addUserRequestStyles.floatingLabel}>
+        Vendor Firm *
+      </label>
+    </div>
+    <div  className={`${addUserRequestStyles.formGroup} ${addUserRequestStyles.span2}`}>
+      <input
+        name="vendorName"
+        value={formData.vendorName}
+        onChange={handleChange}
+        readOnly
+      />
+      <label htmlFor="vendorName" className={addUserRequestStyles.floatingLabel}>
+        Vendor Name *
+      </label>
+    </div>
+  </div>
+)}
             </div>
 
             {/* ===================== Task Details ===================== */}
