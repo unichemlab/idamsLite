@@ -103,7 +103,7 @@ const getUserRequestWithTasks = async (id) => {
             p.plant_name AS location_name,
             tr.reports_to,
             tr.task_status,
-            tr.task_action,
+            tr.task_action
      FROM task_requests tr
      LEFT JOIN department_master d ON tr.department = d.id
      LEFT JOIN role_master r ON tr.role = r.id
