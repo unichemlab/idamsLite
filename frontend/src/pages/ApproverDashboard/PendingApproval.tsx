@@ -323,6 +323,7 @@ const PendingApprovalPage: React.FC = () => {
   }
 
   const handleApprove = async () => {
+    console.log("selectedRequest handleApprove",selectedRequest);
     if (!selectedRequest || !user?.id) return;
     setActionInProgress(true);
     try {

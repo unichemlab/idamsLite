@@ -81,7 +81,6 @@ const { getApprovalEmail } = require("../utils/emailTemplate");
 const pool = require("../config/db");
 const path = require("path");
 const fs = require("fs");
-const { logActivity } = require("../utils/activityLogger");
 // Helper: fetch user request and tasks
 const getUserRequestWithTasks = async (id) => {
   const { rows: userRows } = await pool.query(
@@ -406,19 +405,6 @@ console.log("Created user request:", userRequest);
       });
     }
 
-    // Log activity for user request creation
-    await logActivity({
-      userId: req.user?.id || null,
-      module: "user_requests",
-      tableName: "user_requests",
-      recordId: userRequest.id,
-      action: "insert",
-      oldValue: null,
-      newValue: user_request,
-      comments: `User request created: ${userRequest.transaction_id} for ${name} (${access_request_type})`,
-      reqMeta: req._meta,
-    });
-
     res.status(201).json({
       userTransactionId: userRequest.transaction_id,
       userRequest: user_request,
@@ -455,10 +441,6 @@ exports.updateUserRequest = async (req, res) => {
   const training_attachment_name = req.file ? req.file.originalname : null;
 
   try {
-    // Fetch old value for activity log
-    const { rows: oldRows } = await pool.query(`SELECT * FROM user_requests WHERE id=$1`, [id]);
-    const oldRequest = oldRows[0] || null;
-
     const { rows } = await pool.query(
       `UPDATE user_requests SET
       request_for_by=$1, name=$2, employee_code=$3, employee_location=$4, access_request_type=$5,
@@ -507,19 +489,6 @@ exports.updateUserRequest = async (req, res) => {
       );
     }
 
-    // Log activity for user request update
-    await logActivity({
-      userId: req.user?.id || null,
-      module: "user_requests",
-      tableName: "user_requests",
-      recordId: id,
-      action: "update",
-      oldValue: oldRequest,
-      newValue: updatedRequest,
-      comments: `User request updated: ${updatedRequest.transaction_id} for ${updatedRequest.name}`,
-      reqMeta: req._meta,
-    });
-
     res.json(updatedRequest);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -532,25 +501,7 @@ exports.updateUserRequest = async (req, res) => {
 exports.deleteUserRequest = async (req, res) => {
   const { id } = req.params;
   try {
-    // Fetch old value before deleting for activity log
-    const { rows: oldRows } = await pool.query(`SELECT * FROM user_requests WHERE id=$1`, [id]);
-    const oldRequest = oldRows[0] || null;
-
     await pool.query("DELETE FROM user_requests WHERE id=$1", [id]);
-
-    // Log activity for deletion
-    await logActivity({
-      userId: req.user?.id || null,
-      module: "user_requests",
-      tableName: "user_requests",
-      recordId: id,
-      action: "delete",
-      oldValue: oldRequest,
-      newValue: null,
-      comments: `User request deleted: ${oldRequest?.transaction_id || id} for ${oldRequest?.name || "unknown"}`,
-      reqMeta: req._meta,
-    });
-
     res.status(204).end();
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1856,3 +1807,5 @@ console.log("openRequest",openRequests);
     client.release();
   }
 };
+
+

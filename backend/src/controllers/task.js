@@ -1,5 +1,6 @@
 const pool = require("../config/db");
 const bcrypt = require("bcryptjs");
+const { logActivity } = require("../utils/activityLogger");
 /**
  * @swagger
  * /api/tasks:
@@ -1954,6 +1955,91 @@ exports.updateTask = async (req, res) => {
       }
     }
 
+    // ── 7. Log the task update activity ────────────────────────────────────
+    // Determines action label: task_close (status=Closed), task_open (re-open),
+    // or generic update — so the audit trail is meaningful.
+    const activityAction =
+      requestStatus === "Closed" || requestStatus === "Completed"
+        ? "task_close"
+        : requestStatus === "Open" || requestStatus === "Pending"
+        ? "task_open"
+        : "update";
+
+    await logActivity({
+      userId: req.user?.id || null,
+      module: "task_requests",
+      tableName: "task_requests",
+      recordId: id,
+      action: activityAction,
+      oldValue: {
+        task: existingTask,
+        user_request: {
+          id: existingTask.user_request_id,
+          transaction_id: existingTask.ritm_transaction_id,
+          request_for_by: existingTask.request_for_by,
+          name: existingTask.name,
+          employee_code: existingTask.employee_code,
+          access_request_type: existingTask.access_request_type,
+          user_request_status: existingTask.user_request_status,
+          approver1_status: existingTask.approver1_status,
+          approver2_status: existingTask.approver2_status,
+        },
+      },
+      newValue: {
+        task: {
+          ...updatedRequest,
+          // Enriched names for readable modal display
+          application_name: existingTask.application_name,
+          role_name: existingTask.role_name,
+          department_name: existingTask.department_name,
+          plant_name: existingTask.plant_name,
+          task_action: taskAction,
+        },
+        user_request: {
+          id: existingTask.user_request_id,
+          transaction_id: existingTask.ritm_transaction_id,
+          request_for_by: existingTask.request_for_by,
+          name: existingTask.name,
+          employee_code: existingTask.employee_code,
+          access_request_type: existingTask.access_request_type,
+        },
+        // Task closure details — what was actually provisioned
+        task_closure: closureRows[0]
+          ? {
+              ritm_number: closureRows[0].ritm_number,
+              task_number: closureRows[0].task_number,
+              assignment_group: closureRows[0].assignment_group,
+              assigned_to: closureRows[0].assigned_to,
+              role_granted: closureRows[0].role_granted,
+              access: closureRows[0].access,
+              allocated_id: closureRows[0].allocated_id,
+              status: closureRows[0].status,
+              from_date: closureRows[0].from_date,
+              to_date: closureRows[0].to_date,
+              task_action: closureRows[0].task_action,
+              access_request_type: closureRows[0].access_request_type,
+              plant_name: closureRows[0].plant_name,
+              department: closureRows[0].department,
+              application_name: closureRows[0].application_name,
+              requested_role: closureRows[0].requested_role,
+              request_raised_by: closureRows[0].request_raised_by,
+              request_raised_by_emp_code: closureRows[0].request_raised_by_emp_code,
+            }
+          : null,
+        access_log: accessLogResult
+          ? {
+              id: accessLogResult.id,
+              task_status: accessLogResult.task_status,
+              access: accessLogResult.access,
+              task_action: accessLogResult.task_action,
+              role_granted: accessLogResult.role_granted,
+            }
+          : null,
+      },
+      comments: `Task ${activityAction === "task_close" ? "closed" : activityAction === "task_open" ? "re-opened" : "updated"}: ${existingTask.transaction_id} | RITM: ${existingTask.ritm_transaction_id} | App: ${existingTask.application_name} | Role: ${existingTask.role_name} | Action: ${taskAction} | Status: ${requestStatus}`,
+      reqMeta: req._meta,
+    });
+
     await client.query("COMMIT");
 
     res.status(200).json({
@@ -1961,6 +2047,23 @@ exports.updateTask = async (req, res) => {
       updatedRequest,
       taskClosure: closureRows[0],
       accessLog: accessLogResult,
+      // Enrich response with human-readable details for frontend modal
+      taskDetails: {
+        transaction_id: existingTask.transaction_id,
+        ritm_transaction_id: existingTask.ritm_transaction_id,
+        application_name: existingTask.application_name,
+        role_name: existingTask.role_name,
+        department_name: existingTask.department_name,
+        plant_name: existingTask.plant_name,
+        task_action: taskAction,
+        request_for_by: existingTask.request_for_by,
+        employee_name: existingTask.name,
+        employee_code: existingTask.employee_code,
+        approver1_name: existingTask.approver1_name,
+        approver2_name: existingTask.approver2_name,
+        approver1_status: existingTask.approver1_status,
+        approver2_status: existingTask.approver2_status,
+      },
     });
   } catch (err) {
     await client.query("ROLLBACK");
@@ -1990,9 +2093,10 @@ exports.getUserTaskRequestById = async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Step 1: Fetch user request + task info + task_closure
+    // Step 1: Fetch user request + task info + full approval trail + task_closure
     const { rows } = await pool.query(
       `SELECT 
+          -- ── User Request ──────────────────────────────────────────────────
           ur.id AS user_request_id,
           ur.transaction_id AS user_request_transaction_id,
           ur.request_for_by,
@@ -2011,58 +2115,72 @@ exports.getUserTaskRequestById = async (req, res) => {
           ur.approver1_status,
           ur.approver2_status,
           ur.user_request_type,
-         ur.from_date::text AS user_request_from_date,
-         ur.to_date::text AS user_request_to_date,
+          ur.from_date::text  AS user_request_from_date,
+          ur.to_date::text    AS user_request_to_date,
           ur.created_on,
-          tr.id AS task_id,
-          tr.transaction_id AS task_request_transaction_id,
+          -- ── Task Request ──────────────────────────────────────────────────
+          tr.id               AS task_id,
+          tr.transaction_id   AS task_request_transaction_id,
           tr.application_equip_id,
           tr.task_action,
-          tr.created_on AS task_created,
-          tr.updated_on AS task_updated,
-          app.display_name AS application_name,
+          tr.created_on       AS task_created,
+          tr.updated_on       AS task_updated,
           tr.department,
-          d.department_name,
           tr.role,
-          r.role_name AS role_name,
-          p.id AS plant_id,
-          p.plant_name AS plant_name,
           tr.location,
           tr.reports_to,
           tr.task_status,
           tr.remarks,
-
-         -- 🧩 Task Closure info (if exists)
+          -- Approval trail — all columns surfaced for modal
+          tr.approver1_name,
+          tr.approver2_name,
+          tr.approver1_email,
+          tr.approver2_email,
+          tr.approver1_action,
+          tr.approver2_action,
+          tr.approver1_action_timestamp,
+          tr.approver2_action_timestamp,
+          tr.approver1_comments,
+          tr.approver2_comments,
+          -- ── Lookups ───────────────────────────────────────────────────────
+          app.display_name    AS application_name,
+          d.department_name,
+          r.role_name         AS role_name,
+          p.id                AS plant_id,
+          p.plant_name        AS plant_name,
+          -- ── Task Closure (what IT actually provisioned) ───────────────────
           tc.assignment_group,
           tc.role_granted,
           tc.access,
           tc.assigned_to,
           tc.allocated_id,
-          tc.status,
-          tc.from_date::text as from_date,
-          tc.to_date::text as to_date,
-          tc.updated_on,
-          umr.employee_name AS username,
-          umr.email AS userEmail,
-
-          -- 🧩 Assigned User info (from user_master)
-          um.employee_name AS assigned_to_name,
-          um.email AS closure_assigned_to_email,
-          um.department AS closure_assigned_to_department,
-          um.location AS closure_assigned_to_location    
+          tc.status           AS closure_status,
+          tc.from_date::text  AS from_date,
+          tc.to_date::text    AS to_date,
+          tc.updated_on       AS closure_updated_on,
+          tc.task_action      AS closure_task_action,
+          tc.additional_info,
+          tc.request_raised_by,
+          tc.request_raised_by_emp_code,
+          -- ── Employee / Assigned user names ────────────────────────────────
+          umr.employee_name   AS username,
+          umr.email           AS userEmail,
+          um.employee_name    AS assigned_to_name,
+          um.email            AS closure_assigned_to_email,
+          um.department       AS closure_assigned_to_department,
+          um.location         AS closure_assigned_to_location
 
        FROM task_requests tr
-       LEFT JOIN user_requests ur ON tr.user_request_id = ur.id
-       LEFT JOIN department_master d ON tr.department = d.id
-       LEFT JOIN role_master r ON tr.role = r.id
-       LEFT JOIN plant_master p ON tr.location = p.id
+       LEFT JOIN user_requests     ur  ON tr.user_request_id      = ur.id
+       LEFT JOIN department_master d   ON tr.department           = d.id
+       LEFT JOIN role_master       r   ON tr.role                 = r.id
+       LEFT JOIN plant_master      p   ON tr.location             = p.id
        LEFT JOIN application_master app ON tr.application_equip_id = app.id
-       LEFT JOIN task_closure tc 
-              ON tc.ritm_number = ur.transaction_id 
+       LEFT JOIN task_closure      tc
+              ON tc.ritm_number = ur.transaction_id
              AND tc.task_number = tr.transaction_id
-       LEFT JOIN user_master um ON tc.assigned_to = um.id
-       LEFT JOIN user_master umr 
-        ON ur.employee_code = umr.employee_code
+       LEFT JOIN user_master um  ON tc.assigned_to = um.id
+       LEFT JOIN user_master umr ON ur.employee_code = umr.employee_code
        WHERE tr.id = $1
        ORDER BY tr.id`,
       [id]
@@ -2147,35 +2265,44 @@ const TaskClosureAllocated = await pool.query(
       assignedUserDetails = assignedUserQuery.rows[0] || null;
     }
 
-    // Step 6: Structure final response
+    // Step 6: Structure final response — enriched for task modal display
     const userRequest = {
+      // ── User Request details ──────────────────────────────────────────────
       id: rows[0].user_request_id,
-      request_for_by: rows[0].request_for_by,
       ritmNumber: rows[0].user_request_transaction_id,
+      request_for_by: rows[0].request_for_by,
       name: rows[0].name,
+      email: rows[0].useremail,
       employee_code: rows[0].employee_code,
-      request_created_on: rows[0].created_on,
       employee_location: rows[0].employee_location,
+      request_created_on: rows[0].created_on,
       access_request_type: rows[0].access_request_type,
-      training_status: rows[0].training_status,
-      training_attachment: rows[0].training_attachment,
-      training_attachment_name: rows[0].training_attachment_name,
       userRequestType: rows[0].user_request_type,
       fromDate: rows[0].user_request_from_date,
       toDate: rows[0].user_request_to_date,
+      training_status: rows[0].training_status,
+      training_attachment: rows[0].training_attachment,
+      training_attachment_name: rows[0].training_attachment_name,
+      // Vendor fields
       vendor_name: rows[0].vendor_name,
-      email:rows[0].useremail,
       vendor_firm: rows[0].vendor_firm,
       vendor_code: rows[0].vendor_code,
       vendor_allocated_id: rows[0].vendor_allocated_id,
-      allocatedId:tcallocated||rows[0].employee_code,
+      // Approval status
+      approver1_status: rows[0].approver1_status,
+      approver2_status: rows[0].approver2_status,
       status: rows[0].user_request_status,
+      // Allocated ID (from task_closure history or employee_code fallback)
+      allocatedId: tcallocated || rows[0].employee_code,
+
+      // ── Tasks (each with full approval trail + closure details) ──────────
       tasks: rows
         .filter((r) => r.task_id)
         .map((row) => ({
+          // Identifiers
           task_id: row.task_id,
           taskNumber: row.task_request_transaction_id,
-          taskNumber: row.task_request_transaction_id,
+          // Application / Role / Location
           application_equip_id: row.application_equip_id,
           application_name: row.application_name,
           department_id: row.department,
@@ -2185,22 +2312,52 @@ const TaskClosureAllocated = await pool.query(
           role_name: row.role_name,
           location: row.location,
           reports_to: row.reports_to,
+          // Status & remarks
           task_status: row.task_status,
+          task_action: row.task_action,
+          remarks: row.remarks,
           task_created: row.task_created,
           task_updated: row.task_updated,
-          remarks: row.remarks,
-          // Task Closure info
+          // Approver trail
+          approver1_name: row.approver1_name,
+          approver2_name: row.approver2_name,
+          approver1_email: row.approver1_email,
+          approver2_email: row.approver2_email,
+          approver1_action: row.approver1_action,
+          approver2_action: row.approver2_action,
+          approver1_action_timestamp: row.approver1_action_timestamp,
+          approver2_action_timestamp: row.approver2_action_timestamp,
+          approver1_comments: row.approver1_comments,
+          approver2_comments: row.approver2_comments,
+          // ── Task Closure details (what IT actually provisioned) ───────────
+          closure: row.closure_status || row.role_granted ? {
+            assignment_group: row.assignment_group,
+            role_granted: row.role_granted,
+            access: row.access,
+            allocated_id: row.allocated_id,
+            status: row.closure_status || row.status,
+            from_date: row.from_date,
+            to_date: row.to_date,
+            updated_on: row.updated_on,
+            // Assigned IT person
+            assigned_to_id: row.assigned_to,
+            assigned_to_name: row.username || assignedUserDetails?.employee_name || null,
+            assigned_to_email: row.userEmail || assignedUserDetails?.email || null,
+            // Full assigned user object for deep display
+            assigned_user: assignedUserDetails,
+          } : null,
+          // Legacy flat fields kept for backwards compatibility
           assignment_it_group: row.assignment_group,
           granted_role: row.role_granted,
           assigned_to: row.assigned_to,
           assigned_user: assignedUserDetails,
-          access: row.access,
-          task_action:row.task_action,
         })),
+
+      // ── IT Admin group for this plant ─────────────────────────────────────
       it_admin_group: itAdminGroup,
       it_admin_users: itAdminUsers,
     };
-    console.log(res.json(userRequest));
+    console.log("[getUserTaskRequestById] response built for task:", rows[0]?.task_request_transaction_id);
     res.json(userRequest);
   } catch (err) {
     console.error("Error in getUserTaskRequestById:", err);
