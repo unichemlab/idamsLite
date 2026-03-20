@@ -1779,7 +1779,7 @@ console.log("openRequest",openRequests);
     'System', 'System',
     NULL, NULL,        -- ✅ FIXED
     'Approved', 'Approved',
-    NOW(), NOW(),"Revoke" ,NOW()
+    NOW(), NOW(),'Revoke' ,NOW()
   )
   RETURNING *`,
   [
