@@ -1770,6 +1770,7 @@ console.log("openRequest",openRequests);
     approver2_action,
     approver1_action_timestamp,
     approver2_action_timestamp,
+    task_action,
     created_on
   ) VALUES (
     $1, $2, $3, $4, $5, $6,
@@ -1778,7 +1779,7 @@ console.log("openRequest",openRequests);
     'System', 'System',
     NULL, NULL,        -- ✅ FIXED
     'Approved', 'Approved',
-    NOW(), NOW(), NOW()
+    NOW(), NOW(),"Revoke" ,NOW()
   )
   RETURNING *`,
   [

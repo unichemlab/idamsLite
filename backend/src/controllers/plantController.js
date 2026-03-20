@@ -1,6 +1,7 @@
 const pool = require("../config/db");
 const { logActivity } = require("../utils/activityLogger");
 const { submitForApproval } = require("../utils/masterApprovalHelper");
+const { isDuplicateName } = require("../utils/duplicateChecker");  // ✅ import
 
 exports.getPlantActivityLogs = async (req, res) => {
   try {
@@ -56,6 +57,14 @@ exports.createPlant = async (req, res) => {
   const username = req.user?.username || "Unknown";
 
   try {
+    // ✅ Duplicate check
+    const duplicate = await isDuplicateName({ module: "plant", name: plant_name });
+    if (duplicate) {
+      return res.status(409).json({
+        error: `A plant with the name "${plant_name}" already exists.`,
+        code:  "DUPLICATE_NAME",
+      });
+    }
     const newPlantData = {
       plant_name,
       description,
@@ -132,6 +141,15 @@ exports.updatePlant = async (req, res) => {
 
     if (!oldValue) {
       return res.status(404).json({ error: "Plant not found" });
+    }
+
+    // ✅ Duplicate check — exclude current record
+    const duplicate = await isDuplicateName({ module: "plant", name: plant_name, excludeId: id });
+    if (duplicate) {
+      return res.status(409).json({
+        error: `Another plant with the name "${plant_name}" already exists.`,
+        code:  "DUPLICATE_NAME",
+      });
     }
 
     const updatedPlantData = {
@@ -282,6 +300,13 @@ exports.bulkImportPlants = async (req, res) => {
         
         // Set default status
         record.status = record.status || 'ACTIVE';
+
+        // ✅ Duplicate check per bulk record
+        const duplicate = await isDuplicateName({ module: "plant", name: record.plant_name });
+        if (duplicate) {
+          errors.push({ record: i + 1, error: `Plant name "${record.plant_name}" already exists` });
+          continue;
+        }
 
         // Submit for approval
         const approvalId = await submitForApproval({
