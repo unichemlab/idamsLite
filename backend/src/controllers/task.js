@@ -1652,12 +1652,26 @@ exports.updateTask = async (req, res) => {
             approver1_action, approver2_action,
             approver1_timestamp, approver2_timestamp,
             approver1_comments, approver2_comments, assignment_group ,request_raised_by,request_raised_by_emp_code
-          ) VALUES (
-            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
-            $18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,
-            NOW(),NOW(),$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46
-          )
-          RETURNING *`,
+          // ✅ FIXED — UPSERT on re-save
+) VALUES (
+  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
+  $18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,
+  NOW(),NOW(),$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46
+)
+ON CONFLICT (user_request_id, task_id) DO UPDATE SET
+  task_status       = EXCLUDED.task_status,
+  access            = EXCLUDED.access,
+  requested_role    = EXCLUDED.requested_role,
+  allocated_id      = EXCLUDED.allocated_id,
+  role_granted      = EXCLUDED.role_granted,
+  user_request_type = EXCLUDED.user_request_type,
+  from_date         = EXCLUDED.from_date,
+  to_date           = EXCLUDED.to_date,
+  task_action       = EXCLUDED.task_action,
+  updated_on        = NOW(),
+  completed_at      = EXCLUDED.completed_at,
+  remarks           = EXCLUDED.remarks
+RETURNING *`,
           [
             existingTask.user_request_id,
             id,

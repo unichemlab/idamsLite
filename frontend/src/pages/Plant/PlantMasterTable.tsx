@@ -325,7 +325,7 @@ const handleEdit = useCallback(() => {
       }, [selectedPlantId, filteredData, hasPermission]);
   return (
     <div className={styles.pageWrapper}>
-      <AppHeader title="Plant Master Management" />
+      <AppHeader title="Plant Master Management2" />
       
       <div className={styles.contentArea}>
         <div className={styles.controlPanel}>
