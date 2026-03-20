@@ -7,6 +7,7 @@ import type { Role } from "../RoleMaster/RolesContext";
 import superAdminStyles from "../pages/SuperAdmin/SuperAdmin.module.css";
 import Styles from "../pages/DepartmentMaster/AddDeptFormPage.module.css";
 import { useAuth } from "../context/AuthContext";
+import { API_BASE } from "../utils/api";
 interface AddRoleFormPageProps {
   onCancel?: () => void;
 }
@@ -33,10 +34,41 @@ export default function AddRoleFormPage({ onCancel }: AddRoleFormPageProps) {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setShowModal(true); // Show admin confirmation modal
-  };
+ const handleSubmit = async (e: React.FormEvent) => {
+   e.preventDefault();
+ 
+   // 1️⃣ Duplicate name check
+   try {
+     const checkRes = await fetch(`${API_BASE}/api/master-approvals/check-duplicate`, {
+       method: "POST",
+       headers: {
+         "Content-Type": "application/json",
+       },
+       body: JSON.stringify({
+         module:    "roles",
+         name:      form.name,
+         excludeId: null,
+       }),
+     });
+     if (checkRes.status === 409) {
+       const errData = await checkRes.json();
+       alert(errData.error || "A role with this name already exists.");
+       return;
+     }
+ 
+     if (!checkRes.ok) {
+       const errData = await checkRes.json();
+       alert(errData.error || "Validation failed. Please try again.");
+       return;
+     }
+   } catch (err) {
+     alert("Could not validate form. Please try again.");
+     return;
+   }
+ 
+   // 2️⃣ All validations passed — open confirmation modal
+   setShowModal(true);
+ };
 
   // Called after admin confirms
   const handleConfirmLogin = (data: Record<string, string>) => {

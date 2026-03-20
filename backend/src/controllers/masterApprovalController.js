@@ -5,6 +5,7 @@ const {
   getApprovalStats,
 } = require("../utils/masterApprovalHelper");
 const { sendApprovalDecisionEmail } = require("../utils/masterEmailHelper");
+const { isDuplicateName } = require("../utils/duplicateChecker");
 const pool = require("../config/db");
 
 /**
@@ -220,6 +221,48 @@ exports.cancelApproval = async (req, res) => {
     });
   } catch (err) {
     console.error("Error cancelling approval:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+
+
+exports.checkDuplicate = async (req, res) => {
+  try {
+    const { module, name, excludeId = null } = req.body;
+
+    // Validate module
+    const allowedModules = ["plant", "department", "roles", "vendors"];
+    if (!module || !allowedModules.includes(module)) {
+      return res.status(400).json({
+        error: `Invalid module "${module}". Allowed: ${allowedModules.join(", ")}`,
+        code:  "INVALID_MODULE",
+      });
+    }
+
+    // Validate name
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({
+        error: "name is required",
+        code:  "MISSING_NAME",
+      });
+    }
+
+    const duplicate = await isDuplicateName({ module, name, excludeId });
+
+    if (duplicate) {
+      return res.status(409).json({
+        duplicate: true,
+        error: excludeId
+          ? `Another ${module} with the name "${name}" already exists.`
+          : `A ${module} with the name "${name}" already exists.`,
+        code: "DUPLICATE_NAME",
+      });
+    }
+
+    res.status(200).json({ duplicate: false });
+  } catch (err) {
+    console.error("Error checking duplicate:", err);
     res.status(500).json({ error: err.message });
   }
 };

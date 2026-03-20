@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useVendorContext, Vendor } from "../VendorMasterInformation/VendorContext";
 import AppHeader from "../../components/Common/AppHeader";
 import styles from "../Plant/AddPlantMaster.module.css";
-
+import { API_BASE } from "../../utils/api";
 const AddVendorMaster: React.FC = () => {
   const { addVendor, vendors } = useVendorContext();
   const navigate = useNavigate();
@@ -100,10 +100,42 @@ const AddVendorMaster: React.FC = () => {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setShowModal(true);
-  };
+  const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  // 1️⃣ Duplicate name check
+  try {
+    const checkRes = await fetch(`${API_BASE}/api/master-approvals/check-duplicate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        module:    "vendors",
+        name:      form.name,
+        excludeId: null,
+      }),
+    });
+
+    if (checkRes.status === 409) {
+      const errData = await checkRes.json();
+      alert(errData.error || "A vendor with this name already exists.");
+      return;
+    }
+
+    if (!checkRes.ok) {
+      const errData = await checkRes.json();
+      alert(errData.error || "Validation failed. Please try again.");
+      return;
+    }
+  } catch (err) {
+    alert("Could not validate form. Please try again.");
+    return;
+  }
+
+  // 2️⃣ All validations passed — open confirmation modal
+  setShowModal(true);
+};
 
  const handleConfirmLogin = async (data: Record<string, string>) => {
   if (data.username !== (user?.username || "") || !data.password) {
