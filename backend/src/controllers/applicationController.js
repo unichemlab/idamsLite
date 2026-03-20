@@ -23,47 +23,136 @@ const isSuperAdmin = (user) => {
 // across application_master (ACTIVE) and pending approvals (create / update).
 // Pass excludeId to ignore the record currently being edited.
 // ─────────────────────────────────────────────────────────────────────────────
+// const isDuplicateCombination = async ({
+//   plant_location_id,
+//   department_id,
+//   application_hmi_type,
+//   equipment_instrument_id,
+//   excludeId = null,          // set to the record id when editing
+// }) => {
+//   // 1️⃣  Check application_master (status = ACTIVE)
+//   let existingQuery, existingParams;
+
+//   if (excludeId !== null) {
+//     existingQuery = `
+//       SELECT id FROM application_master
+//       WHERE plant_location_id      = $1
+//         AND department_id          = $2
+//         AND application_hmi_type   = $3
+//         AND equipment_instrument_id= $4
+//         AND status                 = 'ACTIVE'
+//         AND id                     <> $5
+//       LIMIT 1`;
+//     existingParams = [
+//       plant_location_id,
+//       department_id,
+//       application_hmi_type,
+//       equipment_instrument_id,
+//       excludeId,
+//     ];
+//   } else {
+//     existingQuery = `
+//       SELECT id FROM application_master
+//       WHERE plant_location_id      = $1
+//         AND department_id          = $2
+//         AND application_hmi_type   = $3
+//         AND equipment_instrument_id= $4
+//         AND status                 = 'ACTIVE'
+//       LIMIT 1`;
+//     existingParams = [
+//       plant_location_id,
+//       department_id,
+//       application_hmi_type,
+//       equipment_instrument_id,
+//     ];
+//   }
+
+//   const existingResult = await db.query(existingQuery, existingParams);
+//   if (existingResult.rows.length > 0) return true;
+
+//   // 2️⃣  Check pending approvals (create + update, status = PENDING)
+//   const pendingResult = await db.query(
+//     `SELECT id, record_id, new_value FROM pending_approvals
+//       WHERE module     = 'application'
+//         AND table_name = 'application_master'
+//         AND action     IN ('create', 'update')
+//         AND status     = 'PENDING'`
+//   );
+
+//   for (const row of pendingResult.rows) {
+//     // When editing, skip the pending row that belongs to the record we are editing
+//     if (excludeId !== null && Number(row.record_id) === Number(excludeId)) {
+//       continue;
+//     }
+
+//     try {
+//       const nv =
+//         typeof row.new_value === "string"
+//           ? JSON.parse(row.new_value)
+//           : row.new_value;
+
+//       if (
+//         nv &&
+//         String(nv.plant_location_id)    === String(plant_location_id) &&
+//         String(nv.department_id)         === String(department_id) &&
+//         String(nv.application_hmi_type)  === String(application_hmi_type) &&
+//         String(nv.equipment_instrument_id) === String(equipment_instrument_id)
+//       ) {
+//         return true;
+//       }
+//     } catch (e) {
+//       console.warn("Error parsing pending_approvals new_value during duplicate check:", e);
+//     }
+//   }
+
+//   return false;
+// };
+
+
 const isDuplicateCombination = async ({
   plant_location_id,
   department_id,
   application_hmi_type,
   equipment_instrument_id,
-  excludeId = null,          // set to the record id when editing
+  excludeId = null,
 }) => {
+  // ✅ CHANGED: toLowerCase → toUpperCase (DB stores as UPPERCASE)
+  const normalizedEquipmentId = String(equipment_instrument_id).trim().toUpperCase();
+
   // 1️⃣  Check application_master (status = ACTIVE)
   let existingQuery, existingParams;
 
   if (excludeId !== null) {
     existingQuery = `
       SELECT id FROM application_master
-      WHERE plant_location_id      = $1
-        AND department_id          = $2
-        AND application_hmi_type   = $3
-        AND equipment_instrument_id= $4
-        AND status                 = 'ACTIVE'
+      WHERE plant_location_id       = $1
+        AND department_id           = $2
+        AND application_hmi_type    = $3
+        AND UPPER(TRIM(equipment_instrument_id::TEXT)) = $4
+        AND status                  = 'ACTIVE'
         AND id                     <> $5
       LIMIT 1`;
     existingParams = [
       plant_location_id,
       department_id,
       application_hmi_type,
-      equipment_instrument_id,
+      normalizedEquipmentId,
       excludeId,
     ];
   } else {
     existingQuery = `
       SELECT id FROM application_master
-      WHERE plant_location_id      = $1
-        AND department_id          = $2
-        AND application_hmi_type   = $3
-        AND equipment_instrument_id= $4
-        AND status                 = 'ACTIVE'
+      WHERE plant_location_id       = $1
+        AND department_id           = $2
+        AND application_hmi_type    = $3
+        AND UPPER(TRIM(equipment_instrument_id::TEXT)) = $4
+        AND status                  = 'ACTIVE'
       LIMIT 1`;
     existingParams = [
       plant_location_id,
       department_id,
       application_hmi_type,
-      equipment_instrument_id,
+      normalizedEquipmentId,
     ];
   }
 
@@ -80,7 +169,6 @@ const isDuplicateCombination = async ({
   );
 
   for (const row of pendingResult.rows) {
-    // When editing, skip the pending row that belongs to the record we are editing
     if (excludeId !== null && Number(row.record_id) === Number(excludeId)) {
       continue;
     }
@@ -93,10 +181,11 @@ const isDuplicateCombination = async ({
 
       if (
         nv &&
-        String(nv.plant_location_id)    === String(plant_location_id) &&
-        String(nv.department_id)         === String(department_id) &&
-        String(nv.application_hmi_type)  === String(application_hmi_type) &&
-        String(nv.equipment_instrument_id) === String(equipment_instrument_id)
+        String(nv.plant_location_id)      === String(plant_location_id) &&
+        String(nv.department_id)           === String(department_id) &&
+        String(nv.application_hmi_type)    === String(application_hmi_type) &&
+        // ✅ CHANGED: toLowerCase → toUpperCase
+        String(nv.equipment_instrument_id).trim().toUpperCase() === normalizedEquipmentId
       ) {
         return true;
       }
@@ -107,6 +196,8 @@ const isDuplicateCombination = async ({
 
   return false;
 };
+
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CHECK DUPLICATE COMBINATION (POST)
@@ -217,13 +308,15 @@ exports.addApplication = async (req, res) => {
     }
 
     const roleIdStr = Array.isArray(role_id) ? role_id.join(",") : String(role_id);
+   // ✅ ADD THIS — normalize equipment_instrument_id
+const normalizedEquipmentId = String(equipment_instrument_id).trim().toUpperCase();
 
     const newData = {
       plant_location_id,
       department_id,
       application_hmi_name,
       application_hmi_version,
-      equipment_instrument_id,
+      equipment_instrument_id: normalizedEquipmentId,   // ✅ always UPPERCASE + trimmed
       application_hmi_type,
       display_name,
       role_id: roleIdStr,
@@ -369,14 +462,15 @@ exports.editApplication = async (req, res) => {
     }
 
     const roleIdStr = Array.isArray(role_id) ? role_id.join(",") : String(role_id);
-
+    // ✅ ADD THIS — normalize equipment_instrument_id
+const normalizedEquipmentId = String(equipment_instrument_id).trim().toUpperCase();
     const newData = {
       transaction_id:         transaction_id || oldValue.transaction_id,
       plant_location_id,
       department_id,
       application_hmi_name,
       application_hmi_version,
-      equipment_instrument_id,
+      equipment_instrument_id: normalizedEquipmentId,   // ✅ always UPPERCASE + trimmed
       application_hmi_type,
       display_name,
       role_id:                roleIdStr,

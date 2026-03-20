@@ -407,7 +407,7 @@ async function applyCreate(client, tableName, newValue, { approvedBy, approvedBy
   // ── 1. Sanitise payload ──────────────────────────────────────────────────
   let data = typeof newValue === "string" ? JSON.parse(newValue) : { ...newValue };
 
-  const forbiddenCols = ["id", "created_on", "created_by", "updated_on", "updated_by", "approved_on", "approved_by"];
+  const forbiddenCols = ["id","transaction_id", "created_on", "created_by", "updated_on", "updated_by", "approved_on", "approved_by"];
   if (tableName !== "plant_master") delete data.plant_name;
   forbiddenCols.forEach((col) => delete data[col]);
   Object.keys(data).forEach((k) => { if (data[k] === "") data[k] = null; });

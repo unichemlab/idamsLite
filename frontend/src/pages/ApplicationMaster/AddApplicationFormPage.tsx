@@ -59,6 +59,8 @@ const AddApplicationFormPage: React.FC = () => {
 
   const username = user?.username || "";
   const [showModal, setShowModal] = useState(false);
+  const [showApprovalNotice, setShowApprovalNotice] = useState(false);
+    const [approvalMessage, setApprovalMessage] = useState("");
   const navigate = useNavigate();
   const { setApplications, applications } = useApplications();
 
