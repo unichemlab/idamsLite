@@ -18,7 +18,9 @@ const EditServerInventory: React.FC = () => {
   const serverCtx = useContext(ServerContext);
   const navigate = useNavigate();
   const [plants, setPlants] = useState<Plant[]>([]);
-
+  // STEP 1 — Add 2 new state variables (after existing useState lines)
+  const [showApprovalNotice, setShowApprovalNotice] = useState(false);
+  const [approvalMessage, setApprovalMessage] = useState("");
   // Find server by id
   const server = serverCtx?.servers.find((s: Server) => String(s.id) === id);
 
@@ -166,18 +168,35 @@ const EditServerInventory: React.FC = () => {
     setShowConfirm(true);
   };
 
+  // STEP 2 — Replace handleConfirm
   const handleConfirm = async () => {
     if (server && server.id !== undefined) {
       try {
-        await serverCtx.updateServer(server.id, form);
+        const result = await serverCtx.updateServer(server.id, form);
         setShowConfirm(false);
-        navigate("/server-master");
+
+        if (result && "approvalId" in result && result.status === "PENDING_APPROVAL") {
+          setApprovalMessage(
+            `${result.message}\n\nApproval ID: ${result.approvalId}\n\nThe server will be updated after approval.`
+          );
+          setShowApprovalNotice(true);
+        } else {
+          alert("Server updated successfully!");
+          navigate("/server-master");
+        }
       } catch (error) {
         console.error("Error updating server:", error);
         alert("Failed to update server. Please try again.");
       }
     }
   };
+
+  // STEP 3 — Add handleApprovalNoticeClose
+  const handleApprovalNoticeClose = () => {
+    setShowApprovalNotice(false);
+    navigate("/server-master");
+  };
+
   const formatDateForInput = (dateStr?: string | null) => {
     if (!dateStr) return "";
     const date = new Date(dateStr);
@@ -336,6 +355,20 @@ const EditServerInventory: React.FC = () => {
           onCancel={handleCancel}
         />
       )}
+
+      {showApprovalNotice && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.approvalModal}>
+            <div className={styles.approvalIcon}>⏳</div>
+            <h3 className={styles.approvalTitle}>Approval Required</h3>
+            <p className={styles.approvalMessage}>{approvalMessage}</p>
+            <button onClick={handleApprovalNoticeClose} className={styles.approvalOkBtn}>
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className={styles.pageWrapper}>
         <AppHeader title="Server Inventory Management" />
 

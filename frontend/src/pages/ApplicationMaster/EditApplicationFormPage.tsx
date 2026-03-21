@@ -121,8 +121,10 @@ const EditApplicationFormPage: React.FC = () => {
   console.log("form data", form);
   const [roleLocked, setRoleLocked] = useState<boolean>(true);
   const [showModal, setShowModal] = useState(false);
-  const [showUnlockModal, setShowUnlockModal] = useState(false);
 
+  const [showUnlockModal, setShowUnlockModal] = useState(false);
+  const [showApprovalNotice, setShowApprovalNotice] = useState(false);  // ✅ NEW
+  const [approvalMessage, setApprovalMessage] = useState("");      // ✅ NEW
   useEffect(() => {
     setRoleLocked(true);
   }, [applicationData?.id]);
@@ -261,6 +263,10 @@ const EditApplicationFormPage: React.FC = () => {
     setShowModal(true);
   };
 
+  // ─────────────────────────────────────────────────────────────
+  // STEP 2 — Replace handleConfirm 
+  // ─────────────────────────────────────────────────────────────
+
   const handleConfirm = async (data: Record<string, string>) => {
     if (data.username === username && data.password) {
       try {
@@ -269,13 +275,9 @@ const EditApplicationFormPage: React.FC = () => {
           role_id: Array.isArray(form.role_id)
             ? form.role_id.join(",")
             : form.role_id,
-          plant_location_id: form.plant_location_id
-            ? Number(form.plant_location_id)
-            : null,
+          plant_location_id: form.plant_location_id ? Number(form.plant_location_id) : null,
           department_id: form.department_id ? Number(form.department_id) : null,
-          system_inventory_id: form.system_inventory_id
-            ? Number(form.system_inventory_id)
-            : null,
+          system_inventory_id: form.system_inventory_id ? Number(form.system_inventory_id) : null,
           role_lock: true,
         };
 
@@ -293,15 +295,24 @@ const EditApplicationFormPage: React.FC = () => {
           throw new Error(errData.error || "Failed to update application");
         }
 
-        const updated = await res.json();
+        const result = await res.json();
         setShowModal(false);
-        setApplications((prev: any[]) =>
-          prev.map((app) =>
-            app.id === updated.id ? { ...app, ...updated } : app
-          )
-        );
-        setRoleLocked(true);
-        navigate("/application-masters", { state: { activeTab: "application" } });
+
+        // ✅ Show approval notice modal instead of alert
+        if (result?.approvalId && result?.status === "PENDING_APPROVAL") {
+          setApprovalMessage(
+            `${result.message}\n\nApproval ID: ${result.approvalId}\n\nThe application will be updated after approval.`
+          );
+          setShowApprovalNotice(true);
+        } else {
+          // Direct update — refresh list and navigate
+          setApplications((prev: any[]) =>
+            prev.map((app) => (app.id === result.id ? { ...app, ...result } : app))
+          );
+          setRoleLocked(true);
+          alert("Application updated successfully!");
+          navigate("/application-masters", { state: { activeTab: "application" } });
+        }
       } catch (err) {
         alert(
           "Failed to update application. Please try again.\n" +
@@ -311,6 +322,16 @@ const EditApplicationFormPage: React.FC = () => {
     } else {
       alert("Invalid credentials. Please try again.");
     }
+  };
+
+
+  // ─────────────────────────────────────────────────────────────
+  // STEP 3 — Add handleApprovalNoticeClose (after handleUnlockConfirm)
+  // ─────────────────────────────────────────────────────────────
+
+  const handleApprovalNoticeClose = () => {
+    setShowApprovalNotice(false);
+    navigate("/application-masters", { state: { activeTab: "application" } });
   };
 
   const handleUnlockConfirm = (data: Record<string, string>) => {
@@ -428,6 +449,22 @@ const EditApplicationFormPage: React.FC = () => {
           onConfirm={handleUnlockConfirm}
           onCancel={() => setShowUnlockModal(false)}
         />
+      )}
+
+      {showApprovalNotice && (
+        <div className={addStyles.modalOverlay}>
+          <div className={addStyles.approvalModal}>
+            <div className={addStyles.approvalIcon}>⏳</div>
+            <h3 className={addStyles.approvalTitle}>Approval Required</h3>
+            <p className={addStyles.approvalMessage}>{approvalMessage}</p>
+            <button
+              onClick={handleApprovalNoticeClose}
+              className={addStyles.approvalOkBtn}
+            >
+              OK
+            </button>
+          </div>
+        </div>
       )}
 
       <div className={addStyles.pageWrapper}>

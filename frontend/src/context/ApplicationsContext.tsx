@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { fetchApplications, fetchRoles } from "../utils/api";
 
+// ── Interfaces ────────────────────────────────────────────────────────────────
+
 export interface Application {
   id: number;
   transaction_id: string;
@@ -11,8 +13,8 @@ export interface Application {
   equipment_instrument_id: string;
   application_hmi_type: string;
   display_name: string;
-  role_id: string; // comma-separated string of IDs
-  role_names?: string[]; // for display
+  role_id: string;
+  role_names?: string[];
   system_name: string;
   system_inventory_id: number;
   multiple_role_access: boolean;
@@ -31,15 +33,25 @@ export interface Application {
   }>;
 }
 
+export interface ApprovalResponse {
+  message: string;
+  approvalId: number;
+  status: "PENDING_APPROVAL";
+  data: any;
+}
+
+// ── Context type ──────────────────────────────────────────────────────────────
+
 const ApplicationsContext = createContext<
   | {
-      applications: Application[];
-      setApplications: React.Dispatch<React.SetStateAction<Application[]>>;
-      refreshApplications: () => void;   // ✅ ADD
-    }
+    applications: Application[];
+    setApplications: React.Dispatch<React.SetStateAction<Application[]>>;
+    refreshApplications: () => void;
+  }
   | undefined
 >(undefined);
 
+// ── Provider ──────────────────────────────────────────────────────────────────
 
 export function ApplicationsProvider({
   children,
@@ -49,76 +61,72 @@ export function ApplicationsProvider({
   const [applications, setApplications] = useState<Application[]>([]);
 
   const fetchAndSetApplications = () => {
-  Promise.all([fetchApplications(), fetchRoles()])
-    .then(([apps, roles]) => {
-      const roleMap: Record<string, string> = {};
-      roles.forEach((role: any) => {
-        roleMap[String(role.id)] = role.role_name;
-      });
+    Promise.all([fetchApplications(), fetchRoles()])
+      .then(([apps, roles]) => {
+        const roleMap: Record<string, string> = {};
+        roles.forEach((role: any) => {
+          roleMap[String(role.id)] = role.role_name;
+        });
 
-      const mapped = apps.map((app: any) => {
-        const roleIds = String(app.role_id || "")
-          .split(",")
-          .map((id: string) => id.trim())
-          .filter(Boolean);
+        const mapped = apps.map((app: any) => {
+          const roleIds = String(app.role_id || "")
+            .split(",")
+            .map((id: string) => id.trim())
+            .filter(Boolean);
 
-        const role_names = roleIds.map((id: string) => roleMap[id] || id);
+          const role_names = roleIds.map((id: string) => roleMap[id] || id);
 
-        return {
-          id: app.id,
-          transaction_id: app.transaction_id,
-          plant_location_id: app.plant_location_id,
-          department_id: app.department_id,
-          application_hmi_name: app.application_hmi_name,
-          application_hmi_version: app.application_hmi_version,
-          equipment_instrument_id: app.equipment_instrument_id,
-          application_hmi_type: app.application_hmi_type,
-          display_name:
-            app.display_name ||
-            `${app.application_hmi_name || ""} | ${
-              app.application_hmi_version || ""
-            } | ${app.equipment_instrument_id || ""}`,
-          role_id: String(app.role_id),
-          role_names,
-          system_name: app.system_name,
-          system_inventory_id: app.system_inventory_id,
-          multiple_role_access: app.multiple_role_access,
-          status: app.status,
-          created_on: app.created_on,
-          updated_on: app.updated_on,
-          activityLogs: [],
-        };
-      });
+          return {
+            id: app.id,
+            transaction_id: app.transaction_id,
+            plant_location_id: app.plant_location_id,
+            department_id: app.department_id,
+            application_hmi_name: app.application_hmi_name,
+            application_hmi_version: app.application_hmi_version,
+            equipment_instrument_id: app.equipment_instrument_id,
+            application_hmi_type: app.application_hmi_type,
+            display_name:
+              app.display_name ||
+              `${app.application_hmi_name || ""} | ${app.application_hmi_version || ""} | ${app.equipment_instrument_id || ""}`,
+            role_id: String(app.role_id),
+            role_names,
+            system_name: app.system_name,
+            system_inventory_id: app.system_inventory_id,
+            multiple_role_access: app.multiple_role_access,
+            status: app.status,
+            created_on: app.created_on,
+            updated_on: app.updated_on,
+            activityLogs: [],
+          };
+        });
 
-      setApplications(mapped);
-    })
-    .catch(() => setApplications([]));
-};
+        setApplications(mapped);
+      })
+      .catch(() => setApplications([]));
+  };
 
-useEffect(() => {
-  fetchAndSetApplications();
-}, []);
-
+  useEffect(() => {
+    fetchAndSetApplications();
+  }, []);
 
   return (
-   <ApplicationsContext.Provider
-  value={{
-    applications,
-    setApplications,
-    refreshApplications: fetchAndSetApplications, // ✅ ADD
-  }}
->
-
+    <ApplicationsContext.Provider
+      value={{
+        applications,
+        setApplications,
+        refreshApplications: fetchAndSetApplications,
+      }}
+    >
       {children}
     </ApplicationsContext.Provider>
   );
 }
 
+// ── Hook ──────────────────────────────────────────────────────────────────────
+
 export function useApplications() {
   const context = useContext(ApplicationsContext);
   if (!context)
-    throw new Error(
-      "useApplications must be used within an ApplicationsProvider"
-    );
+    throw new Error("useApplications must be used within an ApplicationsProvider");
   return context;
 }

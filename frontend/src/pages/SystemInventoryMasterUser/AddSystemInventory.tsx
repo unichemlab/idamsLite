@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useSystemContext } from "../SystemInventoryMasterUser/SystemContext";
 import { System } from "../../types/system";
-import { fetchPlants, fetchDepartments, fetchUsers, fetchVendors,API_BASE } from "../../utils/api";
+import { fetchPlants, fetchDepartments, fetchUsers, fetchVendors, API_BASE } from "../../utils/api";
 import styles from "../Plant/AddPlantMaster.module.css";
 import { getUniqueActiveUsers } from "../../utils/userUtils";
 import { useUserContext } from "../../context/UserContext";
@@ -46,7 +46,9 @@ const AddSystemInventory: React.FC = () => {
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [showConfirm, setShowConfirm] = useState(false);
-
+  // STEP 1 — Add 2 new state variables (after existing useState lines)
+  const [showApprovalNotice, setShowApprovalNotice] = useState(false);
+  const [approvalMessage, setApprovalMessage] = useState("");
   const [form, setForm] = useState<System>({
     id: 0,
     transaction_id: "",
@@ -151,10 +153,10 @@ const AddSystemInventory: React.FC = () => {
 
     setUserOptions(filteredUsers);
   }, [users]);
- useEffect(() => {
+  useEffect(() => {
 
     fetchVendors()
-      .then((data) =>{
+      .then((data) => {
         const activeVendors = data.filter((vendor: any) => {
           // Check if vendor has 'active' field (boolean)
           if (vendor.active !== undefined) {
@@ -162,7 +164,7 @@ const AddSystemInventory: React.FC = () => {
           }
           // Check if vendor has 'status' field (string)
           if (vendor.status !== undefined) {
-            return vendor.status === 'ACTIVE' ||vendor.status === 'Active' || vendor.status === 'active';
+            return vendor.status === 'ACTIVE' || vendor.status === 'Active' || vendor.status === 'active';
           }
           // If no status field exists, include all vendors (backward compatibility)
           return true;
@@ -170,7 +172,7 @@ const AddSystemInventory: React.FC = () => {
         setVendors(
           activeVendors.map((p: any) => ({ id: p.id, vendor_name: p.vendor_name, vendor_code: p.vendor_code }))
         )
-  }).catch(() => setVendors([]));
+      }).catch(() => setVendors([]));
   }, []);
   useEffect(() => {
     Promise.all([fetchPlants(), fetchDepartments()]).then(([p, d]) => {
@@ -250,44 +252,44 @@ const AddSystemInventory: React.FC = () => {
 
 
 
-   // ✅ Duplicate check — GxP only
-const checkDuplicate = async (): Promise<boolean> => {
-  const { plant_location_id, department_id, category_gxp, equipment_instrument_id } = form;
+  // ✅ Duplicate check — GxP only
+  const checkDuplicate = async (): Promise<boolean> => {
+    const { plant_location_id, department_id, category_gxp, equipment_instrument_id } = form;
 
-  // Only check for GxP
-  if (category_gxp !== "GxP") return false;
-  if (!plant_location_id || !department_id || !equipment_instrument_id) return false;
+    // Only check for GxP
+    if (category_gxp !== "GxP") return false;
+    if (!plant_location_id || !department_id || !equipment_instrument_id) return false;
 
-  try {
-    const params = new URLSearchParams({
-      plant_location_id: String(plant_location_id),
-      department_id: String(department_id),
-      equipment_instrument_id,
-    });
+    try {
+      const params = new URLSearchParams({
+        plant_location_id: String(plant_location_id),
+        department_id: String(department_id),
+        equipment_instrument_id,
+      });
 
-    const res = await fetch(`${API_BASE}/api/systems/check-duplicate?${params.toString()}`);
-    const data = await res.json();
-    return data.isDuplicate === true;
-  } catch {
-    return false;
-  }
-};
+      const res = await fetch(`${API_BASE}/api/systems/check-duplicate?${params.toString()}`);
+      const data = await res.json();
+      return data.isDuplicate === true;
+    } catch {
+      return false;
+    }
+  };
 
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!validateForm()) return;
+    e.preventDefault();
+    if (!validateForm()) return;
 
-  const isDuplicate = await checkDuplicate();
-  if (isDuplicate) {
-    alert(
-      "Duplicate record found!\nA system with the same Plant, Department and Equipment/Instrument ID already exists for GxP category."
-    );
-    return;
-  }
+    const isDuplicate = await checkDuplicate();
+    if (isDuplicate) {
+      alert(
+        "Duplicate record found!\nA system with the same Plant, Department and Equipment/Instrument ID already exists for GxP category."
+      );
+      return;
+    }
 
-  setShowConfirm(true);
-};
+    setShowConfirm(true);
+  };
 
   const validateForm = (): boolean => {
     // Warranty End Date must be after start date
@@ -314,10 +316,29 @@ const checkDuplicate = async (): Promise<boolean> => {
   };
 
 
+  // STEP 2 — Replace handleConfirm
   const handleConfirm = async () => {
-    await addSystem(form);
+    try {
+      const result = await addSystem(form);
+      setShowConfirm(false);
 
-    setShowConfirm(false);
+      if (result && "approvalId" in result && result.status === "PENDING_APPROVAL") {
+        setApprovalMessage(
+          `${result.message}\n\nApproval ID: ${result.approvalId}\n\nThe system will be added after approval.`
+        );
+        setShowApprovalNotice(true);
+      } else {
+        alert("System created successfully!");
+        navigate("/system-master");
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to add system. Please try again.");
+    }
+  };
+
+  // STEP 3 — Add handleApprovalNoticeClose
+  const handleApprovalNoticeClose = () => {
+    setShowApprovalNotice(false);
     navigate("/system-master");
   };
 
@@ -639,6 +660,20 @@ const checkDuplicate = async (): Promise<boolean> => {
         />
       )}
 
+
+      {showApprovalNotice && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.approvalModal}>
+            <div className={styles.approvalIcon}>⏳</div>
+            <h3 className={styles.approvalTitle}>Approval Required</h3>
+            <p className={styles.approvalMessage}>{approvalMessage}</p>
+            <button onClick={handleApprovalNoticeClose} className={styles.approvalOkBtn}>
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className={styles.pageWrapper}>
         <AppHeader title="System Inventory Management" />
 
@@ -660,7 +695,7 @@ const checkDuplicate = async (): Promise<boolean> => {
                     {input("building_location", "Building Location")}
                     {select("department_id", "Department", departments, { value: (p) => p.id, label: (p) => p.name }, true)}
                     <div className={styles.formGroupFloating}>
-                     
+
                       <SearchableSelect
                         options={userOptions}
                         value={form.allocated_to_user_name} // <-- store ID here
@@ -672,7 +707,7 @@ const checkDuplicate = async (): Promise<boolean> => {
                         }
                         placeholder="Select user..."
                       />
-                       <label className={styles.floatingLabel}>
+                      <label className={styles.floatingLabel}>
                         Allocated To <span className={styles.required}>*</span>
                       </label>
                     </div>
