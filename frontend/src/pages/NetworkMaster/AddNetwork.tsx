@@ -23,6 +23,11 @@ const AddNetwork: React.FC = () => {
   const [plants, setPlants] = useState<Plant[]>([]);
   const [showConfirm, setShowConfirm] = useState(false);
 
+  // STEP 1 — Add 2 new state variables (after existing useState lines)
+  const [showApprovalNotice, setShowApprovalNotice] = useState(false);
+  const [approvalMessage, setApprovalMessage] = useState("");
+
+
   const [form, setForm] = useState<Network>({
     id: 0,
     transaction_id: "",
@@ -140,11 +145,32 @@ const AddNetwork: React.FC = () => {
     setShowConfirm(true);
   };
 
+  // STEP 2 — Replace handleConfirm
   const handleConfirm = async () => {
-    await addNetwork(form);
-    setShowConfirm(false);
+    try {
+      const result = await addNetwork(form);
+      setShowConfirm(false);
+
+      if (result && "approvalId" in result && result.status === "PENDING_APPROVAL") {
+        setApprovalMessage(
+          `${result.message}\n\nApproval ID: ${result.approvalId}\n\nThe network device will be added after approval.`
+        );
+        setShowApprovalNotice(true);
+      } else {
+        alert("Network device created successfully!");
+        navigate("/network-master");
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to add network device. Please try again.");
+    }
+  };
+
+  // STEP 3 — Add handleApprovalNoticeClose
+  const handleApprovalNoticeClose = () => {
+    setShowApprovalNotice(false);
     navigate("/network-master");
   };
+
 
   // const input = (name: keyof Network, label: string, type = "text") => (
   //   <div className={styles.formGroupFloating}>
@@ -159,7 +185,7 @@ const AddNetwork: React.FC = () => {
   //   </div>
   // );
 
-  const input = (name: keyof Network, label: string, type = "text") => {
+  const input = (name: keyof Network, label: string, type = "text",isRequired = false) => {
     const isExpiryDate = name === "amc_warranty_expiry_date";
 
     const getNextDay = (dateStr?: string) => {
@@ -184,6 +210,7 @@ const AddNetwork: React.FC = () => {
           value={(form[name] as any) || ""}
           onChange={handleChange}
           className={styles.input}
+          required={isRequired}
           // ✅ dynamically set min as one day after warranty_start_date
           min={
             isExpiryDate && form.warranty_start_date
@@ -191,7 +218,10 @@ const AddNetwork: React.FC = () => {
               : undefined
           }
         />
-        <label className={styles.floatingLabel}>{label}</label>
+         <label className={styles.floatingLabel}>
+          {label}
+          {isRequired && <span className={styles.required}> *</span>}  {/* ✅ asterisk */}
+        </label>
       </div>
     );
   };
@@ -346,6 +376,20 @@ const AddNetwork: React.FC = () => {
         />
       )}
 
+      {showApprovalNotice && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.approvalModal}>
+            <div className={styles.approvalIcon}>⏳</div>
+            <h3 className={styles.approvalTitle}>Approval Required</h3>
+            <p className={styles.approvalMessage}>{approvalMessage}</p>
+            <button onClick={handleApprovalNoticeClose} className={styles.approvalOkBtn}>
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
+
       <div className={styles.pageWrapper}>
         <AppHeader title="Network Device Management" />
 
@@ -366,8 +410,8 @@ const AddNetwork: React.FC = () => {
                       { value: (p) => p.value, label: (p) => p.label }, true)}
                     {input("area", "Area")}
                     {input("rack", "Rack")}
-                    {input("host_name", "Host Name")}
-                    {input("device_ip", "Device IP")}
+                    {input("host_name",  "Host Name",  "text", true)}  {/* ✅ required */}
+                    {input("device_ip",  "Device IP",  "text", true)}  {/* ✅ required */}
                   </div>
                 </div>
 
@@ -376,9 +420,9 @@ const AddNetwork: React.FC = () => {
                   <span className={styles.sectionHeaderTitle}>Device Details</span>
                   <div className={styles.rowFields}>
                     {/* Dual Power Source(ATS /Yes/NO) */}
-                    {input("device_type", "Device Type")}
+                   {input("device_type",  "Device Type",  "text", true)}  {/* ✅ required */}
                     {input("device_model", "Device Model")}
-                    {input("serial_no", "Serial No")}
+                    {input("serial_no",    "Serial No",    "text", true)}  {/* ✅ required */}
                     {input("ios_version", "IOS Version")}
                     {input("make_vendor", "Make/Vendor")}
                     {select("poe_non_poe", "POE/Non-POE", ['PoE', 'Non-POE'], false, false, false, false)}
@@ -390,7 +434,7 @@ const AddNetwork: React.FC = () => {
                     {input("trunk_port", "Trunk Port")}
                     {select("sfp_fiber_tx", "SFP/Fiber TX", ['Fiber', 'TX'], false, false, false, false)}
                     {input("uptime", "Uptime")}
-                    {input("verify_date", "Verify Date", "date")}
+                   {input("verify_date",  "Verify Date", "date", true)} 
                   </div>
                 </div>
 
@@ -414,30 +458,30 @@ const AddNetwork: React.FC = () => {
                 <div className={styles.section}>
                   <span className={styles.sectionHeaderTitle}>Additional Details</span>
                   <div className={styles.rowFields}>
-                    
-                    {select("status", "Status", ["ACTIVE", "INACTIVE"], true)}
-                     <div className={styles.formGroupFloating} style={{ flex: "1 1 100%" }}>
 
-                    <textarea
-                      name="remarks"
-                      value={form.remarks}
-                      onChange={(e) => {
-                        if (e.target.value.length <= 1000) {
-                          handleChange(e);
-                        }
-                      }}
-                      required
-                      className={styles.textarea}
-                      rows={5}
-                      placeholder="Enter Remarks..."
-                    />
-                    <label className={styles.floatingLabel}>
-                      Remarks <span className={styles.required}>*</span>
-                    </label>
-                    <div className={styles.charCounter}>
-                      {(form.remarks?.length || 0)}/1000
+                    {select("status", "Status", ["ACTIVE", "INACTIVE"], true)}
+                    <div className={styles.formGroupFloating} style={{ flex: "1 1 100%" }}>
+
+                      <textarea
+                        name="remarks"
+                        value={form.remarks}
+                        onChange={(e) => {
+                          if (e.target.value.length <= 1000) {
+                            handleChange(e);
+                          }
+                        }}
+                        required
+                        className={styles.textarea}
+                        rows={5}
+                        placeholder="Enter Remarks..."
+                      />
+                      <label className={styles.floatingLabel}>
+                        Remarks <span className={styles.required}>*</span>
+                      </label>
+                      <div className={styles.charCounter}>
+                        {(form.remarks?.length || 0)}/1000
+                      </div>
                     </div>
-                </div>
                   </div>
                 </div>
               </div>

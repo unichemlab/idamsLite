@@ -5,12 +5,8 @@ import {
   updateVendorAPI,
   deleteVendorAPI,
 } from "../../utils/api";
-export const useVendorContext = () => {
-  const ctx = React.useContext(VendorContext);
-  if (!ctx)
-    throw new Error("useVendorContext must be used within VendorProvider");
-  return ctx;
-};
+
+// ── Interfaces ────────────────────────────────────────────────────────────────
 
 export interface Vendor {
   id?: number;
@@ -22,19 +18,35 @@ export interface Vendor {
   status?: "ACTIVE" | "INACTIVE";
 }
 
-interface VendorContextType {
-  vendors: Vendor[];
-   refreshVendors: () => void; 
-  addVendor: (vendor: Vendor) => void;
-  updateVendor: (index: number, updated: Vendor) => void;
-  deleteVendor: (index: number) => void;
+export interface ApprovalResponse {
+  message: string;
+  approvalId: number;
+  status: "PENDING_APPROVAL";
+  data: any;
 }
 
-// No default vendor, will fetch from API
+// ── Context type ──────────────────────────────────────────────────────────────
 
-export const VendorContext = createContext<VendorContextType | undefined>(
-  undefined
-);
+interface VendorContextType {
+  vendors: Vendor[];
+  refreshVendors: () => void;
+  addVendor:    (vendor: Vendor)              => Promise<ApprovalResponse | Vendor>;
+  updateVendor: (index: number, updated: Vendor) => Promise<ApprovalResponse | Vendor>;
+  deleteVendor: (index: number)               => Promise<void>;
+}
+
+export const VendorContext = createContext<VendorContextType | undefined>(undefined);
+
+// ── Hook ──────────────────────────────────────────────────────────────────────
+
+export const useVendorContext = () => {
+  const ctx = React.useContext(VendorContext);
+  if (!ctx)
+    throw new Error("useVendorContext must be used within VendorProvider");
+  return ctx;
+};
+
+// ── Provider ──────────────────────────────────────────────────────────────────
 
 export const VendorProvider = ({ children }: { children: ReactNode }) => {
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -42,18 +54,17 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
   const fetchAndSetVendors = () => {
     fetchVendors()
       .then((data) => {
-        // Normalize API data to match Vendor interface
         const normalized = data.map((p: any) => ({
-          id: p.id,
+          id:             p.id,
           transaction_id: p.transaction_id,
-          name: p.vendor_name, // use vendor_name as name
-          code: p.vendor_code, // use vendor_code as code
-          description: p.description,
-          status: p.status,
+          name:           p.vendor_name,
+          code:           p.vendor_code,
+          description:    p.description,
+          status:         p.status,
         }));
         setVendors(normalized);
       })
-      .catch((err) => {
+      .catch(() => {
         setVendors([]);
       });
   };
@@ -62,75 +73,85 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
     fetchAndSetVendors();
   }, []);
 
-const getErrorMessage = (err: any): string =>
-  err?.response?.data?.message ||
-  err?.response?.data?.error ||
-  err?.message ||
-  "Something went wrong";
+  const getErrorMessage = (err: any): string =>
+    err?.response?.data?.message ||
+    err?.response?.data?.error ||
+    err?.message ||
+    "Something went wrong";
 
+  // ── Add Vendor ──────────────────────────────────────────────────────────────
+  const addVendor = async (
+    vendor: Vendor
+  ): Promise<ApprovalResponse | Vendor> => {
+    try {
+      const response = await addVendorAPI({
+        vendor_name: vendor.name,
+        vendor_code: vendor.code,
+        description: vendor.description,
+        status:      vendor.status,
+      });
 
+      if (response?.status === "PENDING_APPROVAL") {
+        return response as ApprovalResponse;
+      }
 
-  // Add vendor via API
-  const addVendor = async (vendor: Vendor) => {
-  try {
-    await addVendorAPI({
-      vendor_name: vendor.name,
-      vendor_code: vendor.code,
-      description: vendor.description,
-      status: vendor.status,
-    });
+      fetchAndSetVendors();
+      return response as Vendor;
+    } catch (err: any) {
+      throw new Error(getErrorMessage(err));
+    }
+  };
 
-    fetchAndSetVendors();
-  } catch (err: any) {
-    throw new Error(getErrorMessage(err));
-  }
-};
+  // ── Update Vendor ───────────────────────────────────────────────────────────
+  const updateVendor = async (
+    index: number,
+    updated: Vendor
+  ): Promise<ApprovalResponse | Vendor> => {
+    const vendor = vendors[index];
+    if (!vendor || !vendor.id) throw new Error("Vendor not found");
 
+    try {
+      const response = await updateVendorAPI(vendor.id, {
+        vendor_name: updated.name,
+        vendor_code: updated.code,
+        description: updated.description,
+        status:      updated.status,
+      });
 
-  // Update vendor via API
-  const updateVendor = async (index: number, updated: Vendor) => {
-  const vendor = vendors[index];
-  if (!vendor || !vendor.id) return;
+      if (response?.status === "PENDING_APPROVAL") {
+        return response as ApprovalResponse;
+      }
 
-  try {
-    await updateVendorAPI(vendor.id, {
-      vendor_name: updated.name,
-      vendor_code: updated.code,
-      description: updated.description,
-      status: updated.status,
-    });
+      fetchAndSetVendors();
+      return response as Vendor;
+    } catch (err: any) {
+      throw new Error(getErrorMessage(err));
+    }
+  };
 
-    fetchAndSetVendors();
-  } catch (err: any) {
-    throw new Error(getErrorMessage(err));
-  }
-};
+  // ── Delete Vendor ───────────────────────────────────────────────────────────
+  const deleteVendor = async (index: number): Promise<void> => {
+    const vendor = vendors[index];
+    if (!vendor || !vendor.id) return;
 
-
-  // Delete vendor via API
-  const deleteVendor = async (index: number) => {
-  const vendor = vendors[index];
-  if (!vendor || !vendor.id) return;
-
-  try {
-    await deleteVendorAPI(vendor.id);
-    fetchAndSetVendors();
-  } catch (err: any) {
-    throw new Error(getErrorMessage(err));
-  }
-};
-
+    try {
+      await deleteVendorAPI(vendor.id);
+      fetchAndSetVendors();
+    } catch (err: any) {
+      throw new Error(getErrorMessage(err));
+    }
+  };
 
   return (
-  <VendorContext.Provider
-    value={{
-      vendors,
-      refreshVendors: fetchAndSetVendors,   // ✅ expose refresh
-      addVendor,
-      updateVendor,
-      deleteVendor,
-    }}
-  >
+    <VendorContext.Provider
+      value={{
+        vendors,
+        refreshVendors: fetchAndSetVendors,
+        addVendor,
+        updateVendor,
+        deleteVendor,
+      }}
+    >
       {children}
     </VendorContext.Provider>
   );

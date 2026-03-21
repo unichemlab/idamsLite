@@ -54,7 +54,9 @@ const EditSystemInventory: React.FC = () => {
   const originalStatus = useRef<SystemStatus>("ACTIVE");
   // 📝 user selected status
   const [requestedStatus, setRequestedStatus] = useState<SystemStatus>("ACTIVE");
-
+  // STEP 1 — Add 2 new state variables (after existing useState lines)
+  const [showApprovalNotice, setShowApprovalNotice] = useState(false);
+  const [approvalMessage, setApprovalMessage] = useState("");
   const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newStatus = e.target.value as SystemStatus;
     setRequestedStatus(newStatus);
@@ -119,26 +121,26 @@ const EditSystemInventory: React.FC = () => {
     setUserOptions(filteredUsers);
   }, [users]);
   useEffect(() => {
-  
-      fetchVendors()
-        .then((data) =>{
-          const activeVendors = data.filter((vendor: any) => {
-            // Check if vendor has 'active' field (boolean)
-            if (vendor.active !== undefined) {
-              return vendor.active === true;
-            }
-            // Check if vendor has 'status' field (string)
-            if (vendor.status !== undefined) {
-              return vendor.status === 'ACTIVE' ||vendor.status === 'Active' || vendor.status === 'active';
-            }
-            // If no status field exists, include all vendors (backward compatibility)
-            return true;
-          });
-          setVendors(
-            activeVendors.map((p: any) => ({ id: p.id, vendor_name: p.vendor_name, vendor_code: p.vendor_code }))
-          )
-    }).catch(() => setVendors([]));
-    }, []);
+
+    fetchVendors()
+      .then((data) => {
+        const activeVendors = data.filter((vendor: any) => {
+          // Check if vendor has 'active' field (boolean)
+          if (vendor.active !== undefined) {
+            return vendor.active === true;
+          }
+          // Check if vendor has 'status' field (string)
+          if (vendor.status !== undefined) {
+            return vendor.status === 'ACTIVE' || vendor.status === 'Active' || vendor.status === 'active';
+          }
+          // If no status field exists, include all vendors (backward compatibility)
+          return true;
+        });
+        setVendors(
+          activeVendors.map((p: any) => ({ id: p.id, vendor_name: p.vendor_name, vendor_code: p.vendor_code }))
+        )
+      }).catch(() => setVendors([]));
+  }, []);
   useEffect(() => {
     Promise.all([fetchPlants(), fetchDepartments()]).then(([p, d]) => {
       setPlants(p);
@@ -238,29 +240,29 @@ const EditSystemInventory: React.FC = () => {
   };
 
   // ✅ Duplicate check — GxP only (excludes self)
-const checkDuplicate = async (): Promise<boolean> => {
-  if (!form) return false;
-  const { plant_location_id, department_id, category_gxp, equipment_instrument_id } = form;
+  const checkDuplicate = async (): Promise<boolean> => {
+    if (!form) return false;
+    const { plant_location_id, department_id, category_gxp, equipment_instrument_id } = form;
 
-  // Only check for GxP
-  if (category_gxp !== "GxP") return false;
-  if (!plant_location_id || !department_id || !equipment_instrument_id) return false;
+    // Only check for GxP
+    if (category_gxp !== "GxP") return false;
+    if (!plant_location_id || !department_id || !equipment_instrument_id) return false;
 
-  try {
-    const params = new URLSearchParams({
-      plant_location_id: String(plant_location_id),
-      department_id: String(department_id),
-      equipment_instrument_id,
-      exclude_id: String(form.id), // 🔑 exclude self
-    });
+    try {
+      const params = new URLSearchParams({
+        plant_location_id: String(plant_location_id),
+        department_id: String(department_id),
+        equipment_instrument_id,
+        exclude_id: String(form.id), // 🔑 exclude self
+      });
 
-    const res = await fetch(`${API_BASE}/api/systems/check-duplicate?${params.toString()}`);
-    const data = await res.json();
-    return data.isDuplicate === true;
-  } catch {
-    return false;
-  }
-};
+      const res = await fetch(`${API_BASE}/api/systems/check-duplicate?${params.toString()}`);
+      const data = await res.json();
+      return data.isDuplicate === true;
+    } catch {
+      return false;
+    }
+  };
 
 
   // const submit = (e: React.FormEvent) => {
@@ -269,19 +271,20 @@ const checkDuplicate = async (): Promise<boolean> => {
   // };
 
   const submit = async (e: React.FormEvent) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  const isDuplicate = await checkDuplicate();
-  if (isDuplicate) {
-    alert(
-      "Duplicate record found!\nAnother system with the same Plant, Department and Equipment/Instrument ID already exists for GxP category."
-    );
-    return;
-  }
+    const isDuplicate = await checkDuplicate();
+    if (isDuplicate) {
+      alert(
+        "Duplicate record found!\nAnother system with the same Plant, Department and Equipment/Instrument ID already exists for GxP category."
+      );
+      return;
+    }
 
-  setConfirm(true);
-};
+    setConfirm(true);
+  };
 
+  // STEP 2 — Replace confirmSubmit
   const confirmSubmit = async () => {
     if (!form) return;
 
@@ -291,9 +294,7 @@ const checkDuplicate = async (): Promise<boolean> => {
         originalStatus.current === "ACTIVE" &&
         requestedStatus === "INACTIVE"
       ) {
-        const res = await fetch(
-          `/api/system/${form.id}/validate-inactivate`
-        );
+        const res = await fetch(`/api/system/${form.id}/validate-inactivate`);
         const data = await res.json();
 
         if (!data.canInactivate) {
@@ -301,24 +302,39 @@ const checkDuplicate = async (): Promise<boolean> => {
             "You are not able to change the status. This system is used in an active application. Do not click on submit."
           );
           setConfirm(false);
-          return; // ⛔ BLOCK UPDATE
+          return;
         }
       }
 
-      const index = systems.findIndex(s => s.id === form.id);
-      await updateSystem(index, {
+      const index = systems.findIndex((s) => s.id === form.id);
+      const result = await updateSystem(index, {
         ...form,
-        status: requestedStatus
+        status: requestedStatus,
       });
 
-      navigate("/system-master");
+      setConfirm(false);
 
+      if (result && "approvalId" in result && result.status === "PENDING_APPROVAL") {
+        setApprovalMessage(
+          `${result.message}\n\nApproval ID: ${result.approvalId}\n\nThe system will be updated after approval.`
+        );
+        setShowApprovalNotice(true);
+      } else {
+        alert("System updated successfully!");
+        navigate("/system-master");
+      }
     } catch (err: any) {
       setConfirm(false);
       alert(err.message || "Update failed");
     }
   };
 
+
+  // STEP 3 — Add handleApprovalNoticeClose
+  const handleApprovalNoticeClose = () => {
+    setShowApprovalNotice(false);
+    navigate("/system-master");
+  };
 
   const input = (
     name: keyof System,
@@ -634,6 +650,21 @@ const checkDuplicate = async (): Promise<boolean> => {
           onCancel={() => setConfirm(false)}
         />
       )}
+
+      {showApprovalNotice && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.approvalModal}>
+            <div className={styles.approvalIcon}>⏳</div>
+            <h3 className={styles.approvalTitle}>Approval Required</h3>
+            <p className={styles.approvalMessage}>{approvalMessage}</p>
+            <button onClick={handleApprovalNoticeClose} className={styles.approvalOkBtn}>
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
+
 
       <div className={styles.pageWrapper}>
         <AppHeader title="Edit System Inventory" />

@@ -24,6 +24,9 @@ const EditNetwork: React.FC = () => {
   const [plants, setPlants] = useState<Plant[]>([]);
   const [confirm, setConfirm] = useState(false);
   const [form, setForm] = useState<Network | null>(null);
+  // STEP 1 — Add 2 new state variables (after existing useState lines)
+  const [showApprovalNotice, setShowApprovalNotice] = useState(false);
+  const [approvalMessage, setApprovalMessage] = useState("");
 
   useEffect(() => {
     fetchPlants().then(setPlants);
@@ -171,29 +174,51 @@ const EditNetwork: React.FC = () => {
   };
 
 
+  // STEP 2 — Replace confirmSubmit
   const confirmSubmit = async () => {
-    const index = networks.findIndex((n) => n.id === form.id);
-    await updateNetwork(index, form);
+    try {
+      const index = networks.findIndex((n) => n.id === form.id);
+      const result = await updateNetwork(index, form);
+
+      if (result && "approvalId" in result && result.status === "PENDING_APPROVAL") {
+        setApprovalMessage(
+          `${result.message}\n\nApproval ID: ${result.approvalId}\n\nThe network device will be updated after approval.`
+        );
+        setShowApprovalNotice(true);
+      } else {
+        alert("Network device updated successfully!");
+        navigate("/network-master");
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to update network device.");
+    }
+  };
+
+  // STEP 3 — Add handleApprovalNoticeClose
+  const handleApprovalNoticeClose = () => {
+    setShowApprovalNotice(false);
     navigate("/network-master");
   };
 
-  const input = (name: keyof Network, label: string, type = "text") => {
+   // ── input helper — now accepts isRequired to show * ──────────────────────────
+  const input = (
+    name: keyof Network,
+    label: string,
+    type = "text",
+    isRequired = false   // ✅ NEW param
+  ) => {
     const isExpiryDate = name === "amc_warranty_expiry_date";
-
+ 
     const getNextDay = (dateStr?: string) => {
       if (!dateStr) return "";
-
       const date = new Date(dateStr);
       date.setDate(date.getDate() + 1);
-
-      // Extract YYYY-MM-DD safely
       const yyyy = date.getFullYear();
-      const mm = String(date.getMonth() + 1).padStart(2, "0"); // Months are 0-indexed
-      const dd = String(date.getDate()).padStart(2, "0");
-
+      const mm   = String(date.getMonth() + 1).padStart(2, "0");
+      const dd   = String(date.getDate()).padStart(2, "0");
       return `${yyyy}-${mm}-${dd}`;
     };
-
+ 
     return (
       <div className={styles.formGroupFloating}>
         <input
@@ -206,14 +231,17 @@ const EditNetwork: React.FC = () => {
           }
           onChange={handleChange}
           className={styles.input}
-          // ✅ dynamically set min as one day after warranty_start_date
+          required={isRequired}
           min={
             isExpiryDate && form.warranty_start_date
               ? getNextDay(form.warranty_start_date)
               : undefined
           }
         />
-        <label className={styles.floatingLabel}>{label}</label>
+        <label className={styles.floatingLabel}>
+          {label}
+          {isRequired && <span className={styles.required}> *</span>}  {/* ✅ asterisk */}
+        </label>
       </div>
     );
   };
@@ -301,6 +329,20 @@ const EditNetwork: React.FC = () => {
         />
       )}
 
+
+      {showApprovalNotice && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.approvalModal}>
+            <div className={styles.approvalIcon}>⏳</div>
+            <h3 className={styles.approvalTitle}>Approval Required</h3>
+            <p className={styles.approvalMessage}>{approvalMessage}</p>
+            <button onClick={handleApprovalNoticeClose} className={styles.approvalOkBtn}>
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className={styles.pageWrapper}>
         <AppHeader title="Edit Network Device" />
 
@@ -321,8 +363,8 @@ const EditNetwork: React.FC = () => {
                       { value: (p) => p.value, label: (p) => p.label }, true)}
                     {input("area", "Area")}
                     {input("rack", "Rack")}
-                    {input("host_name", "Host Name")}
-                    {input("device_ip", "Device IP")}
+                    {input("host_name",  "Host Name",  "text", true)}  {/* ✅ required */}
+                    {input("device_ip",  "Device IP",  "text", true)}  {/* ✅ required */}
                   </div>
                 </div>
 
@@ -331,9 +373,9 @@ const EditNetwork: React.FC = () => {
                   <span className={styles.sectionHeaderTitle}>Device Details</span>
                   <div className={styles.rowFields}>
                     {/* Dual Power Source(ATS /Yes/NO) */}
-                    {input("device_type", "Device Type")}
+                    {input("device_type",  "Device Type",  "text", true)}  {/* ✅ required */}
                     {input("device_model", "Device Model")}
-                    {input("serial_no", "Serial No")}
+                    {input("serial_no",    "Serial No",    "text", true)}  {/* ✅ required */}
                     {input("ios_version", "IOS Version")}
                     {input("make_vendor", "Make/Vendor")}
                     {select("poe_non_poe", "POE/Non-POE", ['PoE', 'Non-POE'], false, false, false, false)}
@@ -345,7 +387,7 @@ const EditNetwork: React.FC = () => {
                     {input("trunk_port", "Trunk Port")}
                     {select("sfp_fiber_tx", "SFP/Fiber TX", ['Fiber', 'TX'], false, false, false, false)}
                     {input("uptime", "Uptime")}
-                    {input("verify_date", "Verify Date", "date")}
+                    {input("verify_date",  "Verify Date", "date", true)} 
                   </div>
                 </div>
 

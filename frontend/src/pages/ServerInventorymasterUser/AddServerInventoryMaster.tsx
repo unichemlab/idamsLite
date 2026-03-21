@@ -18,6 +18,9 @@ const AddServerInventory: React.FC = () => {
   const [plants, setPlants] = useState<Plant[]>([]);
   const { user } = useAuth();
   const [showConfirm, setShowConfirm] = useState(false);
+  // STEP 1 — Add 2 new state variables (after existing useState lines)
+  const [showApprovalNotice, setShowApprovalNotice] = useState(false);
+  const [approvalMessage, setApprovalMessage] = useState("");
 
   // Handle input changes for all fields
   const [form, setForm] = useState<Partial<Server>>({
@@ -76,8 +79,8 @@ const AddServerInventory: React.FC = () => {
   useEffect(() => {
     fetchPlants().then(setPlants);
   }, []);
-  
-const plantOptions = Array.isArray(plants)
+
+  const plantOptions = Array.isArray(plants)
     ? plants
       .filter((plant: any) => {
         // 🔥 Super Admin → all plants
@@ -110,76 +113,86 @@ const plantOptions = Array.isArray(plants)
     : [];
 
 
- const handleChange = (
-  e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-) => {
-  const { name, value, type } = e.target;
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value, type } = e.target;
 
-  let finalValue: any = value;
+    let finalValue: any = value;
 
-  if (type === "checkbox") {
-    finalValue = (e.target as HTMLInputElement).checked;
-  } else if (type === "number") {
-    finalValue = Number(value);
-  } else if (value === "true") {
-    finalValue = true;
-  } else if (value === "false") {
-    finalValue = false;
-  }
-
-  setForm((prev) => {
-    const updatedForm = { ...prev, [name]: finalValue };
-
-    // ⚡ Ensure end_date > start_date
-    if (name === "start_date" && updatedForm.end_date) {
-      const start = new Date(finalValue);
-      const end = new Date(updatedForm.end_date);
-      if (end <= start) {
-        updatedForm.end_date = ""; // reset end_date if invalid
-      }
+    if (type === "checkbox") {
+      finalValue = (e.target as HTMLInputElement).checked;
+    } else if (type === "number") {
+      finalValue = Number(value);
+    } else if (value === "true") {
+      finalValue = true;
+    } else if (value === "false") {
+      finalValue = false;
     }
 
-    // ⚡ Ensure amc_warranty_expiry_date > warranty_new_start_date
-    if (name === "warranty_new_start_date" && updatedForm.amc_warranty_expiry_date) {
-      const start = new Date(finalValue);
-      const expiry = new Date(updatedForm.amc_warranty_expiry_date);
-      if (expiry <= start) {
-        updatedForm.amc_warranty_expiry_date = ""; // reset expiry if invalid
+    setForm((prev) => {
+      const updatedForm = { ...prev, [name]: finalValue };
+
+      // ⚡ Ensure end_date > start_date
+      if (name === "start_date" && updatedForm.end_date) {
+        const start = new Date(finalValue);
+        const end = new Date(updatedForm.end_date);
+        if (end <= start) {
+          updatedForm.end_date = ""; // reset end_date if invalid
+        }
       }
+
+      // ⚡ Ensure amc_warranty_expiry_date > warranty_new_start_date
+      if (name === "warranty_new_start_date" && updatedForm.amc_warranty_expiry_date) {
+        const start = new Date(finalValue);
+        const expiry = new Date(updatedForm.amc_warranty_expiry_date);
+        if (expiry <= start) {
+          updatedForm.amc_warranty_expiry_date = ""; // reset expiry if invalid
+        }
+      }
+
+      return updatedForm;
+    });
+  };
+
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const start = new Date(form.start_date || "");
+    const end = new Date(form.end_date || "");
+    const warrantyStart = new Date(form.warranty_new_start_date || "");
+    const warrantyEnd = new Date(form.amc_warranty_expiry_date || "");
+
+    if (end <= start) {
+      alert("End Date must be greater than Start Date");
+      return;
     }
 
-    return updatedForm;
-  });
-};
+    if (warrantyEnd <= warrantyStart) {
+      alert("AMC/Warranty Expiry Date must be greater than Warranty Start Date");
+      return;
+    }
+
+    setShowConfirm(true);
+  };
 
 
- const handleSubmit = (e: React.FormEvent) => {
-  e.preventDefault();
-
-  const start = new Date(form.start_date || "");
-  const end = new Date(form.end_date || "");
-  const warrantyStart = new Date(form.warranty_new_start_date || "");
-  const warrantyEnd = new Date(form.amc_warranty_expiry_date || "");
-
-  if (end <= start) {
-    alert("End Date must be greater than Start Date");
-    return;
-  }
-
-  if (warrantyEnd <= warrantyStart) {
-    alert("AMC/Warranty Expiry Date must be greater than Warranty Start Date");
-    return;
-  }
-
-  setShowConfirm(true);
-};
-
-
+  // STEP 2 — Replace handleConfirm
   const handleConfirm = async () => {
     try {
-      await addServer(form as Server);
+      const result = await addServer(form as Server);
       setShowConfirm(false);
-      navigate("/server-master");
+
+      if (result && "approvalId" in result && result.status === "PENDING_APPROVAL") {
+        setApprovalMessage(
+          `${result.message}\n\nApproval ID: ${result.approvalId}\n\nThe server will be added after approval.`
+        );
+        setShowApprovalNotice(true);
+      } else {
+        alert("Server created successfully!");
+        navigate("/server-master");
+      }
     } catch (error) {
       console.error("Error adding server:", error);
       alert("Failed to add server. Please try again.");
@@ -190,67 +203,73 @@ const plantOptions = Array.isArray(plants)
     setShowConfirm(false);
   };
 
-  const input = (
-  name: keyof Server,
-  label: string,
-  type: string = "text",
-  isRequired: boolean = false,
-  isDisabled: boolean = false
-) => {
-  const isStartDate = name === "warranty_new_start_date" || name === "start_date";
-  const isExpiryDate = name === "amc_warranty_expiry_date" || name === "end_date";
-
-  // Today's date in YYYY-MM-DD
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth() + 1).padStart(2, "0");
-  const dd = String(today.getDate()).padStart(2, "0");
-  const minToday = `${yyyy}-${mm}-${dd}`;
-
-  // Helper to get the next day after a date
-  const getNextDay = (dateStr?: string) => {
-    if (!dateStr) return "";
-    const date = new Date(dateStr);
-    date.setDate(date.getDate() + 1);
-    const yyyy = date.getFullYear();
-    const mm = String(date.getMonth() + 1).padStart(2, "0");
-    const dd = String(date.getDate()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd}`;
+  // STEP 3 — Add handleApprovalNoticeClose
+  const handleApprovalNoticeClose = () => {
+    setShowApprovalNotice(false);
+    navigate("/server-master");
   };
 
-  // Set min value dynamically
-  let minValue: string | undefined;
-   if (isExpiryDate) {
-    const startField =
-      name === "amc_warranty_expiry_date" ? "warranty_new_start_date" : "start_date";
-    minValue = form[startField] ? getNextDay(form[startField]) : minToday;
-  }
+  const input = (
+    name: keyof Server,
+    label: string,
+    type: string = "text",
+    isRequired: boolean = false,
+    isDisabled: boolean = false
+  ) => {
+    const isStartDate = name === "warranty_new_start_date" || name === "start_date";
+    const isExpiryDate = name === "amc_warranty_expiry_date" || name === "end_date";
 
-  return (
-    <div className={styles.formGroupFloating}>
-      <input
-        type={type}
-        name={name}
-        value={form[name] as any}
-        onChange={handleChange}
-        required={isRequired}
-        disabled={isDisabled}
-        min={type === "date" ? minValue : undefined} // only for date inputs
-        className={styles.input}
-      />
-      <label className={styles.floatingLabel}>
-        {label}
-        {isRequired && <span className={styles.required}> *</span>}
-      </label>
-    </div>
-  );
-};
+    // Today's date in YYYY-MM-DD
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    const minToday = `${yyyy}-${mm}-${dd}`;
+
+    // Helper to get the next day after a date
+    const getNextDay = (dateStr?: string) => {
+      if (!dateStr) return "";
+      const date = new Date(dateStr);
+      date.setDate(date.getDate() + 1);
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, "0");
+      const dd = String(date.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
+    };
+
+    // Set min value dynamically
+    let minValue: string | undefined;
+    if (isExpiryDate) {
+      const startField =
+        name === "amc_warranty_expiry_date" ? "warranty_new_start_date" : "start_date";
+      minValue = form[startField] ? getNextDay(form[startField]) : minToday;
+    }
+
+    return (
+      <div className={styles.formGroupFloating}>
+        <input
+          type={type}
+          name={name}
+          value={form[name] as any}
+          onChange={handleChange}
+          required={isRequired}
+          disabled={isDisabled}
+          min={type === "date" ? minValue : undefined} // only for date inputs
+          className={styles.input}
+        />
+        <label className={styles.floatingLabel}>
+          {label}
+          {isRequired && <span className={styles.required}> *</span>}
+        </label>
+      </div>
+    );
+  };
 
 
 
 
   const isVirtualSelected = form.vm_type === "Virtual";
-  
+
   type OptionValue = string | number;
 
   type GenericSelectOption<T> = {
@@ -332,6 +351,18 @@ const plantOptions = Array.isArray(plants)
           onCancel={handleCancel}
         />
       )}
+      {showApprovalNotice && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.approvalModal}>
+            <div className={styles.approvalIcon}>⏳</div>
+            <h3 className={styles.approvalTitle}>Approval Required</h3>
+            <p className={styles.approvalMessage}>{approvalMessage}</p>
+            <button onClick={handleApprovalNoticeClose} className={styles.approvalOkBtn}>
+              OK
+            </button>
+          </div>
+        </div>
+      )}
       <div className={styles.pageWrapper}>
         <AppHeader title="Server Inventory Management" />
 
@@ -361,7 +392,7 @@ const plantOptions = Array.isArray(plants)
               style={{ padding: 10 }}
             >
               <div className={styles.scrollFormContainer}>
-                
+
                 {/* User Details Section */}
                 <div className={styles.section}>
                   <span className={styles.sectionHeaderTitle}>User Details</span>
@@ -421,7 +452,7 @@ const plantOptions = Array.isArray(plants)
                     {input("current_status", "Current Status of Server")}
                     {select("server_managed_by", "Server Managed By", ["IT", "ESD"], true)}
                     {input("remarks_application_usage", "Remarks for Application Usage")}
-                     {input("start_date", "Start Date", "date")}
+                    {input("start_date", "Start Date", "date")}
                     {input("end_date", "End Date", "date")}
                     {input("aging", "Aging")}
                     {input("environment", "Environment")}

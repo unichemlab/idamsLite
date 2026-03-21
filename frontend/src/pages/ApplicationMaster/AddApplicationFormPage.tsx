@@ -60,9 +60,10 @@ const AddApplicationFormPage: React.FC = () => {
   const username = user?.username || "";
   const [showModal, setShowModal] = useState(false);
   const [showApprovalNotice, setShowApprovalNotice] = useState(false);
-    const [approvalMessage, setApprovalMessage] = useState("");
+  const [approvalMessage, setApprovalMessage] = useState("");
+
   const navigate = useNavigate();
-  const { setApplications, applications } = useApplications();
+  const { setApplications, applications, refreshApplications } = useApplications();
 
   type FormType = {
     plant_location_id: string;
@@ -147,10 +148,10 @@ const AddApplicationFormPage: React.FC = () => {
 
   useEffect(() => {
     if (!form.plant_location_id || !form.department_id) {
-    // clear inventory if one is missing
-    setInventoryOptions([]);
-    return;
-  }
+      // clear inventory if one is missing
+      setInventoryOptions([]);
+      return;
+    }
 
     const fetchInventory = async () => {
       try {
@@ -272,6 +273,7 @@ const AddApplicationFormPage: React.FC = () => {
     setRoleLocked(!roleLocked);
   };
 
+  // ── handleConfirm ─────────────────────────────────────────────────────────────
   const handleConfirm = async (data: Record<string, string>) => {
     try {
       const payload = {
@@ -298,20 +300,27 @@ const AddApplicationFormPage: React.FC = () => {
       const result = await res.json();
       setShowModal(false);
 
-      if (result.approvalId) {
-        alert(
-          `Application creation requires approval.\nApproval ID: ${result.approvalId}\n\nThe application will be added after approval.`
+      // ✅ Show approval notice modal instead of alert
+      if (result?.approvalId && result?.status === "PENDING_APPROVAL") {
+        setApprovalMessage(
+          `${result.message}\n\nApproval ID: ${result.approvalId}\n\nThe application will be added after approval.`
         );
+        setShowApprovalNotice(true);
       } else {
         alert("Application created successfully!");
-        setApplications([...applications, result]);
+        refreshApplications();
+        navigate("/application-masters", { state: { activeTab: "application" } });
       }
-
-      navigate("/application-masters", { state: { activeTab: "application" } });
     } catch (err: any) {
       console.error("Error adding application:", err);
       alert(`Error: ${err.message || "Failed to add application"}`);
     }
+  };
+
+  // ✅ NEW — close approval notice and navigate
+  const handleApprovalNoticeClose = () => {
+    setShowApprovalNotice(false);
+    navigate("/application-masters", { state: { activeTab: "application" } });
   };
 
   const handleCancel = () => {
@@ -326,6 +335,23 @@ const AddApplicationFormPage: React.FC = () => {
           onConfirm={handleConfirm}
           onCancel={handleCancel}
         />
+      )}
+
+      {/* ✅ Approval Notice Modal */}
+      {showApprovalNotice && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.approvalModal}>
+            <div className={styles.approvalIcon}>⏳</div>
+            <h3 className={styles.approvalTitle}>Approval Required</h3>
+            <p className={styles.approvalMessage}>{approvalMessage}</p>
+            <button
+              onClick={handleApprovalNoticeClose}
+              className={styles.approvalOkBtn}
+            >
+              OK
+            </button>
+          </div>
+        </div>
       )}
 
       <div className={styles.pageWrapper}>
