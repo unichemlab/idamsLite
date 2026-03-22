@@ -17,7 +17,8 @@ import { PermissionGuard, PermissionButton } from "../../components/Common/Permi
 import { PERMISSIONS } from "../../constants/permissions";
 import { usePermissions } from "../../context/PermissionContext";
 import useAutoRefresh from "../../hooks/useAutoRefresh";
-
+import ActivityLogModal from "../../components/Common/ActivityLogModal";
+import { fetchActivityLogs,fetchActivityLogsByRecordId  } from "../../utils/activityLogUtils";
 export interface ActivityLog {
   id?: number;
   sr_no?: number;
@@ -34,6 +35,8 @@ const PlantMasterTable: React.FC = () => {
 const { plants, deletePlant,refreshPlants  } = usePlantContext();
 const [selectedPlantId, setSelectedPlantId] = React.useState<number | null>(null);
 const [selectedRow, setSelectedRow] = React.useState<number | null>(null);
+const [activityLogs, setActivityLogs] = React.useState<any[]>([]);
+const [selectedRecordName, setSelectedRecordName] = React.useState("");
 const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   const [showActivityModal, setShowActivityModal] = React.useState(false);
   const [currentPage, setCurrentPage] = React.useState(1);
@@ -297,6 +300,25 @@ useAutoRefresh(refreshCallback);
     setSelectedPlantId(null);
     setShowDeleteModal(false);
   };
+
+// 🔥 NEW: Handle activity log button click
+    const handleActivityClick = useCallback(async (app: any) => {
+      try {
+        // Fetch activity logs using the common utility
+        const logs = await fetchActivityLogsByRecordId('plant_master', app.id);
+        console.log(`✅ Found ${logs.length} logs for record ${app.name}`);
+        setActivityLogs(logs);
+        setSelectedRecordName(app.name);
+        setShowActivityModal(true);
+      } catch (err) {
+        console.error("Error loading activity logs:", err);
+        setActivityLogs([]);
+        setSelectedRecordName(app.name);
+        setShowActivityModal(true);
+      }
+    }, []);
+
+
 const handleEdit = useCallback(() => {
       if (selectedPlantId === null) return;
       const app = filteredData[selectedPlantId];
@@ -325,7 +347,7 @@ const handleEdit = useCallback(() => {
       }, [selectedPlantId, filteredData, hasPermission]);
   return (
     <div className={styles.pageWrapper}>
-      <AppHeader title="Plant Master Management2" />
+      <AppHeader title="Plant Master Management" />
       
       <div className={styles.contentArea}>
         <div className={styles.controlPanel}>
@@ -528,47 +550,13 @@ const handleEdit = useCallback(() => {
                         </span>
                       </td>
                       <td style={{ textAlign: 'center' }}>
-                        <button
-                          className={styles.activityBtn}
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            const plantName = plant.name ?? "";
-                            setApproverFilter("");
-                            setActivityPlant({ name: plantName, logs: [] });
-                            setShowActivityModal(true);
-
-                            try {
-                              const allLogs = (await fetchPlantActivityLogs()) as any[];
-                              const filteredByPlant = (allLogs || []).filter((log: any) => {
-                                try {
-                                  const oldVal = log.old_value ? JSON.parse(log.old_value) : {};
-                                  const newVal = log.new_value ? JSON.parse(log.new_value) : {};
-                                  return oldVal.plant_name === plantName || newVal.plant_name === plantName;
-                                } catch {
-                                  return false;
-                                }
-                              }) as ActivityLog[];
-
-                              const logMap = new Map<string, ActivityLog>();
-                              filteredByPlant.forEach((log) => {
-                                const key = log.id
-                                  ? `id-${log.id}`
-                                  : `action-${log.action}-by-${log.action_performed_by}-old-${log.old_value}-new-${log.new_value}`;
-                                if (!logMap.has(key)) logMap.set(key, log);
-                              });
-
-                              setActivityPlant({
-                                name: plantName,
-                                logs: Array.from(logMap.values()),
-                              });
-                            } catch (err) {
-                              console.error(err);
-                              setActivityPlant({ name: plantName, logs: [] });
-                            }
-                          }}
-                        >
-                          <FaRegClock size={16} />
-                        </button>
+                         <button 
+                            className={styles.activityBtn} 
+                            onClick={() => handleActivityClick(plant)}
+                            title="View activity logs"
+                          >
+                            <FaRegClock size={16} />
+                          </button>
                       </td>
                     </tr>
                   );
@@ -606,86 +594,19 @@ const handleEdit = useCallback(() => {
         onConfirm={confirmDelete}
       />
 
-      {showActivityModal && activityPlant && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.activityModal}>
-            <div className={styles.modalHeader}>
-              <h3>Activity Log - {activityPlant.name}</h3>
-              <div className={styles.modalActions}>
-                <button onClick={handleExportActivityPDF} className={styles.exportModalBtn}>
-                  📄 Export PDF
-                </button>
-                <button onClick={() => setShowActivityModal(false)} className={styles.closeBtn}>
-                  ×
-                </button>
-              </div>
-            </div>
-
-            <div className={styles.modalBody}>
-              <div className={styles.filterRow}>
-                <input
-                  type="text"
-                  placeholder="Filter by Approved/Rejected By"
-                  value={approverFilter}
-                  onChange={(e) => setApproverFilter(e.target.value)}
-                  className={styles.filterInput}
-                />
-              </div>
-
-              <div className={styles.activityTableContainer}>
-                <table className={styles.activityTable}>
-                  <thead>
-                    <tr>
-                      <th>Action</th>
-                      <th>Old Value</th>
-                      <th>New Value</th>
-                      <th>Performed By</th>
-                      <th>Status</th>
-                      <th>Date/Time</th>
-                      <th>Comments</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(activityPlant.logs || [])
-                      .filter((log) => {
-                        const performedBy = String(log.action_performed_by ?? "").toLowerCase();
-                        const filter = approverFilter.toLowerCase();
-                        return performedBy.includes(filter);
-                      })
-                      .map((log, i) => {
-                        let oldVal: any = {};
-                        let newVal: any = {};
-                        try {
-                          oldVal = log.old_value ? JSON.parse(log.old_value) : {};
-                          newVal = log.new_value ? JSON.parse(log.new_value) : {};
-                        } catch {}
-                        return (
-                          <tr key={i}>
-                            <td>{log.action}</td>
-                            <td>
-                              {oldVal.plant_name || ""}{" "}
-                              {oldVal.description ? `(${oldVal.description})` : ""}
-                            </td>
-                            <td>
-                              {newVal.plant_name || ""}{" "}
-                              {newVal.description ? `(${newVal.description})` : ""}
-                            </td>
-                            <td>{log.action_performed_by ?? ""}</td>
-                            <td>{log.approve_status ?? ""}</td>
-                            <td>
-                              {log.date_time_ist ? new Date(log.date_time_ist).toLocaleString() : ""}
-                            </td>
-                            <td>{log.comments ?? ""}</td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Activity Log Modal with name resolution */}
+      <ActivityLogModal
+        isOpen={showActivityModal}
+        onClose={() => setShowActivityModal(false)}
+        title="Activity Log"
+        recordName={selectedRecordName}
+        activityLogs={activityLogs}
+        // 🔥 Pass name resolution functions
+        // getPlantName={getPlantName}
+        // getDepartmentName={getDepartmentName}
+        // getRoleName={getRoleName}
+        // getUserName={getUserName}
+      />
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useContext,useMemo,useCallback } from "react";
 import styles from "../Plant/PlantMasterTable.module.css";
-import { FaEdit, FaTrash } from "react-icons/fa";
+import { FaEdit, FaTrash,FaRegClock } from "react-icons/fa";
 import ConfirmDeleteModal from "../../components/Common/ConfirmDeleteModal";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -15,14 +15,18 @@ import { PermissionGuard, PermissionButton } from "../../components/Common/Permi
 import { PERMISSIONS } from "../../constants/permissions";
 import { usePermissions } from "../../context/PermissionContext";
 import useAutoRefresh from "../../hooks/useAutoRefresh";
-
+import ActivityLogModal from "../../components/Common/ActivityLogModal";
+import { fetchActivityLogs,fetchActivityLogsByRecordId  } from "../../utils/activityLogUtils";
 const ServerInventoryMasterTable: React.FC = () => {
   const serverCtx = useContext(ServerContext);
   const servers = serverCtx?.servers ?? [];
   const refreshServers = serverCtx?.refreshServers ?? [];
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
+  const [showActivityModal, setShowActivityModal] = React.useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showFilterPopover, setShowFilterPopover] = useState(false);
+  const [activityLogs, setActivityLogs] = React.useState<any[]>([]);
+     const [selectedRecordName, setSelectedRecordName] = React.useState("");
   const [filterColumn, setFilterColumn] = useState("host_name");
   const [filterValue, setFilterValue] = useState("");
   const [tempFilterColumn, setTempFilterColumn] = useState(filterColumn);
@@ -308,6 +312,23 @@ useAutoRefresh(refreshCallback);
     setShowDeleteModal(false);
   };
 
+  // 🔥 NEW: Handle activity log button click
+      const handleActivityClick = useCallback(async (app: any) => {
+        try {
+          // Fetch activity logs using the common utility
+          const logs = await fetchActivityLogsByRecordId('server_inventory_master', app.id);
+          console.log(`✅ Found ${logs.length} logs for record ${app.name}`);
+          setActivityLogs(logs);
+          setSelectedRecordName(app.name);
+          setShowActivityModal(true);
+        } catch (err) {
+          console.error("Error loading activity logs:", err);
+          setActivityLogs([]);
+          setSelectedRecordName(app.name);
+          setShowActivityModal(true);
+        }
+      }, []);
+
   // Filter popover click outside handler
   React.useEffect(() => {
     if (!showFilterPopover) return;
@@ -534,6 +555,7 @@ console.log("server data",servers);
                   <th>AMC Vendor</th>
                   <th>Remarks If Any</th>
                   <th>Status</th>
+                  <th>Activity Log</th>
                 </tr>
               </thead>
               <tbody>
@@ -610,6 +632,15 @@ console.log("server data",servers);
                     <td>{server.amc_vendor}</td>
                     <td>{server.remarks}</td>
                     <td>{server.status}</td>
+                    <td>
+                                         <button 
+                                                className={styles.activityBtn} 
+                                                onClick={() => handleActivityClick(server)}
+                                                title="View activity logs"
+                                              >
+                                                <FaRegClock size={16} />
+                                              </button>
+                                        </td>
                   </tr>
                 ))}
                 <ConfirmDeleteModal
@@ -622,6 +653,21 @@ console.log("server data",servers);
                   onCancel={() => setShowDeleteModal(false)}
                   onConfirm={confirmDelete}
                 />
+
+                 {/* Activity Log Modal with name resolution */}
+                      <ActivityLogModal
+                        isOpen={showActivityModal}
+                        onClose={() => setShowActivityModal(false)}
+                        title="Activity Log"
+                        recordName={selectedRecordName}
+                        activityLogs={activityLogs}
+                        // 🔥 Pass name resolution functions
+                        // getPlantName={getPlantName}
+                        // getDepartmentName={getDepartmentName}
+                        // getRoleName={getRoleName}
+                        // getUserName={getUserName}
+                      />
+
               </tbody>
             </table>
           </div>

@@ -1,132 +1,372 @@
+/* ============================================================
+   dashboard.module.css — Final Polished Edition
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Syne:wght@700;800&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* ── Base ── */
 .pageWrapper {
-  background: #f5f7fb;
+  background: #f0f3f9;
   min-height: 100vh;
+  font-family: 'DM Sans', sans-serif;
 }
 
-.contentArea {
-  padding: 20px 28px;
+.contentArea,
+.content {
+  padding: 57px 20px 36px;
+  max-width: 1500px;
 }
 
-.sectionTitle {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 18px;
-}
+/* ============================================================
+   HERO
+   ============================================================ */
 
-.sectionTitle h2 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.sectionTitle span {
-  font-size: 13px;
-  color: #6b7280;
-}
-
-/* ===== GRID SYSTEM ===== */
-
-.grid12 {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: 16px;
-  margin-bottom: 22px;
-}
-
-.col2 {
-  grid-column: span 2;
-}
-
-.col4 {
-  grid-column: span 4;
-}
-
-/* ===== KPI CARDS ===== */
-
-.statCard {
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 14px 16px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
-  cursor: pointer;
-  transition: all 0.25s ease;
-}
-
-.statCard:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.15);
-  border-left: 4px solid #2563eb;
-}
-
-.statTop {
+.hero {
   display: flex;
   align-items: center;
-  gap: 10px;
-}
-
-.icon {
-  color: #2563eb;
-}
-
-.label {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.total {
-  font-size: 26px;
-  font-weight: 700;
-  margin-top: 8px;
-}
-
-.meta {
-  display: flex;
   justify-content: space-between;
-  font-size: 12px;
-  margin-top: 6px;
-}
-
-.active {
-  color: #16a34a;
-}
-.inactive {
-  color: #9ca3af;
-}
-.approved {
-  color: #16a34a;
-}
-.rejected {
-  color: #dc2626;
-}
-
-/* ===== CHART CARDS ===== */
-
-.chartCard {
-  background: #ffffff;
+  background: linear-gradient(100deg, #1a56db 0%, #0e3fa5 60%, #0a2d7a 100%);
   border-radius: 14px;
-  padding: 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  padding: 16px 24px;
+  margin-bottom: 12px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 28px rgba(14, 63, 165, 0.28);
 }
 
-.placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 260px;
-  font-size: 14px;
-  color: #9ca3af;
-}
-
-/* ===== STATES ===== */
-
-.disabledCard {
-  opacity: 0.5;
+.hero::before {
+  content: '';
+  position: absolute; top: -70px; right: 40px;
+  width: 200px; height: 200px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%);
   pointer-events: none;
 }
 
-.loader {
-  padding: 60px;
-  text-align: center;
-  color: #6b7280;
+.hero::after {
+  content: '';
+  position: absolute; bottom: -50px; left: 30%;
+  width: 150px; height: 150px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.07) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.heroLeft, .heroL { z-index: 1; }
+
+.heroEye {
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  color: rgba(255,255,255,0.55); margin: 0 0 3px;
+}
+
+.heroTitle {
+  font-family: 'Syne', sans-serif;
+  font-size: 26px; font-weight: 800;
+  color: #fff; letter-spacing: -0.02em;
+  line-height: 1.1; margin: 0 0 4px;
+}
+
+.heroSub { font-size: 11px; color: rgba(255,255,255,0.45); margin: 0; }
+
+.heroStats {
+  display: flex; align-items: center;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 12px; padding: 10px 4px; z-index: 1;
+  gap: 0;
+}
+
+.heroStat {
+  display: flex; flex-direction: column;
+  align-items: center; padding: 0 18px;
+}
+
+.heroNum {
+  font-family: 'Syne', sans-serif;
+  font-size: 22px; font-weight: 800;
+  color: #fff; line-height: 1;
+}
+
+.heroLabel, .heroLbl {
+  font-size: 10px; font-weight: 600;
+  color: rgba(255,255,255,0.5);
+  margin-top: 3px; white-space: nowrap;
+}
+
+.heroDivider, .heroDiv {
+  width: 1px; height: 32px;
+  background: rgba(255,255,255,0.15); flex-shrink: 0;
+}
+
+.superBadge {
+  font-size: 10px; font-weight: 800; letter-spacing: 0.08em;
+  color: #fbbf24;
+  background: rgba(251,191,36,0.18);
+  border: 1px solid rgba(251,191,36,0.4);
+  border-radius: 6px; padding: 3px 9px;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   SECTION ROW
+   ============================================================ */
+
+.sectionRow, .secRow {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  margin: 0 0 8px;
+  padding: 0 2px;
+}
+
+.sectionTitle, .secTitle {
+  font-size: 10.5px; font-weight: 700;
+  color: #1e293b; text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.sectionSub, .secSub {
+  font-size: 10px; color: #94a3b8; font-weight: 500;
+}
+
+/* ============================================================
+   KPI GRID
+   ============================================================ */
+
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px; margin-bottom: 12px;
+}
+
+@media (max-width: 1200px) { .kpiGrid { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 860px)  { .kpiGrid { grid-template-columns: repeat(3, 1fr); } }
+
+/* ── KPI Card ── */
+.kpiCard {
+  background: #fff;
+  border-radius: 11px; overflow: hidden;
+  cursor: pointer; position: relative;
+  box-shadow: 0 1px 4px rgba(15,23,42,0.07), 0 0 0 1px rgba(15,23,42,0.04);
+  transition: transform 0.24s cubic-bezier(0.34,1.5,0.64,1), box-shadow 0.22s;
+  opacity: 0; transform: translateY(10px);
+}
+
+.kpiIn { animation: kpiUp 0.42s cubic-bezier(0.34,1.15,0.64,1) forwards; }
+
+@keyframes kpiUp {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.kpiCard:hover {
+  transform: translateY(-5px) scale(1.022);
+  box-shadow: 0 12px 32px rgba(15,23,42,0.13), 0 0 0 1px rgba(15,23,42,0.06);
+  z-index: 2;
+}
+
+.kpiBar { height: 3px; width: 100%; }
+
+.kpiBody { padding: 10px 12px 11px; }
+
+.kpiTop {
+  display: flex; align-items: center;
+  justify-content: space-between; margin-bottom: 6px;
+}
+
+.kpiIcon {
+  width: 28px; height: 28px; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.kpiArrow { font-size: 13px; transition: opacity 0.15s, transform 0.18s; }
+.kpiCard:hover .kpiArrow { transform: translateX(4px); }
+
+.kpiName {
+  font-size: 9.5px; font-weight: 700;
+  color: #94a3b8; text-transform: uppercase;
+  letter-spacing: 0.07em; margin-bottom: 2px;
+}
+
+.kpiNum {
+  font-family: 'Syne', sans-serif;
+  font-size: 28px; font-weight: normal;
+  letter-spacing: -0.025em; line-height: 1;
+  margin-bottom: 6px;
+}
+
+/* progress bar */
+.miniBarWrap, .kpiProg {
+  height: 3px; background: #f1f5f9;
+  border-radius: 99px; overflow: hidden; margin-bottom: 6px;
+}
+
+.miniBarFill, .kpiProgFill {
+  height: 100%; border-radius: 99px; transition: width 1.1s ease;
+}
+
+.kpiChips { display: flex; gap: 4px; flex-wrap: wrap; }
+
+.chip {
+  font-size: 10px; font-weight: 600;
+  padding: 2px 6px; border-radius: 5px; white-space: nowrap;
+}
+
+/* ============================================================
+   CHART GRID LAYOUTS
+   ============================================================ */
+
+.row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr;     gap: 8px; margin-bottom: 8px; }
+.row1 { display: grid; grid-template-columns: 1fr;         gap: 8px; margin-bottom: 8px; }
+
+@media (max-width: 960px) {
+  .row3 { grid-template-columns: 1fr 1fr; }
+  .row2 { grid-template-columns: 1fr; }
+}
+
+/* ── Chart Card ── */
+.chartCard {
+  background: #fff;
+  border-radius: 12px;
+  padding: 14px 16px 10px;
+  box-shadow: 0 1px 4px rgba(15,23,42,0.07), 0 0 0 1px rgba(15,23,42,0.04);
+  transition: box-shadow 0.22s;
+  display: flex; flex-direction: column;
+}
+
+.chartCard:hover {
+  box-shadow: 0 6px 22px rgba(15,23,42,0.11), 0 0 0 1px rgba(15,23,42,0.06);
+}
+
+.chartHead {
+  display: flex; align-items: center;
+  gap: 6px; margin-bottom: 8px; flex-shrink: 0;
+}
+
+.chartDot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+.chartName, .chartTitle {
+  font-size: 12px; font-weight: 700;
+  color: #0f172a; flex: 1;
+  letter-spacing: -0.01em; margin: 0;
+}
+
+.chartBadge {
+  font-size: 10px; font-weight: 600;
+  background: #f1f5f9; color: #64748b;
+  border-radius: 5px; padding: 3px 8px; white-space: nowrap;
+}
+
+/* ============================================================
+   LEGEND — inline horizontal, no wrapping issues
+   ============================================================ */
+
+/* shared base for all legend rows */
+.legRow,
+.pieLegend {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 6px;
+  padding: 6px 4px 2px;
+  border-top: 1px solid #f1f5f9;
+  row-gap: 4px;
+  column-gap: 12px;
+}
+
+.legItem,
+.pieLegendItem {
+  display: flex; align-items: center;
+  gap: 5px;
+  font-size: 10.5px; color: #475569;
+  font-weight: 500; white-space: nowrap;
+  line-height: 1.4;
+}
+
+/* value shown after label — bold, coloured by parent */
+.legItem strong,
+.pieLegendItem strong {
+  font-weight: 700; color: #0f172a; margin-left: 1px;
+}
+
+.legDot, .pieDot {
+  width: 8px; height: 8px;
+  border-radius: 50%; flex-shrink: 0;
+}
+
+/* ============================================================
+   TOOLTIP
+   ============================================================ */
+
+.tip, .tooltip {
+  background: rgba(8,12,36,0.94);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 9px;
+  padding: 8px 12px;
+  font-size: 12px;
+  pointer-events: none;
+  font-family: 'DM Sans', sans-serif;
+  min-width: 120px;
+}
+
+.tipLabel, .tooltipLabel {
+  font-size: 10px; color: #64748b;
+  margin: 0 0 5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.07em;
+}
+
+.tipRow, .tooltipRow {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  gap: 16px; margin: 2px 0;
+  font-size: 11px; color: #94a3b8;
+}
+
+.tipRow strong, .tooltipRow strong {
+  font-weight: 700; color: inherit; font-size: 13px;
+}
+
+/* ============================================================
+   ERROR STATE
+   ============================================================ */
+
+.errWrap, .errorWrap {
+  display: flex; align-items: center;
+  justify-content: center; padding: 60px 20px;
+}
+
+.errBox, .errorBox {
+  background: #fff; border-radius: 14px;
+  padding: 32px 36px; text-align: center;
+  box-shadow: 0 4px 20px rgba(15,23,42,0.08);
+  max-width: 420px; width: 100%;
+}
+
+.errIcon, .errorIcon  { font-size: 28px; display: block; margin-bottom: 10px; color: #f59e0b; }
+.errTitle, .errorTitle { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; color: #0f172a; margin: 0 0 8px; }
+.errMsg, .errorMsg     { font-size: 11px; color: #64748b; margin: 0 0 18px; word-break: break-all; background: #f8fafc; padding: 9px 12px; border-radius: 7px; text-align: left; font-family: monospace; }
+.errBtn, .errorRetry   { background: #1a56db; color: #fff; border: none; border-radius: 8px; padding: 8px 22px; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity 0.18s; }
+.errBtn:hover, .errorRetry:hover { opacity: 0.88; }
+
+/* ============================================================
+   SKELETON LOADER
+   ============================================================ */
+
+.skeletonGrid {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  gap: 8px; padding: 14px 20px;
+}
+
+.skeletonCard {
+  height: 100px; border-radius: 11px;
+  background: linear-gradient(90deg, #e2e8f4 25%, #cdd5e3 50%, #e2e8f4 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+@keyframes shimmer {
+  0%   { background-position:  200% 0; }
+  100% { background-position: -200% 0; }
 }

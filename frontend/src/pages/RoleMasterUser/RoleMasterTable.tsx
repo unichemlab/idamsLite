@@ -16,7 +16,8 @@ import { PermissionGuard, PermissionButton } from "../../components/Common/Permi
 import { PERMISSIONS } from "../../constants/permissions";
 import { usePermissions } from "../../context/PermissionContext";
 import useAutoRefresh from "../../hooks/useAutoRefresh";
-
+import ActivityLogModal from "../../components/Common/ActivityLogModal";
+import { fetchActivityLogs,fetchActivityLogsByRecordId  } from "../../utils/activityLogUtils";
 interface RoleMasterTableProps {
   onAdd?: () => void;
   onEdit?: (id: number) => void;
@@ -41,6 +42,8 @@ export default function RoleMasterTable({
   const [filterValue, setFilterValue] = React.useState("");
   const [tempFilterColumn, setTempFilterColumn] = React.useState(filterColumn);
   const [tempFilterValue, setTempFilterValue] = React.useState(filterValue);
+  const [activityLogs, setActivityLogs] = React.useState<any[]>([]);
+     const [selectedRecordName, setSelectedRecordName] = React.useState("");
   const popoverRef = React.useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
   const { can } = useAbility();
@@ -207,6 +210,24 @@ useAutoRefresh(refreshCallback);
       setSelectedRow(null);
     }
   };
+
+  // 🔥 NEW: Handle activity log button click
+      const handleActivityClick = useCallback(async (app: any) => {
+        try {
+          // Fetch activity logs using the common utility
+          const logs = await fetchActivityLogsByRecordId('role_master', app.id);
+          console.log(`✅ Found ${logs.length} logs for record ${app.name}`);
+          setActivityLogs(logs);
+          setSelectedRecordName(app.name);
+          setShowActivityModal(true);
+        } catch (err) {
+          console.error("Error loading activity logs:", err);
+          setActivityLogs([]);
+          setSelectedRecordName(app.name);
+          setShowActivityModal(true);
+        }
+      }, []);
+
 const handleEdit = useCallback(() => {
       if (selectedRow === null) return;
       const app = filteredData[selectedRow];
@@ -463,82 +484,13 @@ const handleEdit = useCallback(() => {
                         </span>
                       </td>
                       <td>
-                        <span
-                          style={{ cursor: "pointer", color: "#0b63ce" }}
-                          title="View Activity Log"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            const roleName = role.name ?? "";
-                            // Open modal immediately
-                            setActivityRole({ name: roleName, logs: [] });
-                            setShowActivityModal(true);
-
-                            // Fetch logs and filter for this role
-                            try {
-                              const allLogs = await fetchRoleActivityLogs();
-                              const filtered = (allLogs || []).filter(
-                                (log: any) => {
-                                  try {
-                                    const oldVal = log.old_value
-                                      ? JSON.parse(log.old_value)
-                                      : {};
-                                    const newVal = log.new_value
-                                      ? JSON.parse(log.new_value)
-                                      : {};
-                                    return (
-                                      oldVal.name === roleName ||
-                                      newVal.name === roleName ||
-                                      oldVal.role_name === roleName ||
-                                      newVal.role_name === roleName
-                                    );
-                                  } catch {
-                                    return false;
-                                  }
-                                }
-                              );
-
-                              // Normalize rows for display: keep fields expected by modal
-                              const normalized = filtered.map((r: any) => {
-                                let oldVal = r.old_value;
-                                let newVal = r.new_value;
-                                try {
-                                  oldVal = r.old_value
-                                    ? JSON.parse(r.old_value)
-                                    : r.old_value;
-                                } catch { }
-                                try {
-                                  newVal = r.new_value
-                                    ? JSON.parse(r.new_value)
-                                    : r.new_value;
-                                } catch { }
-                                return {
-                                  action: r.action || r.action_performed_by || "",
-                                  oldValue:
-                                    typeof oldVal === "object"
-                                      ? JSON.stringify(oldVal)
-                                      : oldVal,
-                                  newValue:
-                                    typeof newVal === "object"
-                                      ? JSON.stringify(newVal)
-                                      : newVal,
-                                  approver:
-                                    r.action_performed_by || r.user_id || "",
-                                  dateTime:
-                                    r.date_time_ist || r.created_on || null,
-                                };
-                              });
-
-                              setActivityRole({
-                                name: roleName,
-                                logs: normalized,
-                              });
-                            } catch (err) {
-                              setActivityRole({ name: roleName, logs: [] });
-                            }
-                          }}
-                        >
-                          <FaRegClock size={18} />
-                        </span>
+                         <button 
+                            className={styles.activityBtn} 
+                            onClick={() => handleActivityClick(role)}
+                            title="View activity logs"
+                          >
+                            <FaRegClock size={16} />
+                          </button>
                       </td>
                     </tr>
                   );
@@ -588,83 +540,19 @@ const handleEdit = useCallback(() => {
             </div>
           </div>
         </div>
-        {/* Activity Log Modal */}
-        {showActivityModal && activityRole && (
-          <div
-            className={styles.panelOverlay}
-            style={{ zIndex: 2000, background: "rgba(0,0,0,0.18)" }}
-          >
-            <div
-              className={styles.panelWrapper}
-              style={{
-                maxWidth: 1000,
-                width: "95%",
-                left: "53%",
-                transform: "translateX(-50%)",
-                position: "fixed",
-                top: 176,
-                borderRadius: 16,
-                boxShadow: "0 8px 32px rgba(11,99,206,0.18)",
-                padding: "24px 18px 18px 18px",
-                display: "flex",
-                flexDirection: "column",
-                background: "#fff",
-                zIndex: "1",
-              }}
-            >
-              {/* Activity log content here */}
-              <h3 style={{ marginBottom: 12 }}>
-                Activity Logs for {activityRole.name}
-              </h3>
-              <div style={{ maxHeight: 320, overflowY: "auto" }}>
-                <table style={{ width: "100%", fontSize: 14 }}>
-                  <thead>
-                    <tr>
-                      <th>Action</th>
-                      <th>Old Value</th>
-                      <th>New Value</th>
-                      <th>Approver</th>
-                      <th>Date/Time</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activityRole.logs && activityRole.logs.length > 0 ? (
-                      activityRole.logs.map((log: any, idx: number) => (
-                        <tr key={idx}>
-                          <td>{log.action}</td>
-                          <td>{log.oldValue}</td>
-                          <td>{log.newValue}</td>
-                          <td>{log.approver}</td>
-                          <td>
-                            {log.dateTime
-                              ? new Date(log.dateTime).toLocaleString()
-                              : ""}
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td
-                          colSpan={5}
-                          style={{ textAlign: "center", color: "#888" }}
-                        >
-                          No activity logs found.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              <button
-                style={{ marginTop: 18, alignSelf: "flex-end" }}
-                className={styles.cancelBtn}
-                onClick={() => setShowActivityModal(false)}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        )}
+        {/* Activity Log Modal with name resolution */}
+      <ActivityLogModal
+        isOpen={showActivityModal}
+        onClose={() => setShowActivityModal(false)}
+        title="Activity Log"
+        recordName={selectedRecordName}
+        activityLogs={activityLogs}
+        // 🔥 Pass name resolution functions
+        // getPlantName={getPlantName}
+        // getDepartmentName={getDepartmentName}
+        // getRoleName={getRoleName}
+        // getUserName={getUserName}
+      />
       </div>
       </div>
       );

@@ -47,11 +47,59 @@ const isSuperAdmin = (user) => {
 // const canAccessPlant = (u, id) => !id || (u?.plants||[]).includes(Number(id));
 
 const MODULE_LABEL = {
-  plant_master:"Plant Master", application_master:"Application Master",
-  equipment_master:"Application Master", user_master:"User",
-  user_requests:"Access Request (RITM)", task_requests:"Task / Approval",
-  vendor_master:"Vendor Master", role_master:"Role Master",
-  department_master:"Department Master", approvals:"Approval Workflow", auth:"Authentication",
+  // Master Data
+  plant_master:                 "Plant Master",
+  department_master:            "Department Master",
+  role_master:                  "Role Master",
+  vendor_master:                "Vendor Master",
+  application_master:           "Application Master",
+  admin_master:                 "Admin Master",
+  permission_master:            "Permission Master",
+
+  // User & Access
+  user_master:                  "User",
+  user_plant_permission:        "User Plant Permission",
+
+  // Inventory
+  network_inventory_master:     "Network Inventory",
+  server_inventory_master:      "Server Inventory",
+  system_inventory_master:      "System Inventory",
+
+  // RBAC
+  rbac_role_master:             "RBAC Role",
+  rbac_permission_master:       "RBAC Permission",
+  rbac_role_permission_map:     "RBAC Role Permission Map",
+  rbac_user_role_map:           "RBAC User Role Map",
+  rbac_user_plant_permission:   "RBAC User Plant Permission",
+
+  // Workflow & Approvals
+  approval_workflow_master:     "Approval Workflow",
+  approval_settings:            "Approval Settings",
+
+  // Requests
+  user_requests:                "Access Request (RITM)",
+  task_requests:                "Task / Approval",
+  import_requests:              "Import Request",
+  service_request:              "Service Request",
+
+  // Logs & Sessions (label-only, not in allowedTables — read-only/audit)
+  audit_trail:                  "Audit Trail",
+  access_log:                   "Access Log",
+  user_login_log:               "User Login Log",
+  user_sessions:                "User Sessions",
+  activity_log:                 "Activity Log",
+  ad_sync_log:                  "AD Sync Log",
+  ad_sync_ou_log:               "AD Sync OU Log",
+  ad_sync_runs:                 "AD Sync Runs",
+  approver_tokens:              "Approver Tokens",
+
+  // Auth & Misc
+  auth:                         "Authentication",
+  pending_approvals:            "Pending Approvals",
+  task_closure:                 "Task Closure",
+  plant_it_admin:               "Plant IT Admin",
+  plant_it_admin_users:         "Plant IT Admin Users",
+  role_permission_map:          "Role Permission Map",
 };
 const moduleLabel = (t,m) => MODULE_LABEL[m]||MODULE_LABEL[t]||(t||m||"System").replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase());
 
@@ -293,15 +341,42 @@ exports.getActivityLogsByRecord = async (req, res) => {
     console.log('========================================\n');
     
     // Validate table name
-    const allowedTables = [
-      'application_master',
-      'department_master',
-      'plant_master',
-      'role_master',
-      'user_master',
-      'equipment_master',
-      'system_master',
-    ];
+     const allowedTables = [
+  // Master Data
+  'plant_master',
+  'department_master',
+  'role_master',
+  'vendor_master',
+  'application_master',
+  'admin_master',
+  'permission_master',
+
+  // User & Access
+  'user_master',
+  'user_plant_permission',
+
+  // Inventory
+  'network_inventory_master',
+  'server_inventory_master',
+  'system_inventory_master',
+
+  // RBAC
+  'rbac_role_master',
+  'rbac_permission_master',
+  'rbac_role_permission_map',
+  'rbac_user_role_map',
+  'rbac_user_plant_permission',
+
+  // Workflow & Approvals
+  'approval_workflow_master',
+  'approval_settings',
+
+  // Requests
+  'user_requests',
+  'task_requests',
+  'import_requests',
+  'service_request',
+];
     
     if (!allowedTables.includes(tableName)) {
       console.log('❌ Invalid table name:', tableName);
@@ -440,15 +515,41 @@ exports.getActivityLogsByTable = async (req, res) => {
     const { tableName } = req.params;
     
     const allowedTables = [
-      'application_master',
-      'department_master',
-      'plant_master',
-      'role_master',
-      'user_master',
-      'equipment_master',
-      'system_master',
-    ];
-    
+  // Master Data
+  'plant_master',
+  'department_master',
+  'role_master',
+  'vendor_master',
+  'application_master',
+  'admin_master',
+  'permission_master',
+
+  // User & Access
+  'user_master',
+  'user_plant_permission',
+
+  // Inventory
+  'network_inventory_master',
+  'server_inventory_master',
+  'system_inventory_master',
+
+  // RBAC
+  'rbac_role_master',
+  'rbac_permission_master',
+  'rbac_role_permission_map',
+  'rbac_user_role_map',
+  'rbac_user_plant_permission',
+
+  // Workflow & Approvals
+  'approval_workflow_master',
+  'approval_settings',
+
+  // Requests
+  'user_requests',
+  'task_requests',
+  'import_requests',
+  'service_request',
+];
     if (!allowedTables.includes(tableName)) {
       return res.status(400).json({ 
         error: "Invalid table name",
