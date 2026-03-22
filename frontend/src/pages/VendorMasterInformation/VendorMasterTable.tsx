@@ -17,7 +17,8 @@ import { useAuth } from "../../context/AuthContext";
 import AppHeader from "../../components/Common/AppHeader";
 import { usePermissions } from "../../context/PermissionContext";
 import  useAutoRefresh  from '../../hooks/useAutoRefresh';
-
+import ActivityLogModal from "../../components/Common/ActivityLogModal";
+import { fetchActivityLogs,fetchActivityLogsByRecordId  } from "../../utils/activityLogUtils";
 // Activity logs from backend
 
 const VendorMasterTable: React.FC = () => {
@@ -25,6 +26,8 @@ const VendorMasterTable: React.FC = () => {
   const [selectedRow, setSelectedRow] = React.useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   const [showActivityModal, setShowActivityModal] = React.useState(false);
+  const [activityLogs, setActivityLogs] = React.useState<any[]>([]);
+  const [selectedRecordName, setSelectedRecordName] = React.useState("");
   // Pagination state
   const [currentPage, setCurrentPage] = React.useState(1);
   const rowsPerPage = 10;
@@ -332,6 +335,23 @@ const VendorMasterTable: React.FC = () => {
     setShowDeleteModal(false);
   };
 
+   // 🔥 NEW: Handle activity log button click
+       const handleActivityClick = useCallback(async (app: any) => {
+         try {
+           // Fetch activity logs using the common utility
+           const logs = await fetchActivityLogsByRecordId('vendor_master', app.id);
+           console.log(`✅ Found ${logs.length} logs for record ${app.vendor_name}`);
+           setActivityLogs(logs);
+           setSelectedRecordName(app.vendor_name);
+           setShowActivityModal(true);
+         } catch (err) {
+           console.error("Error loading activity logs:", err);
+           setActivityLogs([]);
+           setSelectedRecordName(app.vendor_name);
+           setShowActivityModal(true);
+         }
+       }, []);
+
 
   const handleEdit = useCallback(() => {
     if (selectedRow === null) return;
@@ -563,33 +583,13 @@ const VendorMasterTable: React.FC = () => {
                         </span>
                       </td>
                       <td>
-                        <span
-                          style={{ cursor: "pointer", color: "#0b63ce" }}
-                          title="View Activity Log"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            setApproverFilter("");
-                            try {
-                              const logs = await fetchVendorActivityLogs();
-                              const filtered = filterLogsForVendor(
-                                logs,
-                                vendor.name ?? ""
-                              );
-                              setActivityVendor({
-                                name: vendor.name ?? "",
-                                logs: filtered,
-                              });
-                            } catch (err) {
-                              setActivityVendor({
-                                name: vendor.name ?? "",
-                                logs: [],
-                              });
-                            }
-                            setShowActivityModal(true);
-                          }}
-                        >
-                          <FaRegClock size={18} />
-                        </span>
+                        <button 
+                            className={styles.activityBtn} 
+                            onClick={() => handleActivityClick(vendor)}
+                            title="View activity logs"
+                          >
+                            <FaRegClock size={16} />
+                          </button>
                       </td>
                     </tr>
                   );
@@ -604,6 +604,8 @@ const VendorMasterTable: React.FC = () => {
                   onCancel={() => setShowDeleteModal(false)}
                   onConfirm={confirmDelete}
                 />
+
+
               </tbody>
             </table>
             {/* Pagination controls */}
@@ -639,160 +641,19 @@ const VendorMasterTable: React.FC = () => {
             </div>
           </div>
         </div>
-
-        {/* Activity Log Modal */}
-        {showActivityModal && activityVendor && (
-          <div
-            className={styles.panelOverlay}
-            style={{ zIndex: 2000, background: "rgba(0,0,0,0.18)" }}
-          >
-            <div
-              className={styles.panelWrapper}
-              style={{
-                maxWidth: 1000,
-                width: "95%",
-                left: "53%",
-                transform: "translateX(-50%)",
-                position: "fixed",
-                top: 176,
-                borderRadius: 16,
-                boxShadow: "0 8px 32px rgba(11,99,206,0.18)",
-                padding: "24px 18px 18px 18px",
-                display: "flex",
-                flexDirection: "column",
-                background: "#fff",
-                zIndex: "1",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 16,
-                }}
-              >
-                <div style={{ fontWeight: 700, fontSize: 20 }}>Activity Log</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <button
-                    className={styles.exportPdfBtn}
-                    onClick={handleExportActivityPDF}
-                    aria-label="Export activity log to PDF"
-                    type="button"
-                  >
-                    <span
-                      role="img"
-                      aria-label="Export PDF"
-                      style={{ fontSize: 18 }}
-                    >
-                      🗎
-                    </span>
-                    Export PDF
-                  </button>
-                  <button
-                    style={{
-                      background: "#e3e9f7",
-                      border: "none",
-                      borderRadius: 8,
-                      padding: "6px 14px",
-                      cursor: "pointer",
-                      fontWeight: 600,
-                      fontSize: 18,
-                    }}
-                    onClick={() => setShowActivityModal(false)}
-                    aria-label="Close activity log"
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
-              <div
-                style={{
-                  marginBottom: 12,
-                  fontWeight: 500,
-                  fontSize: 15,
-                  color: "#333",
-                }}
-              >
-                <span>
-                  Vendor:{" "}
-                  <span style={{ color: "#0b63ce" }}>{activityVendor.name}</span>
-                </span>
-              </div>
-              <div style={{ marginBottom: 10 }}>
-                <input
-                  type="text"
-                  placeholder="Filter by Approved/Rejected By"
-                  value={approverFilter}
-                  onChange={(e) => setApproverFilter(e.target.value)}
-                  style={{
-                    padding: "6px 12px",
-                    borderRadius: 6,
-                    border: "1px solid #ccc",
-                    fontSize: 14,
-                    width: 220,
-                    marginRight: 12,
-                  }}
-                />
-              </div>
-              <div
-                style={{
-                  overflowY: "auto",
-                  maxHeight: 350,
-                  minWidth: "100%",
-                  borderRadius: 8,
-                  boxShadow: "0 2px 8px rgba(11,99,206,0.08)",
-                }}
-              >
-                <table className={styles.table} style={{ minWidth: 1100 }}>
-                  <thead>
-                    <tr>
-                      <th>Actions</th>
-                      <th>Old Value</th>
-                      <th>New Value</th>
-                      <th>Action Performed By</th>
-                      <th>Approval Status</th>
-                      <th>Date/Time (IST)</th>
-                      <th>Comments</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(activityVendor.logs || []).map((log: any, i: number) => {
-                      let oldVal: any = {};
-                      let newVal: any = {};
-                      try {
-                        oldVal = log.old_value ? JSON.parse(log.old_value) : {};
-                        newVal = log.new_value ? JSON.parse(log.new_value) : {};
-                      } catch { }
-                      return (
-                        <tr key={i}>
-                          <td>{log.action}</td>
-                          <td>
-                            {oldVal.vendor_name || ""}{" "}
-                            {oldVal.description ? `(${oldVal.description})` : ""}
-                          </td>
-                          <td>
-                            {newVal.vendor_name || ""}{" "}
-                            {newVal.description ? `(${newVal.description})` : ""}
-                          </td>
-                          <td>{log.action_performed_by ?? ""}</td>
-                          <td>{log.approve_status ?? ""}</td>
-                          <td>
-                            {log.date_time_ist
-                              ? new Date(log.date_time_ist).toLocaleString()
-                              : ""}
-                          </td>
-                          <td>{log.comments ?? ""}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-        )}
+ {/* Activity Log Modal with name resolution */}
+      <ActivityLogModal
+        isOpen={showActivityModal}
+        onClose={() => setShowActivityModal(false)}
+        title="Activity Log"
+        recordName={selectedRecordName}
+        activityLogs={activityLogs}
+        // 🔥 Pass name resolution functions
+        // getPlantName={getPlantName}
+        // getDepartmentName={getDepartmentName}
+        // getRoleName={getRoleName}
+        // getUserName={getUserName}
+      />
       </div>
     </div>
   );

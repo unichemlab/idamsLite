@@ -37,6 +37,11 @@ const app = express();
 // Configure CORS to allow both localhost and deployed frontend
 const allowedOrigins = [
   "http://localhost:3000",
+  "http://10.1.19.109:3000",
+  'http://dev-idamsliteuam.unichemlabs.com',
+  'http://dev-idamsliteuam.unichemlabs.com:3000',
+    'http://uat-idamsliteuam.unichemlabs.com',
+    'http://idamsliteuam.unichemlabs.com'
 ];
 
 app.use(

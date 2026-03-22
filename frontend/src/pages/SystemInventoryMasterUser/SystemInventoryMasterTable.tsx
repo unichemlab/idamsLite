@@ -20,7 +20,8 @@ import { fetchApplicationActivityLogs, API_BASE } from "../../utils/api";
 import { PermissionGuard, PermissionButton } from "../../components/Common/PermissionComponents";
 import { PERMISSIONS } from "../../constants/permissions";
 import useAutoRefresh from "../../hooks/useAutoRefresh";
-
+import ActivityLogModal from "../../components/Common/ActivityLogModal";
+import { fetchActivityLogs,fetchActivityLogsByRecordId  } from "../../utils/activityLogUtils";
 const SystemInventoryMasterTable: React.FC = () => {
   const systemCtx = useContext(SystemContext);
   const systems = systemCtx?.systems ?? [];
@@ -28,6 +29,8 @@ const SystemInventoryMasterTable: React.FC = () => {
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showFilterPopover, setShowFilterPopover] = useState(false);
+  const [activityLogs, setActivityLogs] = React.useState<any[]>([]);
+     const [selectedRecordName, setSelectedRecordName] = React.useState("");
   const [filterColumn, setFilterColumn] = useState("host_name");
   const [filterValue, setFilterValue] = useState("");
   const [tempFilterColumn, setTempFilterColumn] = useState(filterColumn);
@@ -368,6 +371,23 @@ console.log("Filtered Data:", filteredData);
     setShowDeleteModal(false);
   };
 
+  // 🔥 NEW: Handle activity log button click
+      const handleActivityClick = useCallback(async (app: any) => {
+        try {
+          // Fetch activity logs using the common utility
+          const logs = await fetchActivityLogsByRecordId('system_inventory_master', app.id);
+          console.log(`✅ Found ${logs.length} logs for record ${app.host_name}`);
+          setActivityLogs(logs);
+          setSelectedRecordName(app.host_name);
+          setShowActivityModal(true);
+        } catch (err) {
+          console.error("Error loading activity logs:", err);
+          setActivityLogs([]);
+          setSelectedRecordName(app.host_name);
+          setShowActivityModal(true);
+        }
+      }, []);
+
   // Filter popover click outside handler
   React.useEffect(() => {
     if (!showFilterPopover) return;
@@ -707,120 +727,13 @@ console.log("Filtered Data:", filteredData);
                     <td>{system.created_on}</td>
                     <td>{system.updated_on}</td>
                     <td>
-                      <button
-                        className={styles.actionBtn}
-                        title="View Activity Logs"
-                        onClick={async () => {
-                          try {
-                            const logs = await fetchActivityLog();
-                            const filtered = (logs || [])
-                              .filter((log: any) => {
-                                if (
-                                  log.table_name === "system_master" &&
-                                  String(log.record_id) === String(system.id)
-                                )
-                                  return true;
-                                if (
-                                  log.details &&
-                                  typeof log.details === "string"
-                                ) {
-                                  return (
-                                    log.details.includes(
-                                      '"tableName":"system_master"'
-                                    ) &&
-                                    log.details.includes(
-                                      `"recordId":"${system.id}"`
-                                    )
-                                  );
-                                }
-                                return false;
-                              })
-                              .map((r: any) => {
-                                let parsedDetails = null;
-                                if (
-                                  r.details &&
-                                  typeof r.details === "string"
-                                ) {
-                                  try {
-                                    parsedDetails = JSON.parse(r.details);
-                                  } catch (e) {
-                                    parsedDetails = null;
-                                  }
-                                }
-
-                                const parseMaybeJson = (v: any) => {
-                                  if (v === null || v === undefined)
-                                    return null;
-                                  if (typeof v === "string") {
-                                    try {
-                                      return JSON.parse(v);
-                                    } catch {
-                                      return v;
-                                    }
-                                  }
-                                  return v;
-                                };
-
-                                const oldVal = parseMaybeJson(
-                                  r.old_value ||
-                                    (parsedDetails && parsedDetails.old_value)
-                                );
-                                const newVal = parseMaybeJson(
-                                  r.new_value ||
-                                    (parsedDetails && parsedDetails.new_value)
-                                );
-                                const action =
-                                  r.action ||
-                                  (parsedDetails && parsedDetails.action) ||
-                                  "";
-                                const approver =
-                                  r.action_performed_by ||
-                                  r.user_id ||
-                                  (parsedDetails && parsedDetails.userId) ||
-                                  null;
-                                const dateTime =
-                                  r.date_time_ist ||
-                                  r.timestamp ||
-                                  r.created_at ||
-                                  (parsedDetails && parsedDetails.dateTime) ||
-                                  null;
-                                const comments =
-                                  r.comments ||
-                                  (parsedDetails && parsedDetails.comments) ||
-                                  (parsedDetails && parsedDetails.reason) ||
-                                  null;
-
-                                return {
-                                  action,
-                                  oldValue: oldVal,
-                                  newValue: newVal,
-                                  approver,
-                                  approvedOrRejectedBy: r.approved_by || null,
-                                  approvalStatus:
-                                    r.approve_status ||
-                                    r.approval_status ||
-                                    null,
-                                  dateTime,
-                                  reason: comments,
-                                  _raw: r,
-                                };
-                              });
-
-                            setActivityLogsSystem({
-                              ...system,
-                              activityLogs: filtered,
-                            });
-                          } catch (err) {
-                            setActivityLogsSystem({
-                              ...system,
-                              activityLogs: [],
-                            });
-                          }
-                          setShowActivityModal(true);
-                        }}
-                      >
-                        <FaRegClock size={17} />
-                      </button>
+                     <button 
+                            className={styles.activityBtn} 
+                            onClick={() => handleActivityClick(system)}
+                            title="View activity logs"
+                          >
+                            <FaRegClock size={16} />
+                          </button>
                     </td>
                   </tr>
                 );
@@ -867,280 +780,19 @@ console.log("Filtered Data:", filteredData);
         </div>
       </div>
 
-      {/* Activity Logs Modal */}
-      {showActivityModal && activityLogsSystem && (
-        <div
-          className={styles.panelOverlay}
-          style={{ zIndex: 2000, background: "rgba(0,0,0,0.18)" }}
-        >
-          <div
-            className={styles.panelWrapper}
-            style={{
-              maxWidth: 1000,
-              width: "95%",
-              left: "53%",
-              transform: "translateX(-50%)",
-              position: "fixed",
-              top: 176,
-              borderRadius: 16,
-              boxShadow: "0 8px 32px rgba(11,99,206,0.18)",
-              padding: "24px 18px 18px 18px",
-              display: "flex",
-              flexDirection: "column",
-              background: "#fff",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 16,
-              }}
-            >
-              <div style={{ fontWeight: 700, fontSize: 20 }}>Activity Log</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <button
-                  className={styles.exportPdfBtn}
-                  onClick={async () => {
-                    const jsPDF = (await import("jspdf")).default;
-                    const autoTable = (await import("jspdf-autotable")).default;
-                    const doc = new jsPDF({ orientation: "landscape" });
-                    const today = new Date();
-                    const yyyy = today.getFullYear();
-                    const mm = String(today.getMonth() + 1).padStart(2, "0");
-                    const dd = String(today.getDate()).padStart(2, "0");
-                    const fileName = `activity_log_${yyyy}-${mm}-${dd}.pdf`;
-                    const headers = [
-                      [
-                        "Action",
-                        "Old Value",
-                        "New Value",
-                        "Action Performed By",
-                        "Approved/Rejected By",
-                        "Approval Status",
-                        "Date/Time (IST)",
-                        "Comments",
-                      ],
-                    ];
-                    const allowed = [
-                      "edit",
-                      "update",
-                      "delete",
-                      "add",
-                      "create",
-                    ];
-                    const logs = (
-                      Array.isArray(activityLogsSystem.activityLogs)
-                        ? activityLogsSystem.activityLogs
-                        : [activityLogsSystem.activityLogs]
-                    ).filter((log: any) => {
-                      const actionType = (log.action || "").toLowerCase();
-                      return allowed.some((type) => actionType.includes(type));
-                    });
-                    const rows = logs.map((log: any) => {
-                      let dateObj = new Date(log.dateTime || log.timestamp);
-                      let istDate = new Date(
-                        dateObj.getTime() + 5.5 * 60 * 60 * 1000
-                      );
-                      let day = String(istDate.getDate()).padStart(2, "0");
-                      let month = String(istDate.getMonth() + 1).padStart(
-                        2,
-                        "0"
-                      );
-                      let year = String(istDate.getFullYear()).slice(-2);
-                      let hours = String(istDate.getHours()).padStart(2, "0");
-                      let minutes = String(istDate.getMinutes()).padStart(
-                        2,
-                        "0"
-                      );
-                      let formattedDate = `${day}/${month}/${year} ${hours}:${minutes}`;
-                      return [
-                        log.action || "-",
-                        JSON.stringify(log.oldValue) || "-",
-                        JSON.stringify(log.newValue) || "-",
-                        log.approver || "-",
-                        log.approvedOrRejectedBy || "-",
-                        log.approvalStatus || "-",
-                        log.dateTime || log.timestamp ? formattedDate : "-",
-                        log.reason || log.comment || "-",
-                      ];
-                    });
-                    doc.setFontSize(18);
-                    doc.text("Activity Log", 14, 18);
-                    autoTable(doc, {
-                      head: headers,
-                      body: rows,
-                      startY: 28,
-                      styles: {
-                        fontSize: 11,
-                        cellPadding: 3,
-                        halign: "left",
-                        valign: "middle",
-                      },
-                      headStyles: {
-                        fillColor: [11, 99, 206],
-                        textColor: 255,
-                        fontStyle: "bold",
-                      },
-                      alternateRowStyles: { fillColor: [240, 245, 255] },
-                      margin: { left: 14, right: 14 },
-                      tableWidth: "auto",
-                    });
-                    doc.save(fileName);
-                  }}
-                >
-                  <span
-                    role="img"
-                    aria-label="Export PDF"
-                    style={{ fontSize: 18 }}
-                  >
-                    🗎
-                  </span>
-                  Export PDF
-                </button>
-                <button
-                  style={{
-                    background: "#e3e9f7",
-                    border: "none",
-                    borderRadius: 8,
-                    padding: "6px 14px",
-                    cursor: "pointer",
-                    fontWeight: 600,
-                    fontSize: 18,
-                  }}
-                  onClick={() => setShowActivityModal(false)}
-                  aria-label="Close activity log"
-                >
-                  ×
-                </button>
-              </div>
-            </div>
-            <div
-              style={{
-                marginBottom: 12,
-                fontWeight: 500,
-                fontSize: 15,
-                color: "#333",
-              }}
-            >
-              <span>
-                System:{" "}
-                <span style={{ color: "#0b63ce" }}>
-                  {activityLogsSystem.system_name ||
-                    activityLogsSystem.host_name ||
-                    "-"}
-                </span>
-              </span>
-            </div>
-            <div style={{ marginBottom: 10 }}>
-              <input
-                type="text"
-                placeholder="Filter by Action Performed By"
-                value={activityLogsSystem.approverFilter || ""}
-                onChange={(e) => {
-                  setActivityLogsSystem({
-                    ...activityLogsSystem,
-                    approverFilter: e.target.value,
-                  });
-                }}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: 6,
-                  border: "1px solid #ccc",
-                  fontSize: 14,
-                  width: 220,
-                  marginRight: 12,
-                }}
-              />
-            </div>
-            <div
-              style={{
-                overflowY: "auto",
-                maxHeight: 350,
-                minWidth: "100%",
-                borderRadius: 8,
-                boxShadow: "0 2px 8px rgba(11,99,206,0.08)",
-              }}
-            >
-              <table className={styles.table} style={{ minWidth: 1100 }}>
-                <thead>
-                  <tr>
-                    <th>Action</th>
-                    <th>Old Value</th>
-                    <th>New Value</th>
-                    <th>Action Performed By</th>
-                    <th>Approved/Rejected By</th>
-                    <th>Approval Status</th>
-                    <th>Date/Time (IST)</th>
-                    <th>Comments</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(Array.isArray(activityLogsSystem.activityLogs)
-                    ? activityLogsSystem.activityLogs
-                    : [activityLogsSystem.activityLogs]
-                  )
-                    .filter((log: any) => {
-                      const allowed = [
-                        "edit",
-                        "update",
-                        "delete",
-                        "add",
-                        "create",
-                      ];
-                      const actionType = (log.action || "").toLowerCase();
-                      return allowed.some((type) => actionType.includes(type));
-                    })
-                    .filter(
-                      (log: any) =>
-                        !activityLogsSystem.approverFilter ||
-                        (log.approver || "")
-                          .toLowerCase()
-                          .includes(
-                            activityLogsSystem.approverFilter.toLowerCase()
-                          )
-                    )
-                    .map((log: any, i: number) => {
-                      let dateObj = new Date(log.dateTime || log.timestamp);
-                      let istDate = new Date(
-                        dateObj.getTime() + 5.5 * 60 * 60 * 1000
-                      );
-                      let day = String(istDate.getDate()).padStart(2, "0");
-                      let month = String(istDate.getMonth() + 1).padStart(
-                        2,
-                        "0"
-                      );
-                      let year = String(istDate.getFullYear()).slice(-2);
-                      let hours = String(istDate.getHours()).padStart(2, "0");
-                      let minutes = String(istDate.getMinutes()).padStart(
-                        2,
-                        "0"
-                      );
-                      let formattedDate = `${day}/${month}/${year} ${hours}:${minutes}`;
-                      return (
-                        <tr key={i}>
-                          <td>{log.action || "-"}</td>
-                          <td>{JSON.stringify(log.oldValue) || "-"}</td>
-                          <td>{JSON.stringify(log.newValue) || "-"}</td>
-                          <td>{log.approver || "-"}</td>
-                          <td>{log.approvedOrRejectedBy || "-"}</td>
-                          <td>{log.approvalStatus || "-"}</td>
-                          <td>
-                            {log.dateTime || log.timestamp
-                              ? formattedDate
-                              : "-"}
-                          </td>
-                          <td>{log.reason || log.comment || "-"}</td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Activity Log Modal with name resolution */}
+      <ActivityLogModal
+        isOpen={showActivityModal}
+        onClose={() => setShowActivityModal(false)}
+        title="Activity Log"
+        recordName={selectedRecordName}
+        activityLogs={activityLogs}
+        // 🔥 Pass name resolution functions
+        // getPlantName={getPlantName}
+        // getDepartmentName={getDepartmentName}
+        // getRoleName={getRoleName}
+        // getUserName={getUserName}
+      />
     </div>
     </div>
   );

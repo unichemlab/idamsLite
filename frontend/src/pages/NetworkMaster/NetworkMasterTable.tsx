@@ -1,6 +1,6 @@
 // src/pages/NetworkMaster/NetworkMasterTable.tsx
 
-import React, { useState, useRef, useContext, useMemo } from "react";
+import React, { useState, useRef, useContext, useMemo,useCallback } from "react";
 import paginationStyles from "../../styles/Pagination.module.css";
 import { FaEdit, FaTrash, FaRegClock } from "react-icons/fa";
 import { fetchActivityLog } from "../../utils/api";
@@ -19,13 +19,15 @@ import { PermissionGuard, PermissionButton } from "../../components/Common/Permi
 import { PERMISSIONS } from "../../constants/permissions";
 import { usePermissions } from "../../context/PermissionContext";
 import useAutoRefresh from "../../hooks/useAutoRefresh";
-
+import ActivityLogModal from "../../components/Common/ActivityLogModal";
+import { fetchActivityLogs,fetchActivityLogsByRecordId  } from "../../utils/activityLogUtils";
 const NetworkMasterTable: React.FC = () => {
   const networkCtx = useContext(NetworkContext);
 const networks = networkCtx?.networks ?? [];
 const refreshNetworks = networkCtx?.refreshNetworks;
 
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
+  const [activityLogs, setActivityLogs] = React.useState<any[]>([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showFilterPopover, setShowFilterPopover] = useState(false);
   const [filterColumn, setFilterColumn] = useState("host_name");
@@ -36,6 +38,7 @@ const refreshNetworks = networkCtx?.refreshNetworks;
   const navigate = useNavigate();
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [activityLogsNetwork, setActivityLogsNetwork] = useState<any>(null);
+   const [selectedRecordName, setSelectedRecordName] = React.useState("");
   const { user } = useAuth();
 
   // Pagination state
@@ -473,6 +476,25 @@ const handleExportPDF = async () => {
     setShowDeleteModal(false);
   };
 
+
+  // 🔥 NEW: Handle activity log button click
+      const handleActivityClick = useCallback(async (app: any) => {
+        try {
+          // Fetch activity logs using the common utility
+          const logs = await fetchActivityLogsByRecordId('network_inventory_master', app.id);
+          console.log(`✅ Found ${logs.length} logs for record ${app.id}`);
+          setActivityLogs(logs);
+          setSelectedRecordName(app.host_name);
+          setShowActivityModal(true);
+        } catch (err) {
+          console.error("Error loading activity logs:", err);
+          setActivityLogs([]);
+          setSelectedRecordName(app.host_name);
+          setShowActivityModal(true);
+        }
+      }, []);
+
+
   // Filter popover click outside handler
   React.useEffect(() => {
     if (!showFilterPopover) return;
@@ -731,105 +753,13 @@ const handleExportPDF = async () => {
                       <td>{network.created_on}</td>
                       <td>{network.updated_on}</td>
                       <td>
-                        <button
-                          className={styles.actionBtn}
-                          title="View Activity Logs"
-                          onClick={async () => {
-                            try {
-                              const logs = await fetchActivityLog();
-                              const filtered = (logs || [])
-                                .filter((log: any) => {
-                                  if (
-                                    log.table_name === "network_master" &&
-                                    String(log.record_id) === String(network.id)
-                                  )
-                                    return true;
-                                  if (log.details && typeof log.details === "string") {
-                                    return (
-                                      log.details.includes('"tableName":"network_master"') &&
-                                      log.details.includes(`"recordId":"${network.id}"`)
-                                    );
-                                  }
-                                  return false;
-                                })
-                                .map((r: any) => {
-                                  let parsedDetails = null;
-                                  if (r.details && typeof r.details === "string") {
-                                    try {
-                                      parsedDetails = JSON.parse(r.details);
-                                    } catch (e) {
-                                      parsedDetails = null;
-                                    }
-                                  }
-
-                                  const parseMaybeJson = (v: any) => {
-                                    if (v === null || v === undefined) return null;
-                                    if (typeof v === "string") {
-                                      try {
-                                        return JSON.parse(v);
-                                      } catch {
-                                        return v;
-                                      }
-                                    }
-                                    return v;
-                                  };
-
-                                  const oldVal = parseMaybeJson(
-                                    r.old_value || (parsedDetails && parsedDetails.old_value)
-                                  );
-                                  const newVal = parseMaybeJson(
-                                    r.new_value || (parsedDetails && parsedDetails.new_value)
-                                  );
-                                  const action =
-                                    r.action ||
-                                    (parsedDetails && parsedDetails.action) ||
-                                    "";
-                                  const approver =
-                                    r.action_performed_by ||
-                                    r.user_id ||
-                                    (parsedDetails && parsedDetails.userId) ||
-                                    null;
-                                  const dateTime =
-                                    r.date_time_ist ||
-                                    r.timestamp ||
-                                    r.created_at ||
-                                    (parsedDetails && parsedDetails.dateTime) ||
-                                    null;
-                                  const comments =
-                                    r.comments ||
-                                    (parsedDetails && parsedDetails.comments) ||
-                                    (parsedDetails && parsedDetails.reason) ||
-                                    null;
-
-                                  return {
-                                    action,
-                                    oldValue: oldVal,
-                                    newValue: newVal,
-                                    approver,
-                                    approvedOrRejectedBy: r.approved_by || null,
-                                    approvalStatus:
-                                      r.approve_status || r.approval_status || null,
-                                    dateTime,
-                                    reason: comments,
-                                    _raw: r,
-                                  };
-                                });
-
-                              setActivityLogsNetwork({
-                                ...network,
-                                activityLogs: filtered,
-                              });
-                            } catch (err) {
-                              setActivityLogsNetwork({
-                                ...network,
-                                activityLogs: [],
-                              });
-                            }
-                            setShowActivityModal(true);
-                          }}
-                        >
-                          <FaRegClock size={17} />
-                        </button>
+                         <button 
+                            className={styles.activityBtn} 
+                            onClick={() => handleActivityClick(network)}
+                            title="View activity logs"
+                          >
+                            <FaRegClock size={16} />
+                          </button>
                       </td>
                     </tr>
                   );
@@ -872,6 +802,20 @@ const handleExportPDF = async () => {
           onCancel={() => setShowDeleteModal(false)}
           onConfirm={confirmDelete}
         />
+
+        {/* Activity Log Modal with name resolution */}
+              <ActivityLogModal
+                isOpen={showActivityModal}
+                onClose={() => setShowActivityModal(false)}
+                title="Activity Log"
+                recordName={selectedRecordName}
+                activityLogs={activityLogs}
+                // 🔥 Pass name resolution functions
+                // getPlantName={getPlantName}
+                // getDepartmentName={getDepartmentName}
+                // getRoleName={getRoleName}
+                // getUserName={getUserName}
+              />
       </div>
     </div>
   );

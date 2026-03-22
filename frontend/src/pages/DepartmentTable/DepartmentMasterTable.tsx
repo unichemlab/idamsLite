@@ -16,12 +16,14 @@ import { PERMISSIONS } from "../../constants/permissions";
 import { usePermissions } from "../../context/PermissionContext";
 import useAutoRefresh from "../../hooks/useAutoRefresh";
 import ActivityLogModal from "../../components/Common/ActivityLogModal";
-import { fetchActivityLogs } from "../../utils/activityLogUtils";
+import { fetchActivityLogs,fetchActivityLogsByRecordId  } from "../../utils/activityLogUtils";
 const DepartmentMasterTable: React.FC = () => {
  const { departments, deleteDepartment, fetchDepartments } = useDepartmentContext();
   const [selectedRow, setSelectedRow] = React.useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   const [showActivityModal, setShowActivityModal] = React.useState(false);
+   const [activityLogs, setActivityLogs] = React.useState<any[]>([]);
+   const [selectedRecordName, setSelectedRecordName] = React.useState("");
   const [currentPage, setCurrentPage] = React.useState(1);
   const rowsPerPage = 10;
   const [activityDepartment, setActivityDepartment] = React.useState<any>(null);
@@ -31,6 +33,7 @@ const DepartmentMasterTable: React.FC = () => {
   const [filterValue, setFilterValue] = React.useState("");
   const [tempFilterColumn, setTempFilterColumn] = React.useState(filterColumn);
   const [tempFilterValue, setTempFilterValue] = React.useState(filterValue);
+   
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -277,6 +280,23 @@ useAutoRefresh(refreshCallback);
     setShowDeleteModal(false);
   };
 
+  // 🔥 NEW: Handle activity log button click
+    const handleActivityClick = useCallback(async (app: any) => {
+      try {
+        // Fetch activity logs using the common utility
+        const logs = await fetchActivityLogsByRecordId('department_master', app.id);
+        console.log(`✅ Found ${logs.length} logs for record ${app.name}`);
+        setActivityLogs(logs);
+        setSelectedRecordName(app.name);
+        setShowActivityModal(true);
+      } catch (err) {
+        console.error("Error loading activity logs:", err);
+        setActivityLogs([]);
+        setSelectedRecordName(app.name);
+        setShowActivityModal(true);
+      }
+    }, []);
+
 const handleEdit = useCallback(() => {
       if (selectedRow === null) return;
       const app = filteredData[selectedRow];
@@ -496,23 +516,13 @@ const handleEdit = useCallback(() => {
                         </span>
                       </td>
                       <td style={{ textAlign: 'center' }}>
-                        <button
-                          className={styles.activityBtn}
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            setApproverFilter("");
-                            try {
-                              const logs = await fetchDepartmentActivityLogs();
-                              const filtered = filterLogsForDepartment(logs, department.name ?? "");
-                              setActivityDepartment({ name: department.name ?? "", logs: filtered });
-                            } catch (err) {
-                              setActivityDepartment({ name: department.name ?? "", logs: [] });
-                            }
-                            setShowActivityModal(true);
-                          }}
-                        >
-                          <FaRegClock size={16} />
-                        </button>
+                        <button 
+                            className={styles.activityBtn} 
+                            onClick={() => handleActivityClick(department)}
+                            title="View activity logs"
+                          >
+                            <FaRegClock size={16} />
+                          </button>
                       </td>
                     </tr>
                   );
@@ -549,88 +559,19 @@ const handleEdit = useCallback(() => {
         onCancel={() => setShowDeleteModal(false)}
         onConfirm={confirmDelete}
       />
-
-      {showActivityModal && activityDepartment && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.activityModal}>
-            <div className={styles.modalHeader}>
-              <h3>Activity Log - {activityDepartment.name}</h3>
-              <div className={styles.modalActions}>
-                <button onClick={handleExportActivityPDF} className={styles.exportModalBtn}>
-                  📄 Export PDF
-                </button>
-                <button onClick={() => setShowActivityModal(false)} className={styles.closeBtn}>
-                  ×
-                </button>
-              </div>
-            </div>
-
-            <div className={styles.modalBody}>
-              <div className={styles.filterRow}>
-                <input
-                  type="text"
-                  placeholder="Filter by Approved/Rejected By"
-                  value={approverFilter}
-                  onChange={(e) => setApproverFilter(e.target.value)}
-                  className={styles.filterInput}
-                />
-              </div>
-
-              <div className={styles.activityTableContainer}>
-                <table className={styles.activityTable}>
-                  <thead>
-                    <tr>
-                      <th>Action</th>
-                      <th>Old Value</th>
-                      <th>New Value</th>
-                      <th>Performed By</th>
-                      <th>Status</th>
-                      <th>Date/Time</th>
-                      <th>Comments</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(activityDepartment.logs || [])
-                      .filter((log: any) => {
-                        if (!approverFilter) return true;
-                        return (log.action_performed_by ?? "")
-                          .toLowerCase()
-                          .includes(approverFilter.toLowerCase());
-                      })
-                      .map((log: any, i: number) => {
-                        let oldVal: any = {};
-                        let newVal: any = {};
-                        try {
-                          oldVal = log.old_value ? JSON.parse(log.old_value) : {};
-                          newVal = log.new_value ? JSON.parse(log.new_value) : {};
-                        } catch {}
-                        return (
-                          <tr key={i}>
-                            <td>{log.action}</td>
-                            <td>
-                              {oldVal.department_name || ""}{" "}
-                              {oldVal.description ? `(${oldVal.description})` : ""}
-                            </td>
-                            <td>
-                              {newVal.department_name || ""}{" "}
-                              {newVal.description ? `(${newVal.description})` : ""}
-                            </td>
-                            <td>{log.action_performed_by ?? ""}</td>
-                            <td>{log.approve_status ?? ""}</td>
-                            <td>
-                              {log.date_time_ist ? new Date(log.date_time_ist).toLocaleString() : ""}
-                            </td>
-                            <td>{log.comments ?? ""}</td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Activity Log Modal with name resolution */}
+      <ActivityLogModal
+        isOpen={showActivityModal}
+        onClose={() => setShowActivityModal(false)}
+        title="Activity Log"
+        recordName={selectedRecordName}
+        activityLogs={activityLogs}
+        // 🔥 Pass name resolution functions
+        // getPlantName={getPlantName}
+        // getDepartmentName={getDepartmentName}
+        // getRoleName={getRoleName}
+        // getUserName={getUserName}
+      />
     </div>
   );
 };
