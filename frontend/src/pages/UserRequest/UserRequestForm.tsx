@@ -3134,7 +3134,7 @@ const AddUserRequest: React.FC = () => {
                       value={form.name}
                       onChange={handleChange}
                       required
-                      disabled={(form.request_for_by === "Self" || form.request_for_by === "Vendor / OEM") && !!form.name}
+                      disabled={(form.request_for_by === "Self"|| form.request_for_by === "Others"  || form.request_for_by === "Vendor / OEM") && !!form.name}
                     />
                     <label htmlFor="name" className={addUserRequestStyles.floatingLabel}>
                       Requestor For /By <span style={{ color: "red" }}>*</span></label>
@@ -3146,7 +3146,7 @@ const AddUserRequest: React.FC = () => {
                       value={form.location}
                       onChange={handleChange}
                       required
-                      disabled={(form.request_for_by === "Self" || form.request_for_by === "Vendor / OEM") && !!form.location}
+                      disabled={(form.request_for_by === "Self"|| form.request_for_by === "Others" || form.request_for_by === "Vendor / OEM") && !!form.location}
                     />
                     <label htmlFor="location" className={addUserRequestStyles.floatingLabel}>
                       Location <span style={{ color: "red" }}>*</span></label>
