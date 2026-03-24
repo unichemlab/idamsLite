@@ -2,11 +2,11 @@
 
 import { PlantPermission } from "shared/rbac/permissions";
 import { MenuItem } from "../config/masterModules";
+import config from "../config/config";
 // Centralized API base
 // Uses REACT_APP_API_URL from .env.local or .env.production
 // Example: REACT_APP_API_URL=https://lucky-hope-production.up.railway.app
-export const API_BASE =
-  process.env.REACT_APP_API_URL || "http://localhost:4000";
+export const API_BASE =config.API_BASE;
 
 // Flag to prevent multiple simultaneous redirects
 let isHandlingTokenExpiry = false;

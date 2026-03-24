@@ -66,6 +66,8 @@ const {
  */
 router.post('/sync/all', syncAllOUs);
 
+router.get('/sync/trigger', syncAllOUs);
+
 // With authentication (uncomment if needed):
 // router.post('/sync/all', authenticate, authorize(['admin', 'sync_manager']), syncAllOUs);
 
