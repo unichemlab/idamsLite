@@ -492,7 +492,7 @@ async function applyUpdate(client, tableName, recordId, newValue, approvedBy, { 
   // ── 2. Sanitise payload ──────────────────────────────────────────────────
   let data = typeof newValue === "string" ? JSON.parse(newValue) : { ...newValue };
 
-  const forbiddenCols = ["id", "created_on", "created_by", "approved_on", "approved_by", "updated_by"];
+  const forbiddenCols = ["id", "created_on", "created_by", "approved_on", "approved_by", "updated_by","updated_on"];
   if (tableName !== "plant_master") delete data.plant_name;
   forbiddenCols.forEach((col) => delete data[col]);
   Object.keys(data).forEach((k) => { if (data[k] === "") data[k] = null; });

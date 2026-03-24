@@ -35,14 +35,23 @@ const runMonitor = require("./routes/taskDeactivationCronRoutes");
 const app = express();
 
 // Configure CORS to allow both localhost and deployed frontend
+
 const allowedOrigins = [
-  "http://localhost:3000",
-  "http://10.1.19.109:3000",
+  // localhost
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002',
+
+  // direct IP
+  'http://10.1.19.109:3000',
+  'http://10.1.19.109:3001',
+  'http://10.1.19.109:3002',
+
+  // domain URLs
   'http://dev-idamsliteuam.unichemlabs.com',
-  'http://dev-idamsliteuam.unichemlabs.com:3000',
-    'http://uat-idamsliteuam.unichemlabs.com',
-    'http://idamsliteuam.unichemlabs.com'
-];
+  'http://uat-idamsliteuam.unichemlabs.com',
+  'http://idamsliteuam.unichemlabs.com'
+]
 
 app.use(
   cors({
@@ -62,6 +71,7 @@ app.use(express.json());
 const requestMetadata = require("./middleware/requestMeta");
 app.use(requestMetadata);
 const PORT = process.env.PORT || 4000;
+
 // -----------------------------
 // Hardcoded AD credentials (for testing)
 // -----------------------------
@@ -69,7 +79,8 @@ const AD_SERVER = process.env.AD_SERVER;
 const AD_USER = process.env.AD_USER;
 const AD_PASSWORD = process.env.AD_PASSWORD || process.env.AD_Password;
 const API_BASE =
-  process.env.REACT_APP_API_URL || "http://localhost:4000";
+  process.env.REACT_APP_API_URL || "http://localhost:4001";
+  console.log("rect app api url",process.env.REACT_APP_API_URL,API_BASE);
 console.log("Connecting to AD:", AD_SERVER);
 
 // Static file serving middleware (ensuring uploads folder is correctly handled)

@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from "react";
 import Select, { SingleValue, MultiValue } from "react-select";
 import { useNavigate } from "react-router-dom";
@@ -12,8 +13,8 @@ import autoTable from "jspdf-autotable";
 import styles from "../../pages/HomePage/homepageUser.module.css";
 import AppMenu from "../../components/AppMenu";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
-export const API_BASE =
-  process.env.REACT_APP_API_URL || "http://localhost:4000";
+import config from "../../config/config";
+export const API_BASE =config.API_BASE;
 
 type RoleOption = {
   value: string;
@@ -26,6 +27,7 @@ type BulkRow = {
   role: string[];
 };
 const AddUserRequest: React.FC = () => {
+ console.log("rect app api url",API_BASE);
   const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
   const [showUserMenu, setShowUserMenu] = useState(false);
   const errorRef = useRef<HTMLDivElement>(null);
