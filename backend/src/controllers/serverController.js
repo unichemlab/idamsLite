@@ -510,4 +510,24 @@ exports.getServerInventoryList = async (req, res) => {
 };
 
 
+exports.validateServerInactivation = async (req, res) => {
+  const { plantID , hostname } = req.params;
+console.log("Validating inactivation for server ID:", plantID,hostname);
+  const result = await pool.query(
+    `
+    SELECT 1
+    FROM application_master
+    WHERE plant_location_id = $1 AND system_name = $2
+      AND status = 'ACTIVE'
+    LIMIT 1
+    `,
+    [plantID,hostname]
+  );
+
+  res.json({
+    canInactivate: result.rows.length === 0
+  });
+};
+
+
 module.exports = exports;

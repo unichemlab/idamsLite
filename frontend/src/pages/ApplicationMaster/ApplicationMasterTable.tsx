@@ -95,19 +95,52 @@ export default function ApplicationMasterTable() {
   console.log('User info',applications,user);
   
   // Apply user's custom filters
-  const filteredData = useMemo(() => {
-    return permissionFilteredData.filter((app) => {
-      if (!filterValue.trim()) return true;
-      const value = filterValue.toLowerCase();
+  // const filteredData = useMemo(() => {
+  //   return permissionFilteredData.filter((app) => {
+  //     if (!filterValue.trim()) return true;
+  //     const value = filterValue.toLowerCase();
+  //     switch (filterColumn) {
+  //       case "application_hmi_name":
+  //         return app.application_hmi_name?.toLowerCase().includes(value);
+  //       case "plant_location_id":
+  //         const plantName = String(getPlantName(app.plant_location_id)).toLowerCase();
+  //         return plantName.includes(value) || String(app.plant_location_id).includes(value);
+  //       case "department_id":
+  //         const deptName = String(getDepartmentName(app.department_id)).toLowerCase();
+  //         return deptName.includes(value) || String(app.department_id).includes(value);
+  //       case "role_id":
+  //         if (Array.isArray(app.role_names) && app.role_names.length > 0) {
+  //           return app.role_names.some((name) => name.toLowerCase().includes(value));
+  //         }
+  //         return String(app.role_id).includes(value);
+  //       case "status":
+  //         return app.status?.toLowerCase().includes(value);
+  //       default:
+  //         return true;
+  //     }
+  //   });
+  // }, [permissionFilteredData, filterValue, filterColumn, getPlantName, getDepartmentName]);
+
+
+  // AFTER
+const filteredData = useMemo(() => {
+  return permissionFilteredData.filter((app) => {
+    if (!filterValue.trim()) return true;
+    const value = filterValue.toLowerCase();
+
+    // 🔍 If a specific column filter is active (from Filter popover), use column-specific logic
+    if (filterColumn !== "application_hmi_name" || tempFilterValue.trim()) {
       switch (filterColumn) {
         case "application_hmi_name":
           return app.application_hmi_name?.toLowerCase().includes(value);
-        case "plant_location_id":
+        case "plant_location_id": {
           const plantName = String(getPlantName(app.plant_location_id)).toLowerCase();
           return plantName.includes(value) || String(app.plant_location_id).includes(value);
-        case "department_id":
+        }
+        case "department_id": {
           const deptName = String(getDepartmentName(app.department_id)).toLowerCase();
           return deptName.includes(value) || String(app.department_id).includes(value);
+        }
         case "role_id":
           if (Array.isArray(app.role_names) && app.role_names.length > 0) {
             return app.role_names.some((name) => name.toLowerCase().includes(value));
@@ -118,8 +151,29 @@ export default function ApplicationMasterTable() {
         default:
           return true;
       }
-    });
-  }, [permissionFilteredData, filterValue, filterColumn, getPlantName, getDepartmentName]);
+    }
+
+    // 🔍 Global search across ALL visible columns
+    const plantName = getPlantName(app.plant_location_id).toLowerCase();
+    const deptName = getDepartmentName(app.department_id).toLowerCase();
+    const roleNames = Array.isArray(app.role_names) && app.role_names.length > 0
+      ? app.role_names.join(" ").toLowerCase()
+      : String(app.role_id ?? "").toLowerCase();
+
+    return (
+      app.application_hmi_name?.toLowerCase().includes(value) ||
+      app.application_hmi_version?.toLowerCase().includes(value) ||
+      app.equipment_instrument_id?.toLowerCase().includes(value) ||
+      app.application_hmi_type?.toLowerCase().includes(value) ||
+      app.display_name?.toLowerCase().includes(value) ||
+      app.system_name?.toLowerCase().includes(value) ||
+      app.status?.toLowerCase().includes(value) ||
+      plantName.includes(value) ||
+      deptName.includes(value) ||
+      roleNames.includes(value)
+    );
+  });
+}, [permissionFilteredData, filterValue, filterColumn, tempFilterValue, getPlantName, getDepartmentName]);
 
   console.log('Filtered applications:', filteredData);
    
