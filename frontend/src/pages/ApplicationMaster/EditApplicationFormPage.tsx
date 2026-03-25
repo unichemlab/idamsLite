@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect,useRef } from "react";
 import { API_BASE } from "../../utils/api";
 import Select from "react-select";
 import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
@@ -20,7 +20,11 @@ const EditApplicationFormPage: React.FC = () => {
   const username = user?.username || "";
 
   const { applicationData } = location.state || {};
-
+  const [isValidating, setIsValidating] = useState(false);
+    const [statusError, setStatusError] = useState("");
+    const [blockSubmit, setBlockSubmit] = useState(false);
+    // 🔒 Original DB status — never drifts
+    const originalStatus = useRef<string>(applicationData?.status ?? "ACTIVE");
   const [roles, setRoles] = useState<{ id: string; name: string }[]>([]);
   const { plants } = require("../Plant/PlantContext").usePlantContext();
   const plantOptions = Array.isArray(plants)
@@ -216,6 +220,60 @@ const EditApplicationFormPage: React.FC = () => {
     });
   };
 
+   const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+       const newStatus = e.target.value;
+   
+       // Update form normally first
+       setForm((prev) => ({ ...prev, status: newStatus }));
+       setStatusError("");
+   
+       // ✅ User reverted to original — unblock
+       if (newStatus === originalStatus.current) {
+         setBlockSubmit(false);
+         return;
+       }
+   
+       // 🔍 Only validate ACTIVE → INACTIVE
+       if (originalStatus.current === "ACTIVE" && newStatus === "INACTIVE") {
+         setIsValidating(true);
+         try {
+           const res = await fetch(`${API_BASE}/api/applications/validate-inactivate`, {
+             method: "POST",
+             headers: {
+               "Content-Type": "application/json",
+               Authorization: `Bearer ${localStorage.getItem("token")}`,
+             },
+             body: JSON.stringify({
+               applicationId: applicationData?.id,
+               plant_location_id: form.plant_location_id,
+               department_id: form.department_id,
+             }),
+           });
+   
+           const data = await res.json();
+   
+           if (!data.canInactivate) {
+             setStatusError(`⚠️ ${data.message}`);
+             setBlockSubmit(true);
+           } else {
+             setStatusError("");
+             setBlockSubmit(false);
+           }
+         } catch (err) {
+           setStatusError("⚠️ Failed to validate status change. Please try again.");
+           setBlockSubmit(true);
+         } finally {
+           setIsValidating(false);
+         }
+       }
+     };
+   
+    //  const handleSubmit = (e: React.FormEvent) => {
+    //    e.preventDefault();
+    //    if (blockSubmit) return; // 🚫 blocked by validation
+    //    setShowModal(true);
+    //  };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -228,6 +286,7 @@ const EditApplicationFormPage: React.FC = () => {
 
     // 2️⃣ Duplicate combination check (excludes current record)
     try {
+      if (blockSubmit) return;
       const checkRes = await fetch(`${API_BASE}/api/applications/check-duplicate`, {
         method: "POST",
         headers: {
@@ -468,7 +527,7 @@ const EditApplicationFormPage: React.FC = () => {
       )}
 
       <div className={addStyles.pageWrapper}>
-        <AppHeader title="Application Master Management" />
+        <AppHeader title="Application Master Management1" />
 
         <div className={addStyles.contentArea}>
           {/* Breadcrumb */}
@@ -716,22 +775,30 @@ const EditApplicationFormPage: React.FC = () => {
                   )}
 
 
-                  <div className={addStyles.formGroupFloating}>
-
+                  <div className={addStyles.formGroup}>
+                    <label className={addStyles.label}>
+                      Status <span className={addStyles.required}>*</span>
+                    </label>
                     <select
-                      id="status"
                       className={addStyles.select}
                       name="status"
                       value={form.status}
-                      onChange={handleChange}
-                      required
+                      onChange={handleStatusChange}
+                      disabled={isValidating}
                     >
                       <option value="ACTIVE">ACTIVE</option>
                       <option value="INACTIVE">INACTIVE</option>
                     </select>
-                    <label className={addStyles.floatingLabel}>
-                      Status <span className={addStyles.required}>*</span>
-                    </label>
+                    {isValidating && (
+                      <p style={{ color: "#888", fontSize: 12, marginTop: 4 }}>
+                        Validating...
+                      </p>
+                    )}
+                    {statusError && (
+                      <p style={{ color: "red", fontSize: 12, marginTop: 4 }}>
+                        {statusError}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -857,9 +924,17 @@ const EditApplicationFormPage: React.FC = () => {
                     margin: 15,
                   }}
                 >
-                  <button type="submit" className={addStyles.saveBtn}>
-                    Update
-                  </button>
+                  <button
+                  type="submit"
+                  className={addStyles.saveBtn}
+                  disabled={blockSubmit || isValidating}
+                  style={{
+                    opacity: (blockSubmit || isValidating) ? 0.5 : 1,
+                    cursor: (blockSubmit || isValidating) ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {isValidating ? "Validating..." : "✓ Update Application"}
+                </button>
                   <button
                     type="button"
                     className={addStyles.cancelBtn}

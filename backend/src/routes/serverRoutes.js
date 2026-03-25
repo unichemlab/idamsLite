@@ -3,6 +3,7 @@ const router = express.Router();
 const serverController = require("../controllers/serverController");
 const authorize = require("../middleware/authorize");
 
+router.get("/:plantID/:hostname/validate-inactivate", serverController.validateServerInactivation);
 router.get("/list",authorize(), serverController.getServerInventoryList);
 // Get all servers
 router.get("/", authorize("read:server_management"), serverController.getAllServers);

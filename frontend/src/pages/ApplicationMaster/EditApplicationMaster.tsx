@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { API_BASE } from "../../utils/api";
 import { useLocation, useNavigate } from "react-router-dom";
 import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
@@ -18,6 +18,11 @@ const EditApplicationMaster: React.FC = () => {
   const location = useLocation();
 
   const { applicationData } = location.state || {};
+  const [isValidating, setIsValidating] = useState(false);
+  const [statusError, setStatusError] = useState("");
+  const [blockSubmit, setBlockSubmit] = useState(false);
+  // 🔒 Original DB status — never drifts
+  const originalStatus = useRef<string>(applicationData?.status ?? "ACTIVE");
   type FormState = {
     name: string;
     version: string;
@@ -33,30 +38,30 @@ const EditApplicationMaster: React.FC = () => {
     applicationData
       ? { ...applicationData, role_lock: applicationData.role_lock ?? false }
       : {
-          name: "",
-          version: "",
-          equipmentId: "",
-          computer: "",
-          plant_location_id: "",
-          department_id: "",
-          status: "ACTIVE",
-          role_lock: false,
-        }
+        name: "",
+        version: "",
+        equipmentId: "",
+        computer: "",
+        plant_location_id: "",
+        department_id: "",
+        status: "ACTIVE",
+        role_lock: false,
+      }
   );
 
   const { plants } = usePlantContext();
   const plantOptions = Array.isArray(plants)
     ? plants.map((plant) => ({
-        value: String(plant.id),
-        label: plant.plant_name || plant.name || String(plant.id),
-      }))
+      value: String(plant.id),
+      label: plant.plant_name || plant.name || String(plant.id),
+    }))
     : [];
   const { departments } = useDepartmentContext();
   const departmentOptions = Array.isArray(departments)
     ? departments.map((dept) => ({
-        value: String(dept.id),
-        label: dept.department_name || dept.name || String(dept.id),
-      }))
+      value: String(dept.id),
+      label: dept.department_name || dept.name || String(dept.id),
+    }))
     : [];
 
   const handleChange = (
@@ -78,10 +83,64 @@ const EditApplicationMaster: React.FC = () => {
     }
   };
 
+  const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newStatus = e.target.value;
+
+    // Update form normally first
+    setForm((prev) => ({ ...prev, status: newStatus }));
+    setStatusError("");
+
+    // ✅ User reverted to original — unblock
+    if (newStatus === originalStatus.current) {
+      setBlockSubmit(false);
+      return;
+    }
+
+    // 🔍 Only validate ACTIVE → INACTIVE
+    if (originalStatus.current === "ACTIVE" && newStatus === "INACTIVE") {
+      setIsValidating(true);
+      try {
+        const res = await fetch(`${API_BASE}/api/applications/validate-inactivate`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({
+            applicationId: applicationData?.id,
+            plant_location_id: form.plant_location_id,
+            department_id: form.department_id,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (!data.canInactivate) {
+          setStatusError(`⚠️ ${data.message}`);
+          setBlockSubmit(true);
+        } else {
+          setStatusError("");
+          setBlockSubmit(false);
+        }
+      } catch (err) {
+        setStatusError("⚠️ Failed to validate status change. Please try again.");
+        setBlockSubmit(true);
+      } finally {
+        setIsValidating(false);
+      }
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (blockSubmit) return; // 🚫 blocked by validation
     setShowModal(true);
   };
+
+  // const handleSubmit = (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   setShowModal(true);
+  // };
 
   const handleUnlockConfirm = (data: Record<string, string>) => {
     if (data.username === username && data.password) {
@@ -93,36 +152,36 @@ const EditApplicationMaster: React.FC = () => {
   };
 
   const handleConfirm = (data: Record<string, string>) => {
-  if (data.username === username && data.password) {
-    const payload = { ...form };
+    if (data.username === username && data.password) {
+      const payload = { ...form };
 
-    const token = localStorage.getItem("token"); // 👈 REQUIRED
+      const token = localStorage.getItem("token"); // 👈 REQUIRED
 
-    fetch(`${API_BASE}/api/applications/${applicationData?.id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`, // 👈 REQUIRED
-      },
-      body: JSON.stringify(payload),
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to update application");
-        return res.json();
+      fetch(`${API_BASE}/api/applications/${applicationData?.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`, // 👈 REQUIRED
+        },
+        body: JSON.stringify(payload),
       })
-      .then(() => {
-        setShowModal(false);
-        navigate("/application-masters", {
-          state: { activeTab: "application" },
+        .then((res) => {
+          if (!res.ok) throw new Error("Failed to update application");
+          return res.json();
+        })
+        .then(() => {
+          setShowModal(false);
+          navigate("/application-masters", {
+            state: { activeTab: "application" },
+          });
+        })
+        .catch((err) => {
+          alert("Failed to update application. " + err.message);
         });
-      })
-      .catch((err) => {
-        alert("Failed to update application. " + err.message);
-      });
-  } else {
-    alert("Invalid credentials. Please try again.");
-  }
-};
+    } else {
+      alert("Invalid credentials. Please try again.");
+    }
+  };
 
 
   return (
@@ -161,7 +220,7 @@ const EditApplicationMaster: React.FC = () => {
       )}
 
       <div className={addStyles.pageWrapper}>
-        <AppHeader title="Application Master Management" />
+        <AppHeader title="Application Master Management1" />
 
         <div className={addStyles.contentArea}>
           {/* Breadcrumb */}
@@ -306,11 +365,22 @@ const EditApplicationMaster: React.FC = () => {
                       className={addStyles.select}
                       name="status"
                       value={form.status}
-                      onChange={handleChange}
+                      onChange={handleStatusChange}
+                      disabled={isValidating}
                     >
                       <option value="ACTIVE">ACTIVE</option>
                       <option value="INACTIVE">INACTIVE</option>
                     </select>
+                    {isValidating && (
+                      <p style={{ color: "#888", fontSize: 12, marginTop: 4 }}>
+                        Validating...
+                      </p>
+                    )}
+                    {statusError && (
+                      <p style={{ color: "red", fontSize: 12, marginTop: 4 }}>
+                        {statusError}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -358,8 +428,16 @@ const EditApplicationMaster: React.FC = () => {
               </div>
 
               <div className={addStyles.formFooter}>
-                <button type="submit" className={addStyles.saveBtn}>
-                  ✓ Update Application
+                <button
+                  type="submit"
+                  className={addStyles.saveBtn}
+                  disabled={blockSubmit || isValidating}
+                  style={{
+                    opacity: (blockSubmit || isValidating) ? 0.5 : 1,
+                    cursor: (blockSubmit || isValidating) ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {isValidating ? "Validating..." : "✓ Update Application"}
                 </button>
                 <button
                   type="button"
@@ -370,7 +448,7 @@ const EditApplicationMaster: React.FC = () => {
                     })
                   }
                 >
-                 Cancel
+                  Cancel
                 </button>
               </div>
             </form>

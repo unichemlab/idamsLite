@@ -41,6 +41,8 @@ router.post(
   applicationController.addApplication
 );
 router.post("/check-duplicate", applicationController.checkDuplicateCombination);
+// applicationRoutes.js
+router.post("/validate-inactivate", applicationController.validateApplicationInactivate);
 /**
  * PUT /api/applications/:id
  * Update application

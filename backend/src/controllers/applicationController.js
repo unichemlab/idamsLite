@@ -865,3 +865,71 @@ exports.getRoleApplicationIDByPlantIdandDepartment = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+
+// applicationController.js
+
+exports.validateApplicationInactivate = async (req, res) => {
+  const { applicationId, plant_location_id, department_id } = req.body;
+
+  console.log("[APP INACTIVATE CHECK]", { applicationId, plant_location_id, department_id });
+
+  try {
+    const appIds = Array.isArray(applicationId) ? applicationId : [applicationId];
+
+    // ── CHECK 1: In-flight requests (Pending / Approved / In Progress tasks) ──
+    const inFlightResult = await db.query(
+      `
+      SELECT COUNT(*) AS count
+      FROM user_requests ur
+      INNER JOIN task_requests tr ON ur.id = tr.user_request_id
+      WHERE tr.location::text   = $1::text
+        AND tr.department::text = $2::text
+        AND tr.application_equip_id::text = ANY($3::text[])
+        AND tr.task_status IN ('Pending', 'Approved', 'In Progress')
+      `,
+      [plant_location_id, department_id, appIds]
+    );
+
+    const hasInFlight = parseInt(inFlightResult.rows[0]?.count || "0", 10) > 0;
+
+    if (hasInFlight) {
+      return res.json({
+        canInactivate: false,
+        reason: "IN_FLIGHT",
+        message:
+          "Cannot change status to INACTIVE: There are active/in-progress  requests linked to this application.",
+      });
+    }
+
+    // ── CHECK 2: Unclosed access log entries ──
+    const accessLogResult = await db.query(
+      `
+      SELECT COUNT(*) AS count
+      FROM access_log al
+      WHERE al.location::text    = $1::text
+        AND al.department::text  = $2::text
+        AND al.application_equip_id::text = ANY($3::text[])
+        AND al.task_status IN ('Pending', 'In Progress', 'Approved','Closed')
+      `,
+      [plant_location_id, department_id, appIds]
+    );
+
+    const hasOpenAccessLog = parseInt(accessLogResult.rows[0]?.count || "0", 10) > 0;
+
+    if (hasOpenAccessLog) {
+      return res.json({
+        canInactivate: false,
+        reason: "OPEN_ACCESS_LOG",
+        message:
+          "Cannot change status to INACTIVE: There are active/in-progress  requests linked to this application.",
+      });
+    }
+
+    // ── ALL CLEAR ──
+    return res.json({ canInactivate: true, reason: null, message: null });
+  } catch (err) {
+    console.error("[APP INACTIVATE CHECK] ERROR:", err);
+    res.status(500).json({ error: "Validation failed", details: err.message });
+  }
+};

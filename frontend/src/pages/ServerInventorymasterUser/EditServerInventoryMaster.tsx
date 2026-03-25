@@ -1,10 +1,10 @@
-import React, { useContext, useState, useEffect } from "react";
+import React, { useContext, useState, useEffect, useRef } from "react";
 import ConfirmLoginModal from "../../components/Common/ConfirmLoginModal";
 import { useNavigate, useParams } from "react-router-dom";
 import { ServerContext, Server } from "../ServerInventorymasterUser/ServerContext";
 import { useAuth } from "../../context/AuthContext";
 import AppHeader from "../../components/Common/AppHeader";
-import { fetchPlants } from "../../utils/api";
+import { fetchPlants, API_BASE } from "../../utils/api";
 import styles from "../Plant/AddPlantMaster.module.css";
 
 interface Plant {
@@ -20,9 +20,16 @@ const EditServerInventory: React.FC = () => {
   const [plants, setPlants] = useState<Plant[]>([]);
   // STEP 1 — Add 2 new state variables (after existing useState lines)
   const [showApprovalNotice, setShowApprovalNotice] = useState(false);
-  const [approvalMessage, setApprovalMessage] = useState("");
-  // Find server by id
   const server = serverCtx?.servers.find((s: Server) => String(s.id) === id);
+  const [approvalMessage, setApprovalMessage] = useState("");
+  // Status validation state
+  const [isValidating, setIsValidating] = useState(false);
+  const [statusError, setStatusError] = useState("");
+  const [blockSubmit, setBlockSubmit] = useState(false);
+  // 🔒 capture original DB status once — never changes
+  const originalStatus = useRef<string>(server?.status ?? "ACTIVE");
+  // Find server by id
+
 
   const [form, setForm] = useState<Server>({
     id: server?.id ?? 0,
@@ -162,11 +169,60 @@ const EditServerInventory: React.FC = () => {
     });
   };
 
+  const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newStatus = e.target.value;
+    // update the form normally
+    handleChange(e);
+    setStatusError("");
+
+    // ✅ If user reverts back to original status → unblock
+    if (newStatus === originalStatus.current) {
+      setBlockSubmit(false);
+      return;
+    }
+
+    // 🔍 Validate only ACTIVE → INACTIVE
+    if (
+      originalStatus.current === "ACTIVE" &&
+      newStatus === "INACTIVE" &&
+      form?.plant_location_id &&
+      form?.host_name
+    ) {
+      setIsValidating(true);
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/servers/${form.plant_location_id}/${form.host_name}/validate-inactivate`
+        );
+        const data = await res.json();
+
+        if (!data.canInactivate) {
+          setStatusError(
+            "⚠️ Cannot change status to INACTIVE: This server is currently being used in one or more active applications."
+          );
+          setBlockSubmit(true);
+        } else {
+          setStatusError("");
+          setBlockSubmit(false);
+        }
+      } catch (err) {
+        setStatusError("Failed to validate status change.");
+        setBlockSubmit(true);
+      } finally {
+        setIsValidating(false);
+      }
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (blockSubmit) return; // 🚫 blocked by validation
     setShowConfirm(true);
   };
+
+  // const handleSubmit = (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   setShowConfirm(true);
+  // };
 
   // STEP 2 — Replace handleConfirm
   const handleConfirm = async () => {
@@ -486,7 +542,33 @@ const EditServerInventory: React.FC = () => {
                   <span className={styles.sectionHeaderTitle}>Additional Details</span>
                   <div className={styles.rowFields}>
 
-                    {select("status", "Status", ["ACTIVE", "INACTIVE"], true)}
+                    <div className={styles.formGroupFloating}>
+                      <select
+                        name="status"
+                        value={form.status || ""}
+                        onChange={handleStatusChange}
+                        required
+                        className={styles.select}
+                        disabled={isValidating}
+                      >
+                        <option value="">-- Select --</option>
+                        <option value="ACTIVE">ACTIVE</option>
+                        <option value="INACTIVE">INACTIVE</option>
+                      </select>
+                      <label className={styles.floatingLabel}>
+                        Status <span className={styles.required}> *</span>
+                      </label>
+                      {isValidating && (
+                        <p style={{ color: "#888", fontSize: 12, marginTop: 4 }}>
+                          Validating...
+                        </p>
+                      )}
+                      {statusError && (
+                        <p style={{ color: "red", fontSize: 12, marginTop: 4 }}>
+                          {statusError}
+                        </p>
+                      )}
+                    </div>
                     <div className={styles.formGroupFloating} style={{ flex: "1 1 100%" }}>
 
                       <textarea
@@ -524,8 +606,13 @@ const EditServerInventory: React.FC = () => {
                     margin: 15,
                   }}
                 >
-                  <button type="submit" className={styles.saveBtn}>
-                    Update
+                  <button
+                    type="submit"
+                    className={styles.saveBtn}
+                    disabled={blockSubmit || isValidating}
+                    style={{ opacity: (blockSubmit || isValidating) ? 0.5 : 1, cursor: (blockSubmit || isValidating) ? "not-allowed" : "pointer" }}
+                  >
+                    {isValidating ? "Validating..." : "Update"}
                   </button>
                   <button
                     type="button"
