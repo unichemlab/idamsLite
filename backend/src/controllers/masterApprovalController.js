@@ -267,4 +267,67 @@ exports.checkDuplicate = async (req, res) => {
   }
 };
 
+// ------------------------------
+// BULK DUPLICATE CHECK (FINAL)
+// ------------------------------
+exports.bulkCheckDuplicates = async (req, res) => {
+  try {
+    const { module, names = [], excludeId = null } = req.body;
+
+    const allowedModules = ["plant", "department", "roles", "vendors"];
+    if (!module || !allowedModules.includes(module)) {
+      return res.status(400).json({
+        error: `Invalid module "${module}"`,
+      });
+    }
+
+    if (!Array.isArray(names) || names.length === 0) {
+      return res.json({ duplicates: [], duplicateMap: {} });
+    }
+
+    // ✅ Normalize input
+    const normalizedNames = names
+      .map(n =>
+        String(n)
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, " ")
+      )
+      .filter(n => n);
+
+    const duplicates = [];
+
+    // ------------------------------
+    // 🔥 USE EXISTING LOGIC
+    // ------------------------------
+    for (const name of normalizedNames) {
+      const isDup = await isDuplicateName({
+        module,
+        name,
+        excludeId
+      });
+
+      if (isDup) {
+        duplicates.push(name);
+      }
+    }
+
+    // ------------------------------
+    // ✅ Response
+    // ------------------------------
+    const duplicateMap = Object.fromEntries(
+      duplicates.map(name => [name, true])
+    );
+
+    res.status(200).json({
+      duplicates,
+      duplicateMap
+    });
+
+  } catch (err) {
+    console.error("Bulk duplicate check error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 module.exports = exports;

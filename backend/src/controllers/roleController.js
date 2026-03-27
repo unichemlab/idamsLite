@@ -290,7 +290,7 @@ console.log("user details role delete",req.user);
 // ------------------------------
 // BULK IMPORT PLANTS
 // ------------------------------
-exports.bulkImportPlants = async (req, res) => {
+exports.bulkImportRoles = async (req, res) => {
   const userId = req.user?.id || req.user?.user_id;
   const username = req.user?.username || "Unknown";
   const { records } = req.body;

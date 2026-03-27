@@ -248,7 +248,8 @@ exports.createUserRequest = async (req, res) => {
         from_date,
         to_date,
         request_raised_by,
-        request_raised_by_emp_code
+        request_raised_by_emp_code,
+        remarks
     } = req.body;
 
     // Parse tasks safely
@@ -328,6 +329,12 @@ console.log("Created user request:", userRequest);
       }
     }
 
+    // ── Sort tasks: Grant first, Revoke last (Modify Access ordering rule) ──
+    tasks.sort((a, b) => {
+      const order = { Grant: 0, Revoke: 1 };
+      return (order[a.task_action] ?? 0) - (order[b.task_action] ?? 0);
+    });
+
     // Insert tasks
     for (const task of tasks) {
       // Determine approver details - either from task or from workflow
@@ -341,12 +348,72 @@ console.log("Created user request:", userRequest);
         approverDetails?.approver1_email || approver1_email||null;
       const approver2Email =
         approverDetails?.approver2_email || approver2_email||null;
-      await pool.query(
+      // ── Resolve previous_log_id on the backend for Revoke tasks ──────────
+      // The frontend must NOT embed access_log IDs in remarks. Those IDs are
+      // fetched at form-load time and are stale by the time IT processes the
+      // task. We query access_log fresh here — at insertion time — so the
+      // backend always points at the correct live row to revoke later.
+      let taskRemarks = remarks || null;
+
+      if (task.task_action === 'Revoke') {
+        try {
+          const isVendorRevoke = request_for_by === 'Vendor / OEM';
+          let logRow = null;
+
+          if (isVendorRevoke && vendor_allocated_id) {
+            const { rows: logRows } = await pool.query(
+              `SELECT id, task_transaction_id
+               FROM access_log
+               WHERE vendor_allocated_id  = $1
+                 AND application_equip_id = $2
+                 AND role                 = $3
+                 AND department           = $4
+                 AND location             = $5
+                 AND task_status          = 'Closed'
+                 AND (access IS NULL OR access != 'Revoked')
+               ORDER BY id DESC
+               LIMIT 1`,
+              [vendor_allocated_id, task.application_equip_id, task.role, task.department, task.location]
+            );
+            logRow = logRows[0] || null;
+          } else {
+            const { rows: logRows } = await pool.query(
+              `SELECT id, task_transaction_id
+               FROM access_log
+               WHERE employee_code        = $1
+                 AND application_equip_id = $2
+                 AND role                 = $3
+                 AND department           = $4
+                 AND location             = $5
+                 AND task_status          = 'Closed'
+                 AND (access IS NULL OR access != 'Revoked')
+               ORDER BY id DESC
+               LIMIT 1`,
+              [employee_code, task.application_equip_id, task.role, task.department, task.location]
+            );
+            logRow = logRows[0] || null;
+          }
+
+          if (logRow) {
+            taskRemarks = `Revoke: previous_log_id=${logRow.id}|previous_task_tx=${logRow.task_transaction_id || ''}`;
+            console.log(`[createUserRequest] Revoke task role ${task.role} → previous_log_id=${logRow.id}`);
+          } else {
+            taskRemarks = 'Revoke';
+            console.warn(`[createUserRequest] ⚠️ No active access_log for Revoke — role ${task.role}`);
+          }
+        } catch (lookupErr) {
+          console.error('[createUserRequest] Error resolving previous_log_id:', lookupErr);
+          taskRemarks = 'Revoke';
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
+            await pool.query(
         `INSERT INTO task_requests
         (user_request_id, application_equip_id, department, role, location, reports_to, task_status,
          approver1_id, approver2_id, approver1_name, approver2_name, 
-         approver1_email, approver2_email,task_action, created_on)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,NOW())`,
+         approver1_email, approver2_email, task_action, remarks, created_on,previous_task_remarks)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,NOW(),$16)`,
         [
           userRequest.id,
           task.application_equip_id,
@@ -362,6 +429,8 @@ console.log("Created user request:", userRequest);
           approver1Email,
           approver2Email,
           task.task_action,
+          taskRemarks,
+          taskRemarks,
         ]
       );
     }

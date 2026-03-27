@@ -301,13 +301,6 @@ exports.bulkImportPlants = async (req, res) => {
         // Set default status
         record.status = record.status || 'ACTIVE';
 
-        // ✅ Duplicate check per bulk record
-        const duplicate = await isDuplicateName({ module: "plant", name: record.plant_name });
-        if (duplicate) {
-          errors.push({ record: i + 1, error: `Plant name "${record.plant_name}" already exists` });
-          continue;
-        }
-
         // Submit for approval
         const approvalId = await submitForApproval({
           module: "PLANT",
