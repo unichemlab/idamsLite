@@ -18,6 +18,7 @@ interface TaskLog {
   access_request_type: string;
   assignment_group: string;
   assigned_to_name: string;
+  access:string;
 }
 
 interface TaskContextType {

@@ -3377,7 +3377,7 @@ const AddUserRequest: React.FC = () => {
                     </div>
                     {/* ── Row 2: Allocated ID (populated after fetch) ── */}
                   {form.plant_location && form.department && form.applicationId && (
-                    <div className={addUserRequestStyles.fourCol}>
+                    <>
                       {vendorAccessLogs.length > 1 ? (
                         /* Multiple allocated IDs → dropdown */
                         <div className={addUserRequestStyles.formGroup}>
@@ -3437,7 +3437,7 @@ const AddUserRequest: React.FC = () => {
                           Plant, Department &amp; Application.
                         </div>
                       )}
-                    </div>
+                    </>
                   )}
                   </div>
 
