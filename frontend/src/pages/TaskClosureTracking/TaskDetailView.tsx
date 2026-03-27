@@ -33,7 +33,11 @@ const TaskDetailView: React.FC = () => {
   }
 
   const task = taskData.tasks[0];
-
+  const users = taskData?.tasks[0]?.it_admin_users ?? [taskData?.assigned_user];
+  console.log("task  id with ", task, users);
+  console.log("taskData:", taskData);
+console.log("assigned_user:",taskData?.tasks[0]?.assigned_user);
+console.log("closure assigned_user:", taskData?.tasks[0]?.closure?.assigned_user);
   return (
     <div className={addUserRequestStyles["main-container"]}>
       <main className={addUserRequestStyles["main-content"]}>
@@ -145,8 +149,8 @@ const TaskDetailView: React.FC = () => {
                 <input value={task.task_status} readOnly />
                 <label htmlFor="taskStatus" className={addUserRequestStyles.floatingLabel}>Task Status</label>
               </div>
-<div className={addUserRequestStyles.formGroup}>
-                <input value={task.access} readOnly />
+              <div className={addUserRequestStyles.formGroup}>
+                <input value={task?.closure?.access} readOnly />
                 <label htmlFor="access" className={addUserRequestStyles.floatingLabel}>Access</label>
               </div>
               <div className={addUserRequestStyles.formGroup}>
@@ -181,7 +185,7 @@ const TaskDetailView: React.FC = () => {
               IT Admin Group Details
             </span>
 
-            <div className={addUserRequestStyles.sixCol}>
+            <div className={addUserRequestStyles.fourCol}>
               <div className={addUserRequestStyles.formGroup}>
                 <input
                   value={taskData.it_admin_group?.assignment_it_group || ""}
@@ -190,22 +194,26 @@ const TaskDetailView: React.FC = () => {
                 <label htmlFor="itAssignmentGroup" className={addUserRequestStyles.floatingLabel}>IT Assignment Group</label>
               </div>
 
+
+
               <div className={addUserRequestStyles.formGroup}>
-                <textarea
+                <input
+                  id="assignedTo"
                   value={
-                    taskData.it_admin_users
-                      ?.map(
-                        (u: any) =>
-                          `${u.employee_name} (${u.email}) - ${u.department}`
-                      )
-                      .join("\n") || "No Admin Users Assigned"
+                    taskData?.tasks[0]?.assigned_user
+                      ? `${taskData?.tasks[0]?.assigned_user.employee_name} (${taskData?.tasks[0]?.assigned_user.email})`
+                      : ""
                   }
                   readOnly
-                  rows={3}
-                  className={addUserRequestStyles.readonlyTextarea}
+                  placeholder=" "
+                  className={addUserRequestStyles.inputBox}
                 />
-                <label htmlFor="itAdminUsers" className={addUserRequestStyles.floatingLabel}>IT Admin Users</label>
+
+                <label className={addUserRequestStyles.floatingLabel}>
+                  IT Admin Users
+                </label>
               </div>
+
             </div>
           </div>
 

@@ -2125,7 +2125,7 @@ const TaskClosureAllocated = await pool.query(
       it_admin_group: itAdminGroup,
       it_admin_users: itAdminUsers,
     };
-    console.log("[getUserTaskRequestById] response built for task:", rows[0]?.task_request_transaction_id);
+    console.log("[getUserTaskRequestById] response built for task:", rows[0]);
     res.json(userRequest);
   } catch (err) {
     console.error("Error in getUserTaskRequestById:", err);
