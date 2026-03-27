@@ -24,6 +24,7 @@ export type TaskRequest = {
   approver1_id: string;
   approver2_id: string;
   remarks?: string;
+  previous_task_remarks?: string;
   approver1_action?: string;
   approver2_action?: string;
   approver1_comments?: string;

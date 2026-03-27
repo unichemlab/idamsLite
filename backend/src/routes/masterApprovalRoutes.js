@@ -5,6 +5,7 @@ const authorize = require("../middleware/authorize");
 // const { authenticate } = require("../middleware/auth"); // Add auth middleware if needed
 
 router.post("/check-duplicate", approvalController.checkDuplicate);
+router.post("/bulk-check-duplicate", approvalController.bulkCheckDuplicates);
 // Get all approvals (with filters)
 router.get("/",authorize(), approvalController.getAllApprovals);
 

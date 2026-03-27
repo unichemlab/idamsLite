@@ -1329,7 +1329,7 @@ const AddUserRequest: React.FC = () => {
             approver1_id: approver1_id_str,
             approver2_id: "",
             task_action: "Revoke",
-            remarks: logRow
+            previous_task_remarks: logRow
               ? `Revoke: previous_log_id=${logRow.logId}|previous_task_tx=${logRow.taskTransactionId}`
               : "Revoke",
           });

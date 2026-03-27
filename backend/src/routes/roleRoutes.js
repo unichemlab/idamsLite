@@ -13,5 +13,5 @@ router.get(
 router.post("/", authorize("create:roles"), roleController.createRole);
 router.put("/:id", authorize("update:roles"), roleController.updateRole);
 router.delete("/:id", authorize("delete:roles"), roleController.deleteRole);
-router.post("/import",authorize(),roleController.bulkImportPlants);
+router.post("/import",authorize(),roleController.bulkImportRoles);
 module.exports = router;

@@ -80,38 +80,162 @@ const ImportDepartment: React.FC = () => {
     };
   };
 
-  const handleValidate = async () => {
-    if (!file) {
-      alert('Please select a file first');
+  // const handleValidate = async () => {
+  //   if (!file) {
+  //     alert('Please select a file first');
+  //     return;
+  //   }
+
+  //   setValidating(true);
+    
+  //   try {
+  //     const data = await file.arrayBuffer();
+  //     const workbook = XLSX.read(data);
+  //     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+  //     const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+  //     const validatedRecords: ImportRecord[] = jsonData.map((row: any, index: number) => 
+  //       validateRecord(row, index + 2)
+  //     );
+
+  //     const valid: ImportRecord[] = validatedRecords.filter((r: ImportRecord) => r.isValid);
+  //     const invalid: ImportRecord[] = validatedRecords.filter((r: ImportRecord) => !r.isValid);
+
+  //     setValidRecords(valid.map((r: ImportRecord) => r.data));
+  //     setInvalidRecords(invalid);
+  //     setShowResults(true);
+  //   } catch (error) {
+  //     console.error('Validation error:', error);
+  //     alert('Error validating file. Please check the file format.');
+  //   } finally {
+  //     setValidating(false);
+  //   }
+  // };
+
+   const handleValidate = async () => {
+  if (!file) {
+    alert('Please select a file first');
+    return;
+  }
+
+  setValidating(true);
+
+  try {
+    // -------------------------------
+    // STEP 1: Read Excel
+    // -------------------------------
+    const data = await file.arrayBuffer();
+    const workbook = XLSX.read(data);
+    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+    if (!jsonData || jsonData.length === 0) {
+      alert('Excel file is empty');
+      setValidating(false);
       return;
     }
 
-    setValidating(true);
-    
-    try {
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data);
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+    // -------------------------------
+    // STEP 2: Excel duplicate check
+    // -------------------------------
+    const departmentMap: Record<string, number[]> = {};
 
-      const validatedRecords: ImportRecord[] = jsonData.map((row: any, index: number) => 
-        validateRecord(row, index + 2)
-      );
+    jsonData.forEach((row: any, index: number) => {
+      const department = row.department_name?.toLowerCase()?.trim();
+      if (!department) return;
 
-      const valid: ImportRecord[] = validatedRecords.filter((r: ImportRecord) => r.isValid);
-      const invalid: ImportRecord[] = validatedRecords.filter((r: ImportRecord) => !r.isValid);
+      if (!departmentMap[department]) departmentMap[department] = [];
+      departmentMap[department].push(index + 2); // Excel row number
+    });
 
-      setValidRecords(valid.map((r: ImportRecord) => r.data));
-      setInvalidRecords(invalid);
-      setShowResults(true);
-    } catch (error) {
-      console.error('Validation error:', error);
-      alert('Error validating file. Please check the file format.');
-    } finally {
-      setValidating(false);
+    // -------------------------------
+    // STEP 3: DB duplicate check (bulk API)
+    // -------------------------------
+    let dbDuplicateMap: Record<string, boolean> = {};
+
+    const departmentNames = jsonData
+      .map((r: any) => r.department_name?.toLowerCase()?.trim())
+      .filter((r: string) => r);
+
+    if (departmentNames.length > 0) {
+      try {
+        const res = await fetch(`${API_BASE}/api/master-approvals/bulk-check-duplicate`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({
+            module: "department",
+            names: departmentNames
+          })
+        });
+
+        if (res.ok) {
+          const result = await res.json();
+          dbDuplicateMap = result.duplicateMap || {};
+        } else {
+          console.warn("DB duplicate API failed");
+        }
+      } catch (err) {
+        console.error("DB duplicate check error:", err);
+      }
     }
-  };
 
+    // -------------------------------
+    // STEP 4: Validate each row
+    // -------------------------------
+    const validatedRecords: ImportRecord[] = jsonData.map((row: any, index: number) => {
+      const record = validateRecord(row, index + 2);
+      const department = row.role_name?.toLowerCase()?.trim();
+
+      // ❌ Excel duplicate
+      if (department && departmentMap[department]?.length > 1) {
+        record.errors.push({
+          row: index + 2,
+          field: 'role_name',
+          message: `Duplicate in file (rows: ${departmentMap[department].join(', ')})`,
+          value: row.role_name
+        });
+        record.isValid = false;
+      }
+
+      // ❌ DB duplicate
+      if (department && dbDuplicateMap[department]) {
+        record.errors.push({
+          row: index + 2,
+          field: 'department_name',
+          message: `department already exists in system`,
+          value: row.department_name
+        });
+        record.isValid = false;
+      }
+
+      return record;
+    });
+
+    // -------------------------------
+    // STEP 5: Split valid / invalid
+    // -------------------------------
+    const valid = validatedRecords.filter(r => r.isValid);
+    const invalid = validatedRecords.filter(r => !r.isValid);
+
+    setValidRecords(valid.map(r => r.data));
+    setInvalidRecords(invalid);
+    setShowResults(true);
+
+  } catch (error) {
+    console.error('Validation error:', error);
+    alert('Error validating file. Please check format.');
+  } finally {
+    setValidating(false);
+  }
+};
+
+
+
+
+  
   const handleImport = async () => {
     if (validRecords.length === 0) {
       alert('No valid records to import');

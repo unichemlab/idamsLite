@@ -1807,7 +1807,8 @@ exports.getAccessLogsByUser = async (req, res) => {
         AND ($4::text IS NULL OR al.application_equip_id::text = $4::text)
         AND al.task_status        = 'Closed'
         AND al.user_request_status = 'Completed'
-        And al.access='Granted'
+        AND al.access             = 'Granted'
+        AND (al.task_action IS NULL OR al.task_action = 'Grant')
       ORDER BY al.id DESC
     `;
 

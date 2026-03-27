@@ -80,73 +80,248 @@ const ImportRole: React.FC = () => {
     };
   };
 
-  const handleValidate = async () => {
-    if (!file) {
-      alert('Please select a file first');
-      return;
-    }
+  // const handleValidate = async () => {
+  //   if (!file) {
+  //     alert('Please select a file first');
+  //     return;
+  //   }
 
-    setValidating(true);
+  //   setValidating(true);
     
-    try {
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data);
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+  //   try {
+  //     const data = await file.arrayBuffer();
+  //     const workbook = XLSX.read(data);
+  //     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+  //     const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-      const validatedRecords: ImportRecord[] = jsonData.map((row: any, index: number) => 
-        validateRecord(row, index + 2)
-      );
+  //     const validatedRecords: ImportRecord[] = jsonData.map((row: any, index: number) => 
+  //       validateRecord(row, index + 2)
+  //     );
 
-      const valid: ImportRecord[] = validatedRecords.filter((r: ImportRecord) => r.isValid);
-      const invalid: ImportRecord[] = validatedRecords.filter((r: ImportRecord) => !r.isValid);
+  //     const valid: ImportRecord[] = validatedRecords.filter((r: ImportRecord) => r.isValid);
+  //     const invalid: ImportRecord[] = validatedRecords.filter((r: ImportRecord) => !r.isValid);
 
-      setValidRecords(valid.map((r: ImportRecord) => r.data));
-      setInvalidRecords(invalid);
-      setShowResults(true);
-    } catch (error) {
-      console.error('Validation error:', error);
-      alert('Error validating file. Please check the file format.');
-    } finally {
+  //     setValidRecords(valid.map((r: ImportRecord) => r.data));
+  //     setInvalidRecords(invalid);
+  //     setShowResults(true);
+  //   } catch (error) {
+  //     console.error('Validation error:', error);
+  //     alert('Error validating file. Please check the file format.');
+  //   } finally {
+  //     setValidating(false);
+  //   }
+  // };
+
+  const handleValidate = async () => {
+  if (!file) {
+    alert('Please select a file first');
+    return;
+  }
+
+  setValidating(true);
+
+  try {
+    // -------------------------------
+    // STEP 1: Read Excel
+    // -------------------------------
+    const data = await file.arrayBuffer();
+    const workbook = XLSX.read(data);
+    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+    if (!jsonData || jsonData.length === 0) {
+      alert('Excel file is empty');
       setValidating(false);
-    }
-  };
-
-  const handleImport = async () => {
-    if (validRecords.length === 0) {
-      alert('No valid records to import');
       return;
     }
 
-    setImporting(true);
+    // -------------------------------
+    // STEP 2: Excel duplicate check
+    // -------------------------------
+    const roleMap: Record<string, number[]> = {};
 
-    try {
-      const response = await fetch(`${API_BASE}/api/roles/import`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          records: validRecords,
-          requestedBy: user?.id,
-          requestedByUsername: user?.username
-        })
-      });
+    jsonData.forEach((row: any, index: number) => {
+      const role = row.role_name?.toLowerCase()?.trim();
+      if (!role) return;
 
-      if (!response.ok) {
-        throw new Error('Import failed');
+      if (!roleMap[role]) roleMap[role] = [];
+      roleMap[role].push(index + 2); // Excel row number
+    });
+
+    // -------------------------------
+    // STEP 3: DB duplicate check (bulk API)
+    // -------------------------------
+    let dbDuplicateMap: Record<string, boolean> = {};
+
+    const roleNames = jsonData
+      .map((r: any) => r.role_name?.toLowerCase()?.trim())
+      .filter((r: string) => r);
+
+    if (roleNames.length > 0) {
+      try {
+        const res = await fetch(`${API_BASE}/api/master-approvals/bulk-check-duplicate`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({
+            module: "roles",
+            names: roleNames
+          })
+        });
+
+        if (res.ok) {
+          const result = await res.json();
+          dbDuplicateMap = result.duplicateMap || {};
+        } else {
+          console.warn("DB duplicate API failed");
+        }
+      } catch (err) {
+        console.error("DB duplicate check error:", err);
+      }
+    }
+
+    // -------------------------------
+    // STEP 4: Validate each row
+    // -------------------------------
+    const validatedRecords: ImportRecord[] = jsonData.map((row: any, index: number) => {
+      const record = validateRecord(row, index + 2);
+      const role = row.role_name?.toLowerCase()?.trim();
+
+      // ❌ Excel duplicate
+      if (role && roleMap[role]?.length > 1) {
+        record.errors.push({
+          row: index + 2,
+          field: 'role_name',
+          message: `Duplicate in file (rows: ${roleMap[role].join(', ')})`,
+          value: row.role_name
+        });
+        record.isValid = false;
       }
 
-      alert(`Import successful! ${validRecords.length} records submitted for approval.`);
-      navigate('/role-master');
-    } catch (error) {
-      console.error('Import error:', error);
-      alert('Error importing records. Please try again.');
-    } finally {
-      setImporting(false);
+      // ❌ DB duplicate
+      if (role && dbDuplicateMap[role]) {
+        record.errors.push({
+          row: index + 2,
+          field: 'role_name',
+          message: `Role already exists in system`,
+          value: row.role_name
+        });
+        record.isValid = false;
+      }
+
+      return record;
+    });
+
+    // -------------------------------
+    // STEP 5: Split valid / invalid
+    // -------------------------------
+    const valid = validatedRecords.filter(r => r.isValid);
+    const invalid = validatedRecords.filter(r => !r.isValid);
+
+    setValidRecords(valid.map(r => r.data));
+    setInvalidRecords(invalid);
+    setShowResults(true);
+
+  } catch (error) {
+    console.error('Validation error:', error);
+    alert('Error validating file. Please check format.');
+  } finally {
+    setValidating(false);
+  }
+};
+
+   const handleImport = async () => {
+  if (validRecords.length === 0) {
+    alert('No valid records to import');
+    return;
+  }
+
+  setImporting(true);
+
+  try {
+    const response = await fetch(`${API_BASE}/api/roles/import`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({
+        records: validRecords
+      })
+    });
+
+    const result = await response.json();
+
+    // ✅ HANDLE VALIDATION ERRORS
+    if (!response.ok) {
+      if (result.errors) {
+        setInvalidRecords(
+          result.errors.map((e: any) => ({
+            rowNumber: e.row,
+            data: {},
+            isValid: false,
+            errors: e.errors.map((msg: string) => ({
+              row: e.row,
+              field: "server",
+              message: msg,
+              value: ""
+            }))
+          }))
+        );
+        setShowResults(true);
+      }
+
+      throw new Error(result.message || 'Import failed');
     }
-  };
+
+    alert(`Import successful! ${result.total} records submitted`);
+    navigate('/role-master');
+
+  } catch (error) {
+    console.error('Import error:', error);
+  } finally {
+    setImporting(false);
+  }
+};
+
+
+  // const handleImport = async () => {
+  //   if (validRecords.length === 0) {
+  //     alert('No valid records to import');
+  //     return;
+  //   }
+
+  //   setImporting(true);
+
+  //   try {
+  //     const response = await fetch(`${API_BASE}/api/roles/import`, {
+  //       method: 'POST',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //         'Authorization': `Bearer ${localStorage.getItem('token')}`
+  //       },
+  //       body: JSON.stringify({
+  //         records: validRecords,
+  //         requestedBy: user?.id,
+  //         requestedByUsername: user?.username
+  //       })
+  //     });
+
+  //     if (!response.ok) {
+  //       throw new Error('Import failed');
+  //     }
+
+  //     alert(`Import successful! ${validRecords.length} records submitted for approval.`);
+  //     navigate('/role-master');
+  //   } catch (error) {
+  //     console.error('Import error:', error);
+  //     alert('Error importing records. Please try again.');
+  //   } finally {
+  //     setImporting(false);
+  //   }
+  // };
 
   return (
     <div className={styles.pageWrapper}>
