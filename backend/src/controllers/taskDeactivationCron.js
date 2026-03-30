@@ -287,6 +287,7 @@ async function handleInactiveUsers(client) {
             WHERE al.employee_code = $1
             AND al.task_status = 'Closed'
             AND al.user_request_status = 'Completed'
+            AND al.request_for_by IN ('Self','Others')
             ORDER BY al.id
         `, [user.employee_code]);
 

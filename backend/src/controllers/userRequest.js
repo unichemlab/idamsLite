@@ -1722,6 +1722,7 @@ exports.createBulkDeactivationRequest = async (req, res) => {
     AND al.name ILIKE $3
     AND al.employee_code ILIKE $4
     AND al.task_status::text = $5::text
+    AND al.request_for_by IN ('Self','Others')
   ORDER BY al.id`,
   [
     plant_location,
