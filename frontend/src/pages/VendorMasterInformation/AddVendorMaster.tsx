@@ -257,7 +257,13 @@ const AddVendorMaster: React.FC = () => {
             </div>
 
             <div className={styles.formFotter}>
-              <div className={styles.buttonRow}>
+              <div className={styles.buttonRow}
+              style={{
+                display: "flex",
+                justifyContent: "flex-start",
+                gap: 24,
+                margin: 15,
+              }}>
                 <button type="submit" className={styles.saveBtn}>
                   Save
                 </button>

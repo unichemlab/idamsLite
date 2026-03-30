@@ -3,6 +3,7 @@
 import React from "react";
 import { Routes, Route, useLocation, useParams } from "react-router-dom";
 import AddUserRequest from "pages/UserRequest/UserRequestForm";
+import ImportUserRequest from "pages/UserRequest/importUserRequest";
 import TrackRequest from "../pages/TaskRequest/TrackRequest";
 import Login from "../pages/Login";
 import ProtectedRoute from "../components/Common/ProtectedRoute";
@@ -98,6 +99,7 @@ const allowedRoutes = [
   "/user-requests",
   "/service-requests",
   "/user-access-management",
+  "/user-access-management/import",
   "/service-access-management",
   "/access-details",
   "/approver-step/:step/:id",
@@ -199,6 +201,7 @@ const allowedRoutes = [
    "/network-master/add",
    "/network-master/edit/:id",
    "/network-master/import",
+    "/application-masters/import",
 ];
 
 const NotFound = () => (
@@ -258,6 +261,14 @@ function AppRoutes() {
               <AddUserRequest />
             </ProtectedRoute>
           } 
+        />
+        <Route
+          path="/user-access-management/import"
+          element={
+            <ProtectedRoute>
+              <ImportUserRequest />
+            </ProtectedRoute>
+          }
         />
         <Route path="/homepage" element={<Home />} />
 

@@ -1809,6 +1809,7 @@ exports.getAccessLogsByUser = async (req, res) => {
         AND al.user_request_status = 'Completed'
         AND al.access             = 'Granted'
         AND (al.task_action IS NULL OR al.task_action = 'Grant')
+        AND al.request_for_by IN ('Self','Others')
       ORDER BY al.id DESC
     `;
 
