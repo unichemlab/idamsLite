@@ -187,7 +187,7 @@ const loadEmailTemplate = async (templateData) => {
       secure: true, // SSL
       auth: {
         user: "nishant1.singh@unichemlabs.com",
-        pass: "Mail$2026",
+        pass: "Dell@123",
       },
       tls: {
         rejectUnauthorized: false, // ignore cert issues for testing
