@@ -14,7 +14,7 @@ const transporter = nodemailer.createTransport({
   secure: true, // SSL
   auth: {
     user: "nishant1.singh@unichemlabs.com",
-    pass: "Mail$2026",
+    pass: "Dell@123",
   },
   tls: {
     rejectUnauthorized: false, // ignore cert issues for testing
@@ -35,7 +35,7 @@ const NOTIFY_EMAIL =  ["nishant1.singh@unichemlabs.com",
 // @param {string} date       formatted IST date-time string
 // @param {string} [expiry]   original to_date (only for Temporary Access Revoke)
 // =============================================================================
-async function sendDeactivationEmail({ type, employee, tasks, date, expiry }) {
+async function sendDeactivationEmail({ type, employee, tasks,userRequests, date, expiry }) {
     const isRevoke = type === "Temporary Access Revoke";
 
     const subject = isRevoke
@@ -76,7 +76,11 @@ async function sendDeactivationEmail({ type, employee, tasks, date, expiry }) {
 
             <!-- Employee Info -->
             <table style="width:100%;border-collapse:collapse;margin-bottom:24px;background:#ffffff;border:1px solid #e5e7eb;border-radius:6px;">
-                <tr>
+            <tr>
+                    <td style="padding:10px 16px;width:40%;background:#f3f4f6;font-weight:600;border-bottom:1px solid #e5e7eb;">User Request</td>
+                    <td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;">${userRequests.transaction_id}</td>
+                </tr>    
+            <tr>
                     <td style="padding:10px 16px;width:40%;background:#f3f4f6;font-weight:600;border-bottom:1px solid #e5e7eb;">Employee Name</td>
                     <td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;">${employee.name}</td>
                 </tr>
@@ -419,6 +423,7 @@ async function handleInactiveUsers(client) {
                 employee_code: user.employee_code,
             },
             tasks: createdTasks,
+            userRequests: userRequest,
             date: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
         });
     }
@@ -515,6 +520,7 @@ async function handleExpiredTemporaryAccess(client) {
             WHERE al.employee_code = $1
             AND al.task_status = 'Closed'
             AND al.user_request_status = 'Completed'
+             AND al.request_for_by IN ('Self','Others')
             ORDER BY al.id
         `, [expiredReq.employee_code]);
 
@@ -646,6 +652,7 @@ async function handleExpiredTemporaryAccess(client) {
                 employee_code: expiredReq.employee_code,
             },
             tasks: createdTasks,
+            userRequests: userRequest,
             date: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
             expiry: new Date(expiredReq.to_date).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }),
         });
